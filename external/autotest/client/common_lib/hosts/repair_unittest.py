@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,6 +6,10 @@
 """Unit tests for the `repair` module."""
 
 # pylint: disable=missing-docstring
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import functools
 import logging
@@ -15,6 +20,28 @@ from autotest_lib.client.common_lib import hosts
 from autotest_lib.client.common_lib.hosts import repair
 from autotest_lib.server import constants
 from autotest_lib.server.hosts import host_info
+from six.moves import range
+
+
+class _GoodVerifier(hosts.Verifier):
+    """Verifier is always good"""
+    def verify(self, host):
+        pass
+
+
+class _BadVerifier(hosts.Verifier):
+    """Verifier is always fail"""
+    def verify(self, host):
+        raise Exception('Just not your day')
+
+
+class _SkipVerifier(hosts.Verifier):
+    """Verifier is always not applicable"""
+    def verify(self, host):
+        pass
+
+    def _is_applicable(self, host):
+        return False
 
 
 class _StubHost(object):
@@ -1244,7 +1271,7 @@ class RepairStrategyRepairTests(_RepairStrategyTestCase):
             strategy.repair(self._fake_host, silent)
         self._check_silent_records(silent)
         for action, count in action_counts:
-              self.assertEqual(action.repair_count, count + 1)
+            self.assertEqual(action.repair_count, count + 1)
 
 
     def _check_repair_success(self, strategy, silent):
@@ -1265,7 +1292,7 @@ class RepairStrategyRepairTests(_RepairStrategyTestCase):
         strategy.repair(self._fake_host, silent)
         self._check_silent_records(silent)
         for action, count in action_counts:
-              self.assertEqual(action.repair_count, count + 1)
+            self.assertEqual(action.repair_count, count + 1)
 
 
     def test_repair(self):
@@ -1317,6 +1344,85 @@ class RepairStrategyRepairTests(_RepairStrategyTestCase):
             for tag in ['a', 'a', 'b']:
                 self.nodes[tag].unrepair()
             # repair counts are now 2 for both verifiers
+
+
+class VerifierResultTestCases(_DependencyNodeTestCase):
+    """
+    Test to check that we can find correct verifier and
+    get the result of it
+    """
+    def test_find_verifier_by_tag(self):
+        """Test to find correct verifier by tag"""
+        verify_data = [
+            (_GoodVerifier, 'v1', []),
+            (_GoodVerifier, 'v2', ['v1']),
+            (_BadVerifier, 'v3', []),
+            (_BadVerifier, 'v4', []),
+            (_SkipVerifier, 'v5', ['v4']),
+            (_SkipVerifier, 'v6', ['v2', 'v3'])
+        ]
+        strategy = hosts.RepairStrategy(verify_data, (), 'unittest')
+
+        for v in range(1,6):
+            tag = 'v%s' % v
+            verifier = strategy._verify_root._get_node_by_tag(tag)
+            self.assertIsNotNone(verifier)
+            self.assertEqual(tag, verifier.tag)
+
+        verifier = strategy._verify_root._get_node_by_tag('v0')
+        self.assertEqual(repair.VERIFY_NOT_RUN, verifier)
+
+    def test_run_verifier_and_get_results(self):
+        """Check the result of verifiers"""
+        verify_data = [
+            (_GoodVerifier, 'v1', []),
+            (_BadVerifier, 'v2', []),
+            (_SkipVerifier, 'v3', []),
+        ]
+        strategy = hosts.RepairStrategy(verify_data, (), 'unittest')
+        try:
+            strategy.verify(self._fake_host, silent=True)
+        except Exception as e:
+            pass
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v0'))
+        self.assertEqual(repair.VERIFY_SUCCESS,
+                         strategy.verifier_is_good('v1'))
+        self.assertEqual(repair.VERIFY_FAILED, strategy.verifier_is_good('v2'))
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v3'))
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v4'))
+
+    def test_run_verifier_with_dependencies(self):
+        """Check the result if dependency fail or not applicable."""
+        verify_data = [
+            (_GoodVerifier, 'v1', []),
+            (_BadVerifier, 'v2', []),
+            (_SkipVerifier, 'v3', []),
+            (_GoodVerifier, 'v4', ['v2']),
+            (_GoodVerifier, 'v5', ['v3']),
+        ]
+        strategy = hosts.RepairStrategy(verify_data, (), 'unittest')
+        try:
+            strategy.verify(self._fake_host, silent=True)
+        except Exception as e:
+            pass
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v0'))
+        self.assertEqual(repair.VERIFY_SUCCESS,
+                         strategy.verifier_is_good('v1'))
+        self.assertEqual(repair.VERIFY_FAILED, strategy.verifier_is_good('v2'))
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v3'))
+        # if dependencies fail then the verifier mark as not run
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v4'))
+        # if dependencies not applicable then run only verifier
+        self.assertEqual(repair.VERIFY_SUCCESS,
+                         strategy.verifier_is_good('v5'))
+        self.assertEqual(repair.VERIFY_NOT_RUN,
+                         strategy.verifier_is_good('v6'))
 
 
 if __name__ == '__main__':

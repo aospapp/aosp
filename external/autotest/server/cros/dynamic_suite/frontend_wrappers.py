@@ -43,9 +43,9 @@ def convert_timeout_to_retry(backoff, timeout_min, delay_sec):
     # => max_retry*ln(backoff) = ln(1-(total_sleep/sleep)*(1-backoff))
     # => max_retry = ln(1-(total_sleep/sleep)*(1-backoff))/ln(backoff)
     total_sleep = timeout_min * 60
-    numerator = math.log10(1-(total_sleep/delay_sec)*(1-backoff))
+    numerator = math.log10(1 - (total_sleep / delay_sec) * (1 - backoff))
     denominator = math.log10(backoff)
-    return int(math.ceil(numerator/denominator))
+    return int(math.ceil(numerator / denominator))
 
 
 class RetryingAFE(frontend.AFE):
@@ -79,12 +79,12 @@ class RetryingAFE(frontend.AFE):
         @param dargs: the parameters of the RPC call.
         """
         if retry_util is None:
-            raise ImportError('Unable to import chromite. Please consider to '
-                              'run build_externals to build site packages.')
+            raise ImportError('Unable to import chromite. Please consider '
+                              'running build_externals to build site packages.')
         # exc_retry: We retry if this exception is raised.
-        # blacklist: Exceptions that we raise immediately if caught.
+        # raiselist: Exceptions that we raise immediately if caught.
         exc_retry = Exception
-        blacklist = (ImportError, error.RPCException, proxy.JSONRPCException,
+        raiselist = (ImportError, error.RPCException, proxy.JSONRPCException,
                      timeout_util.TimeoutError, error.ControlFileNotFound)
         backoff = 2
         max_retry = convert_timeout_to_retry(backoff, self.timeout_min,
@@ -94,23 +94,23 @@ class RetryingAFE(frontend.AFE):
             return super(RetryingAFE, self).run(call, **dargs)
 
         def handler(exc):
-            """Check if exc is an exc_retry or if it's blacklisted.
+            """Check if exc is an exc_retry or if it's in raiselist.
 
             @param exc: An exception.
 
             @return: True if exc is an exc_retry and is not
-                     blacklisted. False otherwise.
+                     in raiselist. False otherwise.
             """
             is_exc_to_check = isinstance(exc, exc_retry)
-            is_blacklisted = isinstance(exc, blacklist)
-            return is_exc_to_check and not is_blacklisted
+            is_in_raiselist = isinstance(exc, raiselist)
+            return is_exc_to_check and not is_in_raiselist
 
         # If the call is not in main thread, signal can't be used to abort the
         # call. In that case, use a basic retry which does not enforce timeout
         # if the process hangs.
         @retry.retry(Exception, timeout_min=self.timeout_min,
                      delay_sec=self.delay_sec,
-                     blacklist=[ImportError, error.RPCException,
+                     raiselist=[ImportError, error.RPCException,
                                 proxy.ValidationError])
         def _run_in_child_thread(self, call, **dargs):
             return super(RetryingAFE, self).run(call, **dargs)
@@ -166,7 +166,7 @@ class RetryingTKO(frontend.TKO):
         """
         @retry.retry(Exception, timeout_min=self.timeout_min,
                      delay_sec=self.delay_sec,
-                     blacklist=[ImportError, error.RPCException,
+                     raiselist=[ImportError, error.RPCException,
                                 proxy.ValidationError])
         def _run(self, call, **dargs):
             return super(RetryingTKO, self).run(call, **dargs)

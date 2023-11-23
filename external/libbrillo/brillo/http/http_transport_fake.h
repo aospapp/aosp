@@ -6,12 +6,15 @@
 #define LIBBRILLO_BRILLO_HTTP_HTTP_TRANSPORT_FAKE_H_
 
 #include <map>
+#include <memory>
 #include <queue>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <base/callback.h>
+#include <base/location.h>
 #include <base/values.h>
 #include <brillo/http/http_transport.h>
 #include <brillo/http/http_utils.h>
@@ -103,6 +106,13 @@ class Transport : public http::Transport {
   void SetDefaultTimeout(base::TimeDelta timeout) override;
 
   void SetLocalIpAddress(const std::string& /* ip_address */) override {}
+
+  void ResolveHostToIp(const std::string& host,
+                       uint16_t port,
+                       const std::string& ip_address) override {}
+
+ protected:
+  void ClearHost() override {}
 
  private:
   // A list of user-supplied request handlers.

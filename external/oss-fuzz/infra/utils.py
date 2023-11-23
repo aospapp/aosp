@@ -13,10 +13,13 @@
 # limitations under the License.
 """Utilities for OSS-Fuzz infrastructure."""
 
+import logging
 import os
+import posixpath
 import re
 import stat
 import subprocess
+import sys
 
 import helper
 
@@ -24,12 +27,15 @@ ALLOWED_FUZZ_TARGET_EXTENSIONS = ['', '.exe']
 FUZZ_TARGET_SEARCH_STRING = 'LLVMFuzzerTestOneInput'
 VALID_TARGET_NAME = re.compile(r'^[a-zA-Z0-9_-]+$')
 
+# Location of google cloud storage for latest OSS-Fuzz builds.
+GCS_BASE_URL = 'https://storage.googleapis.com/'
+
 
 def chdir_to_root():
   """Changes cwd to OSS-Fuzz root directory."""
   # Change to oss-fuzz main directory so helper.py runs correctly.
-  if os.getcwd() != helper.OSSFUZZ_DIR:
-    os.chdir(helper.OSSFUZZ_DIR)
+  if os.getcwd() != helper.OSS_FUZZ_DIR:
+    os.chdir(helper.OSS_FUZZ_DIR)
 
 
 def execute(command, location=None, check_result=False):
@@ -41,7 +47,7 @@ def execute(command, location=None, check_result=False):
     check_result: Should an exception be thrown on failed command.
 
   Returns:
-    The stdout of the command, the error code.
+    stdout, stderr, error code.
 
   Raises:
     RuntimeError: running a command resulted in an error.
@@ -49,14 +55,20 @@ def execute(command, location=None, check_result=False):
 
   if not location:
     location = os.getcwd()
-  process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=location)
+  process = subprocess.Popen(command,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             cwd=location)
   out, err = process.communicate()
-  if check_result and (process.returncode or err):
-    raise RuntimeError('Error: %s\n Command: %s\n Return code: %s\n Out: %s' %
-                       (err, command, process.returncode, out))
-  if out is not None:
-    out = out.decode('ascii').rstrip()
-  return out, process.returncode
+  out = out.decode('utf-8', errors='ignore')
+  err = err.decode('utf-8', errors='ignore')
+  if err:
+    logging.debug('Stderr of command \'%s\' is %s.', ' '.join(command), err)
+  if check_result and process.returncode:
+    raise RuntimeError(
+        'Executing command \'{0}\' failed with error: {1}.'.format(
+            ' '.join(command), err))
+  return out, err, process.returncode
 
 
 def get_fuzz_targets(path):
@@ -71,9 +83,9 @@ def get_fuzz_targets(path):
   if not os.path.exists(path):
     return []
   fuzz_target_paths = []
-  for root, _, _ in os.walk(path):
-    for filename in os.listdir(path):
-      file_path = os.path.join(root, filename)
+  for root, _, fuzzers in os.walk(path):
+    for fuzzer in fuzzers:
+      file_path = os.path.join(root, fuzzer)
       if is_fuzz_target_local(file_path):
         fuzz_target_paths.append(file_path)
 
@@ -82,15 +94,15 @@ def get_fuzz_targets(path):
 
 def get_container_name():
   """Gets the name of the current docker container you are in.
-  /proc/self/cgroup can be used to check control groups e.g. Docker.
-  See: https://docs.docker.com/config/containers/runmetrics/ for more info.
 
   Returns:
     Container name or None if not in a container.
   """
-  with open('/proc/self/cgroup') as file_handle:
-    if 'docker' not in file_handle.read():
-      return None
+  result = subprocess.run(  # pylint: disable=subprocess-run-check
+      ['systemd-detect-virt', '-c'],
+      stdout=subprocess.PIPE).stdout
+  if b'docker' not in result:
+    return None
   with open('/etc/hostname') as file_handle:
     return file_handle.read().strip()
 
@@ -120,3 +132,40 @@ def is_fuzz_target_local(file_path):
 
   with open(file_path, 'rb') as file_handle:
     return file_handle.read().find(FUZZ_TARGET_SEARCH_STRING.encode()) != -1
+
+
+def binary_print(string):
+  """Print that can print a binary string."""
+  if isinstance(string, bytes):
+    string += b'\n'
+  else:
+    string += '\n'
+  sys.stdout.buffer.write(string)
+  sys.stdout.flush()
+
+
+def url_join(*url_parts):
+  """Joins URLs together using the POSIX join method.
+
+  Args:
+    url_parts: Sections of a URL to be joined.
+
+  Returns:
+    Joined URL.
+  """
+  return posixpath.join(*url_parts)
+
+
+def gs_url_to_https(url):
+  """Converts |url| from a GCS URL (beginning with 'gs://') to an HTTPS one."""
+  return url_join(GCS_BASE_URL, remove_prefix(url, 'gs://'))
+
+
+def remove_prefix(string, prefix):
+  """Returns |string| without the leading substring |prefix|."""
+  # Match behavior of removeprefix from python3.9:
+  # https://www.python.org/dev/peps/pep-0616/
+  if string.startswith(prefix):
+    return string[len(prefix):]
+
+  return string

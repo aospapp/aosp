@@ -13,8 +13,7 @@ class hardware_Keyboard(test.test):
     """
     version = 1
     dev_input_event_path = '/dev/input/event*'
-    supported_keys = ['Esc', 'F1', 'F2', 'F3', 'F4', 'F5','F6', 'F7', 'F8',
-                      'F9', 'F10', 'Grave', 'Minus', 'Equal', 'Backspace',
+    supported_keys = ['Esc', 'Grave', 'Minus', 'Equal', 'Backspace',
                       '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
                       'Tab', 'LeftBrace', 'RightBrace', 'BackSlash',
                       'LeftMeta', 'Semicolon', 'Apostrophe', 'Enter',

@@ -35,6 +35,7 @@
  */
 
 #include <string.h>
+#include "ih264_defs.h"
 #include "ih264d_bitstrm.h"
 #include "ih264d_defs.h"
 #include "ih264d_debug.h"
@@ -1494,7 +1495,11 @@ WORD32 ih264d_mark_err_slice_skip(dec_struct_t * ps_dec,
             ps_dec->p_motion_compensate = ih264d_motion_compensate_bp;
 
             if(ps_dec->ps_cur_pic != NULL)
-                poc = ps_dec->ps_cur_pic->i4_poc + 2;
+            {
+                poc = ps_dec->ps_cur_pic->i4_poc;
+                if (poc <= INT32_MAX - 2)
+                    poc += 2;
+            }
 
             j = -1;
             for(i = 0; i < MAX_NUM_PIC_PARAMS; i++)
@@ -1922,6 +1927,7 @@ WORD32 ih264d_parse_pslice(dec_struct_t *ps_dec, UWORD16 u2_first_mb_in_slice)
     UWORD8 u1_mbaff = ps_dec->ps_cur_slice->u1_mbaff_frame_flag; //ps_dec->ps_cur_sps->u1_mb_aff_flag;
     UWORD8 u1_field_pic_flag = ps_cur_slice->u1_field_pic_flag;
 
+    UWORD64 u8_ref_idx_l0;
     UWORD32 u4_temp;
     WORD32 i_temp;
     WORD32 ret;
@@ -1950,22 +1956,19 @@ WORD32 ih264d_parse_pslice(dec_struct_t *ps_dec, UWORD16 u2_first_mb_in_slice)
     COPYTHECONTEXT("SH: num_ref_idx_override_flag",
                     ps_cur_slice->u1_num_ref_idx_active_override_flag);
 
-    u4_temp = ps_dec->ps_cur_pps->u1_num_ref_idx_lx_active[0];
+    u8_ref_idx_l0 = ps_dec->ps_cur_pps->u1_num_ref_idx_lx_active[0];
     if(ps_cur_slice->u1_num_ref_idx_active_override_flag)
     {
-        u4_temp = ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf) + 1;
+        u8_ref_idx_l0 = ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf) + (UWORD64)1;
     }
 
     {
-
-
-
-        UWORD8 u1_max_ref_idx = MAX_FRAMES << u1_field_pic_flag;
-        if(u4_temp > u1_max_ref_idx || u4_temp < 1)
+        UWORD8 u1_max_ref_idx = H264_MAX_REF_PICS << u1_field_pic_flag;
+        if(u8_ref_idx_l0 > u1_max_ref_idx)
         {
             return ERROR_NUM_REF;
         }
-        ps_cur_slice->u1_num_ref_idx_lx_active[0] = u4_temp;
+        ps_cur_slice->u1_num_ref_idx_lx_active[0] = u8_ref_idx_l0;
         COPYTHECONTEXT("SH: num_ref_idx_l0_active_minus1",
                         ps_cur_slice->u1_num_ref_idx_lx_active[0] - 1);
 
@@ -2126,13 +2129,13 @@ WORD32 ih264d_parse_pslice(dec_struct_t *ps_dec, UWORD16 u2_first_mb_in_slice)
     }
 
     /* Read slice_qp_delta */
-    i_temp = ps_pps->u1_pic_init_qp
-                    + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-    if((i_temp < 0) || (i_temp > 51))
+    WORD64 i8_temp = (WORD64)ps_pps->u1_pic_init_qp
+                        + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
     {
         return ERROR_INV_RANGE_QP_T;
     }
-    ps_cur_slice->u1_slice_qp = i_temp;
+    ps_cur_slice->u1_slice_qp = i8_temp;
     COPYTHECONTEXT("SH: slice_qp_delta",
                     (WORD8)(ps_cur_slice->u1_slice_qp - ps_pps->u1_pic_init_qp));
 

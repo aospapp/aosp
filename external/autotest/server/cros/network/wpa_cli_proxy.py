@@ -75,6 +75,9 @@ class WpaCliProxy(object):
         """
         Run a wpa_cli command and optionally check the result.
 
+        Note: if you're using this function to do things like initiating scans,
+        consider initating those through Shill instead, to avoid collisions.
+
         @param command string: suffix of a command to be prefixed with
                 an appropriate wpa_cli for this host.
         @param check_result bool: True iff we want to check that the

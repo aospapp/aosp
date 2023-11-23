@@ -45,6 +45,9 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_broadcom_genxml
 
 LOCAL_MODULE := libmesa_pipe_vc4
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../LICENSE
 
 include $(GALLIUM_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

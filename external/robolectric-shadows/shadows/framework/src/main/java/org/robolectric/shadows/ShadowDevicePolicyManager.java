@@ -657,6 +657,11 @@ public class ShadowDevicePolicyManager {
     wipeCalled++;
   }
 
+  @Implementation
+  protected void wipeData(int flags, CharSequence reason) {
+    wipeData(flags);
+  }
+
   public long getWipeCalledTimes() {
     return wipeCalled;
   }

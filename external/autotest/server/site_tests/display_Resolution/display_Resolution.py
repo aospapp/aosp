@@ -46,11 +46,14 @@ class display_Resolution(test.test):
            ('EDIDv1', 1280, 800),
            ('EDIDv1', 1600, 900),
     ]
-    INCOMPATIBLE_EDID_BOARDS = [ 'coral', 'eve', 'grunt', 'nami', 'rammus' ]
+    INCOMPATIBLE_EDID_BOARDS = ['coral', 'eve', 'grunt', 'nami', 'rammus',
+        'zork']
 
     def run_once(self, host, test_mirrored=False, test_suspend_resume=False,
                  test_reboot=False, test_lid_close_open=False,
                  resolution_list=None):
+        """Check conditions, do setup and run test.
+        """
 
         # Check the servo object.
         if test_lid_close_open and host.servo is None:
@@ -80,7 +83,8 @@ class display_Resolution(test.test):
             resolution_list = self.DEFAULT_RESOLUTION_LIST
 
         # Remove board specific incompatible EDIDs.
-        if board_name in self.INCOMPATIBLE_EDID_BOARDS:
+        if board_name.replace('-kernelnext', '') in \
+            self.INCOMPATIBLE_EDID_BOARDS:
             for edid_value in self.INCOMPATIBLE_EDID_RESOLUTION_LIST:
                 if edid_value in resolution_list:
                     resolution_list.remove(edid_value)

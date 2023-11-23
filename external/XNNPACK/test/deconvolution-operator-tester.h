@@ -16,15 +16,40 @@
 #include <cstddef>
 #include <cstdlib>
 #include <functional>
+#include <limits>
 #include <random>
 #include <vector>
 
 #include <xnnpack.h>
 
+namespace {
+
+template<class T>
+inline T doz(T a, T b) {
+  return a > b ? a - b : T(0);
+}
+
+}  // namespace
 
 class DeconvolutionOperatorTester {
  public:
+  inline DeconvolutionOperatorTester& padding_tf_same(bool padding_same) {
+    if (padding_same) {
+      assert(padding_top() == 0);
+      assert(padding_left() == 0);
+      assert(padding_bottom() == 0);
+      assert(padding_right() == 0);
+    }
+    this->padding_tf_same_ = padding_same;
+    return *this;
+  }
+
+  inline bool padding_tf_same() const {
+    return this->padding_tf_same_;
+  }
+
   inline DeconvolutionOperatorTester& padding(uint32_t padding) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding;
     this->padding_right_ = padding;
     this->padding_bottom_ = padding;
@@ -33,6 +58,7 @@ class DeconvolutionOperatorTester {
   }
 
   inline DeconvolutionOperatorTester& padding(uint32_t padding_height, uint32_t padding_width) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding_height;
     this->padding_right_ = padding_width;
     this->padding_bottom_ = padding_height;
@@ -41,59 +67,89 @@ class DeconvolutionOperatorTester {
   }
 
   inline DeconvolutionOperatorTester& padding_height(uint32_t padding_height) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding_height;
     this->padding_bottom_ = padding_height;
     return *this;
   }
 
   inline uint32_t padding_height() const {
-    return this->padding_top_ + this->padding_bottom_;
+    if (padding_tf_same()) {
+      return doz(dilated_kernel_height() - 1, static_cast<uint32_t>((input_height() - 1) % stride_height()));
+    } else {
+      return this->padding_top_ + this->padding_bottom_;
+    }
   }
 
   inline DeconvolutionOperatorTester& padding_width(uint32_t padding_width) {
+    assert(!padding_tf_same());
     this->padding_right_ = padding_width;
     this->padding_left_ = padding_width;
     return *this;
   }
 
   inline uint32_t padding_width() const {
-    return this->padding_left_ + this->padding_right_;
+    if (padding_tf_same()) {
+      return doz(dilated_kernel_width() - 1, static_cast<uint32_t>((input_width() - 1) % stride_width()));
+    } else {
+      return this->padding_left_ + this->padding_right_;
+    }
   }
 
   inline DeconvolutionOperatorTester& padding_top(uint32_t padding_top) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding_top;
     return *this;
   }
 
   inline uint32_t padding_top() const {
-    return this->padding_top_;
+    if (padding_tf_same()) {
+      return padding_height() / 2;
+    } else {
+      return this->padding_top_;
+    }
   }
 
   inline DeconvolutionOperatorTester& padding_right(uint32_t padding_right) {
+    assert(!padding_tf_same());
     this->padding_right_ = padding_right;
     return *this;
   }
 
   inline uint32_t padding_right() const {
-    return this->padding_right_;
+    if (padding_tf_same()) {
+      return padding_width() - padding_left();
+    } else {
+      return this->padding_right_;
+    }
   }
 
   inline DeconvolutionOperatorTester& padding_bottom(uint32_t padding_bottom) {
+    assert(!padding_tf_same());
     this->padding_bottom_ = padding_bottom;
     return *this;
   }
 
   inline uint32_t padding_bottom() const {
-    return this->padding_bottom_;
+    if (padding_tf_same()) {
+      return padding_height() - padding_top();
+    } else {
+      return this->padding_bottom_;
+    }
   }
 
   inline DeconvolutionOperatorTester& padding_left(uint32_t padding_left) {
+    assert(!padding_tf_same());
     this->padding_left_ = padding_left;
     return *this;
   }
 
   inline uint32_t padding_left() const {
-    return this->padding_left_;
+    if (padding_tf_same()) {
+      return padding_width() / 2;
+    } else {
+      return this->padding_left_;
+    }
   }
 
   inline DeconvolutionOperatorTester& adjustment_height(uint32_t adjustment_height) {
@@ -427,11 +483,11 @@ class DeconvolutionOperatorTester {
     return this->iterations_;
   }
 
-  void TestQ8() const {
+  void TestQU8() const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto s32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
-    auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
+    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
 
     std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) +
       (batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + groups() * group_input_channels());
@@ -447,7 +503,7 @@ class DeconvolutionOperatorTester {
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), std::ref(u8rng));
       std::generate(kernel.begin(), kernel.end(), std::ref(u8rng));
-      std::generate(bias.begin(), bias.end(), std::ref(s32rng));
+      std::generate(bias.begin(), bias.end(), std::ref(i32rng));
       std::fill(output.begin(), output.end(), 0xA5);
 
       // Compute reference results, without renormalization.
@@ -515,8 +571,9 @@ class DeconvolutionOperatorTester {
       xnn_operator_t deconvolution_op = nullptr;
 
       ASSERT_EQ(xnn_status_success,
-        xnn_create_deconvolution2d_nhwc_q8(
-          padding_top(), padding_right(), padding_bottom(), padding_left(),
+        xnn_create_deconvolution2d_nhwc_qu8(
+          padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
+          padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
           kernel_height(), kernel_width(),
           stride_height(), stride_width(),
           dilation_height(), dilation_width(),
@@ -526,13 +583,14 @@ class DeconvolutionOperatorTester {
           kernel_zero_point, 1.0f /* kernel scale */,
           kernel.data(), has_bias() ? bias.data() : nullptr,
           output_zero_point, output_scale, qmin(), qmax(),
-          0, &deconvolution_op));
+          padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0,
+          &deconvolution_op));
 
       // Smart pointer to automatically delete deconvolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_deconvolution_op(deconvolution_op, xnn_delete_operator);
 
       ASSERT_EQ(xnn_status_success,
-        xnn_setup_deconvolution2d_nhwc_q8(
+        xnn_setup_deconvolution2d_nhwc_qu8(
           deconvolution_op,
           batch_size(), input_height(), input_width(),
           adjustment_height(), adjustment_width(),
@@ -633,8 +691,10 @@ class DeconvolutionOperatorTester {
       const float accumulated_min = *std::min_element(output_ref.cbegin(), output_ref.cend());
       const float accumulated_max = *std::max_element(output_ref.cbegin(), output_ref.cend());
 
-      const float output_min = accumulated_min + (accumulated_max - accumulated_min) / 255.0f * float(qmin());
-      const float output_max = accumulated_max - (accumulated_max - accumulated_min) / 255.0f * float(255 - qmax());
+      const float output_min = qmin() == 0 ? -std::numeric_limits<float>::infinity() :
+        accumulated_min + (accumulated_max - accumulated_min) / 255.0f * float(qmin());
+      const float output_max = qmax() == 255 ? std::numeric_limits<float>::infinity() :
+        accumulated_max - (accumulated_max - accumulated_min) / 255.0f * float(255 - qmax());
 
       // Clamp reference results.
       for (float& value : output_ref) {
@@ -647,7 +707,8 @@ class DeconvolutionOperatorTester {
 
       ASSERT_EQ(xnn_status_success,
         xnn_create_deconvolution2d_nhwc_f32(
-          padding_top(), padding_right(), padding_bottom(), padding_left(),
+          padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
+          padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
           kernel_height(), kernel_width(),
           stride_height(), stride_width(),
           dilation_height(), dilation_width(),
@@ -655,7 +716,8 @@ class DeconvolutionOperatorTester {
           input_pixel_stride(), output_pixel_stride(),
           kernel.data(), has_bias() ? bias.data() : nullptr,
           output_min, output_max,
-          0, &deconvolution_op));
+          padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0,
+          &deconvolution_op));
 
       // Smart pointer to automatically delete deconvolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_deconvolution_op(deconvolution_op, xnn_delete_operator);
@@ -694,11 +756,11 @@ class DeconvolutionOperatorTester {
     }
   }
 
-  void TestSetupQ8() const {
+  void TestSetupQU8() const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto s32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
-    auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+    auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), rng);
+    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
 
     std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) + std::max(
       (batch_size() * input_height() * input_width() - 1) * input_pixel_stride() + groups() * group_input_channels(),
@@ -719,7 +781,7 @@ class DeconvolutionOperatorTester {
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), std::ref(u8rng));
       std::generate(kernel.begin(), kernel.end(), std::ref(u8rng));
-      std::generate(bias.begin(), bias.end(), std::ref(s32rng));
+      std::generate(bias.begin(), bias.end(), std::ref(i32rng));
       std::fill(output.begin(), output.end(), 0xA5);
 
       // Compute reference results, without renormalization.
@@ -787,7 +849,7 @@ class DeconvolutionOperatorTester {
       xnn_operator_t deconvolution_op = nullptr;
 
       ASSERT_EQ(xnn_status_success,
-        xnn_create_deconvolution2d_nhwc_q8(
+        xnn_create_deconvolution2d_nhwc_qu8(
           padding_top(), padding_right(), padding_bottom(), padding_left(),
           kernel_height(), kernel_width(),
           stride_height(), stride_width(),
@@ -804,7 +866,7 @@ class DeconvolutionOperatorTester {
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_deconvolution_op(deconvolution_op, xnn_delete_operator);
 
       ASSERT_EQ(xnn_status_success,
-        xnn_setup_deconvolution2d_nhwc_q8(
+        xnn_setup_deconvolution2d_nhwc_qu8(
           deconvolution_op,
           batch_size(), input_height(), input_width(),
           adjustment_height(), adjustment_width(),
@@ -890,7 +952,7 @@ class DeconvolutionOperatorTester {
 
       // Setup and run Deconvolution operator the second time, and destroy the operator.
       ASSERT_EQ(xnn_status_success,
-        xnn_setup_deconvolution2d_nhwc_q8(
+        xnn_setup_deconvolution2d_nhwc_qu8(
           deconvolution_op,
           next_batch_size(), next_input_height(), next_input_width(),
           adjustment_height(), adjustment_width(),
@@ -1145,6 +1207,7 @@ class DeconvolutionOperatorTester {
   uint32_t padding_right_{0};
   uint32_t padding_bottom_{0};
   uint32_t padding_left_{0};
+  bool padding_tf_same_{false};
   size_t input_height_{1};
   size_t input_width_{1};
   uint32_t groups_{1};

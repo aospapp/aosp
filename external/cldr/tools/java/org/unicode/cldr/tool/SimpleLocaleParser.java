@@ -40,7 +40,7 @@ class SimpleLocaleParser {
             " | ( x (?: [-_] [a-z 0-9]{1,8} )+ )"
             + // private use
             " | ( en [-_] GB [-_] oed"
-            + // grandfathered gorp
+            + // legacy gorp
             "   | i [-_] (?: ami | bnn | default | enochian | hak | klingon | lux | mingo | navajo | pwn | tao | tay | tsu )"
             +
             "   | no [-_] (?: bok | nyn )" +
@@ -89,7 +89,7 @@ class SimpleLocaleParser {
         }
         language = root.group(1);
         if (language == null) {
-            language = root.group(8); // grandfathered
+            language = root.group(8); // marked as “Type: grandfathered” in BCP 47
             if (language == null) {
                 language = "und"; // placeholder for completely private use
             }
@@ -113,11 +113,11 @@ class SimpleLocaleParser {
             // make uppercase for compatibility with CLDR.
             variants = Arrays.asList(variantSeparatorPattern.split(variantList.toUpperCase(Locale.ENGLISH)));
             // check for duplicate variants
-            if (new HashSet<String>(variants).size() != variants.size()) {
+            if (new HashSet<>(variants).size() != variants.size()) {
                 throw new IllegalArgumentException("Duplicate variants");
             }
         }
-        extensions = new LinkedHashMap<String, String>(); // group 5 are extensions, 6 is private use
+        extensions = new LinkedHashMap<>(); // group 5 are extensions, 6 is private use
         // extensions are a bit more complicated
         addExtensions(root.group(5), extensionPattern);
         addExtensions(root.group(6), privateUsePattern);
@@ -231,6 +231,7 @@ class SimpleLocaleParser {
         return extensions;
     }
 
+    @Override
     public String toString() {
         return "{language=" + language
             + ", script=" + script

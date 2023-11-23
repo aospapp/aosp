@@ -51,12 +51,16 @@ public:
 							TestContext			(Platform& platform, Archive& rootArchive, TestLog& log, const CommandLine& cmdLine, qpWatchDog* watchDog);
 							~TestContext		(void) {}
 
+	void					writeSessionInfo	(void);
+
 	// API for test cases
 	TestLog&				getLog				(void)			{ return m_log;			}
 	Archive&				getArchive			(void)			{ return *m_curArchive;	} //!< \note Do not access in TestNode constructors.
 	Platform&				getPlatform			(void)			{ return m_platform;	}
 	void					setTestResult		(qpTestResult result, const char* description);
 	void					touchWatchdog		(void);
+	void					touchWatchdogAndDisableIntervalTimeLimit	(void);
+	void					touchWatchdogAndEnableIntervalTimeLimit		(void);
 	const CommandLine&		getCommandLine		(void) const	{ return m_cmdLine;		}
 
 	// API for test framework

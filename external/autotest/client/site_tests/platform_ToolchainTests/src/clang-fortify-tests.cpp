@@ -29,6 +29,7 @@
 // Similarly, there are a few overload tricks we have to emit errors. Ignore any
 // notes from those.
 // expected-note@* 0+{{candidate function}}
+// expected-note@* 0+{{has been explicitly marked unavailable}}
 
 // Must come before stdlib.h
 #include <limits.h>

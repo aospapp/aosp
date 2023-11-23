@@ -14,5 +14,6 @@
  * limitations under the License.
  */
 
- // This is used by wayland-os.c
- #define HAVE_ACCEPT4
+// These are provided by bionic
+#define HAVE_ACCEPT4
+#define HAVE_STRNDUP

@@ -2,33 +2,33 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use libc;
-use std::fs::{File, OpenOptions};
 use std::os::unix::fs::OpenOptionsExt;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::{
+    fs::{File, OpenOptions},
+    path::PathBuf,
+};
 
-use sys_util::{ioctl_with_ref, GuestMemory};
+use base::{ioctl_with_ref, AsRawDescriptor, RawDescriptor};
 use virtio_sys::{VHOST_VSOCK_SET_GUEST_CID, VHOST_VSOCK_SET_RUNNING};
+use vm_memory::GuestMemory;
 
 use super::{ioctl_result, Error, Result, Vhost};
 
-static DEVICE: &'static str = "/dev/vhost-vsock";
-
 /// Handle for running VHOST_VSOCK ioctls.
 pub struct Vsock {
-    fd: File,
+    descriptor: File,
     mem: GuestMemory,
 }
 
 impl Vsock {
     /// Open a handle to a new VHOST_VSOCK instance.
-    pub fn new(mem: &GuestMemory) -> Result<Vsock> {
+    pub fn new(vhost_vsock_device_path: &PathBuf, mem: &GuestMemory) -> Result<Vsock> {
         Ok(Vsock {
-            fd: OpenOptions::new()
+            descriptor: OpenOptions::new()
                 .read(true)
                 .write(true)
                 .custom_flags(libc::O_CLOEXEC | libc::O_NONBLOCK)
-                .open(DEVICE)
+                .open(vhost_vsock_device_path)
                 .map_err(Error::VhostOpen)?,
             mem: mem.clone(),
         })
@@ -41,7 +41,7 @@ impl Vsock {
     /// # Arguments
     /// * `cid` - CID to assign to the guest
     pub fn set_cid(&self, cid: u64) -> Result<()> {
-        let ret = unsafe { ioctl_with_ref(&self.fd, VHOST_VSOCK_SET_GUEST_CID(), &cid) };
+        let ret = unsafe { ioctl_with_ref(&self.descriptor, VHOST_VSOCK_SET_GUEST_CID(), &cid) };
         if ret < 0 {
             return ioctl_result();
         }
@@ -60,7 +60,7 @@ impl Vsock {
 
     fn set_running(&self, running: bool) -> Result<()> {
         let on: ::std::os::raw::c_int = if running { 1 } else { 0 };
-        let ret = unsafe { ioctl_with_ref(&self.fd, VHOST_VSOCK_SET_RUNNING(), &on) };
+        let ret = unsafe { ioctl_with_ref(&self.descriptor, VHOST_VSOCK_SET_RUNNING(), &on) };
 
         if ret < 0 {
             return ioctl_result();
@@ -75,8 +75,8 @@ impl Vhost for Vsock {
     }
 }
 
-impl AsRawFd for Vsock {
-    fn as_raw_fd(&self) -> RawFd {
-        self.fd.as_raw_fd()
+impl AsRawDescriptor for Vsock {
+    fn as_raw_descriptor(&self) -> RawDescriptor {
+        self.descriptor.as_raw_descriptor()
     }
 }

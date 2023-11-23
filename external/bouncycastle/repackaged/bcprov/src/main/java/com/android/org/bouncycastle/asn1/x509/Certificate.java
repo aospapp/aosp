@@ -20,7 +20,6 @@ import com.android.org.bouncycastle.asn1.x500.X500Name;
  * </pre>
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
 public class Certificate
     extends ASN1Object
 {
@@ -37,7 +36,6 @@ public class Certificate
     }
 
     @android.compat.annotation.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public static Certificate getInstance(
         Object  obj)
     {

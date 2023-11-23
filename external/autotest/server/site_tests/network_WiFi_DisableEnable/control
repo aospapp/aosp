@@ -6,8 +6,7 @@ AUTHOR = 'pstew, wiley, quiche'
 NAME = 'network_WiFi_DisableEnable'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc,'
-              'suite:wificell-pre-cq')
+ATTRIBUTES = ''
 DEPENDENCIES = 'wificell'
 
 DOC = """

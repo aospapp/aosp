@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import logging
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test, autotest
@@ -45,7 +47,7 @@ class platform_TrackpadStressServer(test.test):
             # connection wedged for a long time.
             self.client.run(
                 'sh -c "sync; sleep 1; %s" >/dev/null 2>&1 &' % command)
-        except error.AutoservRunError, e:
+        except error.AutoservRunError as e:
             # It is expected that this will cause a non-zero exit status.
             pass
 

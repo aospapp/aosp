@@ -4,15 +4,6 @@
 
 #include <brillo/dbus/dbus_connection.h>
 
-#include <sysexits.h>
-
-#include <base/bind.h>
-#include <brillo/dbus/async_event_sequencer.h>
-#include <brillo/dbus/exported_object_manager.h>
-
-using brillo::dbus_utils::AsyncEventSequencer;
-using brillo::dbus_utils::ExportedObjectManager;
-
 namespace brillo {
 
 DBusConnection::DBusConnection() {

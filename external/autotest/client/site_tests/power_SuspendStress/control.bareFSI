@@ -17,7 +17,7 @@ state (work in progress, feel free to add some more).
 """
 
 job.run_test('power_SuspendStress', duration=None, suspend_iterations=2500,
-             tag='bare')
+             modemfwd_workaround=True, tag='bare')
 
 job.run_test('hardware_EC', tag='power_SuspendStress')
 job.run_test('login_LoginSuccess', tag='power_SuspendStress')

@@ -74,16 +74,31 @@ class JniHelper {
   static StatusOr<ScopedLocalRef<jclass>> FindClass(JNIEnv* env,
                                                     const char* class_name);
 
+  static StatusOr<ScopedLocalRef<jclass>> GetObjectClass(JNIEnv* env,
+                                                         jobject object);
+
   template <typename T = jobject>
   static StatusOr<ScopedLocalRef<T>> GetObjectArrayElement(JNIEnv* env,
                                                            jobjectArray array,
                                                            jsize index);
   static StatusOr<jmethodID> GetMethodID(JNIEnv* env, jclass clazz,
                                          const char* method_name,
-                                         const char* return_type);
+                                         const char* signature);
+  static StatusOr<jmethodID> GetStaticMethodID(JNIEnv* env, jclass clazz,
+                                               const char* method_name,
+                                               const char* signature);
+
+  static StatusOr<jfieldID> GetFieldID(JNIEnv* env, jclass clazz,
+                                       const char* field_name,
+                                       const char* signature);
+  static StatusOr<jfieldID> GetStaticFieldID(JNIEnv* env, jclass clazz,
+                                             const char* field_name,
+                                             const char* signature);
 
   static StatusOr<ScopedLocalRef<jobject>> GetStaticObjectField(
       JNIEnv* env, jclass class_name, jfieldID field_id);
+  static StatusOr<jint> GetStaticIntField(JNIEnv* env, jclass class_name,
+                                          jfieldID field_id);
 
   // New* methods.
   TC3_DEFINE_VARIADIC_SCOPED_LOCAL_REF_ENV_METHOD(NewObject, jobject, jclass,
@@ -100,10 +115,22 @@ class JniHelper {
   static StatusOr<ScopedLocalRef<jfloatArray>> NewFloatArray(JNIEnv* env,
                                                              jsize length);
 
-  static StatusOr<jsize> GetArrayLength(JNIEnv* env, jarray jinput_fragments);
+  static StatusOr<jsize> GetArrayLength(JNIEnv* env, jarray array);
 
   static Status SetObjectArrayElement(JNIEnv* env, jobjectArray array,
                                       jsize index, jobject val);
+
+  static Status GetByteArrayRegion(JNIEnv* env, jbyteArray array, jsize start,
+                                   jsize len, jbyte* buf);
+
+  static Status SetByteArrayRegion(JNIEnv* env, jbyteArray array, jsize start,
+                                   jsize len, const jbyte* buf);
+
+  static Status SetIntArrayRegion(JNIEnv* env, jintArray array, jsize start,
+                                  jsize len, const jint* buf);
+
+  static Status SetFloatArrayRegion(JNIEnv* env, jfloatArray array, jsize start,
+                                    jsize len, const jfloat* buf);
 
   // Call* methods.
   TC3_DEFINE_VARIADIC_SCOPED_LOCAL_REF_ENV_METHOD(CallObjectMethod, jobject,
@@ -125,8 +152,10 @@ class JniHelper {
                                            jmethodID method_id, ...);
 
   template <class T>
-  static StatusOr<T> CallStaticIntMethod(JNIEnv* env, jclass clazz,
-                                         jmethodID method_id, ...);
+  static StatusOr<T> CallStaticIntMethod(JNIEnv* env,
+                                         bool print_exception_on_error,
+                                         jclass clazz, jmethodID method_id,
+                                         ...);
 };
 
 template <typename T>
@@ -142,16 +171,27 @@ StatusOr<ScopedLocalRef<T>> JniHelper::GetObjectArrayElement(JNIEnv* env,
 }
 
 template <class T>
-StatusOr<T> JniHelper::CallStaticIntMethod(JNIEnv* env, jclass clazz,
-                                           jmethodID method_id, ...) {
+StatusOr<T> JniHelper::CallStaticIntMethod(JNIEnv* env,
+                                           bool print_exception_on_error,
+                                           jclass clazz, jmethodID method_id,
+                                           ...) {
   va_list args;
   va_start(args, method_id);
   jint result = env->CallStaticIntMethodV(clazz, method_id, args);
   va_end(args);
 
-  TC3_NO_EXCEPTION_OR_RETURN;
+  if (JniExceptionCheckAndClear(env, print_exception_on_error)) {
+    return {Status::UNKNOWN};
+  }
+
   return result;
 }
+
+// Converts Java byte[] object to std::string.
+StatusOr<std::string> JByteArrayToString(JNIEnv* env, jbyteArray array);
+
+// Converts Java String object to UTF8-encoded std::string.
+StatusOr<std::string> JStringToUtf8String(JNIEnv* env, jstring jstr);
 
 }  // namespace libtextclassifier3
 

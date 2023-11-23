@@ -106,6 +106,10 @@ to report 'OK', or the first job to report '--'.
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import sys
 import time
@@ -169,7 +173,7 @@ def _print_host_summaries(history_list, arguments):
 
     """
     fmt = '%-30s %-2s  %-19s  %s'
-    print fmt % ('hostname', 'S', 'last checked', 'URL')
+    print(fmt % ('hostname', 'S', 'last checked', 'URL'))
     for history in history_list:
         status, event = history.last_diagnosis()
         if not _include_status(status, arguments):
@@ -178,23 +182,23 @@ def _print_host_summaries(history_list, arguments):
         url = '---'
         if event is not None:
             datestr = time_utils.epoch_time_to_date_string(
-                    event.start_time)
+                event.start_time)
             url = event.job_url
 
-        print fmt % (history.hostname,
+        print(fmt % (history.hostname,
                      _DIAGNOSIS_IDS[status],
                      datestr,
-                     url)
+                     url))
 
 
 def _print_event_summary(event):
     """Print a one-line summary of a job or special task."""
     start_time = time_utils.epoch_time_to_date_string(
-            event.start_time)
-    print '    %s  %s %s' % (
-            start_time,
-            _DIAGNOSIS_IDS[event.diagnosis],
-            event.job_url)
+        event.start_time)
+    print('    %s  %s %s' % (
+          start_time,
+          _DIAGNOSIS_IDS[event.diagnosis],
+          event.job_url))
 
 
 def _print_hosts(history_list, arguments):
@@ -214,7 +218,7 @@ def _print_hosts(history_list, arguments):
         status, _ = history.last_diagnosis()
         if not _include_status(status, arguments):
             continue
-        print history.hostname
+        print(history.hostname)
         if arguments.full_history:
             for event in history:
                 _print_event_summary(event)
@@ -240,8 +244,9 @@ def _validate_time_range(arguments):
     """
     if (arguments.duration is not None and
             arguments.since is not None and arguments.until is not None):
-        print >>sys.stderr, ('FATAL: Can specify at most two of '
-                             '--since, --until, and --duration')
+        print('FATAL: Can specify at most two of '
+              '--since, --until, and --duration',
+              file=sys.stderr)
         sys.exit(1)
     if (arguments.until is None and (arguments.since is None or
                                      arguments.duration is None)):
@@ -282,12 +287,12 @@ def _get_host_histories(afe, arguments):
                     afe, hostname, arguments.since, arguments.until)
             histories.append(h)
         except:
-            print >>sys.stderr, ('WARNING: Ignoring unknown host %s' %
-                                  hostname)
+            print('WARNING: Ignoring unknown host %s' %
+                  hostname, file=sys.stderr)
             saw_error = True
     if saw_error:
         # Create separation from the output that follows
-        print >>sys.stderr
+        print(file=sys.stderr)
     return histories
 
 
@@ -314,8 +319,8 @@ def _validate_host_list(afe, arguments):
     """
     if arguments.board or arguments.pool or arguments.model:
         if arguments.hostnames:
-            print >>sys.stderr, ('FATAL: Hostname arguments provided '
-                                 'with --board or --pool')
+            print('FATAL: Hostname arguments provided '
+                  'with --board or --pool', file=sys.stderr)
             sys.exit(1)
 
         labels = labellib.LabelsMapping()
@@ -327,7 +332,7 @@ def _validate_host_list(afe, arguments):
     else:
         histories = _get_host_histories(afe, arguments)
     if not histories:
-        print >>sys.stderr, 'FATAL: no valid hosts found'
+        print('FATAL: no valid hosts found', file=sys.stderr)
         sys.exit(1)
     return histories
 

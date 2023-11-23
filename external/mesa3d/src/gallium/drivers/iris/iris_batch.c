@@ -44,8 +44,11 @@
 
 #include "drm-uapi/i915_drm.h"
 
+#include "common/gen_aux_map.h"
+#include "intel/common/gen_gem.h"
 #include "util/hash_table.h"
 #include "util/set.h"
+#include "util/u_upload_mgr.h"
 #include "main/macros.h"
 
 #include <errno.h>
@@ -60,12 +63,6 @@
 #endif
 
 #define FILE_DEBUG_FLAG DEBUG_BUFMGR
-
-/* Terminating the batch takes either 4 bytes for MI_BATCH_BUFFER_END
- * or 12 bytes for MI_BATCH_BUFFER_START (when chaining).  Plus, we may
- * need an extra 4 bytes to pad out to the nearest QWord.  So reserve 16.
- */
-#define BATCH_RESERVED 16
 
 static void
 iris_batch_reset(struct iris_batch *batch);
@@ -108,11 +105,11 @@ dump_validation_list(struct iris_batch *batch)
       uint64_t flags = batch->validation_list[i].flags;
       assert(batch->validation_list[i].handle ==
              batch->exec_bos[i]->gem_handle);
-      fprintf(stderr, "[%2d]: %2d %-14s @ 0x%016llx (%"PRIu64"B)\t %2d refs %s\n",
+      fprintf(stderr, "[%2d]: %2d %-14s @ 0x%"PRIx64" (%"PRIu64"B)\t %2d refs %s\n",
               i,
               batch->validation_list[i].handle,
               batch->exec_bos[i]->name,
-              batch->validation_list[i].offset,
+              (uint64_t)batch->validation_list[i].offset,
               batch->exec_bos[i]->size,
               batch->exec_bos[i]->refcount,
               (flags & EXEC_OBJECT_WRITE) ? " (write)" : "");
@@ -147,6 +144,18 @@ decode_get_bo(void *v_batch, bool ppgtt, uint64_t address)
    return (struct gen_batch_decode_bo) { };
 }
 
+static unsigned
+decode_get_state_size(void *v_batch,
+                      uint64_t address,
+                      UNUSED uint64_t base_address)
+{
+   struct iris_batch *batch = v_batch;
+   unsigned size = (uintptr_t)
+      _mesa_hash_table_u64_search(batch->state_sizes, address);
+
+   return size;
+}
+
 /**
  * Decode the current batch.
  */
@@ -159,24 +168,23 @@ decode_batch(struct iris_batch *batch)
 }
 
 void
-iris_init_batch(struct iris_batch *batch,
-                struct iris_screen *screen,
-                struct iris_vtable *vtbl,
-                struct pipe_debug_callback *dbg,
-                struct iris_batch *all_batches,
+iris_init_batch(struct iris_context *ice,
                 enum iris_batch_name name,
-                uint8_t engine,
                 int priority)
 {
+   struct iris_batch *batch = &ice->batches[name];
+   struct iris_screen *screen = (void *) ice->ctx.screen;
+
    batch->screen = screen;
-   batch->vtbl = vtbl;
-   batch->dbg = dbg;
+   batch->dbg = &ice->dbg;
+   batch->reset = &ice->reset;
+   batch->state_sizes = ice->state.sizes;
    batch->name = name;
 
-   /* engine should be one of I915_EXEC_RENDER, I915_EXEC_BLT, etc. */
-   assert((engine & ~I915_EXEC_RING_MASK) == 0);
-   assert(util_bitcount(engine) == 1);
-   batch->engine = engine;
+   batch->fine_fences.uploader =
+      u_upload_create(&ice->ctx, 4096, PIPE_BIND_CUSTOM,
+                      PIPE_USAGE_STAGING, 0);
+   iris_fine_fence_init(batch);
 
    batch->hw_ctx_id = iris_create_hw_context(screen->bufmgr);
    assert(batch->hw_ctx_id);
@@ -184,7 +192,7 @@ iris_init_batch(struct iris_batch *batch,
    iris_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);
 
    util_dynarray_init(&batch->exec_fences, ralloc_context(NULL));
-   util_dynarray_init(&batch->syncpts, ralloc_context(NULL));
+   util_dynarray_init(&batch->syncobjs, ralloc_context(NULL));
 
    batch->exec_count = 0;
    batch->exec_array_size = 100;
@@ -195,27 +203,26 @@ iris_init_batch(struct iris_batch *batch,
 
    batch->cache.render = _mesa_hash_table_create(NULL, _mesa_hash_pointer,
                                                  _mesa_key_pointer_equal);
-   batch->cache.depth = _mesa_set_create(NULL, _mesa_hash_pointer,
-                                         _mesa_key_pointer_equal);
 
    memset(batch->other_batches, 0, sizeof(batch->other_batches));
 
    for (int i = 0, j = 0; i < IRIS_BATCH_COUNT; i++) {
-      if (&all_batches[i] != batch)
-         batch->other_batches[j++] = &all_batches[i];
+      if (i != name)
+         batch->other_batches[j++] = &ice->batches[i];
    }
 
-   if (unlikely(INTEL_DEBUG)) {
+   if (INTEL_DEBUG) {
       const unsigned decode_flags =
          GEN_BATCH_DECODE_FULL |
          ((INTEL_DEBUG & DEBUG_COLOR) ? GEN_BATCH_DECODE_IN_COLOR : 0) |
          GEN_BATCH_DECODE_OFFSETS |
          GEN_BATCH_DECODE_FLOATS;
 
-      /* TODO: track state size so we can print the right # of entries */
       gen_batch_decode_ctx_init(&batch->decoder, &screen->devinfo,
                                 stderr, decode_flags, NULL,
-                                decode_get_bo, NULL, batch);
+                                decode_get_bo, decode_get_state_size, batch);
+      batch->decoder.dynamic_base = IRIS_MEMZONE_DYNAMIC_START;
+      batch->decoder.instruction_base = IRIS_MEMZONE_SHADER_START;
       batch->decoder.max_vbo_decoded_lines = 32;
    }
 
@@ -239,6 +246,20 @@ find_validation_entry(struct iris_batch *batch, struct iris_bo *bo)
    return NULL;
 }
 
+static void
+ensure_exec_obj_space(struct iris_batch *batch, uint32_t count)
+{
+   while (batch->exec_count + count > batch->exec_array_size) {
+      batch->exec_array_size *= 2;
+      batch->exec_bos =
+         realloc(batch->exec_bos,
+                 batch->exec_array_size * sizeof(batch->exec_bos[0]));
+      batch->validation_list =
+         realloc(batch->validation_list,
+                 batch->exec_array_size * sizeof(batch->validation_list[0]));
+   }
+}
+
 /**
  * Add a buffer to the current batch's validation list.
  *
@@ -248,7 +269,7 @@ find_validation_entry(struct iris_batch *batch, struct iris_bo *bo)
 void
 iris_use_pinned_bo(struct iris_batch *batch,
                    struct iris_bo *bo,
-                   bool writable)
+                   bool writable, enum iris_domain access)
 {
    assert(bo->kflags & EXEC_OBJECT_PINNED);
 
@@ -259,6 +280,11 @@ iris_use_pinned_bo(struct iris_batch *batch,
     */
    if (bo == batch->screen->workaround_bo)
       writable = false;
+
+   if (access < NUM_IRIS_DOMAINS) {
+      assert(batch->sync_region_depth);
+      iris_bo_bump_seqno(bo, batch->next_seqno, access);
+   }
 
    struct drm_i915_gem_exec_object2 *existing_entry =
       find_validation_entry(batch, bo);
@@ -296,8 +322,9 @@ iris_use_pinned_bo(struct iris_batch *batch,
          if (other_entry &&
              ((other_entry->flags & EXEC_OBJECT_WRITE) || writable)) {
             iris_batch_flush(batch->other_batches[b]);
-            iris_batch_add_syncpt(batch, batch->other_batches[b]->last_syncpt,
-                                  I915_EXEC_FENCE_WAIT);
+            iris_batch_add_syncobj(batch,
+                                   batch->other_batches[b]->last_fence->syncobj,
+                                   I915_EXEC_FENCE_WAIT);
          }
       }
    }
@@ -305,15 +332,7 @@ iris_use_pinned_bo(struct iris_batch *batch,
    /* Now, take a reference and add it to the validation list. */
    iris_bo_reference(bo);
 
-   if (batch->exec_count == batch->exec_array_size) {
-      batch->exec_array_size *= 2;
-      batch->exec_bos =
-         realloc(batch->exec_bos,
-                 batch->exec_array_size * sizeof(batch->exec_bos[0]));
-      batch->validation_list =
-         realloc(batch->validation_list,
-                 batch->exec_array_size * sizeof(batch->validation_list[0]));
-   }
+   ensure_exec_obj_space(batch, 1);
 
    batch->validation_list[batch->exec_count] =
       (struct drm_i915_gem_exec_object2) {
@@ -341,7 +360,25 @@ create_batch(struct iris_batch *batch)
    batch->map = iris_bo_map(NULL, batch->bo, MAP_READ | MAP_WRITE);
    batch->map_next = batch->map;
 
-   iris_use_pinned_bo(batch, batch->bo, false);
+   iris_use_pinned_bo(batch, batch->bo, false, IRIS_DOMAIN_NONE);
+}
+
+static void
+iris_batch_maybe_noop(struct iris_batch *batch)
+{
+   /* We only insert the NOOP at the beginning of the batch. */
+   assert(iris_batch_bytes_used(batch) == 0);
+
+   if (batch->noop_enabled) {
+      /* Emit MI_BATCH_BUFFER_END to prevent any further command to be
+       * executed.
+       */
+      uint32_t *map = batch->map_next;
+
+      map[0] = (0xA << 23);
+
+      batch->map_next += 4;
+   }
 }
 
 static void
@@ -351,16 +388,27 @@ iris_batch_reset(struct iris_batch *batch)
 
    iris_bo_unreference(batch->bo);
    batch->primary_batch_size = 0;
+   batch->total_chained_batch_size = 0;
    batch->contains_draw = false;
+   batch->decoder.surface_base = batch->last_surface_base_address;
 
    create_batch(batch);
    assert(batch->bo->index == 0);
 
-   struct iris_syncpt *syncpt = iris_create_syncpt(screen);
-   iris_batch_add_syncpt(batch, syncpt, I915_EXEC_FENCE_SIGNAL);
-   iris_syncpt_reference(screen, &syncpt, NULL);
+   struct iris_syncobj *syncobj = iris_create_syncobj(screen);
+   iris_batch_add_syncobj(batch, syncobj, I915_EXEC_FENCE_SIGNAL);
+   iris_syncobj_reference(screen, &syncobj, NULL);
 
-   iris_cache_sets_clear(batch);
+   assert(!batch->sync_region_depth);
+   iris_batch_sync_boundary(batch);
+   iris_batch_mark_reset_sync(batch);
+
+   /* Always add the workaround BO, it contains a driver identifier at the
+    * beginning quite helpful to debug error states.
+    */
+   iris_use_pinned_bo(batch, screen->workaround_bo, false, IRIS_DOMAIN_NONE);
+
+   iris_batch_maybe_noop(batch);
 }
 
 void
@@ -377,11 +425,14 @@ iris_batch_free(struct iris_batch *batch)
 
    ralloc_free(batch->exec_fences.mem_ctx);
 
-   util_dynarray_foreach(&batch->syncpts, struct iris_syncpt *, s)
-      iris_syncpt_reference(screen, s, NULL);
-   ralloc_free(batch->syncpts.mem_ctx);
+   pipe_resource_reference(&batch->fine_fences.ref.res, NULL);
 
-   iris_syncpt_reference(screen, &batch->last_syncpt, NULL);
+   util_dynarray_foreach(&batch->syncobjs, struct iris_syncobj *, s)
+      iris_syncobj_reference(screen, s, NULL);
+   ralloc_free(batch->syncobjs.mem_ctx);
+
+   iris_fine_fence_reference(batch->screen, &batch->last_fence, NULL);
+   u_upload_destroy(batch->fine_fences.uploader);
 
    iris_bo_unreference(batch->bo);
    batch->bo = NULL;
@@ -391,9 +442,8 @@ iris_batch_free(struct iris_batch *batch)
    iris_destroy_hw_context(bufmgr, batch->hw_ctx_id);
 
    _mesa_hash_table_destroy(batch->cache.render, NULL);
-   _mesa_set_destroy(batch->cache.depth, NULL);
 
-   if (unlikely(INTEL_DEBUG))
+   if (INTEL_DEBUG)
       gen_batch_decode_ctx_finish(&batch->decoder);
 }
 
@@ -410,27 +460,71 @@ iris_batch_maybe_flush(struct iris_batch *batch, unsigned estimate)
    }
 }
 
+static void
+record_batch_sizes(struct iris_batch *batch)
+{
+   unsigned batch_size = iris_batch_bytes_used(batch);
+
+   VG(VALGRIND_CHECK_MEM_IS_DEFINED(batch->map, batch_size));
+
+   if (batch->bo == batch->exec_bos[0])
+      batch->primary_batch_size = batch_size;
+
+   batch->total_chained_batch_size += batch_size;
+}
+
 void
 iris_chain_to_new_batch(struct iris_batch *batch)
 {
-   /* We only support chaining a single time. */
-   assert(batch->bo == batch->exec_bos[0]);
-
-   VG(void *map = batch->map);
    uint32_t *cmd = batch->map_next;
    uint64_t *addr = batch->map_next + 4;
    batch->map_next += 12;
 
+   record_batch_sizes(batch);
+
    /* No longer held by batch->bo, still held by validation list */
    iris_bo_unreference(batch->bo);
-   batch->primary_batch_size = iris_batch_bytes_used(batch);
    create_batch(batch);
 
    /* Emit MI_BATCH_BUFFER_START to chain to another batch. */
    *cmd = (0x31 << 23) | (1 << 8) | (3 - 2);
    *addr = batch->bo->gtt_offset;
+}
 
-   VG(VALGRIND_CHECK_MEM_IS_DEFINED(map, batch->primary_batch_size));
+static void
+add_aux_map_bos_to_batch(struct iris_batch *batch)
+{
+   void *aux_map_ctx = iris_bufmgr_get_aux_map_context(batch->screen->bufmgr);
+   if (!aux_map_ctx)
+      return;
+
+   uint32_t count = gen_aux_map_get_num_buffers(aux_map_ctx);
+   ensure_exec_obj_space(batch, count);
+   gen_aux_map_fill_bos(aux_map_ctx,
+                        (void**)&batch->exec_bos[batch->exec_count], count);
+   for (uint32_t i = 0; i < count; i++) {
+      struct iris_bo *bo = batch->exec_bos[batch->exec_count];
+      iris_bo_reference(bo);
+      batch->validation_list[batch->exec_count] =
+         (struct drm_i915_gem_exec_object2) {
+            .handle = bo->gem_handle,
+            .offset = bo->gtt_offset,
+            .flags = bo->kflags,
+         };
+      batch->aperture_space += bo->size;
+      batch->exec_count++;
+   }
+}
+
+static void
+finish_seqno(struct iris_batch *batch)
+{
+   struct iris_fine_fence *sq = iris_fine_fence_new(batch, IRIS_FENCE_END);
+   if (!sq)
+      return;
+
+   iris_fine_fence_reference(batch->screen, &batch->last_fence, sq);
+   iris_fine_fence_reference(batch->screen, &sq, NULL);
 }
 
 /**
@@ -439,16 +533,74 @@ iris_chain_to_new_batch(struct iris_batch *batch)
 static void
 iris_finish_batch(struct iris_batch *batch)
 {
+   add_aux_map_bos_to_batch(batch);
+
+   finish_seqno(batch);
+
    /* Emit MI_BATCH_BUFFER_END to finish our batch. */
    uint32_t *map = batch->map_next;
 
    map[0] = (0xA << 23);
 
    batch->map_next += 4;
-   VG(VALGRIND_CHECK_MEM_IS_DEFINED(batch->map, iris_batch_bytes_used(batch)));
 
-   if (batch->bo == batch->exec_bos[0])
-      batch->primary_batch_size = iris_batch_bytes_used(batch);
+   record_batch_sizes(batch);
+}
+
+/**
+ * Replace our current GEM context with a new one (in case it got banned).
+ */
+static bool
+replace_hw_ctx(struct iris_batch *batch)
+{
+   struct iris_screen *screen = batch->screen;
+   struct iris_bufmgr *bufmgr = screen->bufmgr;
+
+   uint32_t new_ctx = iris_clone_hw_context(bufmgr, batch->hw_ctx_id);
+   if (!new_ctx)
+      return false;
+
+   iris_destroy_hw_context(bufmgr, batch->hw_ctx_id);
+   batch->hw_ctx_id = new_ctx;
+
+   /* Notify the context that state must be re-initialized. */
+   iris_lost_context_state(batch);
+
+   return true;
+}
+
+enum pipe_reset_status
+iris_batch_check_for_reset(struct iris_batch *batch)
+{
+   struct iris_screen *screen = batch->screen;
+   enum pipe_reset_status status = PIPE_NO_RESET;
+   struct drm_i915_reset_stats stats = { .ctx_id = batch->hw_ctx_id };
+
+   if (drmIoctl(screen->fd, DRM_IOCTL_I915_GET_RESET_STATS, &stats))
+      DBG("DRM_IOCTL_I915_GET_RESET_STATS failed: %s\n", strerror(errno));
+
+   if (stats.batch_active != 0) {
+      /* A reset was observed while a batch from this hardware context was
+       * executing.  Assume that this context was at fault.
+       */
+      status = PIPE_GUILTY_CONTEXT_RESET;
+   } else if (stats.batch_pending != 0) {
+      /* A reset was observed while a batch from this context was in progress,
+       * but the batch was not executing.  In this case, assume that the
+       * context was not at fault.
+       */
+      status = PIPE_INNOCENT_CONTEXT_RESET;
+   }
+
+   if (status != PIPE_NO_RESET) {
+      /* Our context is likely banned, or at least in an unknown state.
+       * Throw it away and start with a fresh context.  Ideally this may
+       * catch the problem before our next execbuf fails with -EIO.
+       */
+      replace_hw_ctx(batch);
+   }
+
+   return status;
 }
 
 /**
@@ -477,7 +629,7 @@ submit_batch(struct iris_batch *batch)
       .batch_start_offset = 0,
       /* This must be QWord aligned. */
       .batch_len = ALIGN(batch->primary_batch_size, 8),
-      .flags = batch->engine |
+      .flags = I915_EXEC_RENDER |
                I915_EXEC_NO_RELOC |
                I915_EXEC_BATCH_FIRST |
                I915_EXEC_HANDLE_LUT,
@@ -491,17 +643,10 @@ submit_batch(struct iris_batch *batch)
          (uintptr_t)util_dynarray_begin(&batch->exec_fences);
    }
 
-   int ret = batch->screen->no_hw ? 0 : drm_ioctl(batch->screen->fd,
-                       DRM_IOCTL_I915_GEM_EXECBUFFER2,
-                       &execbuf);
-   if (ret != 0) {
+   int ret = 0;
+   if (!batch->screen->no_hw &&
+       gen_ioctl(batch->screen->fd, DRM_IOCTL_I915_GEM_EXECBUFFER2, &execbuf))
       ret = -errno;
-      DBG("execbuf FAILED: errno = %d\n", -ret);
-      fprintf(stderr, "execbuf FAILED: errno = %d\n", -ret);
-      abort();
-   } else {
-      DBG("execbuf succeeded\n");
-   }
 
    for (int i = 0; i < batch->exec_count; i++) {
       struct iris_bo *bo = batch->exec_bos[i];
@@ -528,12 +673,6 @@ batch_name_to_string(enum iris_batch_name name)
 /**
  * Flush the batch buffer, submitting it to the GPU and resetting it so
  * we're ready to emit the next batch.
- *
- * \param in_fence_fd is ignored if -1.  Otherwise, this function takes
- * ownership of the fd.
- *
- * \param out_fence_fd is ignored if NULL.  Otherwise, the caller must
- * take ownership of the returned fd.
  */
 void
 _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
@@ -545,62 +684,70 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
 
    iris_finish_batch(batch);
 
-   if (unlikely(INTEL_DEBUG & (DEBUG_BATCH | DEBUG_SUBMIT))) {
-      int bytes_for_commands = iris_batch_bytes_used(batch);
-      int second_bytes = 0;
-      if (batch->bo != batch->exec_bos[0]) {
-         second_bytes = bytes_for_commands;
-         bytes_for_commands += batch->primary_batch_size;
-      }
-      fprintf(stderr, "%19s:%-3d: %s batch [%u] flush with %5d+%5db (%0.1f%%) "
+   if (INTEL_DEBUG & (DEBUG_BATCH | DEBUG_SUBMIT | DEBUG_PIPE_CONTROL)) {
+      const char *basefile = strstr(file, "iris/");
+      if (basefile)
+         file = basefile + 5;
+
+      fprintf(stderr, "%19s:%-3d: %s batch [%u] flush with %5db (%0.1f%%) "
               "(cmds), %4d BOs (%0.1fMb aperture)\n",
               file, line, batch_name_to_string(batch->name), batch->hw_ctx_id,
-              batch->primary_batch_size, second_bytes,
-              100.0f * bytes_for_commands / BATCH_SZ,
+              batch->total_chained_batch_size,
+              100.0f * batch->total_chained_batch_size / BATCH_SZ,
               batch->exec_count,
               (float) batch->aperture_space / (1024 * 1024));
-      dump_fence_list(batch);
-      dump_validation_list(batch);
-   }
 
-   if (unlikely(INTEL_DEBUG & DEBUG_BATCH)) {
-      decode_batch(batch);
+      if (INTEL_DEBUG & (DEBUG_BATCH | DEBUG_SUBMIT)) {
+         dump_fence_list(batch);
+         dump_validation_list(batch);
+      }
+
+      if (INTEL_DEBUG & DEBUG_BATCH) {
+         decode_batch(batch);
+      }
    }
 
    int ret = submit_batch(batch);
 
-   if (ret >= 0) {
-      //if (iris->ctx.Const.ResetStrategy == GL_LOSE_CONTEXT_ON_RESET_ARB)
-         //iris_check_for_reset(ice);
+   batch->exec_count = 0;
+   batch->aperture_space = 0;
 
-      if (unlikely(INTEL_DEBUG & DEBUG_SYNC)) {
-         dbg_printf("waiting for idle\n");
-         iris_bo_wait_rendering(batch->bo);
+   util_dynarray_foreach(&batch->syncobjs, struct iris_syncobj *, s)
+      iris_syncobj_reference(screen, s, NULL);
+   util_dynarray_clear(&batch->syncobjs);
+
+   util_dynarray_clear(&batch->exec_fences);
+
+   if (INTEL_DEBUG & DEBUG_SYNC) {
+      dbg_printf("waiting for idle\n");
+      iris_bo_wait_rendering(batch->bo); /* if execbuf failed; this is a nop */
+   }
+
+   /* Start a new batch buffer. */
+   iris_batch_reset(batch);
+
+   /* EIO means our context is banned.  In this case, try and replace it
+    * with a new logical context, and inform iris_context that all state
+    * has been lost and needs to be re-initialized.  If this succeeds,
+    * dubiously claim success...
+    */
+   if (ret == -EIO && replace_hw_ctx(batch)) {
+      if (batch->reset->reset) {
+         /* Tell gallium frontends the device is lost and it was our fault. */
+         batch->reset->reset(batch->reset->data, PIPE_GUILTY_CONTEXT_RESET);
       }
-   } else {
+
+      ret = 0;
+   }
+
+   if (ret < 0) {
 #ifdef DEBUG
       const bool color = INTEL_DEBUG & DEBUG_COLOR;
       fprintf(stderr, "%siris: Failed to submit batchbuffer: %-80s%s\n",
               color ? "\e[1;41m" : "", strerror(-ret), color ? "\e[0m" : "");
-      abort();
 #endif
+      abort();
    }
-
-   batch->exec_count = 0;
-   batch->aperture_space = 0;
-
-   struct iris_syncpt *syncpt =
-      ((struct iris_syncpt **) util_dynarray_begin(&batch->syncpts))[0];
-   iris_syncpt_reference(screen, &batch->last_syncpt, syncpt);
-
-   util_dynarray_foreach(&batch->syncpts, struct iris_syncpt *, s)
-      iris_syncpt_reference(screen, s, NULL);
-   util_dynarray_clear(&batch->syncpts);
-
-   util_dynarray_clear(&batch->exec_fences);
-
-   /* Start a new batch buffer. */
-   iris_batch_reset(batch);
 }
 
 /**
@@ -612,4 +759,28 @@ bool
 iris_batch_references(struct iris_batch *batch, struct iris_bo *bo)
 {
    return find_validation_entry(batch, bo) != NULL;
+}
+
+/**
+ * Updates the state of the noop feature.  Returns true if there was a noop
+ * transition that led to state invalidation.
+ */
+bool
+iris_batch_prepare_noop(struct iris_batch *batch, bool noop_enable)
+{
+   if (batch->noop_enabled == noop_enable)
+      return 0;
+
+   batch->noop_enabled = noop_enable;
+
+   iris_batch_flush(batch);
+
+   /* If the batch was empty, flush had no effect, so insert our noop. */
+   if (iris_batch_bytes_used(batch) == 0)
+      iris_batch_maybe_noop(batch);
+
+   /* We only need to update the entire state if we transition from noop ->
+    * not-noop.
+    */
+   return !batch->noop_enabled;
 }

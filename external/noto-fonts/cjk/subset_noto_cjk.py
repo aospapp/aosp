@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # coding=UTF-8
 #
 # Copyright 2016 Google Inc. All rights reserved.
@@ -17,7 +17,10 @@
 
 """Create a curated subset of Noto CJK for Android."""
 
+import argparse
+import logging
 import os
+from pathlib import Path
 
 from fontTools import ttLib
 from nototools import font_data
@@ -73,9 +76,11 @@ ANDROID_EMOJI = {
 }
 
 # We don't want support for ASCII control chars.
-CONTROL_CHARS = tool_utils.parse_int_ranges('0000-001F');
+CONTROL_CHARS = tool_utils.parse_int_ranges('0000-001F')
 
 EXCLUDED_CODEPOINTS = sorted(EMOJI_IN_CJK | ANDROID_EMOJI | CONTROL_CHARS)
+
+TTC_NAMES = ('NotoSansCJK-Regular.ttc', 'NotoSerifCJK-Regular.ttc')
 
 
 def remove_from_cmap(infile, outfile, exclude=frozenset()):
@@ -85,19 +90,57 @@ def remove_from_cmap(infile, outfile, exclude=frozenset()):
     font.save(outfile)
 
 
-TEMP_DIR = 'subsetted'
+def remove_codepoints_from_ttc_using_ttc_utils(ttc_name, out_dir):
+    otf_names = ttc_utils.ttcfile_extract(ttc_name, out_dir)
 
-def remove_codepoints_from_ttc(ttc_name):
-    otf_names = ttc_utils.ttcfile_extract(ttc_name, TEMP_DIR)
-
-    with tool_utils.temp_chdir(TEMP_DIR):
+    with tool_utils.temp_chdir(out_dir):
         for index, otf_name in enumerate(otf_names):
-            print 'Subsetting %s...' % otf_name
+            logging.info('Subsetting %s...', otf_name)
             remove_from_cmap(otf_name, otf_name, exclude=EXCLUDED_CODEPOINTS)
         ttc_utils.ttcfile_build(ttc_name, otf_names)
         for f in otf_names:
             os.remove(f)
 
 
-remove_codepoints_from_ttc('NotoSansCJK-Regular.ttc')
-remove_codepoints_from_ttc('NotoSerifCJK-Regular.ttc')
+def remove_codepoints_from_ttc(ttc_path, out_dir):
+    """Removes a set of characters from a TTC font file's cmap table."""
+    logging.info('Loading %s', ttc_path)
+    ttc = ttLib.ttCollection.TTCollection(ttc_path)
+
+    logging.info('Subsetting %d fonts in the collection', len(ttc))
+    for font in ttc:
+        font_data.delete_from_cmap(font, EXCLUDED_CODEPOINTS)
+
+    out_path = out_dir / ttc_path.name
+    logging.info('Saving to %s', out_path)
+    ttc.save(out_path)
+    logging.info('Size: %d --> %d, delta=%d',
+                 ttc_path.stat().st_size,
+                 out_path.stat().st_size,
+                 out_path.stat().st_size - ttc_path.stat().st_size)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input', default='.', nargs='?')
+    parser.add_argument('-o', '--output', default='subsetted')
+    parser.add_argument('--use-ttc-utils', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count')
+    args = parser.parse_args()
+    if args.verbose:
+        if args.verbose > 1:
+            logging.basicConfig(level=logging.DEBUG)
+        else:
+            logging.basicConfig(level=logging.INFO)
+    in_dir = Path(args.input)
+    out_dir = Path(args.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for ttc_name in TTC_NAMES:
+        if args.use_ttc_utils:
+            remove_codepoints_from_ttc_using_ttc_utils(ttc_name, out_dir)
+        else:
+            remove_codepoints_from_ttc(in_dir / ttc_name, out_dir)
+
+
+if __name__ == "__main__":
+    main()

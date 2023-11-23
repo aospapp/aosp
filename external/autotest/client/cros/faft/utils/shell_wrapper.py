@@ -30,6 +30,13 @@ class LocalShell(object):
         output in case command succeeded.  If block=False, will not wait for
         process to return before returning.
         """
+        stdout = None
+        stderr = None
+        if cmd and cmd.rstrip()[-1] == '&' and block:
+            errormsg = ('Remove & from command \'%s\', '
+                        'use block=True instead, '
+                        'refer to b/172325331 for more details' % cmd)
+            raise UnsupportedSuccessToken(errormsg)
         self._os_if.log('Executing: %s' % cmd)
         process = subprocess.Popen(
                 cmd,
@@ -37,8 +44,8 @@ class LocalShell(object):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
         if block:
-            process.wait()
-        return process
+            stdout, stderr = process.communicate()
+        return process, stdout, stderr
 
     def run_command(self, cmd, block=True):
         """Run a shell command.
@@ -51,12 +58,10 @@ class LocalShell(object):
         @raise error.CmdError: if block is True and command fails (rc!=0)
         """
         start_time = time.time()
-        process = self._run_command(cmd, block)
+        process, stdout, stderr = self._run_command(cmd, block)
         if block and process.returncode:
             # Grab output only if an error occurred
             returncode = process.returncode
-            stdout = process.stdout.read()
-            stderr = process.stderr.read()
             duration = time.time() - start_time
             result = utils.CmdResult(cmd, stdout, stderr, returncode, duration)
             self._os_if.log('Command failed.\n%s' % result)
@@ -72,11 +77,9 @@ class LocalShell(object):
         """
         start_time = time.time()
 
-        process = self._run_command(cmd, block=True)
+        process, stdout, stderr = self._run_command(cmd, block=True)
 
         returncode = process.returncode
-        stdout = process.stdout.read()
-        stderr = process.stderr.read()
         duration = time.time() - start_time
         result = utils.CmdResult(cmd, stdout, stderr, returncode, duration)
 
@@ -114,7 +117,7 @@ class LocalShell(object):
 
         The return code of the command is returned, in case of any error.
         """
-        process = self._run_command(cmd)
+        process, stdout, stderr = self._run_command(cmd)
         return process.returncode
 
     def run_command_get_output(self, cmd, include_stderr=False):
@@ -123,10 +126,10 @@ class LocalShell(object):
         The output is returned as a list of strings stripped of the newline
         characters.
         """
-        process = self._run_command(cmd)
-        text = [x.rstrip() for x in process.stdout.readlines()]
+        process, stdout, stderr = self._run_command(cmd)
+        text = [x.rstrip() for x in stdout.splitlines()]
         if include_stderr:
-            text.extend([x.rstrip() for x in process.stderr.readlines()])
+            text.extend([x.rstrip() for x in stderr.splitlines()])
         return text
 
     def read_file(self, path):

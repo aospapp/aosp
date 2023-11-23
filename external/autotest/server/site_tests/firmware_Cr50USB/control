@@ -9,7 +9,7 @@ NAME = "firmware_Cr50USB"
 PURPOSE = "Verify Cr50 to AP USB connection"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 This test runs 'usb_updater -f' many times to verify the cr50 to ap usb

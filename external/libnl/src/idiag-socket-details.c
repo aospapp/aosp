@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/idiag-socket-details.c     List socket details
  *
@@ -72,7 +73,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if ((err = idiagnl_msg_alloc_cache(sock, AF_INET, IDIAG_SS_ALL,
+	if ((err = idiagnl_msg_alloc_cache(sock, AF_INET, IDIAGNL_SS_ALL,
 					&idiag_cache))) {
 		nl_cli_fatal(err, "Unable to allocate idiag msg cache: %s",
 				nl_geterror(err));

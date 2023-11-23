@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
 Software License for The Fraunhofer FDK AAC Codec Library for Android
 
-© Copyright  1995 - 2019 Fraunhofer-Gesellschaft zur Förderung der angewandten
+© Copyright  1995 - 2021 Fraunhofer-Gesellschaft zur Förderung der angewandten
 Forschung e.V. All rights reserved.
 
  1.    INTRODUCTION
@@ -158,7 +158,7 @@ amm-info@iis.fraunhofer.de
 #define SBRDECODER_LIB_VL1 1
 #define SBRDECODER_LIB_VL2 0
 #define SBRDECODER_LIB_TITLE "SBR Decoder"
-#ifdef __ANDROID__
+#ifdef SUPPRESS_BUILD_DATE_INFO
 #define SBRDECODER_LIB_BUILD_DATE ""
 #define SBRDECODER_LIB_BUILD_TIME ""
 #else
@@ -617,10 +617,6 @@ SBR_ERROR sbrDecoder_InitElement(
       self->numSbrChannels -= self->pSbrElement[elementIndex]->nChannels;
     }
 
-    /* Save element ID for sanity checks and to have a fallback for concealment.
-     */
-    self->pSbrElement[elementIndex]->elementID = elementID;
-
     /* Determine amount of channels for this element */
     switch (elementID) {
       case ID_NONE:
@@ -653,12 +649,16 @@ SBR_ERROR sbrDecoder_InitElement(
     }
 
     /* Sanity check to avoid memory leaks */
-    if (elChannels < self->pSbrElement[elementIndex]->nChannels) {
+    if (elChannels < self->pSbrElement[elementIndex]->nChannels ||
+        (self->numSbrChannels + elChannels) > (8) + (1)) {
       self->numSbrChannels += self->pSbrElement[elementIndex]->nChannels;
       sbrError = SBRDEC_PARSE_ERROR;
       goto bail;
     }
 
+    /* Save element ID for sanity checks and to have a fallback for concealment.
+     */
+    self->pSbrElement[elementIndex]->elementID = elementID;
     self->pSbrElement[elementIndex]->nChannels = elChannels;
 
     for (ch = 0; ch < elChannels; ch++) {
@@ -961,8 +961,10 @@ SBR_ERROR sbrDecoder_SetParam(HANDLE_SBRDECODER self, const SBRDEC_PARAM param,
 
           /* Set sync state UPSAMPLING for the corresponding slot.
              This switches off bitstream parsing until a new header arrives. */
-          hSbrHeader->syncState = UPSAMPLING;
-          hSbrHeader->status |= SBRDEC_HDR_STAT_UPDATE;
+          if (hSbrHeader->syncState != SBR_NOT_INITIALIZED) {
+            hSbrHeader->syncState = UPSAMPLING;
+            hSbrHeader->status |= SBRDEC_HDR_STAT_UPDATE;
+          }
         }
       }
     } break;
@@ -1371,7 +1373,9 @@ SBR_ERROR sbrDecoder_Parse(HANDLE_SBRDECODER self, HANDLE_FDK_BITSTREAM hBs,
       }
       if (headerStatus == HEADER_ERROR) {
         /* Corrupt SBR info data, do not decode and switch to UPSAMPLING */
-        hSbrHeader->syncState = UPSAMPLING;
+        hSbrHeader->syncState = hSbrHeader->syncState > UPSAMPLING
+                                    ? UPSAMPLING
+                                    : hSbrHeader->syncState;
         fDoDecodeSbrData = 0;
         sbrHeaderPresent = 0;
       }
@@ -1610,7 +1614,9 @@ static SBR_ERROR sbrDecoder_DecodeElement(
       /* No valid SBR payload available, hence switch to upsampling (in all
        * headers) */
       for (hdrIdx = 0; hdrIdx < ((1) + 1); hdrIdx += 1) {
-        self->sbrHeader[elementIndex][hdrIdx].syncState = UPSAMPLING;
+        if (self->sbrHeader[elementIndex][hdrIdx].syncState > UPSAMPLING) {
+          self->sbrHeader[elementIndex][hdrIdx].syncState = UPSAMPLING;
+        }
       }
     } else {
       /* Move frame pointer to the next slot which is up to be decoded/applied

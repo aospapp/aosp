@@ -93,15 +93,6 @@ class LittleEndian {
 // Conversion functions.
 #ifdef SAFTM_IS_LITTLE_ENDIAN
 
-  static uint16 FromHost16(uint16 x) { return x; }
-  static uint16 ToHost16(uint16 x) { return x; }
-
-  static uint32 FromHost32(uint32 x) { return x; }
-  static uint32 ToHost32(uint32 x) { return x; }
-
-  static uint64 FromHost64(uint64 x) { return x; }
-  static uint64 ToHost64(uint64 x) { return x; }
-
   static bool IsLittleEndian() { return true; }
 
 #elif defined SAFTM_IS_BIG_ENDIAN

@@ -16,7 +16,7 @@ import org.bouncycastle.asn1.BERTaggedObject;
 import org.bouncycastle.asn1.DERTaggedObject;
 
 /**
- * <a href="http://tools.ietf.org/html/rfc5652#section-5.1">RFC 5652</a>:
+ * <a href="https://tools.ietf.org/html/rfc5652#section-5.1">RFC 5652</a>:
  * <p>
  * A signed data object containing multitude of {@link SignerInfo}s.
  * <pre>
@@ -206,7 +206,7 @@ public class SignedData
         {
             SignerInfo s = SignerInfo.getInstance(e.nextElement());
 
-            if (s.getVersion().getValue().intValue() == 3)
+            if (s.getVersion().intValueExact() == 3)
             {
                 return true;
             }
@@ -293,7 +293,7 @@ public class SignedData
      */
     public ASN1Primitive toASN1Primitive()
     {
-        ASN1EncodableVector  v = new ASN1EncodableVector();
+        ASN1EncodableVector v = new ASN1EncodableVector(6);
 
         v.add(version);
         v.add(digestAlgorithms);

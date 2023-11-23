@@ -21,4 +21,4 @@ For this device's touchscreen, verify whether that device is
 listed as a wake source or not.
 """
 
-job.run_test('touch_WakeupSource')
+job.run_test('touch_WakeupSource', source='touchscreen')

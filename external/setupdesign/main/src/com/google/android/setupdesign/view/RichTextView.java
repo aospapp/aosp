@@ -106,6 +106,10 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
   }
 
   private void init() {
+    if (isInEditMode()) {
+      return;
+    }
+
     accessibilityHelper = new LinkAccessibilityHelper(this);
     ViewCompat.setAccessibilityDelegate(this, accessibilityHelper);
   }

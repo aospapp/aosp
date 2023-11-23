@@ -1044,7 +1044,7 @@ void Assembler::cls(const Register& rd, const Register& rn) {
   V(auti, AUTI)             \
   V(autd, AUTD)
 
-#define DEFINE_ASM_FUNCS(PRE, OP)                                  \
+#define VIXL_DEFINE_ASM_FUNC(PRE, OP)                              \
   void Assembler::PRE##a(const Register& xd, const Register& xn) { \
     VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
     VIXL_ASSERT(xd.Is64Bits() && xn.Is64Bits());                   \
@@ -1069,8 +1069,8 @@ void Assembler::cls(const Register& rd, const Register& rn) {
     Emit(SF(xd) | OP##ZB | Rd(xd));                                \
   }
 
-PAUTH_VARIATIONS(DEFINE_ASM_FUNCS)
-#undef DEFINE_ASM_FUNCS
+PAUTH_VARIATIONS(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 void Assembler::pacga(const Register& xd,
                       const Register& xn,
@@ -1141,7 +1141,13 @@ void Assembler::LoadStorePair(const CPURegister& rt,
       addrmodeop = LoadStorePairPostIndexFixed;
     }
   }
-  Emit(addrmodeop | memop);
+
+  Instr emitop = addrmodeop | memop;
+
+  // Only X registers may be specified for ldpsw.
+  VIXL_ASSERT(((emitop & LoadStorePairMask) != LDPSW_x) || rt.IsX());
+
+  Emit(emitop);
 }
 
 
@@ -1381,8 +1387,14 @@ void Assembler::ldr(const CPURegister& rt, int64_t imm19) {
 }
 
 
-void Assembler::prfm(PrefetchOperation op, int64_t imm19) {
+void Assembler::prfm(int op, int64_t imm19) {
   Emit(PRFM_lit | ImmPrefetchOperation(op) | ImmLLiteral(imm19));
+}
+
+void Assembler::prfm(PrefetchOperation op, int64_t imm19) {
+  // Passing unnamed values in 'op' is undefined behaviour in C++.
+  VIXL_ASSERT(IsNamedPrefetchOperation(op));
+  prfm(static_cast<int>(op), imm19);
 }
 
 
@@ -1635,17 +1647,18 @@ void Assembler::ldlar(const Register& rt, const MemOperand& src) {
   V(casal, CASAL)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP)                                          \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP)                                     \
   void Assembler::FN(const Register& rs,                                 \
                      const Register& rt,                                 \
                      const MemOperand& src) {                            \
     VIXL_ASSERT(CPUHas(CPUFeatures::kAtomics));                          \
     VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));      \
+    VIXL_ASSERT(AreSameFormat(rs, rt));                                  \
     LoadStoreExclusive op = rt.Is64Bits() ? OP##_x : OP##_w;             \
     Emit(op | Rs(rs) | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister())); \
   }
-COMPARE_AND_SWAP_W_X_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+COMPARE_AND_SWAP_W_X_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 // clang-format off
 #define COMPARE_AND_SWAP_W_LIST(V) \
@@ -1659,7 +1672,7 @@ COMPARE_AND_SWAP_W_X_LIST(DEFINE_ASM_FUNC)
   V(casalh, CASALH)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP)                                          \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP)                                     \
   void Assembler::FN(const Register& rs,                                 \
                      const Register& rt,                                 \
                      const MemOperand& src) {                            \
@@ -1667,8 +1680,8 @@ COMPARE_AND_SWAP_W_X_LIST(DEFINE_ASM_FUNC)
     VIXL_ASSERT(src.IsImmediateOffset() && (src.GetOffset() == 0));      \
     Emit(OP | Rs(rs) | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister())); \
   }
-COMPARE_AND_SWAP_W_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+COMPARE_AND_SWAP_W_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -1679,7 +1692,7 @@ COMPARE_AND_SWAP_W_LIST(DEFINE_ASM_FUNC)
   V(caspal, CASPAL)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP)                                          \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP)                                     \
   void Assembler::FN(const Register& rs,                                 \
                      const Register& rs1,                                \
                      const Register& rt,                                 \
@@ -1691,11 +1704,12 @@ COMPARE_AND_SWAP_W_LIST(DEFINE_ASM_FUNC)
     VIXL_ASSERT(AreEven(rs, rt));                                        \
     VIXL_ASSERT(AreConsecutive(rs, rs1));                                \
     VIXL_ASSERT(AreConsecutive(rt, rt1));                                \
+    VIXL_ASSERT(AreSameFormat(rs, rs1, rt, rt1));                        \
     LoadStoreExclusive op = rt.Is64Bits() ? OP##_x : OP##_w;             \
     Emit(op | Rs(rs) | Rt(rt) | Rt2_mask | RnSP(src.GetBaseRegister())); \
   }
-COMPARE_AND_SWAP_PAIR_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+COMPARE_AND_SWAP_PAIR_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 // These macros generate all the variations of the atomic memory operations,
 // e.g. ldadd, ldadda, ldaddb, staddl, etc.
@@ -1846,7 +1860,7 @@ void Assembler::ldapursw(const Register& rt, const MemOperand& src) {
   Emit(LDAPURSW | Rt(rt) | base | ImmLS(static_cast<int>(offset)));
 }
 
-void Assembler::prfm(PrefetchOperation op,
+void Assembler::prfm(int op,
                      const MemOperand& address,
                      LoadStoreScalingOption option) {
   VIXL_ASSERT(option != RequireUnscaledOffset);
@@ -1854,8 +1868,16 @@ void Assembler::prfm(PrefetchOperation op,
   Prefetch(op, address, option);
 }
 
+void Assembler::prfm(PrefetchOperation op,
+                     const MemOperand& address,
+                     LoadStoreScalingOption option) {
+  // Passing unnamed values in 'op' is undefined behaviour in C++.
+  VIXL_ASSERT(IsNamedPrefetchOperation(op));
+  prfm(static_cast<int>(op), address, option);
+}
 
-void Assembler::prfum(PrefetchOperation op,
+
+void Assembler::prfum(int op,
                       const MemOperand& address,
                       LoadStoreScalingOption option) {
   VIXL_ASSERT(option != RequireScaledOffset);
@@ -1863,9 +1885,23 @@ void Assembler::prfum(PrefetchOperation op,
   Prefetch(op, address, option);
 }
 
+void Assembler::prfum(PrefetchOperation op,
+                      const MemOperand& address,
+                      LoadStoreScalingOption option) {
+  // Passing unnamed values in 'op' is undefined behaviour in C++.
+  VIXL_ASSERT(IsNamedPrefetchOperation(op));
+  prfum(static_cast<int>(op), address, option);
+}
+
+
+void Assembler::prfm(int op, RawLiteral* literal) {
+  prfm(op, static_cast<int>(LinkAndGetWordOffsetTo(literal)));
+}
 
 void Assembler::prfm(PrefetchOperation op, RawLiteral* literal) {
-  prfm(op, static_cast<int>(LinkAndGetWordOffsetTo(literal)));
+  // Passing unnamed values in 'op' is undefined behaviour in C++.
+  VIXL_ASSERT(IsNamedPrefetchOperation(op));
+  prfm(static_cast<int>(op), literal);
 }
 
 
@@ -1933,6 +1969,7 @@ void Assembler::LoadStoreStructVerify(const VRegister& vt,
   // Assert that addressing mode is either offset (with immediate 0), post
   // index by immediate of the size of the register list, or post index by a
   // value in a core register.
+  VIXL_ASSERT(vt.HasSize() && vt.HasLaneSize());
   if (addr.IsImmediateOffset()) {
     VIXL_ASSERT(addr.GetOffset() == 0);
   } else {
@@ -2290,6 +2327,7 @@ void Assembler::LoadStoreStructSingle(const VRegister& vt,
   // We support vt arguments of the form vt.VxT() or vt.T(), where x is the
   // number of lanes, and T is b, h, s or d.
   unsigned lane_size = vt.GetLaneSizeInBytes();
+  VIXL_ASSERT(lane_size > 0);
   VIXL_ASSERT(lane < (kQRegSizeInBytes / lane_size));
 
   // Lane size is encoded in the opcode field. Lane index is encoded in the Q,
@@ -2424,7 +2462,7 @@ void Assembler::NEON3DifferentHN(const VRegister& vd,
 // clang-format on
 
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)                   \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, AS)                   \
 void Assembler::FN(const VRegister& vd,               \
                    const VRegister& vn,               \
                    const VRegister& vm) {             \
@@ -2432,8 +2470,8 @@ void Assembler::FN(const VRegister& vd,               \
   VIXL_ASSERT(AS);                                    \
   NEON3DifferentL(vd, vn, vm, OP);                    \
 }
-NEON_3DIFF_LONG_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_3DIFF_LONG_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 // clang-format off
 #define NEON_3DIFF_HN_LIST(V)         \
@@ -2447,7 +2485,7 @@ NEON_3DIFF_LONG_LIST(DEFINE_ASM_FUNC)
   V(rsubhn2, NEON_RSUBHN2, vd.IsQ())
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)          \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, AS)     \
   void Assembler::FN(const VRegister& vd,    \
                      const VRegister& vn,    \
                      const VRegister& vm) {  \
@@ -2455,8 +2493,8 @@ NEON_3DIFF_LONG_LIST(DEFINE_ASM_FUNC)
     VIXL_ASSERT(AS);                         \
     NEON3DifferentHN(vd, vn, vm, OP);        \
   }
-NEON_3DIFF_HN_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_3DIFF_HN_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 void Assembler::uaddw(const VRegister& vd,
                       const VRegister& vn,
@@ -3104,7 +3142,7 @@ void Assembler::NEONFP16ConvertToInt(const VRegister& vd,
   V(fcvtau, NEON_FCVTAU, FCVTAU)     \
   V(fcvtas, NEON_FCVTAS, FCVTAS)
 
-#define DEFINE_ASM_FUNCS(FN, VEC_OP, SCA_OP)                     \
+#define VIXL_DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP)                 \
   void Assembler::FN(const Register& rd, const VRegister& vn) {  \
     VIXL_ASSERT(CPUHas(CPUFeatures::kFP));                       \
     if (vn.IsH()) VIXL_ASSERT(CPUHas(CPUFeatures::kFPHalf));     \
@@ -3119,8 +3157,8 @@ void Assembler::NEONFP16ConvertToInt(const VRegister& vd,
       NEONFPConvertToInt(vd, vn, VEC_OP);                        \
     }                                                            \
   }
-NEON_FP2REGMISC_FCVT_LIST(DEFINE_ASM_FUNCS)
-#undef DEFINE_ASM_FUNCS
+NEON_FP2REGMISC_FCVT_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 void Assembler::fcvtzs(const Register& rd, const VRegister& vn, int fbits) {
@@ -3308,7 +3346,7 @@ void Assembler::NEON3SameFP16(const VRegister& vd,
   V(frecpe,  NEON_FRECPE,  NEON_FRECPE_scalar,  NEON_FRECPE_H_scalar)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP, SCA_OP_H)                        \
+#define VIXL_DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP, SCA_OP_H)                   \
   void Assembler::FN(const VRegister& vd, const VRegister& vn) {             \
     VIXL_ASSERT(CPUHas(CPUFeatures::kFP));                                   \
     Instr op;                                                                \
@@ -3348,8 +3386,8 @@ void Assembler::NEON3SameFP16(const VRegister& vd,
       NEONFP2RegMisc(vd, vn, op);                                            \
     }                                                                        \
   }
-NEON_FP2REGMISC_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_FP2REGMISC_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 // clang-format off
 #define NEON_FP2REGMISC_V85_LIST(V)       \
@@ -3359,7 +3397,7 @@ NEON_FP2REGMISC_LIST(DEFINE_ASM_FUNC)
   V(frint64z,  NEON_FRINT64Z,  FRINT64Z)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP)                                    \
+#define VIXL_DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP)                               \
   void Assembler::FN(const VRegister& vd, const VRegister& vn) {               \
     VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kFrintToFixedSizedInt)); \
     Instr op;                                                                  \
@@ -3373,8 +3411,8 @@ NEON_FP2REGMISC_LIST(DEFINE_ASM_FUNC)
     }                                                                          \
     NEONFP2RegMisc(vd, vn, op);                                                \
   }
-NEON_FP2REGMISC_V85_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_FP2REGMISC_V85_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 void Assembler::NEONFP2RegMiscFP16(const VRegister& vd,
                                    const VRegister& vn,
@@ -3638,7 +3676,7 @@ void Assembler::frecpx(const VRegister& vd, const VRegister& vn) {
   V(uqrshl,   NEON_UQRSHL,   true)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)          \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, AS)     \
   void Assembler::FN(const VRegister& vd,    \
                      const VRegister& vn,    \
                      const VRegister& vm) {  \
@@ -3646,8 +3684,8 @@ void Assembler::frecpx(const VRegister& vd, const VRegister& vn) {
     VIXL_ASSERT(AS);                         \
     NEON3Same(vd, vn, vm, OP);               \
   }
-NEON_3SAME_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_3SAME_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 // clang-format off
 #define NEON_FP3SAME_OP_LIST(V)                                        \
@@ -3680,7 +3718,7 @@ NEON_3SAME_LIST(DEFINE_ASM_FUNC)
 // TODO: This macro is complicated because it classifies the instructions in the
 // macro list above, and treats each case differently. It could be somewhat
 // simpler if we were to split the macro, at the cost of some duplication.
-#define DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP, SCA_OP_H)                    \
+#define VIXL_DEFINE_ASM_FUNC(FN, VEC_OP, SCA_OP, SCA_OP_H)               \
   void Assembler::FN(const VRegister& vd,                                \
                      const VRegister& vn,                                \
                      const VRegister& vm) {                              \
@@ -3720,8 +3758,8 @@ NEON_3SAME_LIST(DEFINE_ASM_FUNC)
       NEONFP3Same(vd, vn, vm, op);                                       \
     }                                                                    \
   }
-NEON_FP3SAME_OP_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_FP3SAME_OP_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -3732,7 +3770,7 @@ NEON_FP3SAME_OP_LIST(DEFINE_ASM_FUNC)
   V(fmlsl2,  NEON_FMLSL2)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, VEC_OP)                         \
+#define VIXL_DEFINE_ASM_FUNC(FN, VEC_OP)                    \
   void Assembler::FN(const VRegister& vd,                   \
                      const VRegister& vn,                   \
                      const VRegister& vm) {                 \
@@ -3744,8 +3782,8 @@ NEON_FP3SAME_OP_LIST(DEFINE_ASM_FUNC)
                 (vd.Is4S() && vn.Is4H() && vm.Is4H()));     \
     Emit(FPFormat(vd) | VEC_OP | Rm(vm) | Rn(vn) | Rd(vd)); \
   }
-NEON_FHM_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_FHM_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 void Assembler::addp(const VRegister& vd, const VRegister& vn) {
@@ -4138,7 +4176,7 @@ void Assembler::udot(const VRegister& vd,
   V(sqrdmulh, NEON_SQRDMULH_byelement, true)          \
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)                     \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, AS)                     \
   void Assembler::FN(const VRegister& vd,               \
                      const VRegister& vn,               \
                      const VRegister& vm,               \
@@ -4147,8 +4185,8 @@ void Assembler::udot(const VRegister& vd,
     VIXL_ASSERT(AS);                                    \
     NEONByElement(vd, vn, vm, vm_index, OP);            \
   }
-NEON_BYELEMENT_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_BYELEMENT_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -4157,7 +4195,7 @@ NEON_BYELEMENT_LIST(DEFINE_ASM_FUNC)
   V(sqrdmlsh, NEON_SQRDMLSH_byelement)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP)                                 \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP)                            \
   void Assembler::FN(const VRegister& vd,                       \
                      const VRegister& vn,                       \
                      const VRegister& vm,                       \
@@ -4165,8 +4203,8 @@ NEON_BYELEMENT_LIST(DEFINE_ASM_FUNC)
     VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kRDM)); \
     NEONByElement(vd, vn, vm, vm_index, OP);                    \
   }
-NEON_BYELEMENT_RDM_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_BYELEMENT_RDM_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -4177,7 +4215,7 @@ NEON_BYELEMENT_RDM_LIST(DEFINE_ASM_FUNC)
   V(fmulx, NEON_FMULX_byelement, NEON_FMULX_H_byelement)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, OP_H)                                  \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, OP_H)                             \
   void Assembler::FN(const VRegister& vd,                              \
                      const VRegister& vn,                              \
                      const VRegister& vm,                              \
@@ -4186,8 +4224,8 @@ NEON_BYELEMENT_RDM_LIST(DEFINE_ASM_FUNC)
     if (vd.IsLaneSizeH()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf)); \
     NEONFPByElement(vd, vn, vm, vm_index, OP, OP_H);                   \
   }
-NEON_FPBYELEMENT_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_FPBYELEMENT_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -4213,7 +4251,7 @@ NEON_FPBYELEMENT_LIST(DEFINE_ASM_FUNC)
 // clang-format on
 
 
-#define DEFINE_ASM_FUNC(FN, OP, AS)           \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, AS)      \
   void Assembler::FN(const VRegister& vd,     \
                      const VRegister& vn,     \
                      const VRegister& vm,     \
@@ -4222,8 +4260,8 @@ NEON_FPBYELEMENT_LIST(DEFINE_ASM_FUNC)
     VIXL_ASSERT(AS);                          \
     NEONByElementL(vd, vn, vm, vm_index, OP); \
   }
-NEON_BYELEMENT_LONG_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_BYELEMENT_LONG_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -4235,7 +4273,7 @@ NEON_BYELEMENT_LONG_LIST(DEFINE_ASM_FUNC)
 // clang-format on
 
 
-#define DEFINE_ASM_FUNC(FN, OP)                                        \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP)                                   \
   void Assembler::FN(const VRegister& vd,                              \
                      const VRegister& vn,                              \
                      const VRegister& vm,                              \
@@ -4252,8 +4290,8 @@ NEON_BYELEMENT_LONG_LIST(DEFINE_ASM_FUNC)
     Emit(FPFormat(vd) | OP | Rd(vd) | Rn(vn) | Rm(vm) |                \
          ImmNEONHLM(vm_index, 3));                                     \
   }
-NEON_BYELEMENT_FHM_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_BYELEMENT_FHM_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 void Assembler::suqadd(const VRegister& vd, const VRegister& vn) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
@@ -4763,13 +4801,13 @@ void Assembler::NEONAcrossLanes(const VRegister& vd,
   V(uminv,   NEON_UMINV)
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP)                                  \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP)                             \
   void Assembler::FN(const VRegister& vd, const VRegister& vn) { \
     VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));                     \
     NEONAcrossLanes(vd, vn, OP, 0);                              \
   }
-NEON_ACROSSLANES_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_ACROSSLANES_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 // clang-format off
@@ -4780,15 +4818,15 @@ NEON_ACROSSLANES_LIST(DEFINE_ASM_FUNC)
   V(fminnmv, NEON_FMINNMV, NEON_FMINNMV_H) \
 // clang-format on
 
-#define DEFINE_ASM_FUNC(FN, OP, OP_H)                            \
+#define VIXL_DEFINE_ASM_FUNC(FN, OP, OP_H)                            \
   void Assembler::FN(const VRegister& vd, const VRegister& vn) { \
     VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));   \
     if (vd.Is1H()) VIXL_ASSERT(CPUHas(CPUFeatures::kNEONHalf));  \
     VIXL_ASSERT(vd.Is1S() || vd.Is1H());                         \
     NEONAcrossLanes(vd, vn, OP, OP_H);                           \
   }
-NEON_ACROSSLANES_FP_LIST(DEFINE_ASM_FUNC)
-#undef DEFINE_ASM_FUNC
+NEON_ACROSSLANES_FP_LIST(VIXL_DEFINE_ASM_FUNC)
+#undef VIXL_DEFINE_ASM_FUNC
 
 
 void Assembler::NEONPerm(const VRegister& vd,
@@ -4870,9 +4908,9 @@ void Assembler::NEONShiftLeftImmediate(const VRegister& vd,
                                        const VRegister& vn,
                                        int shift,
                                        NEONShiftImmediateOp op) {
-  int laneSizeInBits = vn.GetLaneSizeInBits();
-  VIXL_ASSERT((shift >= 0) && (shift < laneSizeInBits));
-  NEONShiftImmediate(vd, vn, op, (laneSizeInBits + shift) << 16);
+  int lane_size_in_bits = vn.GetLaneSizeInBits();
+  VIXL_ASSERT((shift >= 0) && (shift < lane_size_in_bits));
+  NEONShiftImmediate(vd, vn, op, (lane_size_in_bits + shift) << 16);
 }
 
 
@@ -4880,9 +4918,9 @@ void Assembler::NEONShiftRightImmediate(const VRegister& vd,
                                         const VRegister& vn,
                                         int shift,
                                         NEONShiftImmediateOp op) {
-  int laneSizeInBits = vn.GetLaneSizeInBits();
-  VIXL_ASSERT((shift >= 1) && (shift <= laneSizeInBits));
-  NEONShiftImmediate(vd, vn, op, ((2 * laneSizeInBits) - shift) << 16);
+  int lane_size_in_bits = vn.GetLaneSizeInBits();
+  VIXL_ASSERT((shift >= 1) && (shift <= lane_size_in_bits));
+  NEONShiftImmediate(vd, vn, op, ((2 * lane_size_in_bits) - shift) << 16);
 }
 
 
@@ -4890,9 +4928,9 @@ void Assembler::NEONShiftImmediateL(const VRegister& vd,
                                     const VRegister& vn,
                                     int shift,
                                     NEONShiftImmediateOp op) {
-  int laneSizeInBits = vn.GetLaneSizeInBits();
-  VIXL_ASSERT((shift >= 0) && (shift < laneSizeInBits));
-  int immh_immb = (laneSizeInBits + shift) << 16;
+  int lane_size_in_bits = vn.GetLaneSizeInBits();
+  VIXL_ASSERT((shift >= 0) && (shift < lane_size_in_bits));
+  int immh_immb = (lane_size_in_bits + shift) << 16;
 
   VIXL_ASSERT((vn.Is8B() && vd.Is8H()) || (vn.Is4H() && vd.Is4S()) ||
               (vn.Is2S() && vd.Is2D()) || (vn.Is16B() && vd.Is8H()) ||
@@ -4908,9 +4946,9 @@ void Assembler::NEONShiftImmediateN(const VRegister& vd,
                                     int shift,
                                     NEONShiftImmediateOp op) {
   Instr q, scalar;
-  int laneSizeInBits = vd.GetLaneSizeInBits();
-  VIXL_ASSERT((shift >= 1) && (shift <= laneSizeInBits));
-  int immh_immb = (2 * laneSizeInBits - shift) << 16;
+  int lane_size_in_bits = vd.GetLaneSizeInBits();
+  VIXL_ASSERT((shift >= 1) && (shift <= lane_size_in_bits));
+  int immh_immb = (2 * lane_size_in_bits - shift) << 16;
 
   if (vn.IsScalar()) {
     VIXL_ASSERT((vd.Is1B() && vn.Is1H()) || (vd.Is1H() && vn.Is1S()) ||
@@ -5271,6 +5309,7 @@ void Assembler::MoveWide(const Register& rd,
   } else {
     // Calculate a new immediate and shift combination to encode the immediate
     // argument.
+    VIXL_ASSERT(shift == -1);
     shift = 0;
     if ((imm & 0xffffffffffff0000) == 0) {
       // Nothing to do.
@@ -5604,7 +5643,7 @@ void Assembler::DataProcExtendedRegister(const Register& rd,
 
 
 Instr Assembler::LoadStoreMemOperand(const MemOperand& addr,
-                                     unsigned access_size,
+                                     unsigned access_size_in_bytes_log2,
                                      LoadStoreScalingOption option) {
   Instr base = RnSP(addr.GetBaseRegister());
   int64_t offset = addr.GetOffset();
@@ -5614,21 +5653,22 @@ Instr Assembler::LoadStoreMemOperand(const MemOperand& addr,
         (option == PreferUnscaledOffset) || (option == RequireUnscaledOffset);
     if (prefer_unscaled && IsImmLSUnscaled(offset)) {
       // Use the unscaled addressing mode.
-      return base | LoadStoreUnscaledOffsetFixed |
-             ImmLS(static_cast<int>(offset));
+      return base | LoadStoreUnscaledOffsetFixed | ImmLS(offset);
     }
 
     if ((option != RequireUnscaledOffset) &&
-        IsImmLSScaled(offset, access_size)) {
+        IsImmLSScaled(offset, access_size_in_bytes_log2)) {
+      // We need `offset` to be positive for the shift to be well-defined.
+      // IsImmLSScaled should check this.
+      VIXL_ASSERT(offset >= 0);
       // Use the scaled addressing mode.
       return base | LoadStoreUnsignedOffsetFixed |
-             ImmLSUnsigned(static_cast<int>(offset) >> access_size);
+             ImmLSUnsigned(offset >> access_size_in_bytes_log2);
     }
 
     if ((option != RequireScaledOffset) && IsImmLSUnscaled(offset)) {
       // Use the unscaled addressing mode.
-      return base | LoadStoreUnscaledOffsetFixed |
-             ImmLS(static_cast<int>(offset));
+      return base | LoadStoreUnscaledOffsetFixed | ImmLS(offset);
     }
   }
 
@@ -5649,17 +5689,17 @@ Instr Assembler::LoadStoreMemOperand(const MemOperand& addr,
 
     // Shifts are encoded in one bit, indicating a left shift by the memory
     // access size.
-    VIXL_ASSERT((shift_amount == 0) || (shift_amount == access_size));
+    VIXL_ASSERT((shift_amount == 0) || (shift_amount == access_size_in_bytes_log2));
     return base | LoadStoreRegisterOffsetFixed | Rm(addr.GetRegisterOffset()) |
            ExtendMode(ext) | ImmShiftLS((shift_amount > 0) ? 1 : 0);
   }
 
   if (addr.IsPreIndex() && IsImmLSUnscaled(offset)) {
-    return base | LoadStorePreIndexFixed | ImmLS(static_cast<int>(offset));
+    return base | LoadStorePreIndexFixed | ImmLS(offset);
   }
 
   if (addr.IsPostIndex() && IsImmLSUnscaled(offset)) {
-    return base | LoadStorePostIndexFixed | ImmLS(static_cast<int>(offset));
+    return base | LoadStorePostIndexFixed | ImmLS(offset);
   }
 
   // If this point is reached, the MemOperand (addr) cannot be encoded.
@@ -5694,13 +5734,21 @@ void Assembler::LoadStorePAC(const Register& xt,
 }
 
 
-void Assembler::Prefetch(PrefetchOperation op,
+void Assembler::Prefetch(int op,
                          const MemOperand& addr,
                          LoadStoreScalingOption option) {
   VIXL_ASSERT(addr.IsRegisterOffset() || addr.IsImmediateOffset());
 
   Instr prfop = ImmPrefetchOperation(op);
   Emit(PRFM | prfop | LoadStoreMemOperand(addr, kXRegSizeInBytesLog2, option));
+}
+
+void Assembler::Prefetch(PrefetchOperation op,
+                         const MemOperand& addr,
+                         LoadStoreScalingOption option) {
+  // Passing unnamed values in 'op' is undefined behaviour in C++.
+  VIXL_ASSERT(IsNamedPrefetchOperation(op));
+  Prefetch(static_cast<int>(op), addr, option);
 }
 
 
@@ -5788,17 +5836,17 @@ bool Assembler::IsImmFP64(double imm) {
 }
 
 
-bool Assembler::IsImmLSPair(int64_t offset, unsigned access_size) {
-  VIXL_ASSERT(access_size <= kQRegSizeInBytesLog2);
-  return IsMultiple(offset, 1 << access_size) &&
-         IsInt7(offset / (1 << access_size));
+bool Assembler::IsImmLSPair(int64_t offset, unsigned access_size_in_bytes_log2) {
+  VIXL_ASSERT(access_size_in_bytes_log2 <= kQRegSizeInBytesLog2);
+  return IsMultiple(offset, 1 << access_size_in_bytes_log2) &&
+         IsInt7(offset / (1 << access_size_in_bytes_log2));
 }
 
 
-bool Assembler::IsImmLSScaled(int64_t offset, unsigned access_size) {
-  VIXL_ASSERT(access_size <= kQRegSizeInBytesLog2);
-  return IsMultiple(offset, 1 << access_size) &&
-         IsUint12(offset / (1 << access_size));
+bool Assembler::IsImmLSScaled(int64_t offset, unsigned access_size_in_bytes_log2) {
+  VIXL_ASSERT(access_size_in_bytes_log2 <= kQRegSizeInBytesLog2);
+  return IsMultiple(offset, 1 << access_size_in_bytes_log2) &&
+         IsUint12(offset / (1 << access_size_in_bytes_log2));
 }
 
 
@@ -5832,7 +5880,8 @@ bool Assembler::IsImmLogical(uint64_t value,
                              unsigned* n,
                              unsigned* imm_s,
                              unsigned* imm_r) {
-  VIXL_ASSERT((width == kWRegSize) || (width == kXRegSize));
+  VIXL_ASSERT((width == kBRegSize) || (width == kHRegSize) ||
+              (width == kSRegSize) || (width == kDRegSize));
 
   bool negate = false;
 
@@ -5873,16 +5922,18 @@ bool Assembler::IsImmLogical(uint64_t value,
     value = ~value;
   }
 
-  if (width == kWRegSize) {
-    // To handle 32-bit logical immediates, the very easiest thing is to repeat
-    // the input value twice to make a 64-bit word. The correct encoding of that
-    // as a logical immediate will also be the correct encoding of the 32-bit
-    // value.
+  if (width <= kWRegSize) {
+    // To handle 8/16/32-bit logical immediates, the very easiest thing is to repeat
+    // the input value to fill a 64-bit word. The correct encoding of that as a
+    // logical immediate will also be the correct encoding of the value.
 
-    // Avoid making the assumption that the most-significant 32 bits are zero by
+    // Avoid making the assumption that the most-significant 56/48/32 bits are zero by
     // shifting the value left and duplicating it.
-    value <<= kWRegSize;
-    value |= value >> kWRegSize;
+    for (unsigned bits = width; bits <= kWRegSize; bits *= 2) {
+      value <<= bits;
+      uint64_t mask = (UINT64_C(1) << bits) - 1;
+      value |= ((value >> bits) & mask);
+    }
   }
 
   // The basic analysis idea: imagine our input word looks like this.
@@ -6186,152 +6237,5 @@ bool Assembler::CPUHas(SystemRegister sysreg) const {
 }
 
 
-bool AreAliased(const CPURegister& reg1,
-                const CPURegister& reg2,
-                const CPURegister& reg3,
-                const CPURegister& reg4,
-                const CPURegister& reg5,
-                const CPURegister& reg6,
-                const CPURegister& reg7,
-                const CPURegister& reg8) {
-  int number_of_valid_regs = 0;
-  int number_of_valid_fpregs = 0;
-
-  RegList unique_regs = 0;
-  RegList unique_fpregs = 0;
-
-  const CPURegister regs[] = {reg1, reg2, reg3, reg4, reg5, reg6, reg7, reg8};
-
-  for (size_t i = 0; i < ArrayLength(regs); i++) {
-    if (regs[i].IsRegister()) {
-      number_of_valid_regs++;
-      unique_regs |= regs[i].GetBit();
-    } else if (regs[i].IsVRegister()) {
-      number_of_valid_fpregs++;
-      unique_fpregs |= regs[i].GetBit();
-    } else {
-      VIXL_ASSERT(!regs[i].IsValid());
-    }
-  }
-
-  int number_of_unique_regs = CountSetBits(unique_regs);
-  int number_of_unique_fpregs = CountSetBits(unique_fpregs);
-
-  VIXL_ASSERT(number_of_valid_regs >= number_of_unique_regs);
-  VIXL_ASSERT(number_of_valid_fpregs >= number_of_unique_fpregs);
-
-  return (number_of_valid_regs != number_of_unique_regs) ||
-         (number_of_valid_fpregs != number_of_unique_fpregs);
-}
-
-
-bool AreSameSizeAndType(const CPURegister& reg1,
-                        const CPURegister& reg2,
-                        const CPURegister& reg3,
-                        const CPURegister& reg4,
-                        const CPURegister& reg5,
-                        const CPURegister& reg6,
-                        const CPURegister& reg7,
-                        const CPURegister& reg8) {
-  VIXL_ASSERT(reg1.IsValid());
-  bool match = true;
-  match &= !reg2.IsValid() || reg2.IsSameSizeAndType(reg1);
-  match &= !reg3.IsValid() || reg3.IsSameSizeAndType(reg1);
-  match &= !reg4.IsValid() || reg4.IsSameSizeAndType(reg1);
-  match &= !reg5.IsValid() || reg5.IsSameSizeAndType(reg1);
-  match &= !reg6.IsValid() || reg6.IsSameSizeAndType(reg1);
-  match &= !reg7.IsValid() || reg7.IsSameSizeAndType(reg1);
-  match &= !reg8.IsValid() || reg8.IsSameSizeAndType(reg1);
-  return match;
-}
-
-bool AreEven(const CPURegister& reg1,
-             const CPURegister& reg2,
-             const CPURegister& reg3,
-             const CPURegister& reg4,
-             const CPURegister& reg5,
-             const CPURegister& reg6,
-             const CPURegister& reg7,
-             const CPURegister& reg8) {
-  VIXL_ASSERT(reg1.IsValid());
-  bool even = (reg1.GetCode() % 2) == 0;
-  even &= !reg2.IsValid() || ((reg2.GetCode() % 2) == 0);
-  even &= !reg3.IsValid() || ((reg3.GetCode() % 2) == 0);
-  even &= !reg4.IsValid() || ((reg4.GetCode() % 2) == 0);
-  even &= !reg5.IsValid() || ((reg5.GetCode() % 2) == 0);
-  even &= !reg6.IsValid() || ((reg6.GetCode() % 2) == 0);
-  even &= !reg7.IsValid() || ((reg7.GetCode() % 2) == 0);
-  even &= !reg8.IsValid() || ((reg8.GetCode() % 2) == 0);
-  return even;
-}
-
-
-bool AreConsecutive(const CPURegister& reg1,
-                    const CPURegister& reg2,
-                    const CPURegister& reg3,
-                    const CPURegister& reg4) {
-  VIXL_ASSERT(reg1.IsValid());
-
-  if (!reg2.IsValid()) {
-    return true;
-  } else if (reg2.GetCode() != ((reg1.GetCode() + 1) % kNumberOfRegisters)) {
-    return false;
-  }
-
-  if (!reg3.IsValid()) {
-    return true;
-  } else if (reg3.GetCode() != ((reg2.GetCode() + 1) % kNumberOfRegisters)) {
-    return false;
-  }
-
-  if (!reg4.IsValid()) {
-    return true;
-  } else if (reg4.GetCode() != ((reg3.GetCode() + 1) % kNumberOfRegisters)) {
-    return false;
-  }
-
-  return true;
-}
-
-
-bool AreSameFormat(const VRegister& reg1,
-                   const VRegister& reg2,
-                   const VRegister& reg3,
-                   const VRegister& reg4) {
-  VIXL_ASSERT(reg1.IsValid());
-  bool match = true;
-  match &= !reg2.IsValid() || reg2.IsSameFormat(reg1);
-  match &= !reg3.IsValid() || reg3.IsSameFormat(reg1);
-  match &= !reg4.IsValid() || reg4.IsSameFormat(reg1);
-  return match;
-}
-
-
-bool AreConsecutive(const VRegister& reg1,
-                    const VRegister& reg2,
-                    const VRegister& reg3,
-                    const VRegister& reg4) {
-  VIXL_ASSERT(reg1.IsValid());
-
-  if (!reg2.IsValid()) {
-    return true;
-  } else if (reg2.GetCode() != ((reg1.GetCode() + 1) % kNumberOfVRegisters)) {
-    return false;
-  }
-
-  if (!reg3.IsValid()) {
-    return true;
-  } else if (reg3.GetCode() != ((reg2.GetCode() + 1) % kNumberOfVRegisters)) {
-    return false;
-  }
-
-  if (!reg4.IsValid()) {
-    return true;
-  } else if (reg4.GetCode() != ((reg3.GetCode() + 1) % kNumberOfVRegisters)) {
-    return false;
-  }
-
-  return true;
-}
 }  // namespace aarch64
 }  // namespace vixl

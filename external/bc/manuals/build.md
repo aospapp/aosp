@@ -37,9 +37,50 @@ See [Build Environment Variables][4] for a more detailed description of all
 accepted environment variables and [Build Options][5] for more detail about all
 accepted build options.
 
+## Windows
+
+On Windows, this `bc` can be built using Visual Studio or MSBuild.
+
+However, only one build configuration (besides Debug or Release) is supported:
+extra math and prompt enabled, history and NLS (locale support) disabled, with
+both calculators built.
+
+The library can also be built on Windows.
+
+### Visual Studio
+
+In Visual Studio, open up the solution file (`bc.sln` for `bc`, or `bcl.sln` for
+the library), select the desired configuration, and build.
+
+### MSBuild
+
+To build with MSBuild, first, *be sure that you are using the MSBuild that comes
+with Visual Studio*.
+
+To build `bc`, run the following from the root directory:
+
+```
+msbuild -property:Configuration=<config> bc.sln
+```
+
+where `<config>` is either one of `Debug` or `Release`.
+
+To build the library, run the following from the root directory:
+
+```
+msbuild -property:Configuration=<config> bcl.sln
+```
+
+where `<config>` is either one of `Debug` or `Release`.
+
+## POSIX-Compatible Systems
+
+Building `bc`, `dc`, and `bcl` (the library) is more complex than on Windows
+because many build options are supported.
+
 <a name="cross-compiling"/>
 
-## Cross Compiling
+### Cross Compiling
 
 To cross-compile this `bc`, an appropriate compiler must be present and assigned
 to the environment variable `HOSTCC` or `HOST_CC` (the two are equivalent,
@@ -69,7 +110,7 @@ the environment variable `GEN_EMU`.
 
 <a name="build-environment-variables"/>
 
-## Build Environment Variables
+### Build Environment Variables
 
 This `bc` supports `CC`, `HOSTCC`, `HOST_CC`, `CFLAGS`, `HOSTCFLAGS`,
 `HOST_CFLAGS`, `CPPFLAGS`, `LDFLAGS`, `LDLIBS`, `PREFIX`, `DESTDIR`, `BINDIR`,
@@ -81,46 +122,56 @@ put into the generated Makefile.
 More detail on what those environment variables do can be found in the following
 sections.
 
-### `CC`
+#### `CC`
 
 C compiler for the target system. `CC` must be compatible with POSIX `c99`
-behavior and options.
+behavior and options. However, **I encourage users to use any C99 or C11
+compatible compiler they wish.**
+
+If there is a space in the basename of the compiler, the items after the first
+space are assumed to be compiler flags, and in that case, the flags are
+automatically moved into CFLAGS.
 
 Defaults to `c99`.
 
 ### `HOSTCC` or `HOST_CC`
 
-C compiler for the host system, used only in [cross compiling][6].
+C compiler for the host system, used only in [cross compiling][6]. Must be
+compatible with POSIX `c99` behavior and options.
+
+If there is a space in the basename of the compiler, the items after the first
+space are assumed to be compiler flags, and in that case, the flags are
+automatically moved into HOSTCFLAGS.
 
 Defaults to `$CC`.
 
-### `CFLAGS`
+#### `CFLAGS`
 
 Command-line flags that will be passed verbatim to `CC`.
 
 Defaults to empty.
 
-### `HOSTCFLAGS` or `HOST_CFLAGS`
+#### `HOSTCFLAGS` or `HOST_CFLAGS`
 
 Command-line flags that will be passed verbatim to `HOSTCC` or `HOST_CC`.
 
 Defaults to `$CFLAGS`.
 
-### `CPPFLAGS`
+#### `CPPFLAGS`
 
 Command-line flags for the C preprocessor. These are also passed verbatim to
 both compilers (`CC` and `HOSTCC`); they are supported just for legacy reasons.
 
 Defaults to empty.
 
-### `LDFLAGS`
+#### `LDFLAGS`
 
 Command-line flags for the linker. These are also passed verbatim to both
 compilers (`CC` and `HOSTCC`); they are supported just for legacy reasons.
 
 Defaults to empty.
 
-### `LDLIBS`
+#### `LDLIBS`
 
 Libraries to link to. These are also passed verbatim to both compilers (`CC` and
 `HOSTCC`); they are supported just for legacy reasons and for cross compiling
@@ -128,7 +179,7 @@ with different C standard libraries (like [musl][3]).
 
 Defaults to empty.
 
-### `PREFIX`
+#### `PREFIX`
 
 The prefix to install to.
 
@@ -136,7 +187,7 @@ Can be overridden by passing the `--prefix` option to `configure.sh`.
 
 Defaults to `/usr/local`.
 
-### `DESTDIR`
+#### `DESTDIR`
 
 Path to prepend onto `PREFIX`. This is mostly for distro and package
 maintainers.
@@ -146,7 +197,7 @@ to both, the one given to `configure.sh` takes precedence.
 
 Defaults to empty.
 
-### `BINDIR`
+#### `BINDIR`
 
 The directory to install binaries in.
 
@@ -154,7 +205,23 @@ Can be overridden by passing the `--bindir` option to `configure.sh`.
 
 Defaults to `$PREFIX/bin`.
 
-### `DATAROOTDIR`
+#### `INCLUDEDIR`
+
+The directory to install header files in.
+
+Can be overridden by passing the `--includedir` option to `configure.sh`.
+
+Defaults to `$PREFIX/include`.
+
+#### `LIBDIR`
+
+The directory to install libraries in.
+
+Can be overridden by passing the `--libdir` option to `configure.sh`.
+
+Defaults to `$PREFIX/lib`.
+
+#### `DATAROOTDIR`
 
 The root directory to install data files in.
 
@@ -162,7 +229,7 @@ Can be overridden by passing the `--datarootdir` option to `configure.sh`.
 
 Defaults to `$PREFIX/share`.
 
-### `DATADIR`
+#### `DATADIR`
 
 The directory to install data files in.
 
@@ -170,7 +237,7 @@ Can be overridden by passing the `--datadir` option to `configure.sh`.
 
 Defaults to `$DATAROOTDIR`.
 
-### `MANDIR`
+#### `MANDIR`
 
 The directory to install manpages in.
 
@@ -178,7 +245,7 @@ Can be overridden by passing the `--mandir` option to `configure.sh`.
 
 Defaults to `$DATADIR/man`
 
-### `MAN1DIR`
+#### `MAN1DIR`
 
 The directory to install Section 1 manpages in. Because both `bc` and `dc` are
 Section 1 commands, this is the only relevant section directory.
@@ -187,7 +254,7 @@ Can be overridden by passing the `--man1dir` option to `configure.sh`.
 
 Defaults to `$MANDIR/man1`.
 
-### `LOCALEDIR`
+#### `LOCALEDIR`
 
 The directory to install locales in.
 
@@ -195,7 +262,7 @@ Can be overridden by passing the `--localedir` option to `configure.sh`.
 
 Defaults to `$DATAROOTDIR/locale`.
 
-### `EXECSUFFIX`
+#### `EXECSUFFIX`
 
 The suffix to append onto the executable names *when installing*. This is for
 packagers and distro maintainers who want this `bc` as an option, but do not
@@ -203,7 +270,7 @@ want to replace the default `bc`.
 
 Defaults to empty.
 
-### `EXECPREFIX`
+#### `EXECPREFIX`
 
 The prefix to append onto the executable names *when building and installing*.
 This is for packagers and distro maintainers who want this `bc` as an option,
@@ -211,7 +278,7 @@ but do not want to replace the default `bc`.
 
 Defaults to empty.
 
-### `LONG_BIT`
+#### `LONG_BIT`
 
 The number of bits in a C `long` type. This is mostly for the embedded space.
 
@@ -228,7 +295,7 @@ compliance with the `bc` spec, the minimum allowed value is `32`.
 It is an error if the specified value is greater than the default value of
 `LONG_BIT` for the target platform.
 
-### `GEN_HOST`
+#### `GEN_HOST`
 
 Whether to use `gen/strgen.c`, instead of `gen/strgen.sh`, to produce the C
 files that contain the help texts as well as the math libraries. By default,
@@ -248,7 +315,7 @@ or a non-existent value, will cause the build system to compile and run
 
 Default is "".
 
-### `GEN_EMU`
+#### `GEN_EMU`
 
 The emulator to run bootstrap binaries under. This is only if the binaries
 produced by `HOSTCC` (or `HOST_CC`) need to be run under an emulator to work.
@@ -257,7 +324,7 @@ Defaults to empty.
 
 <a name="build-options"/>
 
-## Build Options
+### Build Options
 
 This `bc` comes with several build options, all of which are enabled by default.
 
@@ -272,7 +339,30 @@ following forms:
 --option=arg
 ```
 
-### `bc` Only
+#### Library
+
+To build the math library, use the following commands for the configure step:
+
+```
+./configure.sh -a
+./configure.sh --library
+```
+
+Both commands are equivalent.
+
+When the library is built, history, prompt, and locales are disabled, and the
+functionality for `bc` and `dc` are both enabled, though the executables are
+*not* built. This is because the library's options clash with the executables.
+
+To build an optimized version of the library, users can pass optimization
+options to `configure.sh` or include them in `CFLAGS`.
+
+The library API can be found in `manuals/bcl.3.md` or `man bcl` once the library
+is installed.
+
+The library is built as `bin/libbcl.a`.
+
+#### `bc` Only
 
 To build `bc` only (no `dc`), use any one of the following commands for the
 configure step:
@@ -289,7 +379,7 @@ Those commands are all equivalent.
 ***Warning***: It is an error to use those options if `bc` has also been
 disabled (see below).
 
-### `dc` Only
+#### `dc` Only
 
 To build `dc` only (no `bc`), use either one of the following commands for the
 configure step:
@@ -306,23 +396,9 @@ Those commands are all equivalent.
 ***Warning***: It is an error to use those options if `dc` has also been
 disabled (see above).
 
-<a name="build-signal-handling"/>
-
-### Signal Handling
-
-To disable signal handling, pass either the `-S` flag or the
-`--disable-signal-handling` option to `configure.sh`, as follows:
-
-```
-./configure.sh -S
-./configure.sh --disable-signal-handling
-```
-
-Both commands are equivalent.
-
 <a name="build-history"/>
 
-### History
+#### History
 
 To disable signal handling, pass either the `-H` flag or the `--disable-history`
 option to `configure.sh`, as follows:
@@ -341,7 +417,7 @@ platform that does not support the terminal handling that is required.
 completely portable. If the `bc` does not work on your platform, your first step
 should be to retry with history disabled.
 
-### NLS (Locale Support)
+#### NLS (Locale Support)
 
 To disable locale support (use only English), pass either the `-N` flag or the
 `--disable-nls` option to `configure.sh`, as follows:
@@ -356,7 +432,7 @@ Both commands are equivalent.
 NLS (locale support) is automatically disabled when building for Windows or on
 another platform that does not support the POSIX locale API or utilities.
 
-### Prompt
+#### Prompt
 
 By default, `bc` and `dc` print a prompt when in interactive mode. They both
 have the command-line option `-P`/`--no-prompt`, which turns that off, but it
@@ -370,7 +446,23 @@ can be disabled permanently in the build by passing the `-P` flag or the
 
 Both commands are equivalent.
 
-### Extra Math
+#### Locales
+
+By default, `bc` and `dc` do not install all locales, but only the enabled
+locales. If `DESTDIR` exists and is not empty, then they will install all of
+the locales that exist on the system. The `-l` flag or `--install-all-locales`
+option skips all of that and just installs all of the locales that `bc` and `dc`
+have, regardless. To enable that behavior, you can pass the `-l` flag or the
+`--install-all-locales` option to `configure.sh`, as follows:
+
+```
+./configure.sh -l
+./configure.sh --install-all-locales
+```
+
+Both commands are equivalent.
+
+#### Extra Math
 
 This `bc` has 7 extra operators:
 
@@ -387,8 +479,14 @@ There is no assignment version of `$` because it is a unary operator.
 The assignment versions of the above operators are not available in `dc`, but
 the others are, as the operators `$`, `@`, `H`, and `h`, respectively.
 
-Extra operators can be disabled by passing either the `-E` flag or the
-`--disable-extra-math` option to `configure.sh`, as follows:
+In addition, this `bc` has the option of outputting in scientific notation or
+engineering notation. It can also take input in scientific or engineering
+notation. On top of that, it has a pseudo-random number generator. (See the
+full manual for more details.)
+
+Extra operators, scientific notation, engineering notation, and the
+pseudo-random number generator can be disabled by passing either the `-E` flag
+or the `--disable-extra-math` option to `configure.sh`, as follows:
 
 ```
 ./configure.sh -E
@@ -397,12 +495,11 @@ Extra operators can be disabled by passing either the `-E` flag or the
 
 Both commands are equivalent.
 
-This `bc` also has a larger library that is only enabled if extra operators are.
-More information about the functions can be found in the
-[Extended Library](./bc.md#extended-library) section of the
-[full manual](./bc.md).
+This `bc` also has a larger library that is only enabled if extra operators and
+the pseudo-random number generator are. More information about the functions can
+be found in the Extended Library section of the full manual.
 
-### Manpages
+#### Manpages
 
 To disable installing manpages, pass either the `-M` flag or the
 `--disable-man-pages` option to `configure.sh` as follows:
@@ -414,7 +511,7 @@ To disable installing manpages, pass either the `-M` flag or the
 
 Both commands are equivalent.
 
-### Karatsuba Length
+#### Karatsuba Length
 
 The Karatsuba length is the point at which `bc` and `dc` switch from Karatsuba
 multiplication to brute force, `O(n^2)` multiplication. It can be set by passing
@@ -433,7 +530,7 @@ Default is `64`.
 to `16` (to prevent stack overflow). If it is not, `configure.sh` will give an
 error.
 
-### Install Options
+#### Install Options
 
 The relevant `autotools`-style install options are supported in `configure.sh`:
 
@@ -464,7 +561,7 @@ environment variable is overridden.
 other command-line options must be used. Mixing long and short options is not
 supported.
 
-## Optimization
+### Optimization
 
 The `configure.sh` script will accept an optimization level to pass to the
 compiler. Because `bc` is orders of magnitude faster with optimization, I
@@ -496,12 +593,15 @@ make install
 ```
 
 Building with link-time optimization (`-flto` in clang) can further increase the
-performance.
+performance. I ***highly*** recommend doing so.
+
+I do **NOT*** recommend building with `-march=native`; doing so reduces this
+`bc`'s performance.
 
 Manual stripping is not necessary; non-debug builds are automatically stripped
 in the link stage.
 
-## Debug Builds
+### Debug Builds
 
 Debug builds (which also disable optimization if no optimization level is given
 and if no extra `CFLAGS` are given) can be enabled with either the `-g` flag or
@@ -521,7 +621,7 @@ make
 make install
 ```
 
-## Stripping Binaries
+### Stripping Binaries
 
 By default, when `bc` and `dc` are not built in debug mode, the binaries are
 stripped. Stripping can be disabled with either the `-T` or the
@@ -541,17 +641,18 @@ make
 make install
 ```
 
-## Binary Size
+### Binary Size
 
-When built with both calculators, all available features, and `-Os` using clang,
-the executable is 113 kb (113,248 bytes) on x86_64. That isn't much for what is
-contained in the binary, but if necessary, it can be reduced.
+When built with both calculators, all available features, and `-Os` using
+`clang` and `musl`, the executable is 140.4 kb (140,386 bytes) on `x86_64`. That
+isn't much for what is contained in the binary, but if necessary, it can be
+reduced.
 
 The single largest user of space is the `bc` calculator. If just `dc` is needed,
-the size can be reduced to 80 kb (80,432 bytes).
+the size can be reduced to 107.6 kb (107,584 bytes).
 
 The next largest user of space is history support. If that is not needed, size
-can be reduced (for a build with both calculators) to 97 kb (97,760 bytes).
+can be reduced (for a build with both calculators) to 119.9 kb (119,866 bytes).
 
 There are several reasons that history is a bigger user of space than `dc`
 itself:
@@ -562,21 +663,34 @@ itself:
   statements, and other extra features.
 * `dc` does not have much extra code in the interpreter.
 * History has a lot of const data for supporting `UTF-8` terminals.
+* History pulls in a bunch of more code from the `libc`.
 
-The next biggest user is `dc`, so if just `bc` is needed, the size can be
-reduced to 101 kb (100,960 bytes) with history and 84 kb (84,472 bytes) without
+The next biggest user is extra math support. Without it, the size is reduced to
+124.0 kb (123,986 bytes) with history and 107.6 kb (107,560 bytes) without
 history.
 
-The next biggest user is signal handling. Without it, the size (with both
-calculators) is reduced to 109 kb (109,120 bytes) with history and 93 kb (93,632
-bytes) without history.
+The reasons why extra math support is bigger than `dc`, besides the fact that
+`dc` is small already, are:
 
-The next largest user is extra math support. If this is not needed, the size
-(with both calculators) can be reduced to 105 kb (105,048 bytes) with history
-and signal handling, 89 kb (88,560 bytes) without history, 101 kb (100,920
-bytes) without signal handling, and 84 kb (84,432 bytes) without both.
+* Extra math supports adds an extra math library that takes several kilobytes of
+  constant data space.
+* Extra math support includes support for a pseudo-random number generator,
+  including the code to convert a series of pseudo-random numbers into a number
+  of arbitrary size.
+* Extra math support adds several operators.
 
-## Testing
+The next biggest user is `dc`, so if just `bc` is needed, the size can be
+reduced to 128.1 kb (128,096 bytes) with history and extra math support, 107.6
+kb (107,576 bytes) without history and with extra math support, and 95.3 kb
+(95,272 bytes) without history and without extra math support.
+
+*Note*: all of these binary sizes were compiled using `musl` `1.2.0` as the
+`libc`, making a fully static executable, with `clang` `9.0.1` (well,
+`musl-clang` using `clang` `9.0.1`) as the compiler and using `-Os`
+optimizations. These builds were done on an `x86_64` machine running Gentoo
+Linux.
+
+### Testing
 
 The default test suite can be run with the following command:
 
@@ -613,7 +727,7 @@ make test
 ```
 
 This `dc` also assumes a working, GNU-compatible `dc`, installed on the system
-and in the `PATH`, to generate some tests, unless on of the above options is
+and in the `PATH`, to generate some tests, unless one of the above options is
 given to `configure.sh`.
 
 To generate test coverage, pass the `-c` flag or the `--coverage` option to

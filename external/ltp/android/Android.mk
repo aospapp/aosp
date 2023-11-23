@@ -23,6 +23,9 @@ ltp_build_prebuilt :=
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := ltp
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0
+LOCAL_LICENSE_CONDITIONS := notice restricted
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../COPYING $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_STEM := disabled_tests.txt
 LOCAL_PREBUILT_MODULE_FILE := $(LOCAL_PATH)/tools/disabled_tests.txt
 LOCAL_MODULE_RELATIVE_PATH := ltp

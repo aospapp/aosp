@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """
 readprofile - a tool to read kernel profiling information
 
@@ -8,7 +9,12 @@ where those many ticks occurred, and the third is the normalized `load' of the
 procedure, calculated as a ratio between the number of ticks and the length of
 the procedure. The output is filled with blanks to ease readability.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os, shutil
+
 from autotest_lib.client.bin import utils, profiler
 from autotest_lib.client.common_lib import error
 
@@ -45,7 +51,7 @@ class readprofile(profiler.profiler):
         # There's no real way to stop readprofile, so we stash the
         # raw data at this point instead. BAD EXAMPLE TO COPY! ;-)
         self.rawprofile = test.profdir + '/profile.raw'
-        print "STOP"
+        print("STOP")
         shutil.copyfile('/proc/profile', self.rawprofile)
 
 

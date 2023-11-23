@@ -61,8 +61,15 @@ std::set<pid_t> GetProcessSubtreePids(pid_t root_pid) {
       std::string path = "/proc/" + std::to_string(pid) + "/stat";
 
       FILE* f = fopen(path.c_str(), "re");
-      if (!f)
+      if (!f) {
+        if (errno == ENOENT) {
+          // This loop is inherently racy, since PIDs can be reaped in the
+          // middle of this. Not being able to find one /proc/PID/stat file is
+          // completely normal.
+          continue;
+        }
         pdie("fopen(%s)", path.c_str());
+      }
       pid_t ppid;
       int ret = fscanf(f, "%*d (%*[^)]) %*c %d", &ppid);
       fclose(f);
@@ -94,9 +101,6 @@ std::map<std::string, std::string> GetNamespaces(
 }
 
 }  // namespace
-
-/* Prototypes needed only by test. */
-size_t minijail_get_tmpfs_size(const struct minijail *);
 
 /* Silence unused variable warnings. */
 TEST(silence, silence_unused) {
@@ -217,6 +221,10 @@ TEST_F(MarshalTest, 0xff) {
   EXPECT_EQ(-EINVAL, minijail_unmarshal(j_, buf_, sizeof(buf_)));
 }
 
+TEST_F(MarshalTest, copy_empty) {
+  ASSERT_EQ(0, minijail_copy_jail(m_, j_));
+}
+
 TEST(KillTest, running_process) {
   const ScopedMinijail j(minijail_new());
   char* const argv[] = {"sh", "-c", "sleep 1000", nullptr};
@@ -314,6 +322,88 @@ TEST(WaitTest, can_wait_only_once) {
   EXPECT_EQ(minijail_wait(j.get()), -ECHILD);
 }
 
+TEST(Test, minijail_preserve_fd_no_leak) {
+  const ScopedMinijail j(minijail_new());
+  char* const script = R"(
+      echo Hi >&1;
+      exec 1>&-;
+      read line1;
+      read line2;
+      echo "$line1$line2 and Goodbye" >&2;
+      exit 42;
+    )";
+  char* const argv[] = {"sh", "-c", script, nullptr};
+
+  const int npipes = 3;
+  int fds[npipes][2];
+
+  // Create pipes.
+  for (int i = 0; i < npipes; ++i) {
+    ASSERT_EQ(pipe(fds[i]), 0);
+  }
+
+  // All pipes are output pipes except for the first one which is used as
+  // input pipe.
+  std::swap(fds[0][0], fds[0][1]);
+
+  for (int i = 0; i < npipes; ++i) {
+    const int fd = fds[i][1];
+    minijail_preserve_fd(j.get(), fd, i);
+  }
+
+  minijail_close_open_fds(j.get());
+
+  EXPECT_EQ(minijail_run_no_preload(j.get(), kShellPath, argv), 0);
+
+  // Close unused end of pipes.
+  for (int i = 0; i < npipes; ++i) {
+    const int fd = fds[i][1];
+    ASSERT_EQ(close(fd), 0);
+  }
+
+  const int in = fds[0][0];
+  const int out = fds[1][0];
+  const int err = fds[2][0];
+
+  char buf[PIPE_BUF];
+  ssize_t nbytes;
+
+  // Check that stdout pipe works.
+  nbytes = read(out, buf, PIPE_BUF);
+  ASSERT_GT(nbytes, 0);
+  EXPECT_EQ(std::string(buf, nbytes), "Hi\n");
+
+  // Check that the write end of stdout pipe got closed by the child process. If
+  // the child process kept other file descriptors connected to stdout, then the
+  // parent process wouldn't be able to detect that all write ends of this pipe
+  // are closed and it would block here.
+  EXPECT_EQ(read(out, buf, PIPE_BUF), 0);
+  ASSERT_EQ(close(out), 0);
+
+  // Check that stdin pipe works.
+  const std::string s = "Greetings\n";
+  EXPECT_EQ(write(in, s.data(), s.size()), s.size());
+
+  // Close write end of pipe connected to child's stdin. If there was another
+  // file descriptor connected to this write end, then the child process
+  // wouldn't be able to detect that this write end is closed and it would
+  // block.
+  ASSERT_EQ(close(in), 0);
+
+  // Check that child process continued and ended.
+  nbytes = read(err, buf, PIPE_BUF);
+  ASSERT_GT(nbytes, 0);
+  EXPECT_EQ(std::string(buf, nbytes), "Greetings and Goodbye\n");
+
+  // Check that the write end of the stderr pipe is closed when the child
+  // process finishes.
+  EXPECT_EQ(read(err, buf, PIPE_BUF), 0);
+  ASSERT_EQ(close(err), 0);
+
+  // Check the child process termination status.
+  EXPECT_EQ(minijail_wait(j.get()), 42);
+}
+
 TEST(Test, close_original_pipes_after_dup2) {
   // Pipe used by child process to signal that it continued after reading from
   // stdin.
@@ -363,7 +453,9 @@ TEST(Test, close_original_pipes_after_dup2) {
   // to stdout and stderr, then the parent process wouldn't be able to detect
   // that all write ends of these pipes are closed and it would block here.
   EXPECT_EQ(read(out, buf, PIPE_BUF), 0);
+  ASSERT_EQ(close(out), 0);
   EXPECT_EQ(read(err, buf, PIPE_BUF), 0);
+  ASSERT_EQ(close(err), 0);
 
   // Check that stdin pipe works.
   const std::string s = "Greetings\n";
@@ -384,10 +476,8 @@ TEST(Test, close_original_pipes_after_dup2) {
 TEST(Test, minijail_run_env_pid_pipes) {
   // TODO(crbug.com/895875): The preload library interferes with ASan since they
   // both need to use LD_PRELOAD.
-  if (running_with_asan()) {
-    SUCCEED();
-    return;
-  }
+  if (running_with_asan())
+    GTEST_SKIP();
 
   ScopedMinijail j(minijail_new());
   minijail_set_preload_path(j.get(), kPreloadPath);
@@ -446,7 +536,12 @@ TEST(Test, minijail_run_env_pid_pipes) {
   EXPECT_EQ(WEXITSTATUS(status), 0);
 }
 
-TEST(Test, minijail_run_env_pid_pipes_no_preload) {
+TEST(Test, minijail_run_env_pid_pipes_with_local_preload) {
+  // TODO(crbug.com/895875): The preload library interferes with ASan since they
+  // both need to use LD_PRELOAD.
+  if (running_with_asan())
+    GTEST_SKIP();
+
   ScopedMinijail j(minijail_new());
 
   char *argv[4];
@@ -465,7 +560,7 @@ TEST(Test, minijail_run_env_pid_pipes_no_preload) {
   EXPECT_EQ(write_ret, static_cast<ssize_t>(teststr_len));
 
   char buf[kBufferSize] = {};
-  ssize_t read_ret = read(child_stdout, buf, 8);
+  ssize_t read_ret = read(child_stdout, buf, sizeof(buf) - 1);
   EXPECT_EQ(read_ret, static_cast<ssize_t>(teststr_len));
   EXPECT_STREQ(buf, teststr);
 
@@ -487,6 +582,9 @@ TEST(Test, minijail_run_env_pid_pipes_no_preload) {
   // Set a canary env var in the parent that should not be present in the child.
   ASSERT_EQ(setenv("TEST_PARENT", "test", 1 /*overwrite*/), 0);
 
+  // Use the preload library from this test build.
+  ASSERT_EQ(0, minijail_set_preload_path(j.get(), "./libminijailpreload.so"));
+
   int child_stderr;
   mj_run_ret =
       minijail_run_env_pid_pipes(j.get(), argv[0], argv, envp, &pid,
@@ -494,7 +592,7 @@ TEST(Test, minijail_run_env_pid_pipes_no_preload) {
   EXPECT_EQ(mj_run_ret, 0);
 
   memset(buf, 0, sizeof(buf));
-  read_ret = read(child_stderr, buf, sizeof(buf));
+  read_ret = read(child_stderr, buf, sizeof(buf) - 1);
   EXPECT_GE(read_ret, 0);
   EXPECT_STREQ(buf, "|test\n");
 
@@ -769,10 +867,8 @@ TEST_F(NamespaceTest, test_tmpfs_userns) {
   constexpr uid_t kTargetUid = 1000;  // Any non-zero value will do.
   constexpr gid_t kTargetGid = 1000;
 
-  if (!userns_supported_) {
-    SUCCEED();
-    return;
-  }
+  if (!userns_supported_)
+    GTEST_SKIP();
 
   struct minijail *j = minijail_new();
 
@@ -809,10 +905,8 @@ TEST_F(NamespaceTest, test_namespaces) {
 
   // TODO(crbug.com/895875): The preload library interferes with ASan since they
   // both need to use LD_PRELOAD.
-  if (!userns_supported_ || running_with_asan()) {
-    SUCCEED();
-    return;
-  }
+  if (!userns_supported_ || running_with_asan())
+    GTEST_SKIP();
 
   std::string uidmap = "0 " + std::to_string(getuid()) + " 1";
   std::string gidmap = "0 " + std::to_string(getgid()) + " 1";
@@ -894,10 +988,8 @@ TEST_F(NamespaceTest, test_namespaces) {
 TEST_F(NamespaceTest, test_enter_ns) {
   char uidmap[kBufferSize], gidmap[kBufferSize];
 
-  if (!userns_supported_) {
-    SUCCEED();
-    return;
-  }
+  if (!userns_supported_)
+    GTEST_SKIP();
 
   // We first create a child in a new userns so we have privs to run more tests.
   // We can't combine the steps as the kernel disallows many resource sharing
@@ -963,56 +1055,156 @@ TEST_F(NamespaceTest, test_enter_ns) {
   }
 }
 
-TEST(Test, parse_size) {
-  size_t size;
+TEST_F(NamespaceTest, test_remount_all_private) {
+  pid_t pid;
+  int child_stdout;
+  int mj_run_ret;
+  ssize_t read_ret;
+  char buf[kBufferSize];
+  int status;
+  char *argv[4];
+  char uidmap[kBufferSize], gidmap[kBufferSize];
+  constexpr uid_t kTargetUid = 1000;  // Any non-zero value will do.
+  constexpr gid_t kTargetGid = 1000;
 
-  ASSERT_EQ(0, parse_size(&size, "42"));
-  ASSERT_EQ(42U, size);
+  if (!userns_supported_)
+    GTEST_SKIP();
 
-  ASSERT_EQ(0, parse_size(&size, "16K"));
-  ASSERT_EQ(16384U, size);
+  struct minijail *j = minijail_new();
 
-  ASSERT_EQ(0, parse_size(&size, "1M"));
-  ASSERT_EQ(1024U * 1024, size);
+  minijail_namespace_pids(j);
+  minijail_namespace_vfs(j);
+  minijail_run_as_init(j);
 
-  uint64_t gigabyte = 1024ULL * 1024 * 1024;
-  ASSERT_EQ(0, parse_size(&size, "3G"));
-  ASSERT_EQ(3U, size / gigabyte);
-  ASSERT_EQ(0U, size % gigabyte);
+  // Perform userns mapping.
+  minijail_namespace_user(j);
+  snprintf(uidmap, sizeof(uidmap), "%d %d 1", kTargetUid, getuid());
+  snprintf(gidmap, sizeof(gidmap), "%d %d 1", kTargetGid, getgid());
+  minijail_change_uid(j, kTargetUid);
+  minijail_change_gid(j, kTargetGid);
+  minijail_uidmap(j, uidmap);
+  minijail_gidmap(j, gidmap);
+  minijail_namespace_user_disable_setgroups(j);
 
-  ASSERT_EQ(0, parse_size(&size, "4294967294"));
-  ASSERT_EQ(3U, size / gigabyte);
-  ASSERT_EQ(gigabyte - 2, size % gigabyte);
+  minijail_namespace_vfs(j);
+  minijail_remount_mode(j, MS_PRIVATE);
 
-#if __WORDSIZE == 64
-  uint64_t exabyte = gigabyte * 1024 * 1024 * 1024;
-  ASSERT_EQ(0, parse_size(&size, "9E"));
-  ASSERT_EQ(9U, size / exabyte);
-  ASSERT_EQ(0U, size % exabyte);
+  argv[0] = const_cast<char*>(kShellPath);
+  argv[1] = "-c";
+  argv[2] = "grep -E 'shared:|master:|propagate_from:|unbindable:' "
+	    "/proc/self/mountinfo";
+  argv[3] = NULL;
+  mj_run_ret = minijail_run_pid_pipes_no_preload(
+      j, argv[0], argv, &pid, NULL, &child_stdout, NULL);
+  EXPECT_EQ(mj_run_ret, 0);
 
-  ASSERT_EQ(0, parse_size(&size, "15E"));
-  ASSERT_EQ(15U, size / exabyte);
-  ASSERT_EQ(0U, size % exabyte);
+  // There should be no output because all mounts should be remounted as
+  // private.
+  read_ret = read(child_stdout, buf, sizeof(buf));
+  EXPECT_EQ(read_ret, 0);
 
-  ASSERT_EQ(0, parse_size(&size, "18446744073709551614"));
-  ASSERT_EQ(15U, size / exabyte);
-  ASSERT_EQ(exabyte - 2, size % exabyte);
+  // grep will exit with 1 if it does not find anything which is what we
+  // expect.
+  status = minijail_wait(j);
+  EXPECT_EQ(status, 1);
 
-  ASSERT_EQ(-ERANGE, parse_size(&size, "16E"));
-  ASSERT_EQ(-ERANGE, parse_size(&size, "19E"));
-  ASSERT_EQ(-EINVAL, parse_size(&size, "7GTPE"));
-#elif __WORDSIZE == 32
-  ASSERT_EQ(-ERANGE, parse_size(&size, "5G"));
-  ASSERT_EQ(-ERANGE, parse_size(&size, "9G"));
-  ASSERT_EQ(-ERANGE, parse_size(&size, "9E"));
-  ASSERT_EQ(-ERANGE, parse_size(&size, "7GTPE"));
-#endif
+  minijail_destroy(j);
+}
 
-  ASSERT_EQ(-EINVAL, parse_size(&size, ""));
-  ASSERT_EQ(-EINVAL, parse_size(&size, "14u"));
-  ASSERT_EQ(-EINVAL, parse_size(&size, "14.2G"));
-  ASSERT_EQ(-EINVAL, parse_size(&size, "-1G"));
-  ASSERT_EQ(-EINVAL, parse_size(&size, "; /bin/rm -- "));
+TEST_F(NamespaceTest, test_fail_to_remount_one_private) {
+  int status;
+  char uidmap[kBufferSize], gidmap[kBufferSize];
+  constexpr uid_t kTargetUid = 1000;  // Any non-zero value will do.
+  constexpr gid_t kTargetGid = 1000;
+
+  if (!userns_supported_)
+    GTEST_SKIP();
+
+  struct minijail *j = minijail_new();
+
+  minijail_namespace_pids(j);
+  minijail_namespace_vfs(j);
+  minijail_mount_tmp(j);
+  minijail_run_as_init(j);
+
+  // Perform userns mapping.
+  minijail_namespace_user(j);
+  snprintf(uidmap, sizeof(uidmap), "%d %d 1", kTargetUid, getuid());
+  snprintf(gidmap, sizeof(gidmap), "%d %d 1", kTargetGid, getgid());
+  minijail_change_uid(j, kTargetUid);
+  minijail_change_gid(j, kTargetGid);
+  minijail_uidmap(j, uidmap);
+  minijail_gidmap(j, gidmap);
+  minijail_namespace_user_disable_setgroups(j);
+
+  minijail_namespace_vfs(j);
+  minijail_remount_mode(j, MS_SHARED);
+  minijail_add_remount(j, "/proc", MS_PRIVATE);
+
+  char *argv[] = {"/bin/true", nullptr};
+  minijail_run(j, argv[0], argv);
+
+  status = minijail_wait(j);
+  EXPECT_GT(status, 0);
+
+  minijail_destroy(j);
+}
+
+TEST_F(NamespaceTest, test_remount_one_shared) {
+  pid_t pid;
+  int child_stdout;
+  int mj_run_ret;
+  ssize_t read_ret;
+  char buf[kBufferSize * 4];
+  int status;
+  char *argv[4];
+  char uidmap[kBufferSize], gidmap[kBufferSize];
+  constexpr uid_t kTargetUid = 1000;  // Any non-zero value will do.
+  constexpr gid_t kTargetGid = 1000;
+
+  if (!userns_supported_)
+    GTEST_SKIP();
+
+  struct minijail *j = minijail_new();
+
+  minijail_namespace_pids(j);
+  minijail_namespace_vfs(j);
+  minijail_mount_tmp(j);
+  minijail_run_as_init(j);
+
+  // Perform userns mapping.
+  minijail_namespace_user(j);
+  snprintf(uidmap, sizeof(uidmap), "%d %d 1", kTargetUid, getuid());
+  snprintf(gidmap, sizeof(gidmap), "%d %d 1", kTargetGid, getgid());
+  minijail_change_uid(j, kTargetUid);
+  minijail_change_gid(j, kTargetGid);
+  minijail_uidmap(j, uidmap);
+  minijail_gidmap(j, gidmap);
+  minijail_namespace_user_disable_setgroups(j);
+
+  minijail_namespace_vfs(j);
+  minijail_remount_mode(j, MS_PRIVATE);
+  minijail_add_remount(j, "/proc", MS_SHARED);
+
+  argv[0] = const_cast<char*>(kShellPath);
+  argv[1] = "-c";
+  argv[2] = "grep -E 'shared:' /proc/self/mountinfo";
+  argv[3] = NULL;
+  mj_run_ret = minijail_run_pid_pipes_no_preload(
+      j, argv[0], argv, &pid, NULL, &child_stdout, NULL);
+  EXPECT_EQ(mj_run_ret, 0);
+
+  // There should be no output because all mounts should be remounted as
+  // private.
+  read_ret = read(child_stdout, buf, sizeof(buf));
+  EXPECT_GE(read_ret, 0);
+  buf[read_ret] = '\0';
+  EXPECT_NE(std::string(buf).find("/proc"), std::string::npos);
+
+  status = minijail_wait(j);
+  EXPECT_EQ(status, 0);
+
+  minijail_destroy(j);
 }
 
 void TestCreateSession(bool create_session) {

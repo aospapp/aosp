@@ -108,6 +108,8 @@ enum AttestationSelector {
   ATTEST_TEST = 0;
   ATTEST_BATCH = 1;
   ATTEST_INDIVIDUAL = 2;
+  ATTEST_SELF = 3;
+  ATTEST_CALLER = 4;
 }
 
 message VigoKey {

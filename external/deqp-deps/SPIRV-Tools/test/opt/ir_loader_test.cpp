@@ -19,14 +19,19 @@
 #include <utility>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include "gmock/gmock.h"
 #include "source/opt/build_module.h"
+#include "source/opt/def_use_manager.h"
 #include "source/opt/ir_context.h"
 #include "spirv-tools/libspirv.hpp"
 
 namespace spvtools {
 namespace opt {
 namespace {
+
+using ::testing::ContainerEq;
+
+constexpr uint32_t kOpLineOperandLineIndex = 1;
 
 void DoRoundTripCheck(const std::string& text) {
   SpirvTools t(SPV_ENV_UNIVERSAL_1_1);
@@ -127,6 +132,204 @@ TEST(IrBuilder, KeepLineDebugInfo) {
                "OpReturn\n"
                "OpFunctionEnd\n");
   // clang-format on
+}
+
+TEST(IrBuilder, DistributeLineDebugInfo) {
+  const std::string text =
+      // clang-format off
+               "OpCapability Shader\n"
+          "%1 = OpExtInstImport \"GLSL.std.450\"\n"
+               "OpMemoryModel Logical GLSL450\n"
+               "OpEntryPoint Vertex %main \"main\"\n"
+               "OpSource ESSL 310\n"
+       "%file = OpString \"test\"\n"
+               "OpName %main \"main\"\n"
+               "OpName %f_ \"f(\"\n"
+               "OpName %gv1 \"gv1\"\n"
+               "OpName %gv2 \"gv2\"\n"
+               "OpName %lv1 \"lv1\"\n"
+               "OpName %lv2 \"lv2\"\n"
+               "OpName %lv1_0 \"lv1\"\n"
+       "%void = OpTypeVoid\n"
+         "%10 = OpTypeFunction %void\n"
+               "OpLine %file 10 0\n"
+      "%float = OpTypeFloat 32\n"
+         "%12 = OpTypeFunction %float\n"
+ "%_ptr_Private_float = OpTypePointer Private %float\n"
+        "%gv1 = OpVariable %_ptr_Private_float Private\n"
+   "%float_10 = OpConstant %float 10\n"
+        "%gv2 = OpVariable %_ptr_Private_float Private\n"
+  "%float_100 = OpConstant %float 100\n"
+ "%_ptr_Function_float = OpTypePointer Function %float\n"
+       "%main = OpFunction %void None %10\n"
+         "%17 = OpLabel\n"
+      "%lv1_0 = OpVariable %_ptr_Function_float Function\n"
+               "OpStore %gv1 %float_10\n"
+               "OpStore %gv2 %float_100\n"
+               "OpLine %file 1 0\n"
+               "OpNoLine\n"
+               "OpLine %file 2 0\n"
+         "%18 = OpLoad %float %gv1\n"
+         "%19 = OpLoad %float %gv2\n"
+         "%20 = OpFSub %float %18 %19\n"
+               "OpStore %lv1_0 %20\n"
+               "OpReturn\n"
+               "OpFunctionEnd\n"
+         "%f_ = OpFunction %float None %12\n"
+         "%21 = OpLabel\n"
+        "%lv1 = OpVariable %_ptr_Function_float Function\n"
+        "%lv2 = OpVariable %_ptr_Function_float Function\n"
+               "OpLine %file 3 0\n"
+               "OpLine %file 4 0\n"
+         "%22 = OpLoad %float %gv1\n"
+         "%23 = OpLoad %float %gv2\n"
+         "%24 = OpFAdd %float %22 %23\n"
+               "OpStore %lv1 %24\n"
+               "OpLine %file 5 0\n"
+               "OpLine %file 6 0\n"
+               "OpNoLine\n"
+         "%25 = OpLoad %float %gv1\n"
+         "%26 = OpLoad %float %gv2\n"
+         "%27 = OpFMul %float %25 %26\n"
+               "OpBranch %28\n"
+         "%28 = OpLabel\n"
+               "OpStore %lv2 %27\n"
+         "%29 = OpLoad %float %lv1\n"
+               "OpLine %file 7 0\n"
+         "%30 = OpLoad %float %lv2\n"
+         "%31 = OpFDiv %float %28 %29\n"
+               "OpReturnValue %30\n"
+               "OpFunctionEnd\n";
+  // clang-format on
+
+  std::unique_ptr<IRContext> context =
+      BuildModule(SPV_ENV_UNIVERSAL_1_1, nullptr, text,
+                  SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  ASSERT_NE(nullptr, context);
+
+  struct LineInstrCheck {
+    uint32_t id;
+    std::vector<uint32_t> line_numbers;
+  };
+  const uint32_t kNoLine = 0;
+  const LineInstrCheck line_checks[] = {
+      {12, {10}},   {18, {1, kNoLine, 2}},
+      {19, {2}},    {20, {2}},
+      {22, {3, 4}}, {23, {4}},
+      {24, {4}},    {25, {5, 6, kNoLine}},
+      {26, {}},     {27, {}},
+      {28, {}},     {29, {}},
+      {30, {7}},    {31, {7}},
+  };
+
+  spvtools::opt::analysis::DefUseManager* def_use_mgr =
+      context->get_def_use_mgr();
+  for (const LineInstrCheck& check : line_checks) {
+    auto& lines = def_use_mgr->GetDef(check.id)->dbg_line_insts();
+    for (uint32_t i = 0; i < check.line_numbers.size(); ++i) {
+      if (check.line_numbers[i] == kNoLine) {
+        EXPECT_EQ(lines[i].opcode(), SpvOpNoLine);
+        continue;
+      }
+      EXPECT_EQ(lines[i].opcode(), SpvOpLine);
+      EXPECT_EQ(lines[i].GetSingleWordOperand(kOpLineOperandLineIndex),
+                check.line_numbers[i]);
+    }
+  }
+}
+
+TEST(IrBuilder, BuildModule_WithoutExtraLines) {
+  const std::string text = R"(OpCapability Shader
+OpMemoryModel Logical Simple
+OpEntryPoint Vertex %main "main"
+%file = OpString "my file"
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%float = OpTypeFloat 32
+%float_1 = OpConstant %float 1
+%main = OpFunction %void None %voidfn
+%100 = OpLabel
+%1 = OpFAdd %float %float_1 %float_1
+OpLine %file 1 0
+%2 = OpFMul %float %1 %1
+%3 = OpFSub %float %2 %2
+OpReturn
+OpFunctionEnd
+)";
+
+  std::vector<uint32_t> binary;
+  SpirvTools t(SPV_ENV_UNIVERSAL_1_1);
+  ASSERT_TRUE(t.Assemble(text, &binary,
+                         SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS));
+
+  // This is the function we're testing.
+  std::unique_ptr<IRContext> context = BuildModule(
+      SPV_ENV_UNIVERSAL_1_5, nullptr, binary.data(), binary.size(), false);
+  ASSERT_NE(nullptr, context);
+
+  spvtools::opt::analysis::DefUseManager* def_use_mgr =
+      context->get_def_use_mgr();
+
+  std::vector<SpvOp> opcodes;
+  for (auto* inst = def_use_mgr->GetDef(1);
+       inst && (inst->opcode() != SpvOpFunctionEnd); inst = inst->NextNode()) {
+    inst->ForEachInst(
+        [&opcodes](spvtools::opt::Instruction* sub_inst) {
+          opcodes.push_back(sub_inst->opcode());
+        },
+        true);
+  }
+
+  EXPECT_THAT(opcodes,
+              ContainerEq(std::vector<SpvOp>{SpvOpFAdd, SpvOpLine, SpvOpFMul,
+                                             SpvOpFSub, SpvOpReturn}));
+}
+
+TEST(IrBuilder, BuildModule_WithExtraLines_IsDefault) {
+  const std::string text = R"(OpCapability Shader
+OpMemoryModel Logical Simple
+OpEntryPoint Vertex %main "main"
+%file = OpString "my file"
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%float = OpTypeFloat 32
+%float_1 = OpConstant %float 1
+%main = OpFunction %void None %voidfn
+%100 = OpLabel
+%1 = OpFAdd %float %float_1 %float_1
+OpLine %file 1 0
+%2 = OpFMul %float %1 %1
+%3 = OpFSub %float %2 %2
+OpReturn
+OpFunctionEnd
+)";
+
+  std::vector<uint32_t> binary;
+
+  SpirvTools t(SPV_ENV_UNIVERSAL_1_1);
+  ASSERT_TRUE(t.Assemble(text, &binary,
+                         SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS));
+
+  // This is the function we're testing.
+  std::unique_ptr<IRContext> context =
+      BuildModule(SPV_ENV_UNIVERSAL_1_5, nullptr, binary.data(), binary.size());
+
+  spvtools::opt::analysis::DefUseManager* def_use_mgr =
+      context->get_def_use_mgr();
+
+  std::vector<SpvOp> opcodes;
+  for (auto* inst = def_use_mgr->GetDef(1);
+       inst && (inst->opcode() != SpvOpFunctionEnd); inst = inst->NextNode()) {
+    inst->ForEachInst(
+        [&opcodes](spvtools::opt::Instruction* sub_inst) {
+          opcodes.push_back(sub_inst->opcode());
+        },
+        true);
+  }
+
+  EXPECT_THAT(opcodes, ContainerEq(std::vector<SpvOp>{
+                           SpvOpFAdd, SpvOpLine, SpvOpFMul, SpvOpLine,
+                           SpvOpFSub, SpvOpLine, SpvOpReturn}));
 }
 
 TEST(IrBuilder, ConsumeDebugInfoInst) {
@@ -946,6 +1149,42 @@ OpFunctionEnd
   std::string disassembled_text;
   EXPECT_TRUE(t.Disassemble(binary, &disassembled_text));
   EXPECT_EQ(text, disassembled_text);
+}
+
+TEST(IrBuilder, DebugInfoForTerminationInsts) {
+  // Check that DebugScope instructions for termination instructions are
+  // preserved.
+  DoRoundTripCheck(R"(OpCapability Shader
+%1 = OpExtInstImport "OpenCL.DebugInfo.100"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+%3 = OpString "simple_vs.hlsl"
+OpSource HLSL 600 %3
+OpName %main "main"
+%void = OpTypeVoid
+%5 = OpTypeFunction %void
+%6 = OpExtInst %void %1 DebugSource %3
+%7 = OpExtInst %void %1 DebugCompilationUnit 2 4 %6 HLSL
+%main = OpFunction %void None %5
+%8 = OpLabel
+%20 = OpExtInst %void %1 DebugScope %7
+OpBranch %10
+%21 = OpExtInst %void %1 DebugNoScope
+%10 = OpLabel
+%22 = OpExtInst %void %1 DebugScope %7
+OpKill
+%23 = OpExtInst %void %1 DebugNoScope
+%14 = OpLabel
+%24 = OpExtInst %void %1 DebugScope %7
+OpUnreachable
+%25 = OpExtInst %void %1 DebugNoScope
+%17 = OpLabel
+%26 = OpExtInst %void %1 DebugScope %7
+OpReturn
+%27 = OpExtInst %void %1 DebugNoScope
+OpFunctionEnd
+)");
 }
 
 TEST(IrBuilder, LocalGlobalVariables) {

@@ -8,6 +8,7 @@ section=primaryZones ; path=//cldr/supplemental/primaryZones/.* ; package=core
 section=numberingSystems ; path=//cldr/supplemental/numberingSystems/.* ; package=core
 section=ordinals ; path=//cldr/supplemental/plurals\[@type="ordinal"\]/.* ; package=core
 section=plurals ; path=//cldr/supplemental/plurals\[@type="cardinal"\]/.* ; package=core
+section=pluralRanges ; path=//cldr/supplemental/plurals/.* ; package=core
 section=postalCodeData ; path=//cldr/supplemental/postalCodeData/.* ; package=core
 section=currencyData ; path=//cldr/supplemental/currencyData/.* ; package=core
 section=territoryContainment ; path=//cldr/supplemental/territoryContainment/.* ; package=core
@@ -17,7 +18,6 @@ section=languageMatching ; path=//cldr/supplemental/languageMatching/.* ; packag
 section=territoryInfo ; path=//cldr/supplemental/territoryInfo/.* ; package=core
 section=calendarData ; path=//cldr/supplemental/calendarData/.* ; package=core
 section=calendarPreferenceData ; path=//cldr/supplemental/calendarPreferenceData/.* ; package=core
-section=unitPreferenceData ; path=//cldr/supplemental/unitPreferenceData/.* ; package=core
 section=weekData ; path=//cldr/supplemental/weekData/.* ; package=core
 section=timeData ; path=//cldr/supplemental/timeData/.* ; package=core
 section=measurementData ; path=//cldr/supplemental/measurementData/.* ; package=core
@@ -26,4 +26,4 @@ section=parentLocales ; path=//cldr/supplemental/parentLocales/.* ; package=core
 section=references ; path=//cldr/supplemental/references/.* ; package=core
 section=telephoneCodeData ; path=//cldr/supplemental/telephoneCodeData/.* ; package=core
 section=windowsZones ; path=//cldr/supplemental/windowsZones/.* ; package=core
-section=aliases ; path=//cldr/supplemental/metadata/alias/(language|script|territory|variant|zone)Alias.* ; package=core
+section=aliases ; path=//cldr/supplemental/metadata/alias/(language|script|subdivision|territory|variant|zone)Alias.* ; package=core

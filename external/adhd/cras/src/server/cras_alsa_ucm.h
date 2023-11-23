@@ -67,6 +67,28 @@ int ucm_swap_mode_exists(struct cras_use_case_mgr *mgr);
 int ucm_enable_swap_mode(struct cras_use_case_mgr *mgr, const char *node_name,
 			 int enable);
 
+/* Checks if modifier of noise cancellation for given node_name exists in ucm.
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    node_name - The node name.
+ * Returns:
+ *    1 if it exists, 0 otherwise.
+ */
+int ucm_node_noise_cancellation_exists(struct cras_use_case_mgr *mgr,
+				       const char *node_name);
+
+/* Enables or disables noise cancellation for the given node_name. First checks
+ * if the modifier is already enabled or disabled.
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    node_name - The node name.
+ *    enable - Enable device if non-zero.
+ * Returns:
+ *    0 on success or negative error code on failure.
+ */
+int ucm_enable_node_noise_cancellation(struct cras_use_case_mgr *mgr,
+				       const char *node_name, int enable);
+
 /* Enables or disables a UCM device.  First checks if the device is already
  * enabled or disabled.
  * Args:
@@ -97,15 +119,6 @@ char *ucm_get_flag(struct cras_use_case_mgr *mgr, const char *flag_name);
  *    control, or NULL if no capture control is found.
  */
 char *ucm_get_cap_control(struct cras_use_case_mgr *mgr, const char *ucm_dev);
-
-/* Gets the mic positions string for internal mic.
- * Args:
- *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
- * Returns:
- *    A pointer to the allocated string containing the mic positions
- *    information, or NULL if not specified.
- */
-char *ucm_get_mic_positions(struct cras_use_case_mgr *mgr);
 
 /* Gets the new node type name which user wants to override the old one for
  * given ucm device.
@@ -155,17 +168,6 @@ char *ucm_get_dev_for_mixer(struct cras_use_case_mgr *mgr, const char *mixer,
 const char *ucm_get_edid_file_for_dev(struct cras_use_case_mgr *mgr,
 				      const char *dev);
 
-/* Gets the default dsp name.
- * Args:
- *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
- *    direction - playback(CRAS_STREAM_OUTPUT) or capture(CRAS_STREAM_INPUT).
- * Returns:
- *    A pointer to the allocated string containing the default dsp name, or
- *    NULL if no default dsp name is found.
- */
-const char *ucm_get_dsp_name_default(struct cras_use_case_mgr *mgr,
-				     int direction);
-
 /* Gets the dsp name which is associated with the given ucm device.
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
@@ -196,38 +198,27 @@ int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr,
  */
 unsigned int ucm_get_disable_software_volume(struct cras_use_case_mgr *mgr);
 
-/* Gets the value for minimum software gain.
- * Args:
- *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
- *    dev - The device to check for minimum software gain.
- *    gain - The pointer to the returned value;
- * Returns:
- *    0 on success, other error codes on failure.
- */
-int ucm_get_min_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
-			      long *gain);
-
-/* Gets the value for maximum software gain.
- * Args:
- *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
- *    dev - The device to check for maximum software gain.
- *    gain - The pointer to the returned value;
- * Returns:
- *    0 on success, other error codes on failure.
- */
-int ucm_get_max_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
-			      long *gain);
-
 /* Gets the value for default node gain.
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
  *    dev - The device to check for default node gain.
- *    gain - The pointer to the returned value;
+ *    gain - The pointer to the returned value.
  * Returns:
  *    0 on success, other error codes on failure.
  */
 int ucm_get_default_node_gain(struct cras_use_case_mgr *mgr, const char *dev,
 			      long *gain);
+
+/* Gets the value for intrinsic sensitivity.
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to query for intrinsic volume.
+ *    sensitivity - The pointer to the returned value.
+ * Returns:
+ *    0 on success, other error codes on failure.
+ */
+int ucm_get_intrinsic_sensitivity(struct cras_use_case_mgr *mgr,
+				  const char *dev, long *sensitivity);
 
 /* Gets the flag if an input device can preempt hotword recording.
  * Args:
@@ -239,20 +230,19 @@ int ucm_get_default_node_gain(struct cras_use_case_mgr *mgr, const char *dev,
  */
 int ucm_get_preempt_hotword(struct cras_use_case_mgr *mgr, const char *dev);
 
-/* Gets the device name of this device on the card..
+/* Gets the ALSA device index on the card for given UCM dev.
  *
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
- *    dev - The device to check for device name
+ *    dev - The UCM device to check for ALSA device index.
  *    direction - playback(CRAS_STREAM_OUTPUT) or capture(CRAS_STREAM_INPUT).
  * Returns:
- *    A pointer to the allocated string containing the device name, or NULL
- *    if no device name is found. The device name is of format
- *    "card_name:device_index".
+ *    Non-negative integer for the ALSA device index on the card, -1 if not
+ *    found. The ALSA device index is parsed from the PCM name which is
+ *    formatted as "hw:<some-name>,<idx>".
  */
-const char *ucm_get_device_name_for_dev(struct cras_use_case_mgr *mgr,
-					const char *dev,
-					enum CRAS_STREAM_DIRECTION direction);
+int ucm_get_alsa_dev_idx_for_dev(struct cras_use_case_mgr *mgr, const char *dev,
+				 enum CRAS_STREAM_DIRECTION direction);
 
 /* Gets the node name of the echo reference device on the card.
  * Args:
@@ -278,6 +268,20 @@ ucm_get_echo_reference_dev_name_for_dev(struct cras_use_case_mgr *mgr,
  */
 int ucm_get_sample_rate_for_dev(struct cras_use_case_mgr *mgr, const char *dev,
 				enum CRAS_STREAM_DIRECTION direction);
+
+/* Gets the channel count at which to run this device.
+ *
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check for channel count.
+ *    direction - playback(CRAS_STREAM_OUTPUT) or capture(CRAS_STREAM_INPUT).
+ *    channels - The pointer to the returned channel count.
+ * Returns:
+ *    0 on success, other error codes on failure.
+ */
+int ucm_get_channels_for_dev(struct cras_use_case_mgr *mgr, const char *dev,
+			     enum CRAS_STREAM_DIRECTION direction,
+			     size_t *channels);
 
 /* Gets the capture channel map for this device.
  * Args:
@@ -324,10 +328,25 @@ char *ucm_get_hotword_models(struct cras_use_case_mgr *mgr);
 /* Sets the desired hotword model.
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    model - locale for model
  * Returns:
  *    0 on success or negative error code on failure.
  */
 int ucm_set_hotword_model(struct cras_use_case_mgr *mgr, const char *model);
+
+/* Enable previously set hotword modifier
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ * Returns:
+ *    0 on success or negative error code on failure.
+ */
+int ucm_enable_hotword_model(struct cras_use_case_mgr *mgr);
+
+/* Disable all hotword model modifiers
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ */
+void ucm_disable_all_hotword_models(struct cras_use_case_mgr *mgr);
 
 /* Checks if this card has fully specified UCM config.
  *
@@ -338,7 +357,7 @@ int ucm_set_hotword_model(struct cras_use_case_mgr *mgr, const char *model);
  */
 int ucm_has_fully_specified_ucm_flag(struct cras_use_case_mgr *mgr);
 
-/* Gets the mixer name of this device on the card.
+/* Gets the playback mixer name of this device on the card.
  *
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
@@ -347,8 +366,20 @@ int ucm_has_fully_specified_ucm_flag(struct cras_use_case_mgr *mgr);
  *    A pointer to the allocated string containing the mixer name, or NULL
  *    if no device name is found.
  */
-const char *ucm_get_mixer_name_for_dev(struct cras_use_case_mgr *mgr,
-				       const char *dev);
+const char *ucm_get_playback_mixer_elem_for_dev(struct cras_use_case_mgr *mgr,
+						const char *dev);
+
+/* Gets the capture mixer name of this device on the card.
+ *
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check for device name
+ * Returns:
+ *    A pointer to the allocated string containing the mixer name, or NULL
+ *    if no device name is found.
+ */
+const char *ucm_get_capture_mixer_elem_for_dev(struct cras_use_case_mgr *mgr,
+					       const char *dev);
 
 /* Gets the mixer names for the main volume controls on the card.
  *
@@ -419,6 +450,30 @@ const char *ucm_get_jack_name_for_dev(struct cras_use_case_mgr *mgr,
 const char *ucm_get_jack_type_for_dev(struct cras_use_case_mgr *mgr,
 				      const char *dev);
 
+/* Gets the jack dev of this device on the card.
+ *
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check for jack name.
+ * Returns:
+ *    A pointer to the allocated string containing the input jack name, or NULL
+ *    if no jack name is found.
+ */
+const char *ucm_get_jack_dev_for_dev(struct cras_use_case_mgr *mgr,
+				     const char *dev);
+
+/* Gets the jack control of this device on the card.
+ *
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check for jack type.
+ * Returns:
+ *    A pointer to the allocated string containing the alsa jack name, or NULL
+ *    if no jack type is found or the found jack type is invalid.
+ */
+const char *ucm_get_jack_control_for_dev(struct cras_use_case_mgr *mgr,
+					 const char *dev);
+
 /* Gets the jack switch number for this device.
  * Some sound cards can detect multiple types of connections into the
  * audio jack - for example distinguish between line-out and headphones
@@ -453,13 +508,5 @@ unsigned int ucm_get_dma_period_for_dev(struct cras_use_case_mgr *mgr,
  *    1 if the flag is enabled. 0 otherwise.
  */
 unsigned int ucm_get_optimize_no_stream_flag(struct cras_use_case_mgr *mgr);
-
-/* Retrieve the flag that enables use of htimestamp.
- * Args:
- *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
- * Returns:
- *    1 if the flag is enabled. 0 otherwise.
- */
-unsigned int ucm_get_enable_htimestamp_flag(struct cras_use_case_mgr *mgr);
 
 #endif /* _CRAS_ALSA_UCM_H */

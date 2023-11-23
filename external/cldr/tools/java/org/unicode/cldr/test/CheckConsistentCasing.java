@@ -20,9 +20,8 @@ import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.PathStarrer;
 import org.unicode.cldr.util.PatternCache;
 import org.unicode.cldr.util.RegexLookup;
-import org.unicode.cldr.util.XPathParts;
 
-import com.ibm.icu.dev.util.CollectionUtilities;
+import com.google.common.base.Joiner;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.text.BreakIterator;
 import com.ibm.icu.util.ULocale;
@@ -35,7 +34,6 @@ public class CheckConsistentCasing extends FactoryCheckCLDR {
     // remember to add this class to the list in CheckCLDR.getCheckAll
     // to run just this test, on just locales starting with 'nl', use CheckCLDR with -fnl.* -t.*Currencies.*
 
-    XPathParts parts = new XPathParts(); // used to parse out a path
     ULocale uLocale = null;
     BreakIterator breaker = null;
     private String locale;
@@ -83,6 +81,7 @@ public class CheckConsistentCasing extends FactoryCheckCLDR {
     }
 
     // If you don't need any file initialization or postprocessing, you only need this one routine
+    @Override
     public CheckCLDR handleCheck(String path, String fullPath, String value, Options options,
         List<CheckStatus> result) {
         // it helps performance to have a quick reject of most paths
@@ -214,7 +213,7 @@ public class CheckConsistentCasing extends FactoryCheckCLDR {
     // ldml/localeDisplayNames/transformNames/transformName[@type=".*"]
     ;
 
-    Map<Category, CasingTypeAndErrFlag> types = new EnumMap<Category, CasingTypeAndErrFlag>(Category.class);
+    Map<Category, CasingTypeAndErrFlag> types = new EnumMap<>(Category.class);
 
     public enum Category {
         language, script, territory, variant, keyValue, month_narrow, month_format_except_narrow, month_standalone_except_narrow, day_narrow, day_format_except_narrow, day_standalone_except_narrow, era_narrow, era_abbr, era_name, quarter_narrow, quarter_abbreviated, quarter_format_wide, quarter_standalone_wide, calendar_field, zone_exemplarCity, zone_short, zone_long, NOT_USED, metazone_short, metazone_long, symbol, currencyName_count, currencyName, relative, unit_pattern, key;
@@ -237,14 +236,14 @@ public class CheckConsistentCasing extends FactoryCheckCLDR {
      */
     public static Map<Category, CasingType> getSamples(CLDRFile resolved) {
         // Use EnumMap instead of an array for type safety.
-        Map<Category, Counter<CasingType>> counters = new EnumMap<Category, Counter<CasingType>>(Category.class);
+        Map<Category, Counter<CasingType>> counters = new EnumMap<>(Category.class);
 
         for (Category category : Category.values()) {
             counters.put(category, new Counter<CasingType>());
         }
         PathStarrer starrer = new PathStarrer();
         boolean isRoot = "root".equals(resolved.getLocaleID());
-        Set<String> missing = !DEBUG ? null : new TreeSet<String>();
+        Set<String> missing = !DEBUG ? null : new TreeSet<>();
 
         for (String path : resolved) {
             if (!isRoot) {
@@ -269,7 +268,7 @@ public class CheckConsistentCasing extends FactoryCheckCLDR {
             }
         }
 
-        Map<Category, CasingType> info = new EnumMap<Category, CasingType>(Category.class);
+        Map<Category, CasingType> info = new EnumMap<>(Category.class);
         for (Category category : Category.values()) {
             if (category == Category.NOT_USED) continue;
             Counter<CasingType> counter = counters.get(category);
@@ -289,7 +288,7 @@ public class CheckConsistentCasing extends FactoryCheckCLDR {
             info.put(category, type);
         }
         if (DEBUG && missing.size() != 0) {
-            System.out.println("Paths skipped:\n" + CollectionUtilities.join(missing, "\n"));
+            System.out.println("Paths skipped:\n" + Joiner.on("\n").join(missing));
         }
         return info;
     }

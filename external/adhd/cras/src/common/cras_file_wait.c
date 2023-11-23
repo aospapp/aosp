@@ -190,7 +190,7 @@ int cras_file_wait_dispatch(struct cras_file_wait *file_wait)
 	strcpy(file_wait->watch_dir, file_wait->file_path);
 	watch_dir_len = file_wait->file_path_len;
 
-	while (rc == -ENOENT) {
+	while (rc == -ENOENT || rc == -EACCES) {
 		strcpy(file_wait->watch_path, file_wait->watch_dir);
 		watch_path_len = watch_dir_len;
 

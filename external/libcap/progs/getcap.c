@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 1997,2007 Andrew G. Morgan  <morgan@kernel.org>
+ * Copyright (c) 1997,2007 Andrew G. Morgan <morgan@kernel.org>
  *
  * This displays the capabilities of a given file.
  */
 
+#undef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 500
 
 #include <errno.h>
@@ -20,15 +21,16 @@
 
 static int verbose = 0;
 static int recursive = 0;
+static int namespace = 0;
 
-static void usage(void)
+static void usage(int code)
 {
     fprintf(stderr,
-	    "usage: getcap [-v] [-r] [-h] <filename> [<filename> ...]\n"
-	    "\n"
-	    "\tdisplays the capabilities on the queried file(s).\n"
+    "usage: getcap [-h] [-l] [-n] [-r] [-v] <filename> [<filename> ...]\n"
+    "\n"
+    "\tdisplays the capabilities on the queried file(s).\n"
 	);
-    exit(1);
+    exit(code);
 }
 
 static int do_getcap(const char *fname, const struct stat *stbuf,
@@ -36,6 +38,7 @@ static int do_getcap(const char *fname, const struct stat *stbuf,
 {
     cap_t cap_d;
     char *result;
+    uid_t rootid;
 
     if (tflag != FTW_F) {
 	if (verbose) {
@@ -47,7 +50,7 @@ static int do_getcap(const char *fname, const struct stat *stbuf,
     cap_d = cap_get_file(fname);
     if (cap_d == NULL) {
 	if (errno != ENODATA) {
-	    fprintf(stderr, "Failed to get capabilities of file `%s' (%s)\n",
+	    fprintf(stderr, "Failed to get capabilities of file '%s' (%s)\n",
 		    fname, strerror(errno));
 	} else if (verbose) {
 	    printf("%s\n", fname);
@@ -58,12 +61,17 @@ static int do_getcap(const char *fname, const struct stat *stbuf,
     result = cap_to_text(cap_d, NULL);
     if (!result) {
 	fprintf(stderr,
-		"Failed to get capabilities of human readable format at `%s' (%s)\n",
+		"Failed to get capabilities of human readable format at '%s' (%s)\n",
 		fname, strerror(errno));
 	cap_free(cap_d);
 	return 0;
     }
-    printf("%s %s\n", fname, result);
+    rootid = cap_get_nsowner(cap_d);
+    if (namespace && (rootid+1 > 1)) {
+	printf("%s %s [rootid=%d]\n", fname, result, rootid);
+    } else {
+	printf("%s %s\n", fname, result);
+    }
     cap_free(cap_d);
     cap_free(result);
 
@@ -74,7 +82,7 @@ int main(int argc, char **argv)
 {
     int i, c;
 
-    while ((c = getopt(argc, argv, "rvh")) > 0) {
+    while ((c = getopt(argc, argv, "rvhnl")) > 0) {
 	switch(c) {
 	case 'r':
 	    recursive = 1;
@@ -82,13 +90,23 @@ int main(int argc, char **argv)
 	case 'v':
 	    verbose = 1;
 	    break;
+	case 'n':
+	    namespace = 1;
+	    break;
+	case 'h':
+	    usage(0);
+	case 'l':
+	    printf("%s has a you choose license: BSD 3-clause or GPL2\n"
+		"Copyright (c) 1997,2007 Andrew G. Morgan"
+		" <morgan@kernel.org>\n", argv[0]);
+	    exit(0);
 	default:
-	    usage();
+	    usage(1);
 	}
     }
 
     if (!argv[optind])
-	usage();
+	usage(1);
 
     for (i=optind; argv[i] != NULL; i++) {
 	struct stat stbuf;

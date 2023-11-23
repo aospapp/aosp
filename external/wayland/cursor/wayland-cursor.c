@@ -83,14 +83,8 @@ err_free:
 static int
 shm_pool_resize(struct shm_pool *pool, int size)
 {
-	if (ftruncate(pool->fd, size) < 0)
+	if (os_resize_anonymous_file(pool->fd, size) < 0)
 		return 0;
-
-#ifdef HAVE_POSIX_FALLOCATE
-	errno = posix_fallocate(pool->fd, 0, size);
-	if (errno != 0)
-		return 0;
-#endif
 
 	wl_shm_pool_resize(pool->pool, size);
 

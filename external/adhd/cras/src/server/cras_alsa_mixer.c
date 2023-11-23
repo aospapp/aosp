@@ -417,7 +417,7 @@ static int mixer_control_set_mute(const struct mixer_control *control,
 				  int muted)
 {
 	const struct mixer_control_element *elem = NULL;
-	int rc;
+	int rc = -EINVAL;
 	if (!control)
 		return -EINVAL;
 	DL_FOREACH (control->elements, elem) {
@@ -943,7 +943,7 @@ void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer, long dBFS,
 	assert(cras_mixer);
 
 	/* dBFS is normally < 0 to specify the attenuation from max. max is the
-	 * combined max of the master controls and the current output.
+	 * combined max of the main controls and the current output.
 	 */
 	to_set = dBFS + cras_mixer->max_volume_dB;
 	if (cras_alsa_mixer_has_volume(mixer_output))
@@ -959,9 +959,9 @@ void cras_alsa_mixer_set_dBFS(struct cras_alsa_mixer *cras_mixer, long dBFS,
 
 		if (!c->has_volume)
 			continue;
-		mixer_control_set_dBFS(c, to_set);
-		mixer_control_get_dBFS(c, &actual_dB);
-		to_set -= actual_dB;
+		if (mixer_control_set_dBFS(c, to_set) == 0 &&
+		    mixer_control_get_dBFS(c, &actual_dB) == 0)
+			to_set -= actual_dB;
 	}
 	/* Apply the rest to the output-specific control. */
 	if (cras_alsa_mixer_has_volume(mixer_output))
@@ -1002,9 +1002,9 @@ void cras_alsa_mixer_set_capture_dBFS(struct cras_alsa_mixer *cras_mixer,
 
 		if (!c->has_volume)
 			continue;
-		mixer_control_set_dBFS(c, to_set);
-		mixer_control_get_dBFS(c, &actual_dB);
-		to_set -= actual_dB;
+		if (mixer_control_set_dBFS(c, to_set) == 0 &&
+		    mixer_control_get_dBFS(c, &actual_dB) == 0)
+			to_set -= actual_dB;
 	}
 
 	/* Apply the reset to input specific control */

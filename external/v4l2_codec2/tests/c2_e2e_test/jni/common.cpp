@@ -15,7 +15,7 @@
 #include <numeric>
 #include <sstream>
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 namespace android {
 
@@ -46,14 +46,22 @@ void InputFile::Rewind() {
     file_.seekg(0);
 }
 
-InputFileStream::InputFileStream(std::string file_path)
-      : InputFile(file_path, std::ifstream::binary) {}
+CachedInputFileStream::CachedInputFileStream(std::string file_path)
+      : InputFile(file_path, std::ifstream::binary) {
+    if (IsValid()) {
+        data_.resize(GetLength());
+        file_.read(data_.data(), GetLength());
+    }
+}
 
-size_t InputFileStream::Read(char* buffer, size_t size) {
-    file_.read(buffer, size);
-    if (file_.fail()) return -1;
+size_t CachedInputFileStream::Read(char* buffer, size_t size) {
+    memcpy(buffer, data_.data() + position_, size);
+    position_ += size;
+    return size;
+}
 
-    return file_.gcount();
+void CachedInputFileStream::Rewind() {
+    position_ = 0;
 }
 
 InputFileASCII::InputFileASCII(std::string file_path) : InputFile(file_path) {}
@@ -67,6 +75,100 @@ bool InputFileASCII::ReadLine(std::string* line) {
         return true;
     }
     return false;  // no more lines
+}
+
+IVFWriter::IVFWriter(std::ofstream* output_file, VideoCodecType codec)
+      : output_file_(output_file), codec_(codec) {}
+
+bool IVFWriter::WriteHeader(const Size& resolution, uint32_t frame_rate, uint32_t num_frames) {
+    constexpr uint16_t kIVFHeaderSize = 32;
+    char header[kIVFHeaderSize];
+
+    // Helper lambdas to write 16bit and 32bit data, expects the device to use little endian.
+    auto write16 = [&header](int i, uint16_t data) { memcpy(&header[i], &data, sizeof(data)); };
+    auto write32 = [&header](int i, uint32_t data) { memcpy(&header[i], &data, sizeof(data)); };
+
+    const char* codec_str;
+    switch (codec_) {
+    case VideoCodecType::VP8:
+        codec_str = "VP80";
+        break;
+    case VideoCodecType::VP9:
+        codec_str = "VP90";
+        break;
+    default:
+        printf("[ERR] Unknown codec: \n");
+        return false;
+    }
+
+    strcpy(&header[0], "DKIF");  // Bytes 0-3 of an IVF file header always contain 'DKIF' signature.
+    constexpr uint16_t kVersion = 0;
+    write16(4, kVersion);
+    write16(6, kIVFHeaderSize);
+    strcpy(&header[8], codec_str);
+    write16(12, resolution.width);
+    write16(14, resolution.height);
+    write32(16, frame_rate);
+    write32(20, 1);
+    write32(24, num_frames);
+    write32(28, 0);  // Reserved.
+
+    output_file_->write(header, kIVFHeaderSize);
+    return !output_file_->bad();
+}
+
+bool IVFWriter::WriteFrame(const uint8_t* data, uint32_t data_size, uint64_t timestamp) {
+    constexpr size_t kIVFFrameHeaderSize = 12;
+    char frame_header[kIVFFrameHeaderSize];
+    memcpy(&frame_header[0], &data_size, sizeof(data_size));
+    memcpy(&frame_header[4], &timestamp, sizeof(timestamp));
+    output_file_->write(frame_header, kIVFFrameHeaderSize);
+    output_file_->write(reinterpret_cast<const char*>(data), data_size);
+    return !output_file_->bad();
+}
+
+bool IVFWriter::SetNumFrames(uint32_t num_frames) {
+    output_file_->seekp(24);
+    output_file_->write(reinterpret_cast<const char*>(&num_frames), sizeof(num_frames));
+    return !output_file_->bad();
+}
+
+bool OutputFile::Open(const std::string& file_path, VideoCodecType codec) {
+    output_file_.open(file_path, std::ofstream::binary);
+    if (!output_file_.is_open()) {
+        return false;
+    }
+
+    if ((codec == VideoCodecType::VP8) || (codec == VideoCodecType::VP9)) {
+        ivf_writer_ = std::make_unique<IVFWriter>(&output_file_, codec);
+    }
+    return true;
+}
+
+void OutputFile::Close() {
+    if (ivf_writer_) {
+        ivf_writer_->SetNumFrames(frame_index_);
+        ivf_writer_.reset();
+    }
+    output_file_.close();
+}
+
+bool OutputFile::IsOpen() {
+    return output_file_.is_open();
+}
+
+// Write the file header.
+bool OutputFile::WriteHeader(const Size& resolution, uint32_t frame_rate, uint32_t num_frames) {
+    return !ivf_writer_ || ivf_writer_->WriteHeader(resolution, frame_rate, num_frames);
+}
+
+bool OutputFile::WriteFrame(uint32_t data_size, const uint8_t* data) {
+    if (ivf_writer_) {
+        return (ivf_writer_->WriteFrame(data, data_size, frame_index_++));
+    } else {
+        output_file_.write(reinterpret_cast<const char*>(data), data_size);
+        return (output_file_.fail());
+    }
 }
 
 bool FPSCalculator::RecordFrameTimeDiff() {

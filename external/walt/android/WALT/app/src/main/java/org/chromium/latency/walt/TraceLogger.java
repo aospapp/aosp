@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Locale;
 
 /**
  * Used to log events for Android systrace
@@ -58,12 +59,13 @@ class TraceLogger {
         StringBuilder sb = new StringBuilder();
         int pid = android.os.Process.myPid();
         for (TraceEvent e : traceEvents) {
-            sb.append(String.format(
-                    "WALTThread-1234 (%d) [000] ...1 %s: tracing_mark_write: B|%d|%s|description=%s|WALT\n",
-                    pid, df.format(e.startTimeMicros / 1e6), pid, e.title, e.description));
-            sb.append(String.format(
-                    "WALTThread-1234 (%d) [000] ...1 %s: tracing_mark_write: E|%d|%s||WALT\n",
-                    pid, df.format(e.finishTimeMicros / 1e6), pid, e.title));
+            sb.append(String.format(Locale.US,
+                "WALTThread-1234 (%d) [000] ...1 %s: tracing_mark_write: "
+                    + "B|%d|%s|description=%s|WALT\n",
+                pid, df.format(e.startTimeMicros / 1e6), pid, e.title, e.description));
+            sb.append(String.format(Locale.US,
+                "WALTThread-1234 (%d) [000] ...1 %s: tracing_mark_write: E|%d|%s||WALT\n",
+                pid, df.format(e.finishTimeMicros / 1e6), pid, e.title));
         }
         return sb.toString();
     }
@@ -85,7 +87,7 @@ class TraceLogger {
             OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(file, true));
             writer.write(getLogText());
             writer.close();
-            logger.log(String.format("TraceLogger wrote %d events to %s",
+            logger.log(String.format(Locale.US, "TraceLogger wrote %d events to %s",
                     traceEvents.size(), file.getAbsolutePath()));
         } catch (IOException e) {
             logger.log("ERROR: IOException writing to trace.txt");

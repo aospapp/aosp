@@ -36,7 +36,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 
 #include "atomicio.h"
 #include "log.h"
@@ -59,6 +58,7 @@ static const struct sandbox_policy preauth_policy[] = {
 	{ SYS_getpgid, SYSTR_POLICY_PERMIT },
 	{ SYS_clock_gettime, SYSTR_POLICY_PERMIT },
 	{ SYS_gettimeofday, SYSTR_POLICY_PERMIT },
+	{ SYS_nanosleep, SYSTR_POLICY_PERMIT },
 	{ SYS_sigprocmask, SYSTR_POLICY_PERMIT },
 
 #ifdef SYS_getentropy
@@ -105,7 +105,7 @@ ssh_sandbox_init(struct monitor *monitor)
 	box = xcalloc(1, sizeof(*box));
 	box->systrace_fd = -1;
 	box->child_pid = 0;
-	box->osigchld = signal(SIGCHLD, SIG_IGN);
+	box->osigchld = ssh_signal(SIGCHLD, SIG_IGN);
 
 	return box;
 }
@@ -114,7 +114,7 @@ void
 ssh_sandbox_child(struct ssh_sandbox *box)
 {
 	debug3("%s: ready", __func__);
-	signal(SIGCHLD, box->osigchld);
+	ssh_signal(SIGCHLD, box->osigchld);
 	if (kill(getpid(), SIGSTOP) != 0)
 		fatal("%s: kill(%d, SIGSTOP)", __func__, getpid());
 	debug3("%s: started", __func__);
@@ -133,7 +133,7 @@ ssh_sandbox_parent(struct ssh_sandbox *box, pid_t child_pid,
 	do {
 		pid = waitpid(child_pid, &status, WUNTRACED);
 	} while (pid == -1 && errno == EINTR);
-	signal(SIGCHLD, box->osigchld);
+	ssh_signal(SIGCHLD, box->osigchld);
 	if (!WIFSTOPPED(status)) {
 		if (WIFSIGNALED(status))
 			fatal("%s: child terminated with signal %d",

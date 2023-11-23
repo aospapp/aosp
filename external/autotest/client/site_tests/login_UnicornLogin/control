@@ -8,7 +8,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:bvt-perbuild"
+# Disable until test can be fixed: https://crbug.com/1097949
+# ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 This test verifies that logging into a Unicorn account works correctly.

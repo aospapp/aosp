@@ -1,8 +1,15 @@
+# Lint as: python2, python3
 #pylint: disable-msg=C0111
 
 """
 Internal global error types
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import six
 
 import sys, traceback
 from traceback import format_exception
@@ -48,7 +55,7 @@ class UnhandledJobError(JobError):
     def __init__(self, unhandled_exception):
         if isinstance(unhandled_exception, JobError):
             JobError.__init__(self, *unhandled_exception.args)
-        elif isinstance(unhandled_exception, basestring):
+        elif isinstance(unhandled_exception, six.string_types):
             JobError.__init__(self, unhandled_exception)
         else:
             msg = "Unhandled %s: %s"
@@ -91,7 +98,7 @@ class UnhandledTestError(TestError):
     def __init__(self, unhandled_exception):
         if isinstance(unhandled_exception, TestError):
             TestError.__init__(self, *unhandled_exception.args)
-        elif isinstance(unhandled_exception, basestring):
+        elif isinstance(unhandled_exception, six.string_types):
             TestError.__init__(self, unhandled_exception)
         else:
             msg = "Unhandled %s: %s"
@@ -106,7 +113,7 @@ class UnhandledTestFail(TestFail):
     def __init__(self, unhandled_exception):
         if isinstance(unhandled_exception, TestFail):
             TestFail.__init__(self, *unhandled_exception.args)
-        elif isinstance(unhandled_exception, basestring):
+        elif isinstance(unhandled_exception, six.string_types):
             TestFail.__init__(self, unhandled_exception)
         else:
             msg = "Unhandled %s: %s"
@@ -470,16 +477,16 @@ class HeartbeatOnlyAllowedInShardModeException(Exception):
     """Raised when a heartbeat is attempted but not allowed."""
 
 
-class UnallowedRecordsSentToMaster(Exception):
-    """Raised when an illegal record was sent from shard to master."""
+class UnallowedRecordsSentToMain(Exception):
+    """Raised when an illegal record was sent from shard to main."""
 
 
-class IgnorableUnallowedRecordsSentToMaster(UnallowedRecordsSentToMaster):
+class IgnorableUnallowedRecordsSentToMain(UnallowedRecordsSentToMain):
     """Raised when non-fatal illegal record was sent from shard.
 
-    This exception may be raised by rpc model logic on master, but will
+    This exception may be raised by rpc model logic on main, but will
     not be returned back to heartbeat client. It indicates that some records
-    may have been illegal, but the master is ignoring those records and
+    may have been illegal, but the main is ignoring those records and
     proceeding with the rest of the heartbeat handling.
     """
 
@@ -506,7 +513,7 @@ class AutoservDiskSizeUnknownError(AutoservHostError):
 
 # This MUST remain at the end of the file.
 # Limit 'from error import *' to only import the exception instances.
-for _name, _thing in locals().items():
+for _name, _thing in list(locals().items()):
     try:
         if issubclass(_thing, Exception):
             __all__.append(_name)

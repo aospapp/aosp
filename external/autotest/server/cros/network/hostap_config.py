@@ -241,7 +241,7 @@ class HostapConfig(object):
                 ('logger_syslog', '-1'),
                 ('logger_syslog_level', '0'),
                 # default RTS and frag threshold to ``off''
-                ('rts_threshold', '2347'),
+                ('rts_threshold', '-1'),
                 ('fragm_threshold', '2346'),
                 ('driver', self.DRIVER_NAME)])
 
@@ -506,11 +506,6 @@ class HostapConfig(object):
         return self._bridge
 
     @property
-    def use_bridge(self):
-        """@return bool _use_bridge value, or None."""
-        return self._use_bridge
-
-    @property
     def max_stas(self):
         """@return int _max_stas value, or None."""
         return self._max_stas
@@ -541,7 +536,7 @@ class HostapConfig(object):
                  r1kh_id=None,
                  r0kh=None,
                  r1kh=None,
-                 use_bridge=False,
+                 bridge=None,
                  max_stas=None):
         """Construct a HostapConfig.
 
@@ -583,7 +578,7 @@ class HostapConfig(object):
         @param r1kh_id string PMK-R1 key holder id for FT
         @param r0kh string R0KHs in the same mobility domain
         @param r1kh string R1KHs in the same mobility domain
-        @param use_bridge True if we should use a bridge
+        @param bridge string bridge interface to use, if any
         @param max_stas int maximum number of STAs allowed to connect to AP.
 
         """
@@ -665,8 +660,7 @@ class HostapConfig(object):
         self._r1kh_id = r1kh_id
         self._r0kh = r0kh
         self._r1kh = r1kh
-        self._bridge = None
-        self._use_bridge = use_bridge
+        self._bridge = bridge
         # keep _max_stas in [0, 2007], as valid AIDs must be in [1, 2007]
         if max_stas is None:
             self._max_stas = None

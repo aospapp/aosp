@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ku{
     Countries{
         001{"Cîhan"}
@@ -106,7 +107,6 @@ ku{
         GU{"Guam"}
         GW{"Gîne-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong"}
         HN{"Hondûras"}
         HR{"Kroatya"}
         HT{"Haîtî"}
@@ -150,14 +150,12 @@ ku{
         MC{"Monako"}
         MD{"Moldova"}
         ME{"Montenegro"}
-        MF{"MF"}
         MG{"Madagaskar"}
         MH{"Giravên Marşal"}
         MK{"Makedonya"}
         ML{"Malî"}
         MM{"Myanmar (Birmanya)"}
         MN{"Mongolya"}
-        MO{"Makao"}
         MP{"Giravên Bakurê Marianan"}
         MQ{"Martinique"}
         MR{"Morîtanya"}
@@ -263,5 +261,4 @@ ku{
         CZ{"Komara Çekî"}
         TL{"Tîmora Rojhilat"}
     }
-    Version{"36.1"}
 }

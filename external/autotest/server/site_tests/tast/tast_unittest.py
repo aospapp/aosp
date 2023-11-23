@@ -20,8 +20,9 @@ import tast
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
+from autotest_lib.server.cros.network import wifi_test_context_manager
 from autotest_lib.server.hosts import host_info
-from autotest_lib.server.hosts import servo_host
+from autotest_lib.server.hosts import servo_constants
 
 
 # Arbitrary base time to use in tests.
@@ -46,6 +47,12 @@ class TastTest(unittest.TestCase):
     PORT = 22
     TEST_PATTERNS = ['(bvt)']
     MAX_RUN_SEC = 300
+
+    # Default paths where Tast files are installed by Portage packages.
+    _PORTAGE_TAST_PATH = tast.tast._PORTAGE_TAST_PATH
+    _PORTAGE_REMOTE_BUNDLE_DIR = '/usr/libexec/tast/bundles/remote'
+    _PORTAGE_REMOTE_DATA_DIR = '/usr/share/tast/data'
+    _PORTAGE_REMOTE_TEST_RUNNER_PATH = '/usr/bin/remote_test_runner'
 
     def setUp(self):
         self._temp_dir = tempfile.mkdtemp('.tast_unittest')
@@ -107,19 +114,25 @@ class TastTest(unittest.TestCase):
         # tast.py can find them; their contents don't matter since fake_tast.py
         # won't actually use them.
         self._tast_path = create_file(
-                tast.tast._SSP_TAST_PATH if ssp else tast.tast._TAST_PATH,
+                tast.tast._SSP_TAST_PATH if ssp else self._PORTAGE_TAST_PATH,
                 os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              'testdata', 'fake_tast.py'))
         self._remote_bundle_dir = os.path.dirname(
                 create_file(os.path.join(tast.tast._SSP_REMOTE_BUNDLE_DIR if ssp
-                                         else tast.tast._REMOTE_BUNDLE_DIR,
+                                         else self._PORTAGE_REMOTE_BUNDLE_DIR,
+                                         'fake')))
+        self._remote_data_dir = os.path.dirname(
+                create_file(os.path.join(tast.tast._SSP_REMOTE_DATA_DIR if ssp
+                                         else self._PORTAGE_REMOTE_DATA_DIR,
                                          'fake')))
         self._remote_test_runner_path = create_file(
                 tast.tast._SSP_REMOTE_TEST_RUNNER_PATH if ssp
-                else tast.tast._REMOTE_TEST_RUNNER_PATH)
+                else self._PORTAGE_REMOTE_TEST_RUNNER_PATH)
 
-    def _init_tast_commands(self, tests, run_private_tests=False,
-                            run_vars=[], run_varsfiles=None):
+    def _init_tast_commands(self, tests, ssp=False, build=False,
+                            build_bundle='fakebundle', run_private_tests=False,
+                            run_vars=[], run_varsfiles=[],
+                            download_data_lazily=False):
         """Sets fake_tast.py's behavior for 'list' and 'run' commands.
 
         @param tests: List of TestInfo objects.
@@ -127,17 +140,36 @@ class TastTest(unittest.TestCase):
         @param run_vars: List of string values that should be passed to 'run'
             via -var.
         @param run_varsfiles: filenames should be passed to 'run' via -varsfile.
+        @param download_data_lazily: Whether to download external data files
+            lazily.
         """
         list_args = [
-            'build=False',
+            'build=%s' % build,
             'patterns=%s' % self.TEST_PATTERNS,
-            'remotebundledir=%s' % self._remote_bundle_dir,
-            'remoterunner=%s' % self._remote_test_runner_path,
             'sshretries=%d' % tast.tast._SSH_CONNECT_RETRIES,
+            'downloaddata=%s' % ('lazy' if download_data_lazily else 'batch'),
             'target=%s:%d' % (self.HOST, self.PORT),
-            'downloadprivatebundles=%s' % run_private_tests,
             'verbose=True',
         ]
+        if build:
+            list_args.extend([
+                'buildbundle=%s' % build_bundle,
+                'checkbuilddeps=False',
+            ])
+        else:
+            if ssp:
+                list_args.extend([
+                    'remotebundledir=%s' % self._remote_bundle_dir,
+                    'remotedatadir=%s' % self._remote_data_dir,
+                    'remoterunner=%s' % self._remote_test_runner_path,
+                ])
+            else:
+                list_args.extend([
+                    'remotebundledir=None',
+                    'remotedatadir=None',
+                    'remoterunner=None',
+                ])
+            list_args.append('downloadprivatebundles=%s' % run_private_tests)
         run_args = list_args + [
             'resultsdir=%s' % self._test.resultsdir,
             'continueafterfailure=True',
@@ -165,18 +197,34 @@ class TastTest(unittest.TestCase):
         return os.path.join(self._test.resultsdir,
                             tast.tast._STREAMED_RESULTS_FILENAME)
 
-    def _run_test(self, ignore_test_failures=False, command_args=[],
-                  run_private_tests=False, varsfiles=None):
+    def _run_test(self,
+                  ignore_test_failures=False,
+                  command_args=[],
+                  ssp=False,
+                  build=False,
+                  build_bundle='fakebundle',
+                  run_private_tests=False,
+                  varsfiles=[],
+                  download_data_lazily=False,
+                  varslist=[]):
         """Writes fake_tast.py's configuration and runs the test.
 
         @param ignore_test_failures: Passed as the identically-named arg to
             Tast.initialize().
         @param command_args: Passed as the identically-named arg to
             Tast.initialize().
+        @param ssp: Passed as the identically-named arg to Tast.initialize().
+        @param build: Passed as the identically-named arg to Tast.initialize().
+        @param build_bundle: Passed as the identically-named arg to
+            Tast.initialize().
         @param run_private_tests: Passed as the identically-named arg to
             Tast.initialize().
         @param varsfiles: list of names of yaml files containing variables set
              in |-varsfile| arguments.
+        @param download_data_lazily: Whether to download external data files
+            lazily.
+        @param varslist: list of strings to pass to tast run command as |-vars|
+            arguments. Each string should be formatted as "name=value".
         """
         self._test.initialize(self._host,
                               self.TEST_PATTERNS,
@@ -184,8 +232,13 @@ class TastTest(unittest.TestCase):
                               max_run_sec=self.MAX_RUN_SEC,
                               command_args=command_args,
                               install_root=self._root_dir,
+                              ssp=ssp,
+                              build=build,
+                              build_bundle=build_bundle,
                               run_private_tests=run_private_tests,
-                              varsfiles=varsfiles)
+                              varsfiles=varsfiles,
+                              download_data_lazily=download_data_lazily,
+                              varslist=varslist)
         self._test.set_fake_now_for_testing(
                 (NOW - tast._UNIX_EPOCH).total_seconds())
 
@@ -334,10 +387,9 @@ class TastTest(unittest.TestCase):
                          {'tast_missing_test.0': 'pkg.Test3'})
 
     def testNoTestsMatched(self):
-        """Tests that an error is raised if no tests are matched."""
+        """Tests that no error is raised if no tests are matched."""
         self._init_tast_commands([])
-        with self.assertRaises(error.TestFail) as _:
-            self._run_test()
+        self._run_test()
 
     def testListCommandFails(self):
         """Tests that an error is raised if the list command fails."""
@@ -421,19 +473,19 @@ class TastTest(unittest.TestCase):
 
     def testMissingTastExecutable(self):
         """Tests that an error is raised if the tast command isn't found."""
-        os.remove(self._get_path_in_root(tast.tast._TAST_PATH))
+        os.remove(self._get_path_in_root(self._PORTAGE_TAST_PATH))
         with self.assertRaises(error.TestFail) as _:
             self._run_test()
 
     def testMissingRemoteTestRunner(self):
         """Tests that an error is raised if remote_test_runner isn't found."""
-        os.remove(self._get_path_in_root(tast.tast._REMOTE_TEST_RUNNER_PATH))
+        os.remove(self._get_path_in_root(self._PORTAGE_REMOTE_TEST_RUNNER_PATH))
         with self.assertRaises(error.TestFail) as _:
             self._run_test()
 
     def testMissingRemoteBundleDir(self):
         """Tests that an error is raised if remote bundles aren't found."""
-        shutil.rmtree(self._get_path_in_root(tast.tast._REMOTE_BUNDLE_DIR))
+        shutil.rmtree(self._get_path_in_root(self._PORTAGE_REMOTE_BUNDLE_DIR))
         with self.assertRaises(error.TestFail) as _:
             self._run_test()
 
@@ -444,8 +496,16 @@ class TastTest(unittest.TestCase):
         self._set_up_root(ssp=True)
 
         tests = [TestInfo('pkg.Test', 0, 1)]
-        self._init_tast_commands(tests)
-        self._run_test()
+        self._init_tast_commands(tests, ssp=True)
+        self._run_test(ssp=True)
+        self.assertEqual(status_string(get_status_entries_from_tests(tests)),
+                         status_string(self._job.status_entries))
+
+    def testBuild(self):
+        """Tests that Tast tests can be built."""
+        tests = [TestInfo('pkg.Test', 0, 1)]
+        self._init_tast_commands(tests, build=True)
+        self._run_test(build=True)
         self.assertEqual(status_string(get_status_entries_from_tests(tests)),
                          status_string(self._job.status_entries))
 
@@ -488,6 +548,12 @@ class TastTest(unittest.TestCase):
                                  run_private_tests=True)
         self._run_test(ignore_test_failures=True, run_private_tests=True)
 
+    def testDownloadDataLazily(self):
+        """Tests downloading external data files lazily."""
+        self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
+                                 download_data_lazily=True)
+        self._run_test(ignore_test_failures=True, download_data_lazily=True)
+
     def testServoFromCommandArgs(self):
         """Tests passing servo info via command-line arg."""
         SERVO_HOST = 'chromeos6-row2-rack21-labstation1.cros'
@@ -499,8 +565,8 @@ class TastTest(unittest.TestCase):
 
         # Simulate servo info being passed on the command line via --args.
         args = [
-            '%s=%s' % (servo_host.SERVO_HOST_ATTR, SERVO_HOST),
-            '%s=%s' % (servo_host.SERVO_PORT_ATTR, SERVO_PORT),
+            '%s=%s' % (servo_constants.SERVO_HOST_ATTR, SERVO_HOST),
+            '%s=%s' % (servo_constants.SERVO_PORT_ATTR, SERVO_PORT),
         ]
         self._run_test(command_args=args)
 
@@ -515,11 +581,30 @@ class TastTest(unittest.TestCase):
 
         # Simulate the host's servo info being stored in the Autotest DB.
         attr = {
-            servo_host.SERVO_HOST_ATTR: SERVO_HOST,
-            servo_host.SERVO_PORT_ATTR: SERVO_PORT,
+            servo_constants.SERVO_HOST_ATTR: SERVO_HOST,
+            servo_constants.SERVO_PORT_ATTR: SERVO_PORT,
         }
         self._host.host_info_store.commit(host_info.HostInfo(attributes=attr))
         self._run_test()
+
+    def testWificellArgs(self):
+        """Tests passing Wificell specific args into Tast runner."""
+        ROUTER_IP = '192.168.1.2:1234'
+        PCAP_IP = '192.168.1.3:2345'
+        wificell_var = [
+            'router=%s' % ROUTER_IP,
+            'pcap=%s' % PCAP_IP,
+        ]
+        self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
+                                 run_vars=wificell_var)
+
+        WiFiManager = wifi_test_context_manager.WiFiTestContextManager
+        arg_list = [
+            (WiFiManager.CMDLINE_ROUTER_ADDR, ROUTER_IP),
+            (WiFiManager.CMDLINE_PCAP_ADDR, PCAP_IP),
+        ]
+        args = map(lambda x: ("%s=%s" % x), arg_list)
+        self._run_test(command_args=args)
 
     def testVarsfileOption(self):
         with tempfile.NamedTemporaryFile(
@@ -529,6 +614,12 @@ class TastTest(unittest.TestCase):
             self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
                                      run_varsfiles=varsfiles)
             self._run_test(varsfiles=varsfiles)
+
+    def testVarslistOption(self):
+        varslist = ["var1=val1", "var2=val2"]
+        self._init_tast_commands([TestInfo('pkg.Test', 0, 0)],
+                                 run_vars=varslist)
+        self._run_test(varslist=varslist)
 
 
 class TestInfo:

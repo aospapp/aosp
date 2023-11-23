@@ -64,6 +64,9 @@
 #ifdef HAVE_ERR_H
 # include <err.h>
 #endif
+#ifdef HAVE_SYS_BYTEORDER_H
+# include <sys/byteorder.h>
+#endif
 
 /* Telnet options from arpa/telnet.h */
 #define IAC	255
@@ -738,7 +741,12 @@ local_listen(char *host, char *port, struct addrinfo hints)
 #ifdef SO_REUSEPORT
 		ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &x, sizeof(x));
 		if (ret == -1)
-			err(1, "setsockopt");
+			err(1, "setsockopt SO_REUSEPORT");
+#endif
+#ifdef SO_REUSEADDR
+		ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &x, sizeof(x));
+		if (ret == -1)
+			err(1, "setsockopt SO_REUSEADDR");
 #endif
 		set_common_sockopts(s);
 
@@ -1176,11 +1184,13 @@ set_common_sockopts(int s)
 			&x, sizeof(x)) == -1)
 			err(1, "setsockopt");
 	}
+#ifdef IP_TOS
 	if (Tflag != -1) {
 		if (setsockopt(s, IPPROTO_IP, IP_TOS,
 		    &Tflag, sizeof(Tflag)) == -1)
 			err(1, "set IP ToS");
 	}
+#endif
 	if (Iflag) {
 		if (setsockopt(s, SOL_SOCKET, SO_RCVBUF,
 		    &Iflag, sizeof(Iflag)) == -1)
@@ -1196,6 +1206,7 @@ set_common_sockopts(int s)
 int
 map_tos(char *s, int *val)
 {
+#ifdef IP_TOS
 	/* DiffServ Codepoints and other TOS mappings */
 	const struct toskeywords {
 		const char	*keyword;
@@ -1237,6 +1248,7 @@ map_tos(char *s, int *val)
 			return (1);
 		}
 	}
+#endif
 
 	return (0);
 }

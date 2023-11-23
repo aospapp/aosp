@@ -16,6 +16,9 @@
 
 package com.android.volley.toolbox;
 
+import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import com.android.volley.Cache;
 import com.android.volley.Header;
 import com.android.volley.NetworkResponse;
@@ -23,21 +26,30 @@ import com.android.volley.VolleyLog;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /** Utility methods for parsing HTTP headers. */
 public class HttpHeaderParser {
 
-    static final String HEADER_CONTENT_TYPE = "Content-Type";
+    @RestrictTo({Scope.LIBRARY_GROUP})
+    public static final String HEADER_CONTENT_TYPE = "Content-Type";
 
     private static final String DEFAULT_CONTENT_CHARSET = "ISO-8859-1";
 
-    private static final String RFC1123_FORMAT = "EEE, dd MMM yyyy HH:mm:ss zzz";
+    private static final String RFC1123_PARSE_FORMAT = "EEE, dd MMM yyyy HH:mm:ss zzz";
+
+    // Hardcode 'GMT' rather than using 'zzz' since some platforms append an extraneous +00:00.
+    // See #287.
+    private static final String RFC1123_OUTPUT_FORMAT = "EEE, dd MMM yyyy HH:mm:ss 'GMT'";
 
     /**
      * Extracts a {@link com.android.volley.Cache.Entry} from a {@link NetworkResponse}.
@@ -45,10 +57,14 @@ public class HttpHeaderParser {
      * @param response The network response to parse headers from
      * @return a cache entry for the given response, or null if the response is not cacheable.
      */
+    @Nullable
     public static Cache.Entry parseCacheHeaders(NetworkResponse response) {
         long now = System.currentTimeMillis();
 
         Map<String, String> headers = response.headers;
+        if (headers == null) {
+            return null;
+        }
 
         long serverDate = 0;
         long lastModified = 0;
@@ -132,21 +148,29 @@ public class HttpHeaderParser {
     public static long parseDateAsEpoch(String dateStr) {
         try {
             // Parse date in RFC1123 format if this header contains one
-            return newRfc1123Formatter().parse(dateStr).getTime();
+            return newUsGmtFormatter(RFC1123_PARSE_FORMAT).parse(dateStr).getTime();
         } catch (ParseException e) {
             // Date in invalid format, fallback to 0
-            VolleyLog.e(e, "Unable to parse dateStr: %s, falling back to 0", dateStr);
+            // If the value is either "0" or "-1" we only log to verbose,
+            // these values are pretty common and cause log spam.
+            String message = "Unable to parse dateStr: %s, falling back to 0";
+            if ("0".equals(dateStr) || "-1".equals(dateStr)) {
+                VolleyLog.v(message, dateStr);
+            } else {
+                VolleyLog.e(e, message, dateStr);
+            }
+
             return 0;
         }
     }
 
     /** Format an epoch date in RFC1123 format. */
     static String formatEpochAsRfc1123(long epoch) {
-        return newRfc1123Formatter().format(new Date(epoch));
+        return newUsGmtFormatter(RFC1123_OUTPUT_FORMAT).format(new Date(epoch));
     }
 
-    private static SimpleDateFormat newRfc1123Formatter() {
-        SimpleDateFormat formatter = new SimpleDateFormat(RFC1123_FORMAT, Locale.US);
+    private static SimpleDateFormat newUsGmtFormatter(String format) {
+        SimpleDateFormat formatter = new SimpleDateFormat(format, Locale.US);
         formatter.setTimeZone(TimeZone.getTimeZone("GMT"));
         return formatter;
     }
@@ -159,7 +183,11 @@ public class HttpHeaderParser {
      * @return Returns the charset specified in the Content-Type of this header, or the
      *     defaultCharset if none can be found.
      */
-    public static String parseCharset(Map<String, String> headers, String defaultCharset) {
+    public static String parseCharset(
+            @Nullable Map<String, String> headers, String defaultCharset) {
+        if (headers == null) {
+            return defaultCharset;
+        }
         String contentType = headers.get(HEADER_CONTENT_TYPE);
         if (contentType != null) {
             String[] params = contentType.split(";", 0);
@@ -180,7 +208,7 @@ public class HttpHeaderParser {
      * Returns the charset specified in the Content-Type of this header, or the HTTP default
      * (ISO-8859-1) if none can be found.
      */
-    public static String parseCharset(Map<String, String> headers) {
+    public static String parseCharset(@Nullable Map<String, String> headers) {
         return parseCharset(headers, DEFAULT_CONTENT_CHARSET);
     }
 
@@ -204,5 +232,70 @@ public class HttpHeaderParser {
             allHeaders.add(new Header(header.getKey(), header.getValue()));
         }
         return allHeaders;
+    }
+
+    /**
+     * Combine cache headers with network response headers for an HTTP 304 response.
+     *
+     * <p>An HTTP 304 response does not have all header fields. We have to use the header fields
+     * from the cache entry plus the new ones from the response. See also:
+     * http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3.5
+     *
+     * @param responseHeaders Headers from the network response.
+     * @param entry The cached response.
+     * @return The combined list of headers.
+     */
+    static List<Header> combineHeaders(List<Header> responseHeaders, Cache.Entry entry) {
+        // First, create a case-insensitive set of header names from the network
+        // response.
+        Set<String> headerNamesFromNetworkResponse = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        if (!responseHeaders.isEmpty()) {
+            for (Header header : responseHeaders) {
+                headerNamesFromNetworkResponse.add(header.getName());
+            }
+        }
+
+        // Second, add headers from the cache entry to the network response as long as
+        // they didn't appear in the network response, which should take precedence.
+        List<Header> combinedHeaders = new ArrayList<>(responseHeaders);
+        if (entry.allResponseHeaders != null) {
+            if (!entry.allResponseHeaders.isEmpty()) {
+                for (Header header : entry.allResponseHeaders) {
+                    if (!headerNamesFromNetworkResponse.contains(header.getName())) {
+                        combinedHeaders.add(header);
+                    }
+                }
+            }
+        } else {
+            // Legacy caches only have entry.responseHeaders.
+            if (!entry.responseHeaders.isEmpty()) {
+                for (Map.Entry<String, String> header : entry.responseHeaders.entrySet()) {
+                    if (!headerNamesFromNetworkResponse.contains(header.getKey())) {
+                        combinedHeaders.add(new Header(header.getKey(), header.getValue()));
+                    }
+                }
+            }
+        }
+        return combinedHeaders;
+    }
+
+    static Map<String, String> getCacheHeaders(Cache.Entry entry) {
+        // If there's no cache entry, we're done.
+        if (entry == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, String> headers = new HashMap<>();
+
+        if (entry.etag != null) {
+            headers.put("If-None-Match", entry.etag);
+        }
+
+        if (entry.lastModified > 0) {
+            headers.put(
+                    "If-Modified-Since", HttpHeaderParser.formatEpochAsRfc1123(entry.lastModified));
+        }
+
+        return headers;
     }
 }

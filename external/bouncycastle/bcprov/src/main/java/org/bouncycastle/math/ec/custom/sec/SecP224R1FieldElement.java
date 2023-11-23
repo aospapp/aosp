@@ -7,10 +7,12 @@ import org.bouncycastle.math.raw.Mod;
 import org.bouncycastle.math.raw.Nat;
 import org.bouncycastle.math.raw.Nat224;
 import org.bouncycastle.util.Arrays;
+import org.bouncycastle.util.encoders.Hex;
 
 public class SecP224R1FieldElement extends ECFieldElement.AbstractFp
 {
-    public static final BigInteger Q = SecP224R1Curve.q;
+    public static final BigInteger Q = new BigInteger(1,
+        Hex.decodeStrict("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000001"));
 
     protected int[] x;
 
@@ -96,7 +98,7 @@ public class SecP224R1FieldElement extends ECFieldElement.AbstractFp
     {
 //        return multiply(b.invert());
         int[] z = Nat224.create();
-        Mod.invert(SecP224R1Field.P, ((SecP224R1FieldElement)b).x, z);
+        SecP224R1Field.inv(((SecP224R1FieldElement)b).x, z);
         SecP224R1Field.multiply(z, x, z);
         return new SecP224R1FieldElement(z);
     }
@@ -119,7 +121,7 @@ public class SecP224R1FieldElement extends ECFieldElement.AbstractFp
     {
 //        return new SecP224R1FieldElement(toBigInteger().modInverse(Q));
         int[] z = Nat224.create();
-        Mod.invert(SecP224R1Field.P, x, z);
+        SecP224R1Field.inv(x, z);
         return new SecP224R1FieldElement(z);
     }
 
@@ -262,7 +264,7 @@ public class SecP224R1FieldElement extends ECFieldElement.AbstractFp
 
             if (Nat224.isZero(d1))
             {
-                Mod.invert(SecP224R1Field.P, e0, t);
+                SecP224R1Field.inv(e0, t);
                 SecP224R1Field.multiply(t, d0, t);
                 return true;
             }

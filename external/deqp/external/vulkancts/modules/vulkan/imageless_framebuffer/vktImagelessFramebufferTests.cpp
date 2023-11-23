@@ -1410,6 +1410,8 @@ tcu::TestStatus DepthImagelessTestInstance::iterate (void)
 	const VkQueue					queue				= m_context.getUniversalQueue();
 	Allocator&						allocator			= m_context.getDefaultAllocator();
 
+	const deUint32					sampleCount			= 1u;
+	const VkSampleCountFlagBits		sampleCountFlag		= sampleCountBitFromSampleCount(sampleCount);
 	const tcu::Vec4					clearColor			= tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	const VkFormat					colorFormat			= m_parameters.colorFormat;
 	const VkDeviceSize				colorBufferSize		= m_imageExtent2D.width * m_imageExtent2D.height * tcu::getPixelSize(mapVkFormat(colorFormat));
@@ -1443,7 +1445,7 @@ tcu::TestStatus DepthImagelessTestInstance::iterate (void)
 
 	const Unique<VkShaderModule>	vertModule			(createShaderModule		(vk, device, m_context.getBinaryCollection().get("vert"), 0u));
 	const Unique<VkShaderModule>	fragModule			(createShaderModule		(vk, device, m_context.getBinaryCollection().get("frag"), 0u));
-	const Unique<VkRenderPass>		renderPass			(makeRenderPass			(vk, device, colorFormat, dsFormat));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass			(vk, device, colorFormat, dsFormat, sampleCountFlag));
 	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer		(vk, device, *renderPass, m_imageExtent2D, &colorFormat, m_colorImageUsage, &dsFormat, m_dsImageUsage));
 	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout		(vk, device));
 	const Unique<VkPipeline>		pipeline			(makeGraphicsPipeline	(vk, device, *pipelineLayout, *renderPass, *vertModule, *fragModule, m_imageExtent2D, ASPECT_DEPTH_STENCIL));
@@ -1999,7 +2001,7 @@ tcu::TestStatus DepthResolveImagelessTestInstance::iterate (void)
 
 		// Depth/Stencil resolve image copy
 		{
-			const VkImageMemoryBarrier	preCopyBarrier		= makeImageMemoryBarrier(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+			const VkImageMemoryBarrier	preCopyBarrier		= makeImageMemoryBarrier(0u, VK_ACCESS_TRANSFER_READ_BIT,
 																					 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 																					 *dsResolveImage, dsSubresRange);
 			const VkBufferImageCopy		depthCopyRegion		= makeBufferImageCopy(makeExtent3D(m_imageExtent2D.width, m_imageExtent2D.height, 1u),
@@ -2012,7 +2014,7 @@ tcu::TestStatus DepthResolveImagelessTestInstance::iterate (void)
 				makeBufferMemoryBarrier(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT, *stencilResolveBuffer, 0ull, VK_WHOLE_SIZE),
 			};
 
-			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u, 0u, DE_NULL, 0u, DE_NULL, 1u, &preCopyBarrier);
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u, 0u, DE_NULL, 0u, DE_NULL, 1u, &preCopyBarrier);
 			vk.cmdCopyImageToBuffer(*cmdBuffer, *dsResolveImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *depthResolveBuffer, 1u, &depthCopyRegion);
 			vk.cmdCopyImageToBuffer(*cmdBuffer, *dsResolveImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *stencilResolveBuffer, 1u, &stencilCopyRegion);
 			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u, 0u, DE_NULL, DE_LENGTH_OF_ARRAY(postCopyBarriers), postCopyBarriers, DE_NULL, 0u);

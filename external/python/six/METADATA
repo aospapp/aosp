@@ -12,5 +12,6 @@ third_party {
     value: "https://github.com/benjaminp/six"
   }
   version: "1.11.0"
+  license_type: NOTICE
   last_upgrade_date { year: 2018 month: 1 day: 4 }
 }

@@ -52,7 +52,7 @@ public class KeyUsage
 
     public static KeyUsage fromExtensions(Extensions extensions)
     {
-        return KeyUsage.getInstance(extensions.getExtensionParsedValue(Extension.keyUsage));
+        return getInstance(Extensions.getExtensionParsedValue(extensions, Extension.keyUsage));
     }
 
     /**

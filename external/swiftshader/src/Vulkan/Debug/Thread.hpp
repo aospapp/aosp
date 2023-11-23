@@ -19,9 +19,11 @@
 #include "ID.hpp"
 #include "Location.hpp"
 
+#include "marl/mutex.h"
+#include "marl/tsa.h"
+
 #include <condition_variable>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -30,7 +32,7 @@ namespace dbg {
 
 class File;
 class VariableContainer;
-class EventListener;
+class ServerEventListener;
 
 // Scope is a container for variables and is used to provide source data for the
 // DAP 'Scope' type:
@@ -105,6 +107,8 @@ class Thread
 public:
 	using ID = dbg::ID<Thread>;
 
+	using UpdateFrame = std::function<void(Frame &)>;
+
 	// The current execution state.
 	enum class State
 	{
@@ -122,11 +126,14 @@ public:
 	std::string name() const;
 
 	// enter() pushes the thread's stack with a new frame created with the given
-	// file and function.
-	void enter(Context::Lock &lock, const std::shared_ptr<File> &file, const std::string &function);
+	// file and function, then calls f to modify the new frame of the stack.
+	void enter(const std::shared_ptr<File> &file, const std::string &function, const UpdateFrame &f = nullptr);
 
 	// exit() pops the thread's stack frame.
-	void exit();
+	// If isStep is true, then this will be considered a line-steppable event,
+	// and the debugger may pause at the function call at the new top most stack
+	// frame.
+	void exit(bool isStep = false);
 
 	// frame() returns a copy of the thread's top most stack frame.
 	Frame frame() const;
@@ -134,13 +141,21 @@ public:
 	// stack() returns a copy of the thread's current stack frames.
 	std::vector<Frame> stack() const;
 
+	// depth() returns the number of stack frames.
+	size_t depth() const;
+
 	// state() returns the current thread's state.
 	State state() const;
 
 	// update() calls f to modify the top most frame of the stack.
-	// If the frame's location is changed, update() potentially blocks until the
-	// thread is resumed with one of the methods below.
-	void update(std::function<void(Frame &)> f);
+	// If the frame's location is changed and isStep is true, update()
+	// potentially blocks until the thread is resumed with one of the methods
+	// below.
+	// isStep is used to distinguish same-statement column position updates
+	// from full line updates. Note that we cannot simply examine line position
+	// changes as single-line loops such as `while(true) { foo(); }` would not
+	// be correctly steppable.
+	void update(bool isStep, const UpdateFrame &f);
 
 	// resume() resumes execution of the thread by unblocking a call to
 	// update() and setting the thread's state to State::Running.
@@ -171,16 +186,17 @@ public:
 	const ID id;
 
 private:
-	EventListener *const broadcast;
+	Context *const ctx;
 
-	void onLocationUpdate(std::unique_lock<std::mutex> &lock);
+	void onLocationUpdate(marl::lock &lock) REQUIRES(mutex);
 
-	mutable std::mutex mutex;
-	std::string name_;
-	std::vector<std::shared_ptr<Frame>> frames;
+	mutable marl::mutex mutex;
+	std::string name_ GUARDED_BY(mutex);
+	std::vector<std::shared_ptr<Frame>> frames GUARDED_BY(mutex);
+	State state_ GUARDED_BY(mutex) = State::Running;
+	std::weak_ptr<Frame> pauseAtFrame GUARDED_BY(mutex);
+
 	std::condition_variable stateCV;
-	State state_ = State::Running;
-	std::shared_ptr<Frame> pauseAtFrame;
 };
 
 }  // namespace dbg

@@ -33,24 +33,11 @@ void OnBinderReadReady() {
 
 namespace brillo {
 
-BinderWatcher::BinderWatcher(MessageLoop* message_loop)
-    : message_loop_(message_loop) {}
+BinderWatcher::BinderWatcher() = default;
 
-BinderWatcher::BinderWatcher() : message_loop_(nullptr) {}
-
-BinderWatcher::~BinderWatcher() {
-  if (task_id_ != MessageLoop::kTaskIdNull)
-    message_loop_->CancelTask(task_id_);
-}
+BinderWatcher::~BinderWatcher() = default;
 
 bool BinderWatcher::Init() {
-  if (!message_loop_)
-    message_loop_ = MessageLoop::current();
-  if (!message_loop_) {
-    LOG(ERROR) << "Must initialize a brillo::MessageLoop to use BinderWatcher";
-    return false;
-  }
-
   int binder_fd = -1;
   ProcessState::self()->setThreadPoolMaxThreadCount(0);
   IPCThreadState::self()->disableBackgroundScheduling(true);
@@ -66,13 +53,10 @@ bool BinderWatcher::Init() {
   }
   VLOG(1) << "Got binder FD " << binder_fd;
 
-  task_id_ = message_loop_->WatchFileDescriptor(
-      FROM_HERE,
+  watcher_ = base::FileDescriptorWatcher::WatchReadable(
       binder_fd,
-      MessageLoop::kWatchRead,
-      true /* persistent */,
-      base::Bind(&OnBinderReadReady));
-  if (task_id_ == MessageLoop::kTaskIdNull) {
+      base::BindRepeating(&OnBinderReadReady));
+  if (!watcher_) {
     LOG(ERROR) << "Failed to watch binder FD";
     return false;
   }

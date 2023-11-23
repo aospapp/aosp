@@ -17,7 +17,7 @@
 %                               November 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -381,7 +381,7 @@ static char *ReadBlobStringWithLongSize(Image *image,char *string,size_t max,
   MagickOffsetType
     offset;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -423,10 +423,10 @@ static MagickBooleanType load_tile(Image *image,Image *tile_image,
   ssize_t
     y;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
   size_t
@@ -513,7 +513,7 @@ static MagickBooleanType load_tile_rle(Image *image,Image *tile_image,
     alpha,
     data;
 
-  register Quantum
+  Quantum
     *q;
 
   size_t
@@ -695,7 +695,7 @@ static MagickBooleanType load_level(Image *image,XCFDocInfo *inDocInfo,
     offset,
     offset2;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -876,7 +876,7 @@ static void InitXCFImage(XCFLayerInfo *outLayer,ExceptionInfo *exception)
   outLayer->image->page.y=outLayer->offset_y;
   outLayer->image->page.width=outLayer->width;
   outLayer->image->page.height=outLayer->height;
-  (void) SetImageProperty(outLayer->image,"label",(char *)outLayer->name,
+  (void) SetImageProperty(outLayer->image,"label",(char *) outLayer->name,
     exception);
 }
 
@@ -1029,7 +1029,7 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
   status=SetImageExtent(outLayer->image,outLayer->image->columns,
     outLayer->image->rows,exception);
   if (status != MagickFalse)
-    status=ResetImagePixels(image,exception);
+    status=ResetImagePixels(outLayer->image,exception);
   if (status == MagickFalse)
     {
       outLayer->image=DestroyImageList(outLayer->image);
@@ -1042,6 +1042,7 @@ static MagickBooleanType ReadOneLayer(const ImageInfo *image_info,Image* image,
     {
       outLayer->image->background_color.alpha_trait=BlendPixelTrait;
       outLayer->image->alpha_trait=BlendPixelTrait;
+      (void) SetImageBackgroundColor(outLayer->image,exception);
     }
 
   InitXCFImage(outLayer,exception);
@@ -1145,7 +1146,7 @@ static Image *ReadXCFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   MagickOffsetType
     offset;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -1238,8 +1239,8 @@ static Image *ReadXCFImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /* Cannot rely on prop_size here--the value is set incorrectly
            by some Gimp versions.
         */
-        size_t num_colours = ReadBlobMSBLong(image);
-        if (DiscardBlobBytes(image,3*num_colours) == MagickFalse)
+        size_t num_colors = ReadBlobMSBLong(image);
+        if (DiscardBlobBytes(image,3*num_colors) == MagickFalse)
           ThrowFileException(exception,CorruptImageError,
             "UnexpectedEndOfFile",image->filename);
     /*

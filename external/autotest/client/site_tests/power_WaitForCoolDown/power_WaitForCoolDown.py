@@ -4,6 +4,8 @@
 
 import logging
 
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros.power import power_status
 from autotest_lib.client.cros.power import power_test
 from autotest_lib.client.cros.power import power_utils
 
@@ -19,6 +21,12 @@ class power_WaitForCoolDown(power_test.power_Test):
                 seconds_period=seconds_period,
                 pdash_note=pdash_note,
                 force_discharge=force_discharge)
+        for log in self._meas_logs:
+            if type(log) == power_status.TempLogger:
+                self._tlog = log
+                break
+        else:
+            raise error.TestNAError('DUT does not have temp sensor.')
 
     def run_once(self, target_temp=48, max_runtime=600):
         """"Look at temperature every |seconds_period| seconds for at most

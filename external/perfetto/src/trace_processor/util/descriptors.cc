@@ -17,16 +17,17 @@
 #include "src/trace_processor/util/descriptors.h"
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/protozero/field.h"
-
+#include "perfetto/protozero/scattered_heap_buffer.h"
 #include "protos/perfetto/common/descriptor.pbzero.h"
+#include "protos/perfetto/trace_processor/trace_processor.pbzero.h"
+#include "src/trace_processor/util/status_macros.h"
 
 namespace perfetto {
 namespace trace_processor {
 
-namespace {
-
 FieldDescriptor CreateFieldFromDecoder(
-    const protos::pbzero::FieldDescriptorProto::Decoder& f_decoder) {
+    const protos::pbzero::FieldDescriptorProto::Decoder& f_decoder,
+    bool is_extension) {
   using FieldDescriptorProto = protos::pbzero::FieldDescriptorProto;
   std::string type_name =
       f_decoder.has_type_name()
@@ -40,10 +41,8 @@ FieldDescriptor CreateFieldFromDecoder(
   return FieldDescriptor(
       base::StringView(f_decoder.name()).ToStdString(),
       static_cast<uint32_t>(f_decoder.number()), type, std::move(type_name),
-      f_decoder.label() == FieldDescriptorProto::LABEL_REPEATED);
+      f_decoder.label() == FieldDescriptorProto::LABEL_REPEATED, is_extension);
 }
-
-}  // namespace
 
 base::Optional<uint32_t> DescriptorPool::ResolveShortType(
     const std::string& parent_path,
@@ -72,10 +71,13 @@ util::Status DescriptorPool::AddExtensionField(
     protozero::ConstBytes field_desc_proto) {
   using FieldDescriptorProto = protos::pbzero::FieldDescriptorProto;
   FieldDescriptorProto::Decoder f_decoder(field_desc_proto);
-  auto field = CreateFieldFromDecoder(f_decoder);
+  auto field = CreateFieldFromDecoder(f_decoder, true);
 
   auto extendee_name = base::StringView(f_decoder.extendee()).ToStdString();
-  PERFETTO_CHECK(!extendee_name.empty());
+  if (extendee_name.empty()) {
+    return util::ErrStatus("Extendee name is empty");
+  }
+
   if (extendee_name[0] != '.') {
     // Only prepend if the extendee is not fully qualified
     extendee_name = package_name + "." + extendee_name;
@@ -88,10 +90,13 @@ util::Status DescriptorPool::AddExtensionField(
   return util::OkStatus();
 }
 
-void DescriptorPool::AddNestedProtoDescriptors(
+util::Status DescriptorPool::AddNestedProtoDescriptors(
+    const std::string& file_name,
     const std::string& package_name,
     base::Optional<uint32_t> parent_idx,
-    protozero::ConstBytes descriptor_proto) {
+    protozero::ConstBytes descriptor_proto,
+    std::vector<ExtensionInfo>* extensions,
+    bool merge_existing_messages) {
   protos::pbzero::DescriptorProto::Decoder decoder(descriptor_proto);
 
   auto parent_name =
@@ -99,28 +104,70 @@ void DescriptorPool::AddNestedProtoDescriptors(
   auto full_name =
       parent_name + "." + base::StringView(decoder.name()).ToStdString();
 
+  auto prev_idx = FindDescriptorIdx(full_name);
+  if (prev_idx.has_value() && !merge_existing_messages) {
+    const auto& existing_descriptor = descriptors_[*prev_idx];
+    return util::ErrStatus("%s: %s was already defined in file %s",
+                           file_name.c_str(), full_name.c_str(),
+                           existing_descriptor.file_name().c_str());
+  }
+  if (!prev_idx.has_value()) {
+    prev_idx = static_cast<unsigned int>(descriptors_.size());
+    ProtoDescriptor proto_descriptor(file_name, package_name, full_name,
+                                     ProtoDescriptor::Type::kMessage,
+                                     parent_idx);
+    descriptors_.emplace_back(std::move(proto_descriptor));
+  }
+  ProtoDescriptor& proto_descriptor = descriptors_[*prev_idx];
+  if (proto_descriptor.type() != ProtoDescriptor::Type::kMessage) {
+    return util::ErrStatus("%s was enum, redefined as message",
+                           full_name.c_str());
+  }
+
   using FieldDescriptorProto = protos::pbzero::FieldDescriptorProto;
-  ProtoDescriptor proto_descriptor(package_name, full_name,
-                                   ProtoDescriptor::Type::kMessage, parent_idx);
   for (auto it = decoder.field(); it; ++it) {
     FieldDescriptorProto::Decoder f_decoder(*it);
-    proto_descriptor.AddField(CreateFieldFromDecoder(f_decoder));
+    auto field = CreateFieldFromDecoder(f_decoder, /*is_extension=*/false);
+    auto existing_field = proto_descriptor.FindFieldByTag(field.number());
+    if (!existing_field) {
+      proto_descriptor.AddField(std::move(field));
+    } else {
+      if (field.type() != existing_field->type()) {
+        return util::ErrStatus("Field %s is re-introduced with different type",
+                               field.name().c_str());
+      }
+      if (field.type() == FieldDescriptorProto::TYPE_MESSAGE &&
+          field.resolved_type_name() != existing_field->resolved_type_name()) {
+        return util::ErrStatus(
+            "Field %s is re-introduced with different type %s (was %s)",
+            field.name().c_str(), field.resolved_type_name().c_str(),
+            existing_field->resolved_type_name().c_str());
+      }
+    }
   }
-  descriptors_.emplace_back(std::move(proto_descriptor));
 
   auto idx = static_cast<uint32_t>(descriptors_.size()) - 1;
   for (auto it = decoder.enum_type(); it; ++it) {
-    AddEnumProtoDescriptors(package_name, idx, *it);
+    AddEnumProtoDescriptors(file_name, package_name, idx, *it,
+                            merge_existing_messages);
   }
   for (auto it = decoder.nested_type(); it; ++it) {
-    AddNestedProtoDescriptors(package_name, idx, *it);
+    RETURN_IF_ERROR(AddNestedProtoDescriptors(file_name, package_name, idx, *it,
+                                              extensions,
+                                              merge_existing_messages));
   }
+  for (auto ext_it = decoder.extension(); ext_it; ++ext_it) {
+    extensions->emplace_back(package_name, *ext_it);
+  }
+  return util::OkStatus();
 }
 
-void DescriptorPool::AddEnumProtoDescriptors(
+util::Status DescriptorPool::AddEnumProtoDescriptors(
+    const std::string& file_name,
     const std::string& package_name,
     base::Optional<uint32_t> parent_idx,
-    protozero::ConstBytes descriptor_proto) {
+    protozero::ConstBytes descriptor_proto,
+    bool merge_existing_messages) {
   protos::pbzero::EnumDescriptorProto::Decoder decoder(descriptor_proto);
 
   auto parent_name =
@@ -128,57 +175,80 @@ void DescriptorPool::AddEnumProtoDescriptors(
   auto full_name =
       parent_name + "." + base::StringView(decoder.name()).ToStdString();
 
-  ProtoDescriptor proto_descriptor(package_name, full_name,
-                                   ProtoDescriptor::Type::kEnum, base::nullopt);
+  auto prev_idx = FindDescriptorIdx(full_name);
+  if (prev_idx.has_value() && !merge_existing_messages) {
+    const auto& existing_descriptor = descriptors_[*prev_idx];
+    return util::ErrStatus("%s: %s was already defined in file %s",
+                           file_name.c_str(), full_name.c_str(),
+                           existing_descriptor.file_name().c_str());
+  }
+  if (!prev_idx.has_value()) {
+    prev_idx = static_cast<unsigned int>(descriptors_.size());
+    ProtoDescriptor proto_descriptor(file_name, package_name, full_name,
+                                     ProtoDescriptor::Type::kEnum,
+                                     base::nullopt);
+    descriptors_.emplace_back(std::move(proto_descriptor));
+  }
+  ProtoDescriptor& proto_descriptor = descriptors_[*prev_idx];
+  if (proto_descriptor.type() != ProtoDescriptor::Type::kEnum) {
+    return util::ErrStatus("%s was message, redefined as enum",
+                           full_name.c_str());
+  }
+
   for (auto it = decoder.value(); it; ++it) {
     protos::pbzero::EnumValueDescriptorProto::Decoder enum_value(it->data(),
                                                                  it->size());
     proto_descriptor.AddEnumValue(enum_value.number(),
                                   enum_value.name().ToStdString());
   }
-  descriptors_.emplace_back(std::move(proto_descriptor));
+
+  return util::OkStatus();
 }
 
 util::Status DescriptorPool::AddFromFileDescriptorSet(
     const uint8_t* file_descriptor_set_proto,
-    size_t size) {
+    size_t size,
+    bool merge_existing_messages) {
   // First pass: extract all the message descriptors from the file and add them
   // to the pool.
   protos::pbzero::FileDescriptorSet::Decoder proto(file_descriptor_set_proto,
                                                    size);
+  std::vector<ExtensionInfo> extensions;
   for (auto it = proto.file(); it; ++it) {
     protos::pbzero::FileDescriptorProto::Decoder file(*it);
+    std::string file_name = file.name().ToStdString();
+    if (processed_files_.find(file_name) != processed_files_.end()) {
+      // This file has been loaded once already. Skip.
+      continue;
+    }
+    processed_files_.insert(file_name);
     std::string package = "." + base::StringView(file.package()).ToStdString();
     for (auto message_it = file.message_type(); message_it; ++message_it) {
-      AddNestedProtoDescriptors(package, base::nullopt, *message_it);
+      RETURN_IF_ERROR(AddNestedProtoDescriptors(
+          file_name, package, base::nullopt, *message_it, &extensions,
+          merge_existing_messages));
     }
     for (auto enum_it = file.enum_type(); enum_it; ++enum_it) {
-      AddEnumProtoDescriptors(package, base::nullopt, *enum_it);
+      AddEnumProtoDescriptors(file_name, package, base::nullopt, *enum_it,
+                              merge_existing_messages);
+    }
+    for (auto ext_it = file.extension(); ext_it; ++ext_it) {
+      extensions.emplace_back(package, *ext_it);
     }
   }
 
-  // Second pass: extract all the extension protos and add them to the real
-  // protos.
-  for (auto it = proto.file(); it; ++it) {
-    protos::pbzero::FileDescriptorProto::Decoder file(*it);
-
-    std::string package = "." + base::StringView(file.package()).ToStdString();
-    for (auto ext_it = file.extension(); ext_it; ++ext_it) {
-      auto status = AddExtensionField(package, *ext_it);
-      if (!status.ok())
-        return status;
-    }
-
-    // TODO(lalitm): we don't currently support nested extensions as they are
-    // relatively niche and probably shouldn't be used in metrics because they
-    // are confusing. Add the code for it here if we find a use for them in
-    // the future.
+  // Second pass: Add extension fields to the real protos.
+  for (const auto& extension : extensions) {
+    auto status = AddExtensionField(extension.first, extension.second);
+    if (!status.ok())
+      return status;
   }
 
   // Third pass: resolve the types of all the fields to the correct indiices.
   using FieldDescriptorProto = protos::pbzero::FieldDescriptorProto;
   for (auto& descriptor : descriptors_) {
-    for (auto& field : *descriptor.mutable_fields()) {
+    for (auto& entry : *descriptor.mutable_fields()) {
+      auto& field = entry.second;
       if (!field.resolved_type_name().empty())
         continue;
 
@@ -210,11 +280,39 @@ base::Optional<uint32_t> DescriptorPool::FindDescriptorIdx(
                                    : base::nullopt;
 }
 
-ProtoDescriptor::ProtoDescriptor(std::string package_name,
+std::vector<uint8_t> DescriptorPool::SerializeAsDescriptorSet() {
+  protozero::HeapBuffered<protos::pbzero::DescriptorSet> descs;
+  for (auto& desc : descriptors()) {
+    protos::pbzero::DescriptorProto* proto_descriptor =
+        descs->add_descriptors();
+    proto_descriptor->set_name(desc.full_name());
+    for (auto& entry : desc.fields()) {
+      auto& field = entry.second;
+      protos::pbzero::FieldDescriptorProto* field_descriptor =
+          proto_descriptor->add_field();
+      field_descriptor->set_name(field.name());
+      field_descriptor->set_number(static_cast<int32_t>(field.number()));
+      // We do not support required fields. They will show up as optional
+      // after serialization.
+      field_descriptor->set_label(
+          field.is_repeated()
+              ? protos::pbzero::FieldDescriptorProto::LABEL_REPEATED
+              : protos::pbzero::FieldDescriptorProto::LABEL_OPTIONAL);
+      field_descriptor->set_type_name(field.resolved_type_name());
+      field_descriptor->set_type(
+          static_cast<protos::pbzero::FieldDescriptorProto_Type>(field.type()));
+    }
+  }
+  return descs.SerializeAsArray();
+}
+
+ProtoDescriptor::ProtoDescriptor(std::string file_name,
+                                 std::string package_name,
                                  std::string full_name,
                                  Type type,
                                  base::Optional<uint32_t> parent_id)
-    : package_name_(std::move(package_name)),
+    : file_name_(std::move(file_name)),
+      package_name_(std::move(package_name)),
       full_name_(std::move(full_name)),
       type_(type),
       parent_id_(parent_id) {}
@@ -223,12 +321,14 @@ FieldDescriptor::FieldDescriptor(std::string name,
                                  uint32_t number,
                                  uint32_t type,
                                  std::string raw_type_name,
-                                 bool is_repeated)
+                                 bool is_repeated,
+                                 bool is_extension)
     : name_(std::move(name)),
       number_(number),
       type_(type),
       raw_type_name_(std::move(raw_type_name)),
-      is_repeated_(is_repeated) {}
+      is_repeated_(is_repeated),
+      is_extension_(is_extension) {}
 
 }  // namespace trace_processor
 }  // namespace perfetto

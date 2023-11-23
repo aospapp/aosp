@@ -166,25 +166,6 @@ class FAFTCheckers(object):
             crossystem_dict['fw_try_count'] = str(expected_try_count)
         return self.crossystem_checker(crossystem_dict)
 
-    def vdat_flags_checker(self, mask, value):
-        """Check the flags from VbSharedData matched.
-
-        This function checks the masked flags from VbSharedData using crossystem
-        are matched the given value.
-
-        @param mask: A bitmask of flags to be matched.
-        @param value: An expected value.
-        @return: True if the flags matched; otherwise, False.
-        """
-        lines = self.faft_client.system.run_shell_command_get_output(
-                    'crossystem vdat_flags')
-        vdat_flags = int(lines[0], 16)
-        if vdat_flags & mask != value:
-            logging.info("Expected vdat_flags 0x%x mask 0x%x but got 0x%x",
-                         value, mask, vdat_flags)
-            return False
-        return True
-
     def dev_boot_usb_checker(self, dev_boot_usb=True, kernel_key_hash=False):
         """Check the current boot is from a developer USB (Ctrl-U trigger).
 

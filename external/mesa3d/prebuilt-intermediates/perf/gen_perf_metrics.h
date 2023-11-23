@@ -24,19 +24,20 @@
 
 #pragma once
 
-struct gen_perf;
+struct gen_perf_config;
 
-void gen_oa_register_queries_hsw(struct gen_perf *perf);
-void gen_oa_register_queries_bdw(struct gen_perf *perf);
-void gen_oa_register_queries_chv(struct gen_perf *perf);
-void gen_oa_register_queries_sklgt2(struct gen_perf *perf);
-void gen_oa_register_queries_sklgt3(struct gen_perf *perf);
-void gen_oa_register_queries_sklgt4(struct gen_perf *perf);
-void gen_oa_register_queries_bxt(struct gen_perf *perf);
-void gen_oa_register_queries_kblgt2(struct gen_perf *perf);
-void gen_oa_register_queries_kblgt3(struct gen_perf *perf);
-void gen_oa_register_queries_glk(struct gen_perf *perf);
-void gen_oa_register_queries_cflgt2(struct gen_perf *perf);
-void gen_oa_register_queries_cflgt3(struct gen_perf *perf);
-void gen_oa_register_queries_cnl(struct gen_perf *perf);
-void gen_oa_register_queries_icl(struct gen_perf *perf);
+void gen_oa_register_queries_hsw(struct gen_perf_config *perf);
+void gen_oa_register_queries_bdw(struct gen_perf_config *perf);
+void gen_oa_register_queries_chv(struct gen_perf_config *perf);
+void gen_oa_register_queries_sklgt2(struct gen_perf_config *perf);
+void gen_oa_register_queries_sklgt3(struct gen_perf_config *perf);
+void gen_oa_register_queries_sklgt4(struct gen_perf_config *perf);
+void gen_oa_register_queries_bxt(struct gen_perf_config *perf);
+void gen_oa_register_queries_kblgt2(struct gen_perf_config *perf);
+void gen_oa_register_queries_kblgt3(struct gen_perf_config *perf);
+void gen_oa_register_queries_glk(struct gen_perf_config *perf);
+void gen_oa_register_queries_cflgt2(struct gen_perf_config *perf);
+void gen_oa_register_queries_cflgt3(struct gen_perf_config *perf);
+void gen_oa_register_queries_icl(struct gen_perf_config *perf);
+void gen_oa_register_queries_lkf(struct gen_perf_config *perf);
+void gen_oa_register_queries_tgl(struct gen_perf_config *perf);

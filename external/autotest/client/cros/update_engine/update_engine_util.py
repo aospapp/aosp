@@ -3,35 +3,54 @@
 # found in the LICENSE file.
 
 import datetime
-import json
 import logging
 import os
 import re
-import requests
 import shutil
 import time
+import urlparse
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
+from autotest_lib.client.common_lib.cros import kernel_utils
 from autotest_lib.client.cros.update_engine import update_engine_event
 
 _DEFAULT_RUN = utils.run
 _DEFAULT_COPY = shutil.copy
 
 class UpdateEngineUtil(object):
-    """Utility code shared between client and server update_engine autotests"""
+    """
+    Utility code shared between client and server update_engine autotests.
+
+    All update_engine autotests inherit from either the client or server
+    version of update_engine_test:
+    client/cros/update_engine/update_engine_test.py
+    server/cros/update_engine/update_engine_test.py
+
+    These update_engine_test classes inherit from test and update_engine_util.
+    For update_engine_util to work seamlessly, we need the client and server
+    update_engine_tests to define _run() and _get_file() functions:
+    server side: host.run and host.get_file
+    client side: utils.run and shutil.copy
+
+    """
 
     # Update engine status lines.
-    _LAST_CHECKED_TIME = 'LAST_CHECKED_TIME'
     _PROGRESS = 'PROGRESS'
     _CURRENT_OP = 'CURRENT_OP'
-    _NEW_VERSION = 'NEW VERSION'
-    _NEW_SIZE = 'NEW_SIZE'
+
+    # Source version when we force an update.
+    _FORCED_UPDATE = 'ForcedUpdate'
+
+    # update_engine_client command
+    _UPDATE_ENGINE_CLIENT_CMD = 'update_engine_client'
 
     # Update engine statuses.
     _UPDATE_STATUS_IDLE = 'UPDATE_STATUS_IDLE'
-    _UPDATE_ENGINE_DOWNLOADING = 'UPDATE_STATUS_DOWNLOADING'
-    _UPDATE_ENGINE_FINALIZING = 'UPDATE_STATUS_FINALIZING'
+    _UPDATE_STATUS_CHECKING_FOR_UPDATE = 'UPDATE_STATUS_CHECKING_FOR_UPDATE'
+    _UPDATE_STATUS_UPDATE_AVAILABLE = 'UPDATE_STATUS_UPDATE_AVAILABLE'
+    _UPDATE_STATUS_DOWNLOADING = 'UPDATE_STATUS_DOWNLOADING'
+    _UPDATE_STATUS_FINALIZING = 'UPDATE_STATUS_FINALIZING'
     _UPDATE_STATUS_UPDATED_NEED_REBOOT = 'UPDATE_STATUS_UPDATED_NEED_REBOOT'
     _UPDATE_STATUS_REPORTING_ERROR_EVENT = 'UPDATE_STATUS_REPORTING_ERROR_EVENT'
 
@@ -41,14 +60,28 @@ class UpdateEngineUtil(object):
     _CUSTOM_LSB_RELEASE = '/mnt/stateful_partition/etc/lsb-release'
     _UPDATE_ENGINE_PREFS_DIR = '/var/lib/update_engine/prefs/'
 
+    # Update engine prefs
+    _UPDATE_CHECK_RESPONSE_HASH = 'update-check-response-hash'
+
+    # Interrupt types supported in AU tests.
+    _REBOOT_INTERRUPT = 'reboot'
+    _SUSPEND_INTERRUPT = 'suspend'
+    _NETWORK_INTERRUPT = 'network'
+    _SUPPORTED_INTERRUPTS = [_REBOOT_INTERRUPT, _SUSPEND_INTERRUPT,
+                             _NETWORK_INTERRUPT]
+
     # Public key used to force update_engine to verify omaha response data on
     # test images.
     _IMAGE_PUBLIC_KEY = 'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFxZE03Z25kNDNjV2ZRenlydDE2UQpESEUrVDB5eGcxOE9aTys5c2M4aldwakMxekZ0b01Gb2tFU2l1OVRMVXArS1VDMjc0ZitEeElnQWZTQ082VTVECkpGUlBYVXp2ZTF2YVhZZnFsalVCeGMrSlljR2RkNlBDVWw0QXA5ZjAyRGhrckduZi9ya0hPQ0VoRk5wbTUzZG8Kdlo5QTZRNUtCZmNnMUhlUTA4OG9wVmNlUUd0VW1MK2JPTnE1dEx2TkZMVVUwUnUwQW00QURKOFhtdzRycHZxdgptWEphRm1WdWYvR3g3K1RPbmFKdlpUZU9POUFKSzZxNlY4RTcrWlppTUljNUY0RU9zNUFYL2xaZk5PM1JWZ0cyCk83RGh6emErbk96SjNaSkdLNVI0V3daZHVobjlRUllvZ1lQQjBjNjI4NzhxWHBmMkJuM05wVVBpOENmL1JMTU0KbVFJREFRQUIKLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg=='
 
+    # Screenshot names used by interrupt tests
+    _BEFORE_INTERRUPT_FILENAME = 'before_interrupt.png'
+    _AFTER_INTERRUPT_FILENAME = 'after_interrupt.png'
+
 
     def __init__(self, run_func=_DEFAULT_RUN, get_file=_DEFAULT_COPY):
         """
-        Initialize this class.
+        Initialize this class with _run() and _get_file() functions.
 
         @param run_func: the function to use to run commands on the client.
                          Defaults for use by client tests, but can be
@@ -58,11 +91,11 @@ class UpdateEngineUtil(object):
                          (file, destination) syntax.
 
         """
-        self._create_update_engine_variables(run_func, get_file)
+        self._set_util_functions(run_func, get_file)
 
 
-    def _create_update_engine_variables(self, run_func=_DEFAULT_RUN,
-                                        get_file=_DEFAULT_COPY):
+    def _set_util_functions(self, run_func=_DEFAULT_RUN,
+                            get_file=_DEFAULT_COPY):
         """See __init__()."""
         self._run = run_func
         self._get_file = get_file
@@ -88,8 +121,18 @@ class UpdateEngineUtil(object):
         status = self._get_update_engine_status()
         if status is None:
             return False
-        return any(arg == status[self._CURRENT_OP] for arg in
-            [self._UPDATE_ENGINE_DOWNLOADING, self._UPDATE_ENGINE_FINALIZING])
+        return status[self._CURRENT_OP] in (
+            self._UPDATE_STATUS_DOWNLOADING, self._UPDATE_STATUS_FINALIZING)
+
+
+    def _has_progress_stopped(self):
+        """Checks that the update_engine progress has stopped moving."""
+        before = self._get_update_engine_status()[self._PROGRESS]
+        for i in range(0, 10):
+            if before != self._get_update_engine_status()[self._PROGRESS]:
+                return False
+            time.sleep(1)
+        return True
 
 
     def _get_update_progress(self):
@@ -98,24 +141,21 @@ class UpdateEngineUtil(object):
             status = self._get_update_engine_status()
             if not status:
                 continue
-            if self._UPDATE_STATUS_IDLE == status[self._CURRENT_OP]:
+            if self._is_update_engine_idle(status):
                 err_str = self._get_last_error_string()
                 raise error.TestFail('Update status was idle while trying to '
                                      'get download status. Last error: %s' %
                                      err_str)
-            if self._UPDATE_STATUS_REPORTING_ERROR_EVENT == status[
-                self._CURRENT_OP]:
+            if self._is_update_engine_reporting_error(status):
                 err_str = self._get_last_error_string()
                 raise error.TestFail('Update status reported error: %s' %
                                      err_str)
             # When the update has moved to the final stages, update engine
             # displays progress as 0.0  but for our needs we will return 1.0
-            if status[self._CURRENT_OP] in [
-                self._UPDATE_STATUS_UPDATED_NEED_REBOOT,
-                self._UPDATE_ENGINE_FINALIZING]:
+            if self._is_update_finished_downloading(status):
                 return 1.0
             # If we call this right after reboot it may not be downloading yet.
-            if self._UPDATE_ENGINE_DOWNLOADING != status[self._CURRENT_OP]:
+            if status[self._CURRENT_OP] != self._UPDATE_STATUS_DOWNLOADING:
                 time.sleep(1)
                 continue
             return float(status[self._PROGRESS])
@@ -138,32 +178,42 @@ class UpdateEngineUtil(object):
                                      ': %d minutes.' % timeout_minutes)
 
 
-    def _wait_for_update_to_complete(self, finalizing_ok=False):
+    def _wait_for_update_to_complete(self, check_kernel_after_update=True):
         """
-        Checks if the update has completed.
+        Wait for update status to reach NEED_REBOOT.
 
-        @param finalizing_ok: FINALIZING status counts as complete.
+        @param check_kernel_after_update: True to also check kernel state after
+                                          the update.
 
         """
-        statuses = [self._UPDATE_STATUS_UPDATED_NEED_REBOOT]
-        if finalizing_ok:
-            statuses.append(self._UPDATE_ENGINE_FINALIZING)
+        self._wait_for_update_status(self._UPDATE_STATUS_UPDATED_NEED_REBOOT)
+        if check_kernel_after_update:
+          kernel_utils.verify_kernel_state_after_update(
+              self._host if hasattr(self, '_host') else None)
+
+
+    def _wait_for_update_status(self, status_to_wait_for):
+        """
+        Wait for the update to reach a certain status.
+
+        @param status_to_wait_for: a string of the update status to wait for.
+
+        """
         while True:
             status = self._get_update_engine_status()
 
             # During reboot, status will be None
             if status is not None:
-                if self._UPDATE_STATUS_REPORTING_ERROR_EVENT == status[
-                    self._CURRENT_OP]:
+                if self._is_update_engine_reporting_error(status):
                     err_str = self._get_last_error_string()
                     raise error.TestFail('Update status reported error: %s' %
                                          err_str)
-                if status[self._CURRENT_OP] == self._UPDATE_STATUS_IDLE:
+                if self._is_update_engine_idle(status):
                     err_str = self._get_last_error_string()
                     raise error.TestFail('Update status was unexpectedly '
                                          'IDLE when we were waiting for the '
                                          'update to complete: %s' % err_str)
-                if any(arg in status[self._CURRENT_OP] for arg in statuses):
+                if status[self._CURRENT_OP] == status_to_wait_for:
                     break
             time.sleep(1)
 
@@ -179,8 +229,9 @@ class UpdateEngineUtil(object):
         @raise: error.AutoservError if command times out
 
         """
-        status = self._run('update_engine_client --status', timeout=timeout,
-                           ignore_status=True, ignore_timeout=ignore_timeout)
+        status = self._run([self._UPDATE_ENGINE_CLIENT_CMD, '--status'],
+                           timeout=timeout, ignore_status=True,
+                           ignore_timeout=ignore_timeout)
 
         if status is None:
             return None
@@ -200,7 +251,7 @@ class UpdateEngineUtil(object):
         """
         Checks for entries in the update_engine log.
 
-        @param entry: The line to search for.
+        @param entry: String or tuple of strings to search for.
         @param raise_error: Fails tests if log doesn't contain entry.
         @param err_str: The error string to raise if we cannot find entry.
         @param update_engine_log: Update engine log string you want to
@@ -211,12 +262,11 @@ class UpdateEngineUtil(object):
 
         """
         if isinstance(entry, str):
-            # Create a tuple of strings so we can itarete over it.
+            # Create a tuple of strings so we can iterate over it.
             entry = (entry,)
 
         if not update_engine_log:
-            update_engine_log = self._run(
-                'cat %s' % self._UPDATE_ENGINE_LOG).stdout
+            update_engine_log = self._get_update_engine_log()
 
         if all(msg in update_engine_log for msg in entry):
             return True
@@ -230,108 +280,203 @@ class UpdateEngineUtil(object):
         raise error.TestFail(err_str if err_str else error_str)
 
 
-    def _is_update_finished_downloading(self):
-        """Checks if the update has moved to the final stages."""
-        s = self._get_update_engine_status()
-        return s[self._CURRENT_OP] in [self._UPDATE_ENGINE_FINALIZING,
-                                       self._UPDATE_STATUS_UPDATED_NEED_REBOOT]
+    def _is_update_finished_downloading(self, status=None):
+        """
+        Checks if the update has moved to the final stages.
+
+        @param status: Output of _get_update_engine_status(). If None that
+                       function will be called here first.
+
+        """
+        if status is None:
+            status = self._get_update_engine_status()
+        return status[self._CURRENT_OP] in [
+            self._UPDATE_STATUS_FINALIZING,
+            self._UPDATE_STATUS_UPDATED_NEED_REBOOT]
 
 
-    def _is_update_engine_idle(self):
-        """Checks if the update engine is idle."""
-        status = self._get_update_engine_status()
+    def _is_update_engine_idle(self, status=None):
+        """
+        Checks if the update engine is idle.
+
+        @param status: Output of _get_update_engine_status(). If None that
+                       function will be called here first.
+
+        """
+        if status is None:
+            status = self._get_update_engine_status()
         return status[self._CURRENT_OP] == self._UPDATE_STATUS_IDLE
 
 
-    def _update_continued_where_it_left_off(self, progress):
+    def _is_checking_for_update(self, status=None):
+        """
+        Checks if the update status is still checking for an update.
+
+        @param status: Output of _get_update_engine_status(). If None that
+                       function will be called here first.
+
+        """
+        if status is None:
+            status = self._get_update_engine_status()
+        return status[self._CURRENT_OP] in (
+            self._UPDATE_STATUS_CHECKING_FOR_UPDATE,
+            self._UPDATE_STATUS_UPDATE_AVAILABLE)
+
+
+    def _is_update_engine_reporting_error(self, status=None):
+        """
+        Checks if the update engine status reported an error.
+
+        @param status: Output of _get_update_engine_status(). If None that
+                       function will be called here first.
+
+        """
+        if status is None:
+            status = self._get_update_engine_status()
+        return (status[self._CURRENT_OP] ==
+                self._UPDATE_STATUS_REPORTING_ERROR_EVENT)
+
+
+    def _update_continued_where_it_left_off(self, progress,
+                                            reboot_interrupt=False):
         """
         Checks that the update did not restart after an interruption.
 
+        When testing a reboot interrupt we can do additional checks on the
+        logs before and after reboot to see if the update resumed.
+
         @param progress: The progress the last time we checked.
+        @param reboot_interrupt: True if we are doing a reboot interrupt test.
 
         @returns True if update continued. False if update restarted.
 
         """
         completed = self._get_update_progress()
         logging.info('New value: %f, old value: %f', completed, progress)
-        return completed >= progress
+        if completed >= progress:
+            return True
+
+        # Sometimes update_engine will continue an update but the first reported
+        # progress won't be correct. So check the logs for resume info.
+        if not reboot_interrupt or not self._check_update_engine_log_for_entry(
+            'Resuming an update that was previously started'):
+            return False
+
+        # Find the reported Completed and Resumed progress.
+        pattern = ('(.*)/(.*) operations \((.*)%\), (.*)/(.*) bytes downloaded'
+                   ' \((.*)%\), overall progress (.*)%')
+        before_pattern = 'Completed %s' % pattern
+        before_log = self._get_update_engine_log(r_index=1)
+        before_match = re.findall(before_pattern, before_log)[-1]
+        after_pattern = 'Resuming after %s' % pattern
+        after_log = self._get_update_engine_log(r_index=0)
+        after_match = re.findall(after_pattern, after_log)[0]
+        logging.debug('Progress before interrupt: %s', before_match)
+        logging.debug('Progress after interrupt: %s', after_match)
+
+        # Check the Resuming progress is greater than Completed progress.
+        for i in range(0, len(before_match)):
+            logging.debug('Comparing %d and %d', int(before_match[i]),
+                          int(after_match[i]))
+            if int(before_match[i]) > int(after_match[i]):
+              return False
+        return True
 
 
-    def _get_payload_properties_file(self, payload_url, target_dir, **kwargs):
+    def _append_query_to_url(self, url, query_dict):
         """
-        Downloads the payload properties file into a directory.
+        Appends the dictionary kwargs to the URL url as query string.
 
-        @param payload_url: The URL to the update payload file.
-        @param target_dir: The directory to download the file into.
-        @param kwargs: A dictionary of key/values that needs to be overridden on
-                the payload properties file.
+        This function will replace the already existing query strings in url
+        with the ones in the input dictionary. I also removes keys that have
+        a None value.
+
+        @param url: The given input URL.
+        @param query_dicl: A dictionary of key/values to be converted to query
+                           string.
+        @return: The same input URL url but with new query string items added.
 
         """
-        payload_props_url = payload_url + '.json'
-        _, _, file_name = payload_props_url.rpartition('/')
-        try:
-            response = json.loads(requests.get(payload_props_url).text)
-
-            # Override existing keys if any.
-            for k, v in kwargs.iteritems():
-                # Don't set default None values. We don't want to override good
-                # values to None.
-                if v is not None:
-                    response[k] = v
-
-            with open(os.path.join(target_dir, file_name), 'w') as fp:
-                json.dump(response, fp)
-
-        except (requests.exceptions.RequestException,
-                IOError,
-                ValueError) as err:
-            raise error.TestError(
-                'Failed to get update payload properties: %s with error: %s' %
-                (payload_props_url, err))
+        # TODO(ahassani): This doesn't work (or maybe should not) for queries
+        # with multiple values for a specific key.
+        parsed_url = list(urlparse.urlsplit(url))
+        parsed_query = urlparse.parse_qs(parsed_url[3])
+        for k, v in query_dict.items():
+            parsed_query[k] = [v]
+        parsed_url[3] = '&'.join(
+            '%s=%s' % (k, v[0]) for k, v in parsed_query.items()
+            if v[0] is not None)
+        return urlparse.urlunsplit(parsed_url)
 
 
-    def _check_for_update(self, server='http://127.0.0.1', port=8082,
-                          update_path='update', interactive=True,
-                          ignore_status=False, wait_for_completion=False,
-                          **kwargs):
+    def _check_for_update(self, update_url, interactive=True,
+                          wait_for_completion=False,
+                          check_kernel_after_update=True, **kwargs):
         """
         Starts a background update check.
 
-        @param server: The omaha server to call in the update url.
-        @param port: The omaha port to call in the update url.
-        @param update_path: The /update part of the URL. When using a lab
-                            devserver, pass update/<board>-release/RXX-X.X.X.
+        @param update_url: The URL to get an update from.
         @param interactive: True if we are doing an interactive update.
-        @param ignore_status: True if we should ignore exceptions thrown.
         @param wait_for_completion: True for --update, False for
                 --check_for_update.
-        @param kwargs: The dictionary to be converted to a query string
-                and appended to the end of the update URL. e.g:
+        @param check_kernel_after_update: True to check kernel state after a
+                successful update. False to skip. wait_for_completion must also
+                be True.
+        @param kwargs: The dictionary to be converted to a query string and
+                appended to the end of the update URL. e.g:
                 {'critical_update': True, 'foo': 'bar'} ->
-                'http:/127.0.0.1:8080/update?critical_update=True&foo=bar'
-                Look at nebraska.py or devserver.py for the list of accepted
-                values.
+                'http:/127.0.0.1:8080/update?critical_update=True&foo=bar' Look
+                at nebraska.py or devserver.py for the list of accepted
+                values. If there was already query string in update_url, it will
+                append the new values and override the old ones.
+
         """
-        update = 'update' if wait_for_completion else 'check_for_update'
-        update_path = update_path.lstrip('/')
-        query = '&'.join('%s=%s' % (k, v) for k, v in kwargs.items())
-        cmd = 'update_engine_client --%s --omaha_url="%s:%d/%s?%s"' % (
-            update, server, port, update_path, query)
+        update_url = self._append_query_to_url(update_url, kwargs)
+        cmd = [self._UPDATE_ENGINE_CLIENT_CMD,
+               '--update' if wait_for_completion else '--check_for_update',
+               '--omaha_url=%s' % update_url]
 
         if not interactive:
-          cmd += ' --interactive=false'
-        self._run(cmd, ignore_status=ignore_status)
+            cmd.append('--interactive=false')
+        self._run(cmd, ignore_status=False)
+        if wait_for_completion and check_kernel_after_update:
+            kernel_utils.verify_kernel_state_after_update(
+                self._host if hasattr(self, '_host') else None)
 
 
-    def _save_extra_update_engine_logs(self, number_of_logs=2):
+    def _rollback(self, powerwash=False):
+        """
+        Perform a rollback of rootfs.
+
+        @param powerwash: True to powerwash along with the rollback.
+
+        """
+        cmd = [self._UPDATE_ENGINE_CLIENT_CMD, '--rollback', '--follow']
+        if not powerwash:
+            cmd.append('--nopowerwash')
+        logging.info('Performing rollback with cmd: %s.', cmd)
+        self._run(cmd)
+        kernel_utils.verify_kernel_state_after_update(self._host)
+
+
+    def _restart_update_engine(self, ignore_status=False):
+        """
+        Restarts update-engine.
+
+        @param ignore_status: True to not raise exception on command failure.
+
+        """
+        self._run(['restart', 'update-engine'], ignore_status=ignore_status)
+
+
+    def _save_extra_update_engine_logs(self, number_of_logs):
         """
         Get the last X number of update_engine logs on the DUT.
 
         @param number_of_logs: The number of logs to save.
 
         """
-        files = self._run('ls -t -1 %s' %
-                          self._UPDATE_ENGINE_LOG_DIR).stdout.splitlines()
+        files = self._get_update_engine_logs()
 
         for i in range(number_of_logs if number_of_logs <= len(files) else
                        len(files)):
@@ -339,17 +484,35 @@ class UpdateEngineUtil(object):
             self._get_file(file, self.resultsdir)
 
 
-    def _get_second_last_update_engine_log(self):
+    def _get_update_engine_logs(self, timeout=3600, ignore_timeout=True):
         """
-        Gets second last update engine log text.
+        Helper function to return the list of files in /var/log/update_engine/.
 
-        This is useful for getting the last update engine log before a reboot.
+        @param timeout: How many seconds to wait for command to complete.
+        @param ignore_timeout: True if we should not throw an error on timeout.
 
         """
-        files = self._run('ls -t -1 %s' %
-                          self._UPDATE_ENGINE_LOG_DIR).stdout.splitlines()
-        return self._run('cat %s%s' % (self._UPDATE_ENGINE_LOG_DIR,
-                                       files[1])).stdout
+        cmd = ['ls', '-t', '-1', self._UPDATE_ENGINE_LOG_DIR]
+        return self._run(cmd, timeout=timeout,
+                         ignore_timeout=ignore_timeout).stdout.splitlines()
+
+
+    def _get_update_engine_log(self, r_index=0, timeout=3600,
+                               ignore_timeout=True):
+        """
+        Returns the last r_index'th update_engine log.
+
+        @param r_index: The index of the last r_index'th update_engine log
+                in order they were created. For example:
+                  0 -> last one.
+                  1 -> second to last one.
+        @param timeout: How many seconds to wait for command to complete.
+        @param ignore_timeout: True if we should not throw an error on timeout.
+
+        """
+        files = self._get_update_engine_logs()
+        log_file = os.path.join(self._UPDATE_ENGINE_LOG_DIR, files[r_index])
+        return self._run(['cat', log_file]).stdout
 
 
     def _create_custom_lsb_release(self, update_url, build='0.0.0.0', **kwargs):
@@ -367,18 +530,15 @@ class UpdateEngineUtil(object):
                        and appended to the update_url
 
         """
-        # TODO(ahassani): This is quite fragile as the given URL can already
-        # have a search query. We need to unpack the URL and update the search
-        # query portion of it with kwargs.
-        update_url = (update_url + '?' + '&'.join('%s=%s' % (k, v)
-                                                  for k, v in kwargs.items()))
-        self._run('mkdir %s' % os.path.dirname(self._CUSTOM_LSB_RELEASE),
+        update_url = self._append_query_to_url(update_url, kwargs)
+
+        self._run(['mkdir', os.path.dirname(self._CUSTOM_LSB_RELEASE)],
                   ignore_status=True)
-        self._run('touch %s' % self._CUSTOM_LSB_RELEASE)
-        self._run('echo CHROMEOS_RELEASE_VERSION=%s > %s' %
-                  (build, self._CUSTOM_LSB_RELEASE))
-        self._run('echo CHROMEOS_AUSERVER=%s >> %s' %
-                  (update_url, self._CUSTOM_LSB_RELEASE))
+        self._run(['touch', self._CUSTOM_LSB_RELEASE])
+        self._run(['echo', 'CHROMEOS_RELEASE_VERSION=%s' % build, '>',
+                   self._CUSTOM_LSB_RELEASE])
+        self._run(['echo', 'CHROMEOS_AUSERVER=%s' % update_url, '>>',
+                   self._CUSTOM_LSB_RELEASE])
 
 
     def _clear_custom_lsb_release(self):
@@ -388,7 +548,18 @@ class UpdateEngineUtil(object):
         Intended to clear work done by _create_custom_lsb_release().
 
         """
-        self._run('rm %s' % self._CUSTOM_LSB_RELEASE, ignore_status=True)
+        self._run(['rm', self._CUSTOM_LSB_RELEASE], ignore_status=True)
+
+
+    def _remove_update_engine_pref(self, pref):
+        """
+        Delete an update_engine pref file.
+
+        @param pref: The pref file to delete
+
+        """
+        pref_file = os.path.join(self._UPDATE_ENGINE_PREFS_DIR, pref)
+        self._run(['rm', pref_file], ignore_status=True)
 
 
     def _get_update_requests(self):
@@ -398,8 +569,7 @@ class UpdateEngineUtil(object):
         @returns: a sequential list of <request> xml blocks or None if none.
 
         """
-        update_log = self._run('cat %s' %
-                               self._UPDATE_ENGINE_LOG).stdout
+        update_log = self._get_update_engine_log()
 
         # Matches <request ... /request>.  The match can be on multiple
         # lines and the search is not greedy so it only matches one block.
@@ -414,9 +584,7 @@ class UpdateEngineUtil(object):
                   (second accuracy), or None if no such timestamp exists.
 
         """
-        update_log = ''
-        with open(self._UPDATE_ENGINE_LOG) as fh:
-            update_log = fh.read()
+        update_log = self._get_update_engine_log()
 
         # Matches any single line with "MMDD/HHMMSS ... Request ... xml", e.g.
         # "[0723/133526:INFO:omaha_request_action.cc(794)] Request: <?xml".
@@ -445,10 +613,22 @@ class UpdateEngineUtil(object):
         """
         try:
             file_location = os.path.join('/tmp', filename)
-            self._run('screenshot %s' % file_location)
+            self._run(['screenshot', file_location])
             self._get_file(file_location, self.resultsdir)
-        except error.AutoservRunError:
+        except (error.AutoservRunError, error.CmdError):
             logging.exception('Failed to take screenshot.')
+
+
+    def _remove_screenshots(self):
+        """Remove screenshots taken by interrupt tests."""
+        for file in [self._BEFORE_INTERRUPT_FILENAME,
+                     self._AFTER_INTERRUPT_FILENAME]:
+            file_location = os.path.join(self.resultsdir, file)
+            if os.path.exists(file_location):
+                try:
+                    os.remove(file_location)
+                except Exception as e:
+                    logging.exception('Failed to remove %s', file_location)
 
 
     def _get_last_error_string(self):
@@ -459,7 +639,7 @@ class UpdateEngineUtil(object):
 
         """
         err_str = 'Updating payload state for error code: '
-        log = self._run('cat %s' % self._UPDATE_ENGINE_LOG).stdout.splitlines()
+        log = self._get_update_engine_log().splitlines()
         targets = [line for line in log if err_str in line]
         logging.debug('Error lines found: %s', targets)
         if not targets:
@@ -493,7 +673,7 @@ class UpdateEngineUtil(object):
             search = re.search(MATCH_STR, requests[i])
             if (not search or
                 (search.group(1) ==
-                 update_engine_event.EVENT_TYPE_REBOOTED_AFTER_UPDATE)):
+                 str(update_engine_event.EVENT_TYPE_REBOOTED_AFTER_UPDATE))):
                 return requests[i]
 
         return None

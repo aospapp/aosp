@@ -21,13 +21,14 @@ swiftshader_source_set("System_headers") {
     "Configurator.hpp",
     "Debug.hpp",
     "Half.hpp",
+    "LRUCache.hpp",
     "Math.hpp",
     "Memory.hpp",
     "Socket.cpp",
     "Socket.hpp",
     "Timer.hpp",
   ]
-  if (is_linux || is_android) {
+  if (is_linux || is_chromeos || is_android) {
     sources += [
       "Linux/MemFd.hpp",
     ]
@@ -45,7 +46,7 @@ swiftshader_source_set("System") {
     "Memory.cpp",
     "Timer.cpp",
   ]
-  if (is_linux || is_android) {
+  if (is_linux || is_chromeos || is_android) {
     sources += [
       "Linux/MemFd.cpp",
     ]

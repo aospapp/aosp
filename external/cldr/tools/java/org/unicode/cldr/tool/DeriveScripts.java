@@ -39,8 +39,8 @@ public class DeriveScripts {
 
     static {
         File[] paths = {
-//            new File(CLDRPaths.MAIN_DIRECTORY), 
-//            new File(CLDRPaths.SEED_DIRECTORY), 
+//            new File(CLDRPaths.MAIN_DIRECTORY),
+//            new File(CLDRPaths.SEED_DIRECTORY),
             new File(CLDRPaths.EXEMPLARS_DIRECTORY) };
         final Factory fullCldrFactory = SimpleFactory.make(paths, ".*");
         LikelySubtags ls = new LikelySubtags();
@@ -60,7 +60,7 @@ public class DeriveScripts {
 //                    if (!suppressValue.equals(likelyScript)) {
 //                        System.out.println("#" + langCode + "\tWarning: likely=" + likelyScript + ", suppress=" + suppressValue);
 //                    } else {
-//                        System.out.println("#" + langCode + "\tSuppress=Likely: " + suppressValue); 
+//                        System.out.println("#" + langCode + "\tSuppress=Likely: " + suppressValue);
 //                    }
                     continue;
                 }
@@ -97,7 +97,13 @@ public class DeriveScripts {
 //                continue;
 //            }
 
-            CLDRFile cldrFile = fullCldrFactory.make(lang, false);
+            CLDRFile cldrFile;
+            try {
+                cldrFile = fullCldrFactory.make(lang, false);
+            } catch(final SimpleFactory.NoSourceDirectoryException nsde) {
+                throw new RuntimeException("Cannot load locale "+ lang+" for " + file
+                    + " (canonicalized from " + ltp.getLanguage()+")", nsde);
+            }
             UnicodeSet exemplars = cldrFile.getExemplarSet("", WinningChoice.WINNING);
             for (String s : exemplars) {
                 int scriptNum = UScript.getScript(s.codePointAt(0));

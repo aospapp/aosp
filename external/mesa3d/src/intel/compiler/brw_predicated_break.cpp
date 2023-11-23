@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#include "brw_cfg.h"
+#include "brw_shader.h"
 
 using namespace brw;
 
@@ -100,13 +100,15 @@ opt_predicated_break(backend_shader *s)
 
       if (!earlier_block->ends_with_control_flow()) {
          earlier_block->children.make_empty();
-         earlier_block->add_successor(s->cfg->mem_ctx, jump_block);
+         earlier_block->add_successor(s->cfg->mem_ctx, jump_block,
+                                      bblock_link_logical);
       }
 
       if (!later_block->starts_with_control_flow()) {
          later_block->parents.make_empty();
       }
-      jump_block->add_successor(s->cfg->mem_ctx, later_block);
+      jump_block->add_successor(s->cfg->mem_ctx, later_block,
+                                bblock_link_logical);
 
       if (earlier_block->can_combine_with(jump_block)) {
          earlier_block->combine_with(jump_block);
@@ -128,21 +130,15 @@ opt_predicated_break(backend_shader *s)
          while_inst->predicate = jump_inst->predicate;
          while_inst->predicate_inverse = !jump_inst->predicate_inverse;
 
-         earlier_block->children.make_empty();
-         earlier_block->add_successor(s->cfg->mem_ctx, while_block);
-
          assert(earlier_block->can_combine_with(while_block));
          earlier_block->combine_with(while_block);
-
-         earlier_block->next()->parents.make_empty();
-         earlier_block->add_successor(s->cfg->mem_ctx, earlier_block->next());
       }
 
       progress = true;
    }
 
    if (progress)
-      s->invalidate_live_intervals();
+      s->invalidate_analysis(DEPENDENCY_BLOCKS | DEPENDENCY_INSTRUCTIONS);
 
    return progress;
 }

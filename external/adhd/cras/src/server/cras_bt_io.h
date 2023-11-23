@@ -30,6 +30,12 @@ int cras_bt_io_append(struct cras_iodev *bt_iodev, struct cras_iodev *dev,
 int cras_bt_io_on_profile(struct cras_iodev *bt_iodev,
 			  enum cras_bt_device_profile profile);
 
+/* Returns A2DP, HFP or HSP that this bt_iodev is running for.
+ * Do NOT use this function except for logging.
+ */
+enum cras_bt_device_profile
+cras_bt_io_profile_to_log(struct cras_iodev *bt_iodev);
+
 /* Dry-run the profile device removal from bt_iodev.
  * Returns:
  *    0 if the bt_iodev will be empty and should to be destroied

@@ -84,7 +84,7 @@ void r600_need_cs_space(struct r600_context *ctx, unsigned num_dw,
 	num_dw += 10;
 
 	/* Flush if there's not enough space. */
-	if (!ctx->b.ws->cs_check_space(ctx->b.gfx.cs, num_dw)) {
+	if (!ctx->b.ws->cs_check_space(ctx->b.gfx.cs, num_dw, false)) {
 		ctx->b.gfx.flush(ctx, PIPE_FLUSH_ASYNC, NULL);
 	}
 }
@@ -510,7 +510,7 @@ void r600_cp_dma_copy_buffer(struct r600_context *rctx,
 	/* Mark the buffer range of destination as valid (initialized),
 	 * so that transfer_map knows it should wait for the GPU when mapping
 	 * that range. */
-	util_range_add(&r600_resource(dst)->valid_buffer_range, dst_offset,
+	util_range_add(dst, &r600_resource(dst)->valid_buffer_range, dst_offset,
 		       dst_offset + size);
 
 	dst_offset += r600_resource(dst)->gpu_address;
@@ -592,7 +592,7 @@ void r600_dma_copy_buffer(struct r600_context *rctx,
 	/* Mark the buffer range of destination as valid (initialized),
 	 * so that transfer_map knows it should wait for the GPU when mapping
 	 * that range. */
-	util_range_add(&rdst->valid_buffer_range, dst_offset,
+	util_range_add(&rdst->b.b, &rdst->valid_buffer_range, dst_offset,
 		       dst_offset + size);
 
 	size >>= 2; /* convert to dwords */

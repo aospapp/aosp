@@ -16,6 +16,8 @@
 
 package org.chromium.latency.walt;
 
+import static org.chromium.latency.walt.Utils.getBooleanPreference;
+
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -30,18 +32,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.StrictMode;
-import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.content.Loader;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -49,7 +39,18 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import org.chromium.latency.walt.programmer.Programmer;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.loader.content.Loader;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.preference.PreferenceManager;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -59,7 +60,7 @@ import java.io.StringWriter;
 import java.util.Date;
 import java.util.Locale;
 
-import static org.chromium.latency.walt.Utils.getBooleanPreference;
+import org.chromium.latency.walt.programmer.Programmer;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "WALT";
@@ -218,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
         broadcastManager = LocalBroadcastManager.getInstance(this);
 
         // Add basic version and device info to the log
-        logger.log(String.format("WALT v%s  (versionCode=%d)",
+        logger.log(String.format(Locale.US, "WALT v%s  (versionCode=%d)",
                 BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE));
         logger.log("WALT protocol version " + WaltDevice.PROTOCOL_VERSION);
         logger.log("DEVICE INFO:");
@@ -325,6 +326,11 @@ public class MainActivity extends AppCompatActivity {
         switchScreen(newFragment, "Drag Latency");
     }
 
+    public void onClickAccelerometer(View view) {
+        AccelerometerFragment newFragment = new AccelerometerFragment();
+        switchScreen(newFragment, "Accelerometer Latency");
+    }
+
     public void onClickOpenLog(View view) {
         LogFragment logFragment = new LogFragment();
         // menu.findItem(R.id.action_help).setVisible(false);
@@ -349,13 +355,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onClickPing(View view) {
-        long t1 = waltDevice.clock.micros();
         try {
-            waltDevice.command(WaltDevice.CMD_PING);
-            long dt = waltDevice.clock.micros() - t1;
-            logger.log(String.format(Locale.US,
-                    "Ping reply in %.1fms", dt / 1000.
-            ));
+            waltDevice.ping();
         } catch (IOException e) {
             logger.log("Error sending ping: " + e.getMessage());
         }
@@ -487,7 +488,7 @@ public class MainActivity extends AppCompatActivity {
 
         // A reasonable world readable location,on many phones it's /storage/emulated/Documents
         // TODO: make this location configurable?
-        File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        File path = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
         File file = null;
         FileOutputStream outStream = null;
 
@@ -511,7 +512,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void clearLogFile() {
-        File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        File path = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
         try {
             File file = new File(path, LOG_FILENAME);
             file.delete();
@@ -541,7 +542,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static boolean startsWithHttp(String url) {
-        return url.toLowerCase().startsWith("http://") || url.toLowerCase().startsWith("https://");
+        return url.toLowerCase(Locale.getDefault()).startsWith("http://") ||
+            url.toLowerCase(Locale.getDefault()).startsWith("https://");
     }
 
     private void showUploadLogDialog() {

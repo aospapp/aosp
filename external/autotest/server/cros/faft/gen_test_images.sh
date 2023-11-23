@@ -132,6 +132,6 @@ dd if=/dev/zero of="${BOARD}_corrupt_last_byte.bin" bs=1 \
 for image in "${BOARD}.bin" "${BOARD}_corrupt_first_byte.bin" \
   "${BOARD}_corrupt_last_byte.bin" "${BOARD}.dev" "${BOARD}.dev.rb0" \
   "${BOARD}.dev.rb1" "${BOARD}.dev.rb9"; do
-    hexdump -C "${image}" > "${image}.hex"
+    xxd "${image}" > "${image}.hex"
 done
 

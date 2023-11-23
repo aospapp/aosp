@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/nl-tctree-list.c		List Traffic Control Tree
  *
@@ -13,6 +14,8 @@
 #include <netlink/cli/link.h>
 #include <netlink/cli/qdisc.h>
 #include <netlink/cli/class.h>
+
+#include <linux/netlink.h>
 #include <linux/pkt_sched.h>
 
 static struct nl_sock *sock;
@@ -50,9 +53,9 @@ static void print_class(struct nl_object *obj, void *arg)
 
 	leaf = rtnl_class_leaf_qdisc(class, qdisc_cache);
 	if (leaf)
-		print_qdisc((struct nl_object *) leaf, arg + 2);
+		print_qdisc((struct nl_object *) leaf, (char *) arg + 2);
 
-	print_tc_childs(TC_CAST(class), arg + 2);
+	print_tc_childs(TC_CAST(class), (char *) arg + 2);
 
 	if (rtnl_cls_alloc_cache(sock, ifindex, parent, &cls_cache) < 0)
 		return;
@@ -85,7 +88,7 @@ static void print_qdisc(struct nl_object *obj, void *arg)
 	params.dp_prefix = (int)(long) arg;
 	nl_object_dump(obj, &params);
 
-	print_tc_childs(TC_CAST(qdisc), arg + 2);
+	print_tc_childs(TC_CAST(qdisc), (char *) arg + 2);
 
 	if (rtnl_cls_alloc_cache(sock, ifindex, parent, &cls_cache) < 0)
 		return;

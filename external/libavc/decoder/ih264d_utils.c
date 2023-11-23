@@ -161,7 +161,7 @@ WORD32 ih264d_decode_pic_order_cnt(UWORD8 u1_is_idr_slice,
                                    UWORD8 u1_field_pic_flag,
                                    WORD32 *pi4_poc)
 {
-    WORD16 i1_pic_msb;
+    WORD64 i8_pic_msb;
     WORD32 i4_top_field_order_cnt = 0, i4_bottom_field_order_cnt = 0;
     dec_seq_params_t *ps_seq = ps_pps->ps_sps;
     WORD32 i4_prev_frame_num_ofst;
@@ -197,7 +197,7 @@ WORD32 ih264d_decode_pic_order_cnt(UWORD8 u1_is_idr_slice,
                                             >= (ps_seq->i4_max_pic_order_cntLsb
                                                             >> 1)))
             {
-                i1_pic_msb = ps_prev_poc->i4_pic_order_cnt_msb
+                i8_pic_msb = (WORD64)ps_prev_poc->i4_pic_order_cnt_msb
                                 + ps_seq->i4_max_pic_order_cntLsb;
             }
             else if((ps_cur_poc->i4_pic_order_cnt_lsb
@@ -207,29 +207,49 @@ WORD32 ih264d_decode_pic_order_cnt(UWORD8 u1_is_idr_slice,
                                             >= (ps_seq->i4_max_pic_order_cntLsb
                                                             >> 1)))
             {
-                i1_pic_msb = ps_prev_poc->i4_pic_order_cnt_msb
+                i8_pic_msb = (WORD64)ps_prev_poc->i4_pic_order_cnt_msb
                                 - ps_seq->i4_max_pic_order_cntLsb;
             }
             else
             {
-                i1_pic_msb = ps_prev_poc->i4_pic_order_cnt_msb;
+                i8_pic_msb = ps_prev_poc->i4_pic_order_cnt_msb;
             }
 
             if(!u1_field_pic_flag || !u1_bottom_field_flag)
-                i4_top_field_order_cnt = i1_pic_msb
-                                + ps_cur_poc->i4_pic_order_cnt_lsb;
+            {
+                WORD64 i8_result = i8_pic_msb + ps_cur_poc->i4_pic_order_cnt_lsb;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_POC;
+                }
+                i4_top_field_order_cnt = i8_result;
+            }
 
             if(!u1_field_pic_flag)
             {
-                i4_bottom_field_order_cnt = i4_top_field_order_cnt
-                                + ps_cur_poc->i4_delta_pic_order_cnt_bottom;
+                WORD64 i8_result = (WORD64)i4_top_field_order_cnt
+                                     + ps_cur_poc->i4_delta_pic_order_cnt_bottom;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_POC;
+                }
+                i4_bottom_field_order_cnt = i8_result;
             }
             else if(u1_bottom_field_flag)
             {
-                i4_bottom_field_order_cnt = i1_pic_msb
-                                + ps_cur_poc->i4_pic_order_cnt_lsb;
+                WORD64 i8_result = i8_pic_msb + ps_cur_poc->i4_pic_order_cnt_lsb;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_POC;
+                }
+                i4_bottom_field_order_cnt = i8_result;
             }
-            ps_cur_poc->i4_pic_order_cnt_msb = i1_pic_msb;
+
+            if(IS_OUT_OF_RANGE_S32(i8_pic_msb))
+            {
+                return ERROR_INV_POC;
+            }
+            ps_cur_poc->i4_pic_order_cnt_msb = i8_pic_msb;
             break;
 
         case 1:
@@ -269,15 +289,27 @@ WORD32 ih264d_decode_pic_order_cnt(UWORD8 u1_is_idr_slice,
             }
             else if(prev_frame_num > ((WORD32)u2_frame_num))
             {
-                frame_num_ofst = i4_prev_frame_num_ofst
-                                + (WORD32)ps_seq->u2_u4_max_pic_num_minus1 + 1;
+                WORD64 i8_result = i4_prev_frame_num_ofst
+                                + (WORD64)ps_seq->u2_u4_max_pic_num_minus1 + 1;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_FRAME_NUM;
+                }
+                frame_num_ofst = i8_result;
             }
             else
                 frame_num_ofst = i4_prev_frame_num_ofst;
 
             /* 2. Derivation for absFrameNum */
             if(0 != ps_seq->u1_num_ref_frames_in_pic_order_cnt_cycle)
-                abs_frm_num = frame_num_ofst + (WORD32)u2_frame_num;
+            {
+                WORD64 i8_result = frame_num_ofst + (WORD64)u2_frame_num;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_FRAME_NUM;
+                }
+                abs_frm_num = i8_result;
+            }
             else
                 abs_frm_num = 0;
             if((u1_nal_ref_idc == 0) && (abs_frm_num > 0))
@@ -405,8 +437,13 @@ WORD32 ih264d_decode_pic_order_cnt(UWORD8 u1_is_idr_slice,
             }
             else if(prev_frame_num > ((WORD32)u2_frame_num))
             {
-                frame_num_ofst = i4_prev_frame_num_ofst
-                                + (WORD32)ps_seq->u2_u4_max_pic_num_minus1 + 1;
+                WORD64 i8_result = i4_prev_frame_num_ofst
+                                + (WORD64)ps_seq->u2_u4_max_pic_num_minus1 + 1;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_FRAME_NUM;
+                }
+                frame_num_ofst = i8_result;
             }
             else
                 frame_num_ofst = i4_prev_frame_num_ofst;
@@ -415,10 +452,23 @@ WORD32 ih264d_decode_pic_order_cnt(UWORD8 u1_is_idr_slice,
             if(u1_is_idr_slice)
                 tmp_poc = 0;
             else if(u1_nal_ref_idc == 0)
-                tmp_poc = ((frame_num_ofst + (WORD32)u2_frame_num) << 1)
-                                - 1;
+            {
+                WORD64 i8_result = ((frame_num_ofst + (WORD64)u2_frame_num) << 1) - 1;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_POC;
+                }
+                tmp_poc = i8_result;
+            }
             else
-                tmp_poc = ((frame_num_ofst + (WORD32)u2_frame_num) << 1);
+            {
+                WORD64 i8_result = (frame_num_ofst + (WORD64)u2_frame_num) << 1;
+                if(IS_OUT_OF_RANGE_S32(i8_result))
+                {
+                    return ERROR_INV_POC;
+                }
+                tmp_poc = i8_result;
+            }
 
             /* 6. TopFieldOrderCnt or BottomFieldOrderCnt are derived as */
             if(!u1_field_pic_flag)
@@ -501,6 +551,7 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
     {
         if(ps_cur_slice->u1_nal_unit_type == IDR_SLICE_NAL)
         {
+            ps_dec->ps_dpb_mgr->u1_mmco_error_in_seq = 0;
             if(ps_dec->ps_dpb_cmds->u1_long_term_reference_flag == 0)
             {
                 ih264d_reset_ref_bufs(ps_dec->ps_dpb_mgr);
@@ -509,6 +560,7 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
                                       ps_dec->ps_cur_pic,
                                       ps_dec->u1_pic_buf_id,
                                       ps_cur_slice->u2_frame_num);
+                ps_dec->ps_dpb_mgr->u1_max_lt_frame_idx = NO_LONG_TERM_INDICIES;
             }
             else
             {
@@ -527,7 +579,7 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
                                     ps_cur_slice->u2_frame_num, 0,
                                     ps_cur_slice->u1_field_pic_flag);
 
-                    ps_dec->ps_dpb_mgr->u1_max_lt_pic_idx_plus1 = 1;
+                    ps_dec->ps_dpb_mgr->u1_max_lt_frame_idx = 0;
                 }
             }
         }
@@ -537,16 +589,17 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
             {
                 UWORD16 u2_pic_num = ps_cur_slice->u2_frame_num;
 
-                /* ignore DPB errors */
-                ih264d_do_mmco_buffer(ps_dec->ps_dpb_cmds, ps_dec->ps_dpb_mgr,
-                              ps_dec->ps_cur_sps->u1_num_ref_frames, u2_pic_num,
-                              (ps_dec->ps_cur_sps->u2_u4_max_pic_num_minus1),
-                              ps_dec->u1_nal_unit_type, ps_dec->ps_cur_pic,
-                              ps_dec->u1_pic_buf_id,
-                              ps_cur_slice->u1_field_pic_flag,
-                              ps_dec->e_dec_status);
-
-
+                if(!ps_dec->ps_dpb_mgr->u1_mmco_error_in_seq)
+                {
+                    WORD32 ret = ih264d_do_mmco_buffer(ps_dec->ps_dpb_cmds, ps_dec->ps_dpb_mgr,
+                                               ps_dec->ps_cur_sps->u1_num_ref_frames, u2_pic_num,
+                                               (ps_dec->ps_cur_sps->u2_u4_max_pic_num_minus1),
+                                               ps_dec->u1_nal_unit_type, ps_dec->ps_cur_pic,
+                                               ps_dec->u1_pic_buf_id,
+                                               ps_cur_slice->u1_field_pic_flag,
+                                               ps_dec->e_dec_status);
+                    ps_dec->ps_dpb_mgr->u1_mmco_error_in_seq = ret != OK;
+                }
             }
         }
         ih264d_update_default_index_list(ps_dec->ps_dpb_mgr);
@@ -769,7 +822,6 @@ WORD32 ih264d_init_pic(dec_struct_t *ps_dec,
             else
                 ps_dec->i4_display_delay = ps_seq->s_vui.u4_num_reorder_frames * 2 + 2;
         }
-        ps_dec->i4_reorder_depth = ps_dec->i4_display_delay;
 
         if(IVD_DECODE_FRAME_OUT == ps_dec->e_frm_out_mode)
             ps_dec->i4_display_delay = 0;
@@ -1300,7 +1352,7 @@ void ih264d_release_display_bufs(dec_struct_t *ps_dec)
     WORD32 i4_min_poc;
     WORD32 i4_min_poc_buf_id;
     WORD32 i4_min_index;
-    UWORD64 u8_temp;
+    WORD64 i8_temp;
     dpb_manager_t *ps_dpb_mgr = ps_dec->ps_dpb_mgr;
     WORD32 (*i4_poc_buf_id_map)[3] = ps_dpb_mgr->ai4_poc_buf_id_map;
 
@@ -1347,11 +1399,11 @@ void ih264d_release_display_bufs(dec_struct_t *ps_dec)
         }
     }
     ps_dpb_mgr->i1_poc_buf_id_entries = 0;
-    u8_temp = (UWORD64)ps_dec->i4_prev_max_display_seq + ps_dec->i4_max_poc
+    i8_temp = (WORD64)ps_dec->i4_prev_max_display_seq + ps_dec->i4_max_poc
               + ps_dec->u1_max_dec_frame_buffering + 1;
     /*If i4_prev_max_display_seq overflows integer range, reset it */
-    ps_dec->i4_prev_max_display_seq = (u8_temp > 0x7fffffff)?
-                                      0 : u8_temp;
+    ps_dec->i4_prev_max_display_seq = IS_OUT_OF_RANGE_S32(i8_temp)?
+                                      0 : i8_temp;
     ps_dec->i4_max_poc = 0;
 }
 
@@ -1623,13 +1675,13 @@ WORD32 ih264d_decode_gaps_in_frame_num(dec_struct_t *ps_dec,
             /* IDR Picture or POC wrap around */
             if(i4_poc == 0)
             {
-                UWORD64 u8_temp;
-                u8_temp = (UWORD64)ps_dec->i4_prev_max_display_seq
+                WORD64 i8_temp;
+                i8_temp = (WORD64)ps_dec->i4_prev_max_display_seq
                           + ps_dec->i4_max_poc
                           + ps_dec->u1_max_dec_frame_buffering + 1;
                 /*If i4_prev_max_display_seq overflows integer range, reset it */
-                ps_dec->i4_prev_max_display_seq = (u8_temp > 0x7fffffff)?
-                                                  0 : u8_temp;
+                ps_dec->i4_prev_max_display_seq = IS_OUT_OF_RANGE_S32(i8_temp)?
+                                                  0 : i8_temp;
                 ps_dec->i4_max_poc = 0;
             }
 
@@ -1647,8 +1699,8 @@ WORD32 ih264d_decode_gaps_in_frame_num(dec_struct_t *ps_dec,
         }
 
         {
-            UWORD64 i8_display_poc;
-            i8_display_poc = (UWORD64)ps_dec->i4_prev_max_display_seq +
+            WORD64 i8_display_poc;
+            i8_display_poc = (WORD64)ps_dec->i4_prev_max_display_seq +
                         i4_poc;
             if(IS_OUT_OF_RANGE_S32(i8_display_poc))
             {

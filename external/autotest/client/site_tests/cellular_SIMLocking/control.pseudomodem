@@ -10,7 +10,6 @@ This test will fail if SIM locking/unlocking/changing operations are not
 handled as expected by shill / modemmanager.
 """
 
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

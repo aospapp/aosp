@@ -28,6 +28,7 @@ class firmware_EmmcWriteLoad(FirmwareTest):
     -a 'minutes_to_run=240'
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     INSTALL_COMMAND = '/usr/sbin/chromeos-install --yes'
     ERROR_MESSAGE_REGEX = re.compile(

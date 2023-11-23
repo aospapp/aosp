@@ -7,6 +7,7 @@
 [write_stress]
 filename=${FILENAME}
 size=${FILESIZE}
+verify_only=${VERIFY_ONLY}
 
 readwrite=randrw
 rwmixread=15
@@ -23,7 +24,7 @@ do_verify=1
 verify=meta
 verify_interval=64k
 verify_dump=1
-continue_on_error=verify
+continue_on_error=${CONTINUE_ERRORS}
 
 ; write partition/file twice
 loops=2

@@ -100,6 +100,7 @@ final class Platform {
             getCurveNameMethod = ECParameterSpec.class.getDeclaredMethod("getCurveName");
             getCurveNameMethod.setAccessible(true);
         } catch (Exception ignored) {
+            // Method not available, leave it as null, which is checked before use
         }
         GET_CURVE_NAME_METHOD = getCurveNameMethod;
     }
@@ -194,9 +195,19 @@ final class Platform {
         }
 
         try {
-            Field f_impl = Socket.class.getDeclaredField("impl");
-            f_impl.setAccessible(true);
-            Object socketImpl = f_impl.get(s);
+            Method m_getImpl = Socket.class.getDeclaredMethod("getImpl");
+            m_getImpl.setAccessible(true);
+            Object socketImpl = m_getImpl.invoke(s);
+            try {
+                Class<?> c_delegatingSocketImpl = Class.forName("java.net.DelegatingSocketImpl");
+                if (c_delegatingSocketImpl.isAssignableFrom(socketImpl.getClass())) {
+                    Method m_delegate = c_delegatingSocketImpl.getDeclaredMethod("delegate");
+                    m_delegate.setAccessible(true);
+                    socketImpl = m_delegate.invoke(socketImpl);
+                }
+            } catch (Exception ignored) {
+                // Ignored
+            }
             Field f_fd = SocketImpl.class.getDeclaredField("fd");
             f_fd.setAccessible(true);
             return (FileDescriptor) f_fd.get(socketImpl);
@@ -581,10 +592,8 @@ final class Platform {
             return originalHostName;
         } catch (InvocationTargetException e) {
             throw new RuntimeException("Failed to get originalHostName", e);
-        } catch (ClassNotFoundException ignore) {
+        } catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException ignore) {
             // passthrough and return addr.getHostAddress()
-        } catch (IllegalAccessException ignore) {
-        } catch (NoSuchMethodException ignore) {
         }
 
         return addr.getHostAddress();
@@ -658,9 +667,10 @@ final class Platform {
         KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
         try {
             ks.load(null, null);
-        } catch (CertificateException ignored) {
         } catch (NoSuchAlgorithmException ignored) {
-        } catch (IOException ignored) {
+            // TODO(prb): Should this be re-thrown? It happens if "the algorithm used to check
+            // the integrity of the KeyStore cannot be found".
+        } catch (IOException | CertificateException ignored) {
             // We're not loading anything, so ignore it
         }
         // Find the highest-priority non-Conscrypt provider that provides a PKIX
@@ -708,7 +718,7 @@ final class Platform {
         return null;
     }
 
-    static CertBlacklist newDefaultBlacklist() {
+    static CertBlocklist newDefaultBlocklist() {
         return null;
     }
 
@@ -785,5 +795,22 @@ final class Platform {
                 }
             });
         }
+    }
+
+    public static ConscryptHostnameVerifier getDefaultHostnameVerifier() {
+        return OkHostnameVerifier.strictInstance();
+    }
+
+    @SuppressWarnings("unused")
+    static long getMillisSinceBoot() {
+        return 0;
+    }
+
+    @SuppressWarnings("unused")
+    static void countTlsHandshake(
+            boolean success, String protocol, String cipherSuite, long duration) {}
+
+    public static boolean isJavaxCertificateSupported() {
+        return JAVA_VERSION < 15;
     }
 }

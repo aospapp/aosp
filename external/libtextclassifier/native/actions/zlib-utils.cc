@@ -20,7 +20,6 @@
 
 #include "utils/base/logging.h"
 #include "utils/intents/zlib-utils.h"
-#include "utils/resources.h"
 
 namespace libtextclassifier3 {
 
@@ -74,11 +73,6 @@ bool CompressActionsModel(ActionsModelT* model) {
     zlib_compressor->Compress(
         model->ranking_options->lua_ranking_script,
         model->ranking_options->compressed_lua_ranking_script.get());
-  }
-
-  // Compress resources.
-  if (model->resources != nullptr) {
-    CompressResources(model->resources.get());
   }
 
   // Compress intent generator.

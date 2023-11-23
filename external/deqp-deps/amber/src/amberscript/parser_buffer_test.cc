@@ -20,6 +20,34 @@ namespace amberscript {
 
 using AmberScriptParserTest = testing::Test;
 
+class DummyDelegate : public amber::Delegate {
+ public:
+  DummyDelegate() = default;
+  ~DummyDelegate() override = default;
+
+  void Log(const std::string&) override {}
+  bool LogGraphicsCalls() const override { return false; }
+  void SetLogGraphicsCalls(bool) {}
+  bool LogExecuteCalls() const override { return false; }
+  void SetLogExecuteCalls(bool) {}
+  bool LogGraphicsCallsTime() const override { return false; }
+  void SetLogGraphicsCallsTime(bool) {}
+  uint64_t GetTimestampNs() const override { return 0; }
+  void SetScriptPath(std::string) {}
+
+  amber::Result LoadBufferData(const std::string,
+                               amber::BufferDataFileType type,
+                               amber::BufferInfo* buffer) const override {
+    amber::Value v;
+    v.SetIntValue(static_cast<uint64_t>(type));
+    buffer->values.push_back(v);
+    buffer->width = 1;
+    buffer->height = 1;
+
+    return {};
+  }
+};
+
 TEST_F(AmberScriptParserTest, BufferData) {
   std::string in = R"(
 BUFFER my_buffer DATA_TYPE uint32 DATA
@@ -154,6 +182,72 @@ END)";
 TEST_F(AmberScriptParserTest, BufferDataStd430) {
   std::string in = R"(
 BUFFER my_buffer DATA_TYPE uint32 STD430 DATA
+1 2 3 4
+55 99 1234
+END)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess()) << r.Error();
+
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+
+  ASSERT_TRUE(buffers[0] != nullptr);
+  EXPECT_EQ("my_buffer", buffers[0]->GetName());
+
+  auto* buffer = buffers[0].get();
+  EXPECT_TRUE(buffer->GetFormat()->IsUint32());
+  EXPECT_EQ(Format::Layout::kStd430, buffer->GetFormat()->GetLayout());
+  EXPECT_EQ(7U, buffer->ElementCount());
+  EXPECT_EQ(7U, buffer->ValueCount());
+  EXPECT_EQ(7U * sizeof(uint32_t), buffer->GetSizeInBytes());
+
+  std::vector<uint32_t> results = {1, 2, 3, 4, 55, 99, 1234};
+  const auto* data = buffer->GetValues<uint32_t>();
+  ASSERT_EQ(results.size(), buffer->ValueCount());
+  for (size_t i = 0; i < results.size(); ++i) {
+    EXPECT_EQ(results[i], data[i]);
+  }
+}
+
+TEST_F(AmberScriptParserTest, BufferDataArrayStd140) {
+  std::string in = R"(
+BUFFER my_buffer DATA_TYPE uint32[] STD140 DATA
+1 2 3 4
+55 99 1234
+END)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess()) << r.Error();
+
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+
+  ASSERT_TRUE(buffers[0] != nullptr);
+  EXPECT_EQ("my_buffer", buffers[0]->GetName());
+
+  auto* buffer = buffers[0].get();
+  EXPECT_TRUE(buffer->GetFormat()->IsUint32());
+  EXPECT_EQ(Format::Layout::kStd140, buffer->GetFormat()->GetLayout());
+  EXPECT_EQ(7U, buffer->ElementCount());
+  EXPECT_EQ(28U * sizeof(uint32_t), buffer->GetSizeInBytes());
+
+  std::vector<uint32_t> results = {1,  0, 0, 0, 2,    0, 0,  0, 3, 0,
+                                   0,  0, 4, 0, 0,    0, 55, 0, 0, 0,
+                                   99, 0, 0, 0, 1234, 0, 0,  0};
+  const auto* data = buffer->GetValues<uint32_t>();
+  for (size_t i = 0; i < results.size(); ++i) {
+    EXPECT_EQ(results[i], data[i]);
+  }
+}
+
+TEST_F(AmberScriptParserTest, BufferDataArrayStd430) {
+  std::string in = R"(
+BUFFER my_buffer DATA_TYPE uint32[] STD430 DATA
 1 2 3 4
 55 99 1234
 END)";
@@ -568,10 +662,27 @@ TEST_F(AmberScriptParserTest, BufferFormat) {
   ASSERT_EQ(4U, segs.size());
 
   for (size_t i = 0; i < 4; ++i) {
-    EXPECT_EQ(segs[i].GetNumBits(), 32);
+    EXPECT_EQ(segs[i].GetNumBits(), 32u);
     EXPECT_EQ(segs[i].GetFormatMode(), FormatMode::kSInt);
     EXPECT_EQ(segs[i].GetName(), static_cast<FormatComponentType>(i));
   }
+}
+
+TEST_F(AmberScriptParserTest, BufferSamples) {
+  std::string in = "BUFFER my_buf FORMAT R8G8B8A8_UNORM SAMPLES 2";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess()) << r.Error();
+
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+
+  ASSERT_TRUE(buffers[0] != nullptr);
+  auto* buffer = buffers[0].get();
+  EXPECT_EQ("my_buf", buffer->GetName());
+  EXPECT_EQ(2u, buffer->GetSamples());
 }
 
 struct BufferParseError {
@@ -594,11 +705,11 @@ INSTANTIATE_TEST_SUITE_P(
     AmberScriptParserBufferParseErrorTest,
     testing::Values(
         BufferParseError{"BUFFER my_buf FORMAT 123",
-                         "1: BUFFER FORMAT must be a string"},
+                         "1: BUFFER FORMAT must be an identifier"},
         BufferParseError{"BUFFER my_buf FORMAT A23A32",
                          "1: invalid BUFFER FORMAT"},
         BufferParseError{"BUFFER my_buf FORMAT",
-                         "1: BUFFER FORMAT must be a string"},
+                         "1: BUFFER FORMAT must be an identifier"},
         BufferParseError{"BUFFER my_buffer FORMAT R32G32B32A32_SFLOAT EXTRA",
                          "1: unknown token: EXTRA"},
         BufferParseError{"BUFFER 1234 DATA_TYPE uint8 SIZE 5 FILL 5",
@@ -650,18 +761,23 @@ INSTANTIATE_TEST_SUITE_P(
         BufferParseError{
             "BUFFER my_index_buffer DATA_TYPE int32 DATA INVALID\n123\nEND",
             "1: invalid BUFFER data value: INVALID"},
-        BufferParseError{"BUFFER my_index_buffer DATA_TYPE int32 SIZE 256 FILL "
-                         "5 INVALID\n123\nEND",
-                         "1: extra parameters after BUFFER fill command"},
+        BufferParseError{
+            "BUFFER my_index_buffer DATA_TYPE int32 SIZE 256 FILL "
+            "5 INVALID\n123\nEND",
+            "1: extra parameters after BUFFER fill command: INVALID"},
         BufferParseError{
             "BUFFER my_buffer DATA_TYPE int32 SIZE 256 SERIES_FROM 2 "
             "INC_BY 5 "
             "INVALID",
-            "1: extra parameters after BUFFER series_from command"},
+            "1: extra parameters after BUFFER series_from command: INVALID"},
         BufferParseError{"BUFFER my_buf DATA_TYPE int32 SIZE 5 FILL 5\nBUFFER "
                          "my_buf DATA_TYPE int16 SIZE 5 FILL 2",
                          // NOLINTNEXTLINE(whitespace/parens)
-                         "2: duplicate buffer name provided"}));
+                         "2: duplicate buffer name provided"},
+        BufferParseError{"BUFFER my_buf FORMAT R8G8B8A8_UNORM SAMPLES 9",
+                         "1: invalid sample count: 9"},
+        BufferParseError{"BUFFER my_buf FORMAT R8G8B8A8_UNORM SAMPLES foo",
+                         "1: expected integer value for SAMPLES"}));
 
 struct BufferData {
   const char* name;
@@ -669,6 +785,7 @@ struct BufferData {
   size_t num_bits;
   size_t row_count;
   size_t column_count;
+  bool is_array;
 };
 
 using AmberScriptParserBufferDataTypeTest = testing::TestWithParam<BufferData>;
@@ -693,30 +810,55 @@ TEST_P(AmberScriptParserBufferDataTypeTest, BufferTypes) {
   EXPECT_EQ(test_data.row_count, fmt->GetType()->RowCount());
   EXPECT_EQ(test_data.column_count, fmt->GetType()->ColumnCount());
 
-  EXPECT_EQ(test_data.type, fmt->GetSegments()[0].GetFormatMode());
-  EXPECT_EQ(test_data.num_bits, fmt->GetSegments()[0].GetNumBits());
+  auto& seg = fmt->GetSegments()[0];
+  EXPECT_EQ(test_data.type, seg.GetFormatMode());
+  EXPECT_EQ(test_data.num_bits, seg.GetNumBits());
+  EXPECT_EQ(test_data.is_array, fmt->GetType()->IsArray());
 }
 INSTANTIATE_TEST_SUITE_P(
     AmberScriptParserTestsDataType,
     AmberScriptParserBufferDataTypeTest,
-    testing::Values(BufferData{"int8", FormatMode::kSInt, 8, 1, 1},
-                    BufferData{"int16", FormatMode::kSInt, 16, 1, 1},
-                    BufferData{"int32", FormatMode::kSInt, 32, 1, 1},
-                    BufferData{"int64", FormatMode::kSInt, 64, 1, 1},
-                    BufferData{"uint8", FormatMode::kUInt, 8, 1, 1},
-                    BufferData{"uint16", FormatMode::kUInt, 16, 1, 1},
-                    BufferData{"uint32", FormatMode::kUInt, 32, 1, 1},
-                    BufferData{"uint64", FormatMode::kUInt, 64, 1, 1},
-                    BufferData{"vec2<int8>", FormatMode::kSInt, 8, 2, 1},
-                    BufferData{"vec4<uint32>", FormatMode::kUInt, 32, 4, 1},
-                    BufferData{"mat2x4<int32>", FormatMode::kSInt, 32, 4, 2},
-                    BufferData{"mat4x2<uint16>", FormatMode::kUInt, 16, 2, 4},
-                    BufferData{"B8G8R8_UNORM", FormatMode::kUNorm, 8, 3, 1},
-                    BufferData{"float", FormatMode::kSFloat, 32, 1, 1},
-                    BufferData{"double", FormatMode::kSFloat, 64, 1, 1},
-                    BufferData{"vec3<float>", FormatMode::kSFloat, 32, 3, 1},
-                    BufferData{"mat3x3<float>", FormatMode::kSFloat, 32, 3,
-                               3}));  // NOLINT(whitespace/parens)
+    testing::Values(
+        BufferData{"int8", FormatMode::kSInt, 8, 1, 1, false},
+        BufferData{"int16", FormatMode::kSInt, 16, 1, 1, false},
+        BufferData{"int32", FormatMode::kSInt, 32, 1, 1, false},
+        BufferData{"int64", FormatMode::kSInt, 64, 1, 1, false},
+        BufferData{"uint8", FormatMode::kUInt, 8, 1, 1, false},
+        BufferData{"uint16", FormatMode::kUInt, 16, 1, 1, false},
+        BufferData{"uint32", FormatMode::kUInt, 32, 1, 1, false},
+        BufferData{"uint64", FormatMode::kUInt, 64, 1, 1, false},
+        BufferData{"float", FormatMode::kSFloat, 32, 1, 1, false},
+        BufferData{"double", FormatMode::kSFloat, 64, 1, 1, false},
+        BufferData{"vec2<int8>", FormatMode::kSInt, 8, 2, 1, false},
+        BufferData{"vec3<float>", FormatMode::kSFloat, 32, 3, 1, false},
+        BufferData{"vec4<uint32>", FormatMode::kUInt, 32, 4, 1, false},
+        BufferData{"mat2x4<int32>", FormatMode::kSInt, 32, 4, 2, false},
+        BufferData{"mat3x3<float>", FormatMode::kSFloat, 32, 3, 3, false},
+        BufferData{"mat4x2<uint16>", FormatMode::kUInt, 16, 2, 4, false},
+        BufferData{"B8G8R8_UNORM", FormatMode::kUNorm, 8, 3, 1,
+                   false}));  // NOLINT(whitespace/parens)
+
+INSTANTIATE_TEST_SUITE_P(
+    AmberScriptParserTestsDataType2,
+    AmberScriptParserBufferDataTypeTest,
+    testing::Values(
+        BufferData{"int8[]", FormatMode::kSInt, 8, 1, 1, true},
+        BufferData{"int16[]", FormatMode::kSInt, 16, 1, 1, true},
+        BufferData{"int32[]", FormatMode::kSInt, 32, 1, 1, true},
+        BufferData{"int64[]", FormatMode::kSInt, 64, 1, 1, true},
+        BufferData{"uint8[]", FormatMode::kUInt, 8, 1, 1, true},
+        BufferData{"uint16[]", FormatMode::kUInt, 16, 1, 1, true},
+        BufferData{"uint32[]", FormatMode::kUInt, 32, 1, 1, true},
+        BufferData{"uint64[]", FormatMode::kUInt, 64, 1, 1, true},
+        BufferData{"float[]", FormatMode::kSFloat, 32, 1, 1, true},
+        BufferData{"double[]", FormatMode::kSFloat, 64, 1, 1, true},
+        BufferData{"vec2<int8>[]", FormatMode::kSInt, 8, 2, 1, true},
+        BufferData{"vec3<float>[]", FormatMode::kSFloat, 32, 3, 1, true},
+        BufferData{"vec4<uint32>[]", FormatMode::kUInt, 32, 4, 1, true},
+        BufferData{"mat2x4<int32>[]", FormatMode::kSInt, 32, 4, 2, true},
+        BufferData{"mat3x3<float>[]", FormatMode::kSFloat, 32, 3, 3, true},
+        BufferData{"mat4x2<uint16>[]", FormatMode::kUInt, 16, 2, 4,
+                   true}));  // NOLINT(whitespace/parens)
 
 struct NameData {
   const char* name;
@@ -742,6 +884,9 @@ INSTANTIATE_TEST_SUITE_P(
     AmberScriptParserBufferDataTypeInvalidTestSamples,
     AmberScriptParserBufferDataTypeInvalidTest,
     testing::Values(NameData{"int17"},
+                    NameData{"int["},
+                    NameData{"int]"},
+                    NameData{"B8G8R8_UNORM[]"},
                     NameData{"uintt0"},
                     NameData{"vec7<uint8>"},
                     NameData{"vec27<uint8>"},
@@ -805,12 +950,12 @@ END)";
 
   const auto* data = buffer->GetValues<uint8_t>();
   EXPECT_FLOAT_EQ(1.f, *reinterpret_cast<const float*>(data + 0));
-  EXPECT_EQ(64,
+  EXPECT_EQ(64u,
             *reinterpret_cast<const uint32_t*>(data + 4 /* sizeof(float) */));
-  EXPECT_EQ(128,
+  EXPECT_EQ(128u,
             *reinterpret_cast<const uint32_t*>(data + 16 /* 8 round -> 16 */));
-  EXPECT_EQ(220, *reinterpret_cast<const uint32_t*>(
-                     data + 20 /* 8 round -> 16 + 4 */));
+  EXPECT_EQ(220u, *reinterpret_cast<const uint32_t*>(
+                      data + 20 /* 8 round -> 16 + 4 */));
 }
 
 TEST_F(AmberScriptParserTest, BufferWithStructStd430) {
@@ -853,9 +998,9 @@ END)";
 
   const auto* data = buffer->GetValues<uint8_t>();
   EXPECT_FLOAT_EQ(1.f, *reinterpret_cast<const float*>(data + 0));
-  EXPECT_EQ(64, *reinterpret_cast<const uint32_t*>(data + 4));
-  EXPECT_EQ(128, *reinterpret_cast<const uint32_t*>(data + 8));
-  EXPECT_EQ(220, *reinterpret_cast<const uint32_t*>(data + 12));
+  EXPECT_EQ(64u, *reinterpret_cast<const uint32_t*>(data + 4));
+  EXPECT_EQ(128u, *reinterpret_cast<const uint32_t*>(data + 8));
+  EXPECT_EQ(220u, *reinterpret_cast<const uint32_t*>(data + 12));
 }
 
 TEST_F(AmberScriptParserTest, BufferWithStructAndPaddingStd430) {
@@ -898,9 +1043,9 @@ END)";
 
   const auto* data = buffer->GetValues<uint8_t>();
   EXPECT_FLOAT_EQ(1.f, *reinterpret_cast<const float*>(data + 8));
-  EXPECT_EQ(64, *reinterpret_cast<const uint32_t*>(data + 16));
-  EXPECT_EQ(128, *reinterpret_cast<const uint32_t*>(data + 28));
-  EXPECT_EQ(220, *reinterpret_cast<const uint32_t*>(data + 36));
+  EXPECT_EQ(64u, *reinterpret_cast<const uint32_t*>(data + 16));
+  EXPECT_EQ(128u, *reinterpret_cast<const uint32_t*>(data + 28));
+  EXPECT_EQ(220u, *reinterpret_cast<const uint32_t*>(data + 36));
 }
 
 TEST_F(AmberScriptParserTest, BufferWithStructPartialInitialization) {
@@ -956,9 +1101,201 @@ END)";
 
   const auto* data = buffer->GetValues<uint8_t>();
   EXPECT_FLOAT_EQ(1.f, *reinterpret_cast<const float*>(data + 0));
-  EXPECT_FLOAT_EQ(64, *reinterpret_cast<const float*>(data + 16));
-  EXPECT_FLOAT_EQ(128, *reinterpret_cast<const float*>(data + 20));
-  EXPECT_FLOAT_EQ(220, *reinterpret_cast<const float*>(data + 24));
+  EXPECT_FLOAT_EQ(64u, *reinterpret_cast<const float*>(data + 16));
+  EXPECT_FLOAT_EQ(128u, *reinterpret_cast<const float*>(data + 20));
+  EXPECT_FLOAT_EQ(220u, *reinterpret_cast<const float*>(data + 24));
+}
+
+TEST_F(AmberScriptParserTest, InvalidBufferWidth) {
+  std::string in = R"(
+BUFFER buf DATA_TYPE vec4<float> WIDTH a
+)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("2: expected an integer for WIDTH", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, ZeroBufferWidth) {
+  std::string in = R"(
+BUFFER buf DATA_TYPE vec4<float> WIDTH 0
+)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("2: expected WIDTH to be positive", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, MissingBufferHeight) {
+  std::string in = R"(
+BUFFER buf DATA_TYPE vec4<float> WIDTH 1
+)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("3: BUFFER HEIGHT missing", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, InvalidBufferHeight) {
+  std::string in = R"(
+BUFFER buf DATA_TYPE vec4<float> WIDTH 1 HEIGHT 1.0
+)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("2: expected an integer for HEIGHT", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, ZeroBufferHeight) {
+  std::string in = R"(
+BUFFER buf DATA_TYPE vec4<float> WIDTH 1 HEIGHT 0
+)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+
+  EXPECT_EQ("2: expected HEIGHT to be positive", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, BufferWidthAndHeight) {
+  std::string in = R"(
+BUFFER buf DATA_TYPE vec4<float> WIDTH 2 HEIGHT 3
+)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess());
+
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+  ASSERT_TRUE(buffers[0] != nullptr);
+  EXPECT_EQ("buf", buffers[0]->GetName());
+
+  auto* buffer = buffers[0].get();
+  EXPECT_EQ(2u, buffer->GetWidth());
+  EXPECT_EQ(3u, buffer->GetHeight());
+  EXPECT_EQ(6u, buffer->ElementCount());
+}
+
+TEST_F(AmberScriptParserTest, BufferMipLevels) {
+  std::string in = "BUFFER my_buffer FORMAT R8G8B8A8_UNORM MIP_LEVELS 3";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess()) << r.Error();
+
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+
+  ASSERT_TRUE(buffers[0] != nullptr);
+  EXPECT_EQ("my_buffer", buffers[0]->GetName());
+
+  auto* buffer = buffers[0].get();
+  EXPECT_EQ(3U, buffer->GetMipLevels());
+}
+
+TEST_F(AmberScriptParserTest, BufferMissingMipLevels) {
+  std::string in = "BUFFER my_buffer FORMAT R8G8B8A8_UNORM MIP_LEVELS";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+
+  EXPECT_EQ("1: invalid value for MIP_LEVELS", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, BufferMissingDataFile) {
+  std::string in = "BUFFER my_buffer FORMAT R8G8B8A8_UNORM FILE";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+
+  EXPECT_EQ("1: invalid value for FILE", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, BufferMissingDataFilePng) {
+  std::string in = "BUFFER my_buffer FORMAT R8G8B8A8_UNORM FILE PNG";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+
+  EXPECT_EQ("1: missing file name for FILE", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, BufferDataFilePng) {
+  std::string in = "BUFFER my_buffer FORMAT R8G8B8A8_UNORM FILE PNG foo.png";
+
+  DummyDelegate delegate;
+  Parser parser(&delegate);
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess());
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+  ASSERT_TRUE(buffers[0] != nullptr);
+  ASSERT_EQ(static_cast<uint8_t>(amber::BufferDataFileType::kPng),
+            buffers[0]->GetValues<uint8_t>()[0]);
+}
+
+TEST_F(AmberScriptParserTest, BufferMissingDataFileBinary) {
+  std::string in = "BUFFER my_buffer DATA_TYPE float SIZE 10 FILE BINARY";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+
+  EXPECT_EQ("1: missing file name for FILE", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, BufferDataFileBinary) {
+  std::string in =
+      "BUFFER my_buffer DATA_TYPE int32 SIZE 10 FILE BINARY data.bin";
+
+  DummyDelegate delegate;
+  Parser parser(&delegate);
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess());
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+  ASSERT_TRUE(buffers[0] != nullptr);
+  ASSERT_EQ(static_cast<uint8_t>(amber::BufferDataFileType::kBinary),
+            buffers[0]->GetValues<uint8_t>()[0]);
+}
+
+TEST_F(AmberScriptParserTest, BufferMissingDataFileText) {
+  std::string in = "BUFFER my_buffer DATA_TYPE float SIZE 10 FILE TEXT";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+
+  EXPECT_EQ("1: missing file name for FILE", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, BufferDataFileText) {
+  std::string in =
+      "BUFFER my_buffer DATA_TYPE int32 SIZE 10 FILE TEXT data.txt";
+
+  DummyDelegate delegate;
+  Parser parser(&delegate);
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess());
+  auto script = parser.GetScript();
+  const auto& buffers = script->GetBuffers();
+  ASSERT_EQ(1U, buffers.size());
+  ASSERT_TRUE(buffers[0] != nullptr);
+  ASSERT_EQ(static_cast<uint8_t>(amber::BufferDataFileType::kText),
+            buffers[0]->GetValues<uint8_t>()[0]);
 }
 
 }  // namespace amberscript

@@ -66,10 +66,9 @@ UWORD32 ihevc_resi_trans_4x4_neon(
     WORD16 *pi2_dst,
     WORD32 src_strd,
     WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag)
+    WORD32 dst_strd,
+    CHROMA_PLANE_ID_T e_chroma_plane)
 {
-    WORD32 chroma_flag = dst_strd_chr_flag & 1;
-    WORD32 dst_strd = dst_strd_chr_flag >> 16;
     UWORD32 sad;
     uint8x16_t inp_buf, pred_buf;
     int16x8_t diff_1, diff_2;
@@ -86,15 +85,15 @@ UWORD32 ihevc_resi_trans_4x4_neon(
     uint64x2_t c;
 
     (void)pi4_temp;
-    if(chroma_flag == 0)
+    if(e_chroma_plane == NULL_PLANE)
     {
         inp_buf = load_unaligned_u8q(pu1_src, src_strd);
         pred_buf = load_unaligned_u8q(pu1_pred, pred_strd);
     }
     else
     {
-        inp_buf = load_unaligned_u8qi(pu1_src, src_strd);
-        pred_buf = load_unaligned_u8qi(pu1_pred, pred_strd);
+        inp_buf = load_unaligned_u8qi(pu1_src + e_chroma_plane, src_strd);
+        pred_buf = load_unaligned_u8qi(pu1_pred + e_chroma_plane, pred_strd);
     }
 
     abs = vabdl_u8(vget_low_u8(inp_buf), vget_low_u8(pred_buf));
@@ -198,9 +197,11 @@ UWORD32 ihevc_resi_trans_4x4_neon(
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
- *  0 - luma transform, 1 - chroma transform. Not used for 4x4ttyppe1
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  block sad
  *
@@ -216,9 +217,9 @@ UWORD32 ihevc_resi_trans_4x4_ttype1_neon(
     WORD16 *pi2_dst,
     WORD32 src_strd,
     WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag)
+    WORD32 dst_strd,
+    CHROMA_PLANE_ID_T e_chroma_plane)
 {
-    WORD32 dst_strd;
     UWORD32 sad;
     int16x4_t src0_4x16b;
     int16x4_t src1_4x16b;
@@ -242,7 +243,7 @@ UWORD32 ihevc_resi_trans_4x4_ttype1_neon(
     uint16x8_t abs = vabdl_u8(vget_low_u8(src_u8), vget_low_u8(pred_u8));
     uint32x4_t b;
     uint64x2_t c;
-
+    UNUSED(e_chroma_plane);
     abs = vabal_u8(abs, vget_high_u8(src_u8), vget_high_u8(pred_u8));
     b = vpaddlq_u16(abs);
     c = vpaddlq_u32(b);
@@ -251,7 +252,6 @@ UWORD32 ihevc_resi_trans_4x4_ttype1_neon(
             0);
 
     (void)pi4_temp;
-    dst_strd = dst_strd_chr_flag >> 16;
 
     /*************************    4x4 16bit Transpose  ***********************/
     src0_4x16b = vget_low_s16(src_reg0);
@@ -379,8 +379,11 @@ UWORD32 ihevc_resi_trans_4x4_ttype1_neon(
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -396,7 +399,8 @@ UWORD32 ihevc_resi_trans_8x8_neon(
     WORD16 *pi2_dst,
     WORD32 src_strd,
     WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag)
+    WORD32 dst_strd,
+    CHROMA_PLANE_ID_T e_chroma_plane)
 {
     int16x8_t diff_16[8];
     int16x8_t abs = vdupq_n_s16(0);
@@ -404,13 +408,11 @@ UWORD32 ihevc_resi_trans_8x8_neon(
     int64x2_t tmp_b;
     int32x2_t sad_v;
     int32x4x2_t a0, a1, a2, a3, a4, a5, a6, a7;
-    int chroma_flag = dst_strd_chr_flag & 1;
-    int dst_strd = dst_strd_chr_flag >> 16;
     UWORD32 sad;
 
     (void)pi4_temp;
-#define RESIDUE(k, is_chroma)                                                                      \
-    if(!is_chroma)                                                                                 \
+#define RESIDUE(k)                                                                                 \
+    if(NULL_PLANE == e_chroma_plane)                                                               \
     {                                                                                              \
         const uint8x8_t s##k = vld1_u8(pu1_src);                                                   \
         const uint8x8_t p##k = vld1_u8(pu1_pred);                                                  \
@@ -421,8 +423,8 @@ UWORD32 ihevc_resi_trans_8x8_neon(
     }                                                                                              \
     else                                                                                           \
     {                                                                                              \
-        const uint8x8_t s##k = vld2_u8(pu1_src).val[0];                                            \
-        const uint8x8_t p##k = vld2_u8(pu1_pred).val[0];                                           \
+        const uint8x8_t s##k = vld2_u8(pu1_src).val[e_chroma_plane];                               \
+        const uint8x8_t p##k = vld2_u8(pu1_pred).val[e_chroma_plane];                              \
         diff_16[k] = vreinterpretq_s16_u16(vsubl_u8(s##k, p##k));                                  \
         pu1_src += src_strd;                                                                       \
         pu1_pred += pred_strd;                                                                     \
@@ -430,14 +432,14 @@ UWORD32 ihevc_resi_trans_8x8_neon(
     }
 
     // stage 1
-    RESIDUE(0, chroma_flag);
-    RESIDUE(1, chroma_flag);
-    RESIDUE(2, chroma_flag);
-    RESIDUE(3, chroma_flag);
-    RESIDUE(4, chroma_flag);
-    RESIDUE(5, chroma_flag);
-    RESIDUE(6, chroma_flag);
-    RESIDUE(7, chroma_flag);
+    RESIDUE(0);
+    RESIDUE(1);
+    RESIDUE(2);
+    RESIDUE(3);
+    RESIDUE(4);
+    RESIDUE(5);
+    RESIDUE(6);
+    RESIDUE(7);
 
     tmp_a = vpaddlq_s16(abs);
     tmp_b = vpaddlq_s32(tmp_a);
@@ -792,11 +794,12 @@ UWORD32 ihevc_resi_trans_8x8_neon(
     return sad;
 }
 
-static INLINE void load(const uint8_t *a, int stride, uint8x8_t *b, int is_chroma)
+static INLINE void load(const uint8_t *a, int stride, uint8x8_t *b,
+                        CHROMA_PLANE_ID_T e_chroma_plane)
 {
     int i;
 
-    if(is_chroma == 0)
+    if(e_chroma_plane == NULL_PLANE)
     {
         for (i = 0; i < 16; i++)
         {
@@ -808,7 +811,7 @@ static INLINE void load(const uint8_t *a, int stride, uint8x8_t *b, int is_chrom
     {
         for (i = 0; i < 16; i++)
         {
-            b[i] = vld2_u8(a).val[0];
+            b[i] = vld2_u8(a).val[e_chroma_plane];
             a += stride;
         }
     }
@@ -1261,8 +1264,11 @@ static void dct_body_32_32(int32x4x2_t *in /*[16]*/, int32x4x2_t *out /*[16]*/)
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -1278,12 +1284,11 @@ UWORD32 ihevc_resi_trans_16x16_neon(
     WORD16 *pi2_dst,
     WORD32 src_strd,
     WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag)
+    WORD32 dst_strd,
+    CHROMA_PLANE_ID_T e_chroma_plane)
 {
     UWORD32 u4_blk_sad = 0;
     WORD32 chroma_flag;
-    WORD32 dst_strd;
-
     uint8x8_t temp0[16], temp1[16];
     int16x8_t temp2[16], temp3[16];
     int32x4_t tmp_a, tmp_b;
@@ -1292,21 +1297,19 @@ UWORD32 ihevc_resi_trans_16x16_neon(
     int32x4x2_t out0[16], out1[16], temp4[16], temp5[16];
 
     (void)pi4_temp;
-    chroma_flag = dst_strd_chr_flag & 1;
-    dst_strd = dst_strd_chr_flag >> 16;
-
+    chroma_flag = e_chroma_plane != NULL_PLANE;
     /* Residue + Forward Transform 1st stage */
     // Left half.
-    load(pu1_src, src_strd, temp0, chroma_flag);
-    load(pu1_pred, pred_strd, temp1, chroma_flag);
+    load(pu1_src, src_strd, temp0, e_chroma_plane);
+    load(pu1_pred, pred_strd, temp1, e_chroma_plane);
 
     tmp_a = diff(temp0, temp1, temp2);
     cross_input_16(temp2, temp3);
     dct_body_16_32(temp3, out0);
 
     // Right half.
-    load(pu1_src + 8 * (1 + chroma_flag), src_strd, temp0, chroma_flag);
-    load(pu1_pred + 8 * (1 + chroma_flag), pred_strd, temp1, chroma_flag);
+    load(pu1_src + 8 * (1 + chroma_flag), src_strd, temp0, e_chroma_plane);
+    load(pu1_pred + 8 * (1 + chroma_flag), pred_strd, temp1, e_chroma_plane);
 
     tmp_b = diff(temp0, temp1, temp2);
     cross_input_16(temp2, temp3);

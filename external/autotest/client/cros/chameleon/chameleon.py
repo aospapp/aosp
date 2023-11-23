@@ -1,14 +1,19 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import atexit
-import httplib
+import six.moves.http_client
 import logging
 import os
 import socket
 import time
-import xmlrpclib
+from six.moves import range
+import six.moves.xmlrpc_client
 from contextlib import contextmanager
 
 try:
@@ -155,14 +160,14 @@ class ChameleonConnection(object):
 
         """
         remote = 'http://%s:%s' % (self._hostname, self._port)
-        chameleond_proxy = xmlrpclib.ServerProxy(remote, allow_none=True)
+        chameleond_proxy = six.moves.xmlrpc_client.ServerProxy(remote, allow_none=True)
         logging.info('ChameleonConnection._create_server_proxy() called')
         # Call a RPC to test.
         try:
             getattr(chameleond_proxy, self._ready_test_name)()
         except (socket.error,
-                xmlrpclib.ProtocolError,
-                httplib.BadStatusLine) as e:
+                six.moves.xmlrpc_client.ProtocolError,
+                six.moves.http_client.BadStatusLine) as e:
             raise ChameleonConnectionError(e)
         return chameleond_proxy
 
@@ -362,9 +367,9 @@ class ChameleonBoard(object):
         self._chameleond_proxy.Reboot()
 
 
-    def get_bt_pkg_version(self):
-        """ Read the current version of chameleond."""
-        return self._chameleond_proxy.get_bt_pkg_version()
+    def get_bt_commit_hash(self):
+        """ Read the current git commit hash of chameleond."""
+        return self._chameleond_proxy.get_bt_commit_hash()
 
 
     def _get_log(self):
@@ -447,6 +452,22 @@ class ChameleonBoard(object):
         return self._chameleond_proxy.bluetooth_base
 
 
+    def get_bluetooth_tester(self):
+        """Gets the Bluetooth tester object on Chameleon.
+
+        @return: A BluetoothTester object.
+        """
+        return self._chameleond_proxy.bluetooth_tester
+
+
+    def get_bluetooth_audio(self):
+        """Gets the Bluetooth audio object on Chameleon.
+
+        @return: A RaspiBluetoothAudioFlow object.
+        """
+        return self._chameleond_proxy.bluetooth_audio
+
+
     def get_bluetooth_hid_mouse(self):
         """Gets the emulated Bluetooth (BR/EDR) HID mouse on Chameleon.
 
@@ -523,6 +544,13 @@ class ChameleonBoard(object):
         @return: A BluetoothHIDFlow object.
         """
         return self._chameleond_proxy.ble_keyboard
+
+    def get_ble_phone(self):
+        """Gets the emulated Bluetooth phone on Chameleon.
+
+        @return: A RaspiPhone object.
+        """
+        return self._chameleond_proxy.ble_phone
 
     def get_platform(self):
         """ Get the Hardware Platform of the chameleon host
@@ -679,7 +707,7 @@ class ChameleonVideoInput(ChameleonPort):
         if edid is edid_lib.NO_EDID:
             self.chameleond_proxy.ApplyEdid(self.port_id, self._EDID_ID_DISABLE)
         else:
-            edid_binary = xmlrpclib.Binary(edid.data)
+            edid_binary = six.moves.xmlrpc_client.Binary(edid.data)
             edid_id = self.chameleond_proxy.CreateEdid(edid_binary)
             self.chameleond_proxy.ApplyEdid(self.port_id, edid_id)
             self.chameleond_proxy.DestroyEdid(edid_id)
@@ -934,7 +962,7 @@ class ChameleonVideoInput(ChameleonPort):
         frame_to_start = int(round(time_to_start * self._FRAME_RATE))
         if total_period is None:
             # The default is the maximum time (integer) to the end.
-            total_period = (len(checksums) - frame_to_start) / self._FRAME_RATE
+            total_period = (len(checksums) - frame_to_start) // self._FRAME_RATE
         frame_to_stop = frame_to_start + total_period * self._FRAME_RATE
 
         if frame_to_start >= len(checksums) or frame_to_stop >= len(checksums):
@@ -947,10 +975,10 @@ class ChameleonVideoInput(ChameleonPort):
         # Count the unique checksums per second, i.e. FPS
         logging.debug('Output the fps info below:')
         fps_list = []
-        for i in xrange(0, len(checksums), self._FRAME_RATE):
+        for i in range(0, len(checksums), self._FRAME_RATE):
             unique_count = 0
             debug_str = ''
-            for j in xrange(i, i + self._FRAME_RATE):
+            for j in range(i, i + self._FRAME_RATE):
                 if j == 0 or checksums[j] != checksums[j - 1]:
                     unique_count += 1
                     debug_str += '*'
@@ -986,9 +1014,9 @@ class ChameleonVideoInput(ChameleonPort):
         frame_to_start = int(round(time_to_start * self._FRAME_RATE))
         first_checksum = checksums[frame_to_start]
 
-        for i in xrange(frame_to_start + 1, len(checksums) - pattern_window):
+        for i in range(frame_to_start + 1, len(checksums) - pattern_window):
             unique_count = 0
-            for j in xrange(i, i + pattern_window):
+            for j in range(i, i + pattern_window):
                 if j == 0 or checksums[j] != checksums[j - 1]:
                     unique_count += 1
             if unique_count >= pattern_diff_frame:
@@ -1089,8 +1117,25 @@ def make_chameleon_hostname(dut_hostname):
     return '.'.join(host_parts)
 
 
+def make_btpeer_hostnames(dut_hostname):
+    """Given a DUT's hostname, returns the hostname of its bluetooth peers.
+
+    A DUT can have up to 4 Bluetooth peers named  hostname-btpeer[1-4]
+    @param dut_hostname: Hostname of a DUT.
+
+    @return List of hostname of the DUT's Bluetooth peer devices
+    """
+    hostnames = []
+    host_parts = dut_hostname.split('.')
+    for i in range(1,5):
+        hostname_prefix = host_parts[0] + '-btpeer' +str(i)
+        hostname = [hostname_prefix]
+        hostname.extend(host_parts[1:])
+        hostnames.append('.'.join(hostname))
+    return hostnames
+
 def create_chameleon_board(dut_hostname, args):
-    """Given either DUT's hostname or argments, creates a ChameleonBoard object.
+    """Creates a ChameleonBoard object with either DUT's hostname or arguments.
 
     If the DUT's hostname is in the lab zone, it connects to the Chameleon by
     append the hostname with '-chameleon' suffix. If not, checks if the args

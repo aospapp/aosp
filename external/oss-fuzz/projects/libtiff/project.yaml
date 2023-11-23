@@ -1,4 +1,5 @@
 homepage: "http://www.libtiff.org"
+language: c++
 primary_contact: "even.rouault@gmail.com"
 auto_ccs:
   - paul.l.kehrer@gmail.com
@@ -9,3 +10,4 @@ sanitizers:
 architectures:
   - x86_64
   - i386
+main_repo: 'https://gitlab.com/libtiff/libtiff'

@@ -643,7 +643,7 @@ void util_smpte_c8_gamma(unsigned size, struct drm_color_lut *lut)
 		printf("Error: gamma too small: %d < %d\n", size, 7 + 7 + 8);
 		return;
 	}
-	memset(lut, size * sizeof(struct drm_color_lut), 0);
+	memset(lut, 0, size * sizeof(struct drm_color_lut));
 
 #define FILL_COLOR(idx, r, g, b) \
 	lut[idx].red = (r) << 8; \
@@ -985,7 +985,6 @@ static void fill_tiles_rgb16fp(const struct util_format_info *info, void *mem,
 			       unsigned int stride)
 {
 	const struct util_rgb_info *rgb = &info->rgb;
-	void *mem_base = mem;
 	unsigned int x, y;
 
 	/* TODO: Give this actual fp16 precision */
@@ -1113,7 +1112,7 @@ static void fill_gradient_rgb32(const struct util_rgb_info *rgb,
 				unsigned int width, unsigned int height,
 				unsigned int stride)
 {
-	int i, j;
+	unsigned int i, j;
 
 	for (i = 0; i < height / 2; i++) {
 		uint32_t *row = mem;
@@ -1141,7 +1140,7 @@ static void fill_gradient_rgb16fp(const struct util_rgb_info *rgb,
 				  unsigned int width, unsigned int height,
 				  unsigned int stride)
 {
-	int i, j;
+	unsigned int i, j;
 
 	for (i = 0; i < height / 2; i++) {
 		uint64_t *row = mem;

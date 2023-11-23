@@ -8,7 +8,9 @@
     "@location": "method:com.android.org.bouncycastle.asn1.ASN1EncodableVector#add(ASN1Encodable)"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.ASN1InputStream#ASN1InputStream(InputStream)"
+    "@location": "method:com.android.org.bouncycastle.asn1.ASN1InputStream#ASN1InputStream(InputStream)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.org.bouncycastle.asn1.ASN1InputStream#ASN1InputStream(byte[])"
@@ -23,25 +25,35 @@
     "@location": "method:com.android.org.bouncycastle.asn1.DERBitString#DERBitString(byte[])"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.DEREncodableVector#DEREncodableVector()"
+    "@location": "method:com.android.org.bouncycastle.asn1.DEREncodableVector#DEREncodableVector()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.org.bouncycastle.asn1.DERInteger#DERInteger(long)"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.DERInteger#DERInteger(BigInteger)"
+    "@location": "method:com.android.org.bouncycastle.asn1.DERInteger#DERInteger(BigInteger)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "field:com.android.org.bouncycastle.asn1.DERNull#INSTANCE"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.DERObjectIdentifier#DERObjectIdentifier(String)"
+    "@location": "method:com.android.org.bouncycastle.asn1.DERObjectIdentifier#DERObjectIdentifier(String)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.DEROctetString#DEROctetString(byte[])"
+    "@location": "method:com.android.org.bouncycastle.asn1.DEROctetString#DEROctetString(byte[])",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.DEROutputStream#DEROutputStream(OutputStream)"
+    "@location": "method:com.android.org.bouncycastle.asn1.DEROutputStream#DEROutputStream(OutputStream)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.org.bouncycastle.asn1.DERSequence#DERSequence()"
@@ -50,7 +62,9 @@
     "@location": "method:com.android.org.bouncycastle.asn1.DERSequence#DERSequence(ASN1EncodableVector)"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.DERSet#DERSet(ASN1EncodableVector)"
+    "@location": "method:com.android.org.bouncycastle.asn1.DERSet#DERSet(ASN1EncodableVector)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "field:com.android.org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers#sha256WithRSAEncryption"
@@ -65,7 +79,9 @@
     "@location": "method:com.android.org.bouncycastle.asn1.x509.Certificate#getInstance(Object)"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.x509.DigestInfo#DigestInfo(AlgorithmIdentifier,byte[])"
+    "@location": "method:com.android.org.bouncycastle.asn1.x509.DigestInfo#DigestInfo(AlgorithmIdentifier,byte[])",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo#getInstance(Object)"
@@ -101,19 +117,27 @@
     "@location": "method:com.android.org.bouncycastle.asn1.x509.V3TBSCertificateGenerator#setSubjectPublicKeyInfo(SubjectPublicKeyInfo)"
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#X509Name(ASN1Sequence)"
+    "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#X509Name(ASN1Sequence)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#X509Name(String)"
   },
   {
-    "@location": "field:com.android.org.bouncycastle.asn1.x509.X509Name#CN"
+    "@location": "field:com.android.org.bouncycastle.asn1.x509.X509Name#CN",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#getOIDs()"
+    "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#getOIDs()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#getValues()"
+    "@location": "method:com.android.org.bouncycastle.asn1.x509.X509Name#getValues()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "field:com.android.org.bouncycastle.asn1.x9.X9ObjectIdentifiers#ecdsa_with_SHA256"

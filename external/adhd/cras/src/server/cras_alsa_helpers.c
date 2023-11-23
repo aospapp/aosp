@@ -25,6 +25,9 @@
 /* Time difference between two consecutive underrun logs. */
 #define UNDERRUN_LOG_TIME_SECS 30
 
+/* Limit the number of channels supported for devices: b/158509536 */
+#define TEMP_CHANNEL_LIMIT 20
+
 /* Chances to give mmap_begin to work. */
 static const size_t MAX_MMAP_BEGIN_ATTEMPTS = 3;
 /* Time to sleep between resume attempts. */
@@ -410,8 +413,19 @@ int cras_alsa_fill_properties(snd_pcm_t *handle, size_t **rates,
 	}
 	(*channel_counts)[num_found] = 0;
 	if (num_found == 0) {
-		syslog(LOG_WARNING, "No valid channel counts found.");
-		return -EINVAL;
+		// Pull the max channel count and use that.
+		unsigned int max_channels = 0;
+		rc = snd_pcm_hw_params_get_channels_max(params, &max_channels);
+		if (rc < 0) {
+			syslog(LOG_WARNING, "No valid channel counts found.");
+			return -EINVAL;
+		} else if (max_channels > TEMP_CHANNEL_LIMIT) {
+			syslog(LOG_WARNING, "Can't support so many channels.");
+			return -EINVAL;
+		} else {
+			(*channel_counts)[0] = (size_t)max_channels;
+			(*channel_counts)[1] = 0;
+		}
 	}
 
 	num_found = 0;
@@ -542,7 +556,7 @@ int cras_alsa_set_hwparams(snd_pcm_t *handle, struct cras_audio_format *format,
 	return 0;
 }
 
-int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp)
+int cras_alsa_set_swparams(snd_pcm_t *handle)
 {
 	int err;
 	snd_pcm_sw_params_t *swparams;
@@ -579,50 +593,7 @@ int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp)
 		return err;
 	}
 
-	if (*enable_htimestamp) {
-		/* Use MONOTONIC_RAW time-stamps. */
-		err = snd_pcm_sw_params_set_tstamp_type(
-			handle, swparams, SND_PCM_TSTAMP_TYPE_MONOTONIC_RAW);
-		if (err < 0) {
-			syslog(LOG_ERR, "set_tstamp_type: %s\n",
-			       snd_strerror(err));
-			return err;
-		}
-		err = snd_pcm_sw_params_set_tstamp_mode(handle, swparams,
-							SND_PCM_TSTAMP_ENABLE);
-		if (err < 0) {
-			syslog(LOG_ERR, "set_tstamp_mode: %s\n",
-			       snd_strerror(err));
-			return err;
-		}
-	}
-
-	/* This hack is required because ALSA-LIB does not provide any way to
-	 * detect whether MONOTONIC_RAW timestamps are supported by the kernel.
-	 * In ALSA-LIB, the code checks the hardware protocol version. */
 	err = snd_pcm_sw_params(handle, swparams);
-	if (err == -EINVAL && *enable_htimestamp) {
-		*enable_htimestamp = 0;
-		syslog(LOG_WARNING,
-		       "MONOTONIC_RAW timestamps are not supported.");
-
-		err = snd_pcm_sw_params_set_tstamp_type(
-			handle, swparams, SND_PCM_TSTAMP_TYPE_GETTIMEOFDAY);
-		if (err < 0) {
-			syslog(LOG_ERR, "set_tstamp_type: %s\n",
-			       snd_strerror(err));
-			return err;
-		}
-		err = snd_pcm_sw_params_set_tstamp_mode(handle, swparams,
-							SND_PCM_TSTAMP_NONE);
-		if (err < 0) {
-			syslog(LOG_ERR, "set_tstamp_mode: %s\n",
-			       snd_strerror(err));
-			return err;
-		}
-
-		err = snd_pcm_sw_params(handle, swparams);
-	}
 
 	if (err < 0) {
 		syslog(LOG_ERR, "sw_params: %s\n", snd_strerror(err));

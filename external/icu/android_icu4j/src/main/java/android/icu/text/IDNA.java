@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2003-2016, International Business Machines Corporation and    *
@@ -648,7 +648,6 @@ public abstract class IDNA {
      * @deprecated ICU 55 Use UTS 46 instead via {@link #getUTS46Instance(int)}.
      * @hide original deprecated declaration
      */
-    @libcore.api.IntraCoreApi
     @Deprecated
     public static StringBuffer convertIDNToASCII(String src,int options)
             throws StringPrepParseException{
@@ -844,7 +843,6 @@ public abstract class IDNA {
      * @deprecated ICU 55 Use UTS 46 instead via {@link #getUTS46Instance(int)}.
      * @hide original deprecated declaration
      */
-    @libcore.api.IntraCoreApi
     @Deprecated
     public static StringBuffer convertIDNToUnicode(String src, int options)
             throws StringPrepParseException{

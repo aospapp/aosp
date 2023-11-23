@@ -21,6 +21,7 @@ struct ucm_section;
  *    card_index - 0 based index, value of "XX" in "hw:XX,YY".
  *    card_name - The name of the card.
  *    device_index - 0 based index, value of "YY" in "hw:XX,YY".
+ *    pcm_name - The pcm name passing to snd_pcm_open(), e.g hw:0,0
  *    dev_name - The name of the device.
  *    dev_id - The id string of the device.
  *    card_type - the type of the card this iodev belongs.
@@ -38,9 +39,9 @@ struct ucm_section;
  */
 struct cras_iodev *
 alsa_iodev_create(size_t card_index, const char *card_name, size_t device_index,
-		  const char *dev_name, const char *dev_id,
-		  enum CRAS_ALSA_CARD_TYPE card_type, int is_first,
-		  struct cras_alsa_mixer *mixer,
+		  const char *pcm_name, const char *dev_name,
+		  const char *dev_id, enum CRAS_ALSA_CARD_TYPE card_type,
+		  int is_first, struct cras_alsa_mixer *mixer,
 		  const struct cras_card_config *config,
 		  struct cras_use_case_mgr *ucm, snd_hctl_t *hctl,
 		  enum CRAS_STREAM_DIRECTION direction, size_t usb_vid,

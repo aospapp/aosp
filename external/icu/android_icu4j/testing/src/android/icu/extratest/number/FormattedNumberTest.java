@@ -8,6 +8,8 @@ import android.icu.number.FormattedNumber;
 import android.icu.number.NumberFormatter;
 import android.icu.testsharding.MainTestShard;
 import android.icu.util.ULocale;
+
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import org.junit.Test;
@@ -28,5 +30,15 @@ public class FormattedNumberTest extends TestFmwk {
         assertEquals("Test subSequence()", "3.4", formattedNumber.subSequence(2,5));
         assertEquals("Test toBigDecimal()", new BigDecimal(BigInteger.valueOf(12345), 2),
             formattedNumber.toBigDecimal());
+    }
+
+    @Test
+    public void testAppendTo() {
+        FormattedNumber formattedNumber =
+                NumberFormatter.withLocale(ULocale.US).format(123.45);
+
+        StringWriter writer = new StringWriter();
+        formattedNumber.appendTo(writer);
+        assertEquals("Test appendTo()", "123.45", writer.toString());
     }
 }

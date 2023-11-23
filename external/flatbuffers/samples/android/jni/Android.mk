@@ -24,6 +24,9 @@ include $(CLEAR_VARS)
 include $(FLATBUFFERS_ROOT_DIR)/android/jni/include.mk
 
 LOCAL_MODULE := FlatBufferSample
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE $(LOCAL_PATH)/../../../LICENSE.txt
 
 # Set up some useful variables to identify schema and output directories and
 # schema files.

@@ -33,6 +33,28 @@ class firmware_DevScreenTimeout(FirmwareTest):
 
     fw_time_record = {}
 
+    def record_dev_screen_timestamp(self):
+        """Record timestamp when developer screen appears"""
+
+        timestamps_file = '/var/log/bios_times.txt'
+        timestamp_name = 'vboot select&load kernel'
+        sed_expression = 's/[0-9]*:%s[[:blank:]]*\([0-9,]*\).*/\\1/p' % (
+            timestamp_name)
+        cmd = 'sed -n \'%s\' %s | sed \'s/,//g\'' % (
+            sed_expression, timestamps_file)
+        time.sleep(self.RUN_SHELL_READY_TIME_MARGIN)
+        result = self.faft_client.system.run_shell_command_get_output(
+                cmd)
+        if result:
+            [dev_screen_ts] = result
+            self.fw_time_record['dev_screen_appear_ts'] = (
+                (float(dev_screen_ts) / 1000000) + 0.7)
+            logging.info("Developer screen timestamp is %.2f",
+                self.fw_time_record['dev_screen_appear_ts'])
+        else:
+            logging.info("Failed to get developer screen appear timestamp, fallback to 0")
+            self.fw_time_record['dev_screen_appear_ts'] = 0
+
     def record_fw_boot_time(self, tag):
         """Record the current firmware boot time with the tag.
 
@@ -81,7 +103,8 @@ class firmware_DevScreenTimeout(FirmwareTest):
         super(firmware_DevScreenTimeout, self).initialize(host, cmdline_args)
         # NA error check point for this test
         if self.faft_config.mode_switcher_type not in (
-                'keyboard_dev_switcher', 'tablet_detachable_switcher'):
+                'keyboard_dev_switcher', 'tablet_detachable_switcher',
+                'menu_switcher'):
             raise error.TestNAError("This test is only valid on devices with "
                                     "screens.")
         # This test is run on developer mode only.
@@ -101,21 +124,28 @@ class firmware_DevScreenTimeout(FirmwareTest):
         # to avoid TPM reset too long
         self.switcher.simple_reboot()
         self.switcher.wait_for_client()
+
+        logging.info("Reboot the device, do nothing and wait for screen "
+                     "timeout. And then record the firmware boot time and "
+                     "developer screen timestamp.")
+        self.switcher.simple_reboot()
+        self.switcher.wait_for_client()
+
+        # Record developer screen timestamp
+        self.record_dev_screen_timestamp()
+        # Record the boot time of firmware screen timeout.
+        self.record_fw_boot_time('timeout_boot')
+
+        # Measure firmware boot time with developer screen bypass
         logging.info("Reboot and bypass the Developer warning screen "
                      "immediately.")
         self.switcher.simple_reboot()
+        time.sleep(self.fw_time_record['dev_screen_appear_ts'])
         self.switcher.bypass_dev_mode()
         self.switcher.wait_for_client()
         logging.info("Record the firmware boot time without waiting for "
                      "firmware screen.")
         self.record_fw_boot_time('quick_bypass_boot')
-
-        logging.info("Reboot the device, do nothing and wait for screen "
-                     "timeout. And then record the firmware boot time.")
-        self.switcher.simple_reboot()
-        self.switcher.wait_for_client()
-        # Record the boot time of firmware screen timeout.
-        self.record_fw_boot_time('timeout_boot')
 
         logging.info("Check the firmware screen timeout matches our spec.")
         self.check_timeout_period()

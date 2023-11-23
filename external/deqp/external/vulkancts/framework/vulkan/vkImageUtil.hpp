@@ -67,6 +67,8 @@ VkCompareOp					mapCompareMode				(tcu::Sampler::CompareMode mode);
 VkFormat					mapTextureFormat			(const tcu::TextureFormat& format);
 VkFormat					mapCompressedTextureFormat	(const tcu::CompressedTexFormat format);
 VkSamplerCreateInfo			mapSampler					(const tcu::Sampler& sampler, const tcu::TextureFormat& format, float minLod = 0.0f, float maxLod = 1000.0f, bool unnormal = false);
+rr::GenericVec4				mapVkColor					(const VkClearColorValue& color);
+VkClearColorValue			mapVkColor					(const rr::GenericVec4& color);
 
 void						imageUtilSelfTest			(void);
 
@@ -128,6 +130,7 @@ struct PlanarFormatDescription
 };
 
 bool							isYCbCrFormat					(VkFormat						format);
+bool							isYCbCrExtensionFormat			(VkFormat						format);
 PlanarFormatDescription			getPlanarFormatDescription		(VkFormat						format);
 int								getPlaneCount					(VkFormat						format);
 deUint32						getMipmapCount					(VkFormat						format,
@@ -325,6 +328,14 @@ void	initDepthStencilImageChessboardPattern	(const DeviceInterface&							vk,
  * Checks if the physical device supports creation of the specified
  * image format.
  *//*--------------------------------------------------------------------*/
+bool	checkSparseImageFormatSupport			(const VkPhysicalDevice							physicalDevice,
+												 const InstanceInterface&						instance,
+												 const VkFormat									format,
+												 const VkImageType								imageType,
+												 const VkSampleCountFlagBits					sampleCount,
+												 const VkImageUsageFlags						usageFlags,
+												 const VkImageTiling							imageTiling);
+
 bool	checkSparseImageFormatSupport			(const vk::VkPhysicalDevice						physicalDevice,
 												 const vk::InstanceInterface&					instance,
 												 const vk::VkImageCreateInfo&					imageCreateInfo);

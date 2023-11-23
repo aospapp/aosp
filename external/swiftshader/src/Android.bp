@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "external_swiftshader_license":
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["external_swiftshader_license"],
+}
+
 cc_defaults {
     name: "libswiftshader",
     vendor: true,
@@ -45,6 +54,7 @@ cc_defaults {
         android: {
             cflags: [
                 "-DHAVE_GRALLOC1",
+                "-DHAVE_GRALLOC3",
                 "-DHAVE_GRALLOC4",
             ],
             relative_install_path: "egl",
@@ -53,6 +63,7 @@ cc_defaults {
                 "libnativebase_headers",
             ],
             shared_libs: [
+                "android.hardware.graphics.mapper@3.0",
                 "android.hardware.graphics.mapper@4.0",
                 "libnativewindow",
                 "libhardware",
@@ -190,20 +201,22 @@ cc_defaults {
     srcs: [
         "Reactor/CPUID.cpp",
         "Reactor/Debug.cpp",
-        "Reactor/EmulatedReactor.cpp",
+        "Reactor/EmulatedIntrinsics.cpp",
         "Reactor/ExecutableMemory.cpp",
         "Reactor/LLVMJIT.cpp",
         "Reactor/LLVMReactor.cpp",
+        "Reactor/OptimalIntrinsics.cpp",
         "Reactor/Reactor.cpp",
     ],
 
     cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",
         "-Wno-unused-parameter",
         "-Wno-implicit-fallthrough",
     ],
 
     static_libs: [
-        "libLLVM7_swiftshader",
+        "libLLVM10_swiftshader",
     ],
 
     shared_libs: [
@@ -221,20 +234,22 @@ cc_defaults {
     srcs: [
         "Reactor/CPUID.cpp",
         "Reactor/Debug.cpp",
-        "Reactor/EmulatedReactor.cpp",
+        "Reactor/EmulatedIntrinsics.cpp",
         "Reactor/ExecutableMemory.cpp",
         "Reactor/LLVMJIT.cpp",
         "Reactor/LLVMReactor.cpp",
+        "Reactor/OptimalIntrinsics.cpp",
         "Reactor/Reactor.cpp",
     ],
 
     cflags: [
+        "-DREACTOR_ANONYMOUS_MMAP_NAME=swiftshader_jit",
         "-Wno-unused-parameter",
         "-Wno-implicit-fallthrough",
     ],
 
     static_libs: [
-        "libLLVM7_swiftshader",
+        "libLLVM10_swiftshader",
     ],
 
     shared_libs: [
@@ -352,7 +367,7 @@ cc_defaults {
     defaults: [ "libswiftshader_release" ],
     static_libs: [
         "libswiftshader_llvm",
-        "libLLVM7_swiftshader",
+        "libLLVM10_swiftshader",
     ],
 }
 
@@ -362,7 +377,7 @@ cc_defaults {
     defaults: [ "libswiftshader_debug" ],
     static_libs: [
         "libswiftshader_llvm_debug",
-        "libLLVM7_swiftshader",
+        "libLLVM10_swiftshader_debug",
     ],
 }
 
@@ -545,6 +560,7 @@ cc_defaults {
         "-D__STDC_CONSTANT_MACROS",
         "-D__STDC_FORMAT_MACROS",
         "-DHAVE_GRALLOC1",
+        "-DHAVE_GRALLOC3",
         "-DHAVE_GRALLOC4",
         "-DNO_SANITIZE_FUNCTION=",
         // FIXME: Use <android/api-level.h> instead?
@@ -583,6 +599,7 @@ cc_defaults {
                 "hwvulkan_headers",
             ],
             shared_libs: [
+                "android.hardware.graphics.mapper@3.0",
                 "android.hardware.graphics.mapper@4.0",
                 "libnativewindow",
                 "libhardware",
@@ -626,8 +643,9 @@ cc_defaults {
 
     cflags: [
         "-DLOG_TAG=\"swiftshader\"",
-        //"-DSWIFTSHADER_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER",
+        "-DSWIFTSHADER_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER",
         "-DSWIFTSHADER_ENABLE_ASTC",  // TODO(b/150130101)
+        "-DSWIFTSHADER_DEVICE_MEMORY_REPORT",
     ],
 
     srcs: [
@@ -644,6 +662,8 @@ cc_defaults {
         "Device/*.cpp",
         "Pipeline/*.cpp",
         "Vulkan/*.cpp",
+        "WSI/HeadlessSurfaceKHR.cpp",
+        "WSI/VkSurfaceKHR.cpp",
     ],
 
     static_libs: [
@@ -655,7 +675,7 @@ cc_defaults {
 
     include_dirs: [
         "external/swiftshader/third_party/SPIRV-Headers/include",
-        "external/swiftshader/include"
+        "external/swiftshader/include",
     ],
 }
 
@@ -664,7 +684,7 @@ cc_library_shared {
 
     static_libs: [
         "libswiftshadervk_llvm_debug",
-        "libLLVM7_swiftshader",
+        "libLLVM10_swiftshader",
     ],
 
     defaults: [
@@ -678,7 +698,7 @@ cc_library_shared {
 
     static_libs: [
         "libswiftshadervk_llvm_debug",
-        "libLLVM7_swiftshader",
+        "libLLVM10_swiftshader_debug",
     ],
 
     cflags: [

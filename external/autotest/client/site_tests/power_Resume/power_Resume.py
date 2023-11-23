@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import time
+
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.power import power_suspend
@@ -19,14 +21,21 @@ class power_Resume(test.test):
     version = 1
     preserve_srcdir = True
 
-    def initialize(self, suspend_state=''):
+    def initialize(self,
+                   suspend_state='',
+                   suspend_iterations=None,
+                   iteration_delay=0):
         """
         Entry point.
 
         @param suspend_state: Force to suspend to a specific
                 state ("mem" or "freeze"). If the string is empty, suspend
                 state is left to the default pref on the system.
+        @param suspend_iterations: number of times to attempt suspend.
+        @param iteration_delay: number of seconds to wait between suspend iterations (default: 0).
         """
+        self._suspend_iterations = suspend_iterations
+        self._iteration_delay = iteration_delay
         self._suspender = power_suspend.Suspender(
                 self.resultsdir,
                 throw=True,
@@ -36,13 +45,42 @@ class power_Resume(test.test):
 
     def run_once(self, max_devs_returned=10, seconds=0,
                  ignore_kernel_warns=False, measure_arc=False):
-        try:
-            self._suspend_once(max_devs_returned, seconds, ignore_kernel_warns,
-                               measure_arc)
-        except error.TestWarn:
-            self._suspend_once(max_devs_returned, seconds + EXTRA_TIME,
-                               ignore_kernel_warns, measure_arc)
-            raise
+        system_suspends = []
+        system_resumes = []
+        while not self._done():
+            time.sleep(self._iteration_delay)
+
+            suspend_time = 0.0
+            resume_time = 0.0
+            try:
+                (suspend_time,
+                 resume_time) = self._suspend_once(max_devs_returned, seconds,
+                                                   ignore_kernel_warns,
+                                                   measure_arc)
+            except error.TestWarn:
+                (suspend_time, resume_time) = self._suspend_once(
+                        max_devs_returned, seconds + EXTRA_TIME,
+                        ignore_kernel_warns, measure_arc)
+                raise
+            system_suspends.append(suspend_time)
+            system_resumes.append(resume_time)
+
+        self.output_perf_value(description='system_suspend',
+                               value=system_suspends,
+                               units='sec',
+                               higher_is_better=False)
+        self.output_perf_value(description='system_resume',
+                               value=system_resumes,
+                               units='sec',
+                               higher_is_better=False)
+
+    def _done(self):
+        if self._suspend_iterations == None:
+            # At least one iteration.
+            self._suspend_iterations = 1
+
+        self._suspend_iterations -= 1
+        return self._suspend_iterations < 0
 
 
     def _suspend_once(self, max_devs_returned, seconds, ignore_kernel_warns,
@@ -60,10 +98,12 @@ class power_Resume(test.test):
         for dev in slowest_devs:
             results[dev] = device_times[dev]
 
-        self.output_perf_value(description='system_suspend',
-                               value=results['seconds_system_suspend'],
-                               units='sec', higher_is_better=False)
-        self.output_perf_value(description='system_resume',
-                               value=results['seconds_system_resume'],
-                               units='sec', higher_is_better=False)
         self.write_perf_keyval(results)
+        return (results['seconds_system_suspend'],
+                results['seconds_system_resume'])
+
+    def cleanup(self):
+        """
+        Clean the suspender.
+        """
+        self._suspender.finalize()

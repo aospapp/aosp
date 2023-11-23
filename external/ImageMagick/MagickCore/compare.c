@@ -17,7 +17,7 @@
 %                               December 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -78,7 +78,7 @@
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%   C o m p a r e I m a g e                                                   %
+%   C o m p a r e I m a g e s                                                 %
 %                                                                             %
 %                                                                             %
 %                                                                             %
@@ -108,7 +108,7 @@
 
 static size_t GetImageChannels(const Image *image)
 {
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -221,9 +221,7 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
     Generate difference image.
   */
   status=MagickTrue;
-  fuzz=(double) MagickMin(GetPixelChannels(image),
-    GetPixelChannels(reconstruct_image))*
-    GetFuzzyColorDistance(image,reconstruct_image);
+  fuzz=GetFuzzyColorDistance(image,reconstruct_image);
   image_view=AcquireVirtualCacheView(image,exception);
   reconstruct_view=AcquireVirtualCacheView(reconstruct_image,exception);
   highlight_view=AcquireAuthenticCacheView(highlight_image,exception);
@@ -236,14 +234,14 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
     MagickBooleanType
       sync;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register Quantum
+    Quantum
       *magick_restrict r;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -266,7 +264,7 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
       MagickStatusType
         difference;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -284,7 +282,8 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
-          distance;
+          distance,
+          pixel;
 
         PixelChannel channel = GetPixelChannelChannel(image,i);
         PixelTrait traits = GetPixelChannelTraits(image,channel);
@@ -295,10 +294,11 @@ MagickExport Image *CompareImages(Image *image,const Image *reconstruct_image,
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
         if (channel == AlphaPixelChannel)
-          distance=(double) p[i]-GetPixelChannel(reconstruct_image,channel,q);
+          pixel=(double) p[i]-GetPixelChannel(reconstruct_image,channel,q);
         else
-          distance=Sa*p[i]-Da*GetPixelChannel(reconstruct_image,channel,q);
-        if ((distance*distance) > fuzz)
+          pixel=Sa*p[i]-Da*GetPixelChannel(reconstruct_image,channel,q);
+        distance=pixel*pixel;
+        if (distance >= fuzz)
           {
             difference=MagickTrue;
             break;
@@ -385,9 +385,7 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
     Compute the absolute difference in pixels between two images.
   */
   status=MagickTrue;
-  fuzz=(double) MagickMin(GetPixelChannels(image),
-    GetPixelChannels(reconstruct_image))*
-    GetFuzzyColorDistance(image,reconstruct_image);
+  fuzz=GetFuzzyColorDistance(image,reconstruct_image);
   rows=MagickMax(image->rows,reconstruct_image->rows);
   columns=MagickMax(image->columns,reconstruct_image->columns);
   image_view=AcquireVirtualCacheView(image,exception);
@@ -401,11 +399,11 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
     double
       channel_distortion[MaxPixelChannels+1];
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       j,
       x;
 
@@ -423,13 +421,12 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
     {
       double
         Da,
-        distance,
         Sa;
 
       MagickBooleanType
         difference;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -440,12 +437,12 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
           continue;
         }
       difference=MagickFalse;
-      distance=0.0;
       Sa=QuantumScale*GetPixelAlpha(image,p);
       Da=QuantumScale*GetPixelAlpha(reconstruct_image,q);
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
         double
+          distance,
           pixel;
 
         PixelChannel channel = GetPixelChannelChannel(image,i);
@@ -460,8 +457,8 @@ static MagickBooleanType GetAbsoluteDistortion(const Image *image,
           pixel=(double) p[i]-GetPixelChannel(reconstruct_image,channel,q);
         else
           pixel=Sa*p[i]-Da*GetPixelChannel(reconstruct_image,channel,q);
-        distance+=pixel*pixel;
-        if (distance > fuzz)
+        distance=pixel*pixel;
+        if (distance >= fuzz)
           {
             channel_distortion[i]++;
             difference=MagickTrue;
@@ -496,7 +493,7 @@ static MagickBooleanType GetFuzzDistortion(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     j;
 
   size_t
@@ -521,11 +518,11 @@ static MagickBooleanType GetFuzzDistortion(const Image *image,
     double
       channel_distortion[MaxPixelChannels+1];
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -544,7 +541,7 @@ static MagickBooleanType GetFuzzDistortion(const Image *image,
         Da,
         Sa;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -611,7 +608,7 @@ static MagickBooleanType GetMeanAbsoluteDistortion(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     j;
 
   size_t
@@ -636,11 +633,11 @@ static MagickBooleanType GetMeanAbsoluteDistortion(const Image *image,
     double
       channel_distortion[MaxPixelChannels+1];
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -659,7 +656,7 @@ static MagickBooleanType GetMeanAbsoluteDistortion(const Image *image,
         Da,
         Sa;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -685,11 +682,11 @@ static MagickBooleanType GetMeanAbsoluteDistortion(const Image *image,
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
         if (channel == AlphaPixelChannel)
-          distance=QuantumScale*fabs((double) p[i]-
-            GetPixelChannel(reconstruct_image,channel,q));
+          distance=QuantumScale*fabs((double) (p[i]-(double) 
+            GetPixelChannel(reconstruct_image,channel,q)));
         else
-          distance=QuantumScale*fabs(Sa*p[i]-Da*
-            GetPixelChannel(reconstruct_image,channel,q));
+          distance=QuantumScale*fabs((double) (Sa*p[i]-Da*
+            GetPixelChannel(reconstruct_image,channel,q)));
         channel_distortion[i]+=distance;
         channel_distortion[CompositePixelChannel]+=distance;
       }
@@ -744,11 +741,11 @@ static MagickBooleanType GetMeanErrorPerPixel(Image *image,
   reconstruct_view=AcquireVirtualCacheView(reconstruct_image,exception);
   for (y=0; y < (ssize_t) rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(image_view,0,y,columns,1,exception);
@@ -764,7 +761,7 @@ static MagickBooleanType GetMeanErrorPerPixel(Image *image,
         Da,
         Sa;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -790,11 +787,11 @@ static MagickBooleanType GetMeanErrorPerPixel(Image *image,
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
         if (channel == AlphaPixelChannel)
-          distance=fabs((double) p[i]-
-            GetPixelChannel(reconstruct_image,channel,q));
+          distance=fabs((double) (p[i]-(double)
+            GetPixelChannel(reconstruct_image,channel,q)));
         else
-          distance=fabs(Sa*p[i]-Da*
-            GetPixelChannel(reconstruct_image,channel,q));
+          distance=fabs((double) (Sa*p[i]-Da*
+            GetPixelChannel(reconstruct_image,channel,q)));
         distortion[i]+=distance;
         distortion[CompositePixelChannel]+=distance;
         mean_error+=distance*distance;
@@ -808,8 +805,9 @@ static MagickBooleanType GetMeanErrorPerPixel(Image *image,
   }
   reconstruct_view=DestroyCacheView(reconstruct_view);
   image_view=DestroyCacheView(image_view);
-  image->error.mean_error_per_pixel=distortion[CompositePixelChannel]/area;
-  image->error.normalized_mean_error=QuantumScale*QuantumScale*mean_error/area;
+  area=PerceptibleReciprocal(area);
+  image->error.mean_error_per_pixel=area*distortion[CompositePixelChannel];
+  image->error.normalized_mean_error=area*QuantumScale*QuantumScale*mean_error;
   image->error.normalized_maximum_error=QuantumScale*maximum_error;
   return(status);
 }
@@ -827,7 +825,7 @@ static MagickBooleanType GetMeanSquaredDistortion(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     j;
 
   size_t
@@ -852,11 +850,11 @@ static MagickBooleanType GetMeanSquaredDistortion(const Image *image,
     double
       channel_distortion[MaxPixelChannels+1];
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -875,7 +873,7 @@ static MagickBooleanType GetMeanSquaredDistortion(const Image *image,
         Da,
         Sa;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -951,7 +949,7 @@ static MagickBooleanType GetNormalizedCrossCorrelationDistortion(
   MagickOffsetType
     progress;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -988,11 +986,11 @@ static MagickBooleanType GetNormalizedCrossCorrelationDistortion(
   reconstruct_view=AcquireVirtualCacheView(reconstruct_image,exception);
   for (y=0; y < (ssize_t) rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(image_view,0,y,columns,1,exception);
@@ -1019,11 +1017,11 @@ static MagickBooleanType GetNormalizedCrossCorrelationDistortion(
   area=PerceptibleReciprocal(area);
   for (y=0; y < (ssize_t) rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(image_view,0,y,columns,1,exception);
@@ -1154,11 +1152,11 @@ static MagickBooleanType GetPeakAbsoluteDistortion(const Image *image,
     double
       channel_distortion[MaxPixelChannels+1];
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       j,
       x;
 
@@ -1178,7 +1176,7 @@ static MagickBooleanType GetPeakAbsoluteDistortion(const Image *image,
         Da,
         Sa;
 
-      register ssize_t
+      ssize_t
         i;
 
       if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
@@ -1204,11 +1202,11 @@ static MagickBooleanType GetPeakAbsoluteDistortion(const Image *image,
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
         if (channel == AlphaPixelChannel)
-          distance=QuantumScale*fabs((double) p[i]-
-            GetPixelChannel(reconstruct_image,channel,q));
+          distance=QuantumScale*fabs((double) (p[i]-(double)
+            GetPixelChannel(reconstruct_image,channel,q)));
         else
-          distance=QuantumScale*fabs(Sa*p[i]-Da*
-            GetPixelChannel(reconstruct_image,channel,q));
+          distance=QuantumScale*fabs((double) (Sa*p[i]-Da*
+            GetPixelChannel(reconstruct_image,channel,q)));
         if (distance > channel_distortion[i])
           channel_distortion[i]=distance;
         if (distance > channel_distortion[CompositePixelChannel])
@@ -1244,7 +1242,7 @@ static MagickBooleanType GetPeakSignalToNoiseRatio(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   status=GetMeanSquaredDistortion(image,reconstruct_image,distortion,exception);
@@ -1296,7 +1294,7 @@ static MagickBooleanType GetPerceptualHashDistortion(const Image *image,
     double
       difference;
 
-    register ssize_t
+    ssize_t
       i;
 
     difference=0.0;
@@ -1306,7 +1304,7 @@ static MagickBooleanType GetPerceptualHashDistortion(const Image *image,
         alpha,
         beta;
 
-      register ssize_t
+      ssize_t
         j;
 
       for (j=0; j < (ssize_t) channel_phash[0].number_colorspaces; j++)
@@ -1341,7 +1339,7 @@ static MagickBooleanType GetRootMeanSquaredDistortion(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   status=GetMeanSquaredDistortion(image,reconstruct_image,distortion,exception);
@@ -1371,6 +1369,7 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
     *artifact;
 
   double
+    area,
     c1,
     c2,
     radius,
@@ -1382,7 +1381,7 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -1419,6 +1418,7 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
   if (artifact != (const char *) NULL)
     c2=pow(StringToDouble(artifact,(char **) NULL)*SSIML,2.0);
   status=MagickTrue;
+  area=0.0;
   rows=MagickMax(image->rows,reconstruct_image->rows);
   columns=MagickMax(image->columns,reconstruct_image->columns);
   image_view=AcquireVirtualCacheView(image,exception);
@@ -1432,11 +1432,11 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
     double
       channel_distortion[MaxPixelChannels+1];
 
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       i,
       x;
 
@@ -1463,16 +1463,23 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
         y_pixel_mu[MaxPixelChannels+1],
         y_pixel_sigma_squared[MaxPixelChannels+1];
 
-      register const Quantum
+      const Quantum
         *magick_restrict reference,
         *magick_restrict target;
 
-      register MagickRealType
+      MagickRealType
         *k;
 
       ssize_t
         v;
 
+      if ((GetPixelReadMask(image,p) <= (QuantumRange/2)) ||
+          (GetPixelReadMask(reconstruct_image,q) <= (QuantumRange/2)))
+        {
+          p+=GetPixelChannels(image);
+          q+=GetPixelChannels(reconstruct_image);
+          continue;
+        }
       (void) memset(x_pixel_mu,0,sizeof(x_pixel_mu));
       (void) memset(x_pixel_sigma_squared,0,sizeof(x_pixel_sigma_squared));
       (void) memset(xy_sigma,0,sizeof(xy_sigma));
@@ -1484,7 +1491,7 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
       target=q;
       for (v=0; v < (ssize_t) kernel_info->height; v++)
       {
-        register ssize_t
+        ssize_t
           u;
 
         for (u=0; u < (ssize_t) kernel_info->width; u++)
@@ -1550,6 +1557,7 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
         channel_distortion[i]+=ssim;
         channel_distortion[CompositePixelChannel]+=ssim;
       }
+      area++;
       p+=GetPixelChannels(image);
       q+=GetPixelChannels(reconstruct_image);
     }
@@ -1567,9 +1575,9 @@ static MagickBooleanType GetStructuralSimilarityDistortion(const Image *image,
     PixelTrait traits = GetPixelChannelTraits(image,channel);
     if ((traits == UndefinedPixelTrait) || ((traits & UpdatePixelTrait) == 0))
       continue;
-    distortion[i]/=((double) columns*rows);
+    distortion[i]/=area;
   }
-  distortion[CompositePixelChannel]/=((double) columns*rows);
+  distortion[CompositePixelChannel]/=area;
   distortion[CompositePixelChannel]/=(double) GetImageChannels(image);
   kernel_info=DestroyKernelInfo(kernel_info);
   return(status);
@@ -1581,7 +1589,7 @@ static MagickBooleanType GetStructuralDisimilarityDistortion(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   status=GetStructuralSimilarityDistortion(image,reconstruct_image,
@@ -1617,7 +1625,7 @@ MagickExport MagickBooleanType GetImageDistortion(Image *image,
   /*
     Get image distortion.
   */
-  length=MaxPixelChannels+1;
+  length=MaxPixelChannels+1UL;
   channel_distortion=(double *) AcquireQuantumMemory(length,
     sizeof(*channel_distortion));
   if (channel_distortion == (double *) NULL)
@@ -1907,11 +1915,11 @@ MagickExport MagickBooleanType IsImagesEqual(const Image *image,
   reconstruct_view=AcquireVirtualCacheView(reconstruct_image,exception);
   for (y=0; y < (ssize_t) rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(image_view,0,y,columns,1,exception);
@@ -1920,7 +1928,7 @@ MagickExport MagickBooleanType IsImagesEqual(const Image *image,
       break;
     for (x=0; x < (ssize_t) columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -1936,8 +1944,8 @@ MagickExport MagickBooleanType IsImagesEqual(const Image *image,
             (reconstruct_traits == UndefinedPixelTrait) ||
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
-        distance=fabs(p[i]-(double) GetPixelChannel(reconstruct_image,
-          channel,q));
+        distance=fabs((double) (p[i]-(double) GetPixelChannel(reconstruct_image,
+          channel,q)));
         if (distance >= MagickEpsilon)
           break;
       }
@@ -2040,11 +2048,11 @@ MagickExport MagickBooleanType SetImageColorMetric(Image *image,
   reconstruct_view=AcquireVirtualCacheView(reconstruct_image,exception);
   for (y=0; y < (ssize_t) rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(image_view,0,y,columns,1,exception);
@@ -2053,7 +2061,7 @@ MagickExport MagickBooleanType SetImageColorMetric(Image *image,
       break;
     for (x=0; x < (ssize_t) columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -2069,8 +2077,8 @@ MagickExport MagickBooleanType SetImageColorMetric(Image *image,
             (reconstruct_traits == UndefinedPixelTrait) ||
             ((reconstruct_traits & UpdatePixelTrait) == 0))
           continue;
-        distance=fabs(p[i]-(double) GetPixelChannel(reconstruct_image,
-          channel,q));
+        distance=fabs((double) (p[i]-(double) GetPixelChannel(reconstruct_image,
+          channel,q)));
         if (distance >= MagickEpsilon)
           {
             mean_error_per_pixel+=distance;
@@ -2223,10 +2231,10 @@ MagickExport Image *SimilarityImage(const Image *image,const Image *reference,
     double
       similarity;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -2245,7 +2253,7 @@ MagickExport Image *SimilarityImage(const Image *image,const Image *reference,
       }
     for (x=0; x < (ssize_t) (image->columns-reference->columns+1); x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)

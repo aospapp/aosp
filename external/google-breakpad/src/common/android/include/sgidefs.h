@@ -26,16 +26,12 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 #ifndef GOOGLE_BREAKPAD_ANDROID_INCLUDE_SGIDEFS_H
 #define GOOGLE_BREAKPAD_ANDROID_INCLUDE_SGIDEFS_H
-
 #ifdef __mips__
-
 // Android doesn't contain sgidefs.h, but does have <asm/sgidefs.h> which
 // contains what we need.
 #include <asm/sgidefs.h>
-
 #endif  // __mips__
-
 #endif  // GOOGLE_BREAKPAD_ANDROID_INCLUDE_SGIDEFS_H
+

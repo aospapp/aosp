@@ -57,11 +57,19 @@ class DiskIO {
 #else
       int fd;
 #endif
+#ifdef ENABLE_HEAP_DISKIO
+      const unsigned char* data;
+      size_t size;
+      off_t off;
+#endif
    public:
       DiskIO(void);
       ~DiskIO(void);
 
       void MakeRealName(void);
+#ifdef ENABLE_HEAP_DISKIO
+      int OpenForRead(const unsigned char* data, size_t size);
+#endif
       int OpenForRead(const string & filename);
       int OpenForRead(void);
       int OpenForWrite(const string & filename);

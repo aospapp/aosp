@@ -12,7 +12,7 @@
 
 [package]
 name = "unicode-xid"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["erick.tryzelaar <erick.tryzelaar@gmail.com>", "kwantam <kwantam@gmail.com>"]
 exclude = ["/scripts/*", "/.travis.yml"]
 description = "Determine whether characters have the XID_Start\nor XID_Continue properties according to\nUnicode Standard Annex #31.\n"

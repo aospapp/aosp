@@ -1,15 +1,21 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Facade to access the CFM functionality."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import glob
 import logging
 import os
 import time
-import urlparse
-import xmlrpclib
+import six
+import six.moves.urllib.parse
+import six.moves.xmlrpc_client
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -181,20 +187,20 @@ class CFMFacadeNative(object):
                 ctxs = kiosk_utils.get_webview_contexts(self._resource._browser,
                                                         self._EXT_ID)
                 for ctx in ctxs:
-                    parse_result = urlparse.urlparse(ctx.GetUrl())
+                    parse_result = six.moves.urllib.parse.urlparse(ctx.GetUrl())
                     url_path = parse_result.path
                     logging.info('Webview path: "%s"', url_path)
                     url_query = parse_result.query
                     logging.info('Webview query: "%s"', url_query)
-                    params = urlparse.parse_qs(url_query,
+                    params = six.moves.urllib.parse.parse_qs(url_query,
                                                keep_blank_values = True)
-                    is_oobe_slave_screen = (
+                    is_oobe_node_screen = (
                         # Hangouts Classic
                         ('nooobestatesync' in params and 'oobedone' in params)
                         # Hangouts Meet
                         or ('oobesecondary' in url_path))
-                    if is_oobe_slave_screen:
-                        # Skip the oobe slave screen. Not doing this can cause
+                    if is_oobe_node_screen:
+                        # Skip the oobe node screen. Not doing this can cause
                         # the wrong webview context to be returned.
                         continue
                     if 'screen' in params and params['screen'][0] == screen:
@@ -529,10 +535,10 @@ class CFMFacadeNative(object):
         elif type(o) is dict:
             return {
                     k: self._convert_large_integers(v)
-                    for k, v in o.iteritems()
+                    for k, v in six.iteritems(o)
             }
         else:
-            if type(o) is int and o > xmlrpclib.MAXINT:
+            if type(o) is int and o > six.moves.xmlrpc_client.MAXINT:
                 return float(o)
             else:
                 return o

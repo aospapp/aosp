@@ -7,6 +7,8 @@ This is a server side bluetooth playback/record test using the Chameleon
 board.
 """
 
+from __future__ import print_function
+
 import logging
 import os
 import time
@@ -314,14 +316,14 @@ class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
             audio_test_utils.check_recorded_frequency(
                     golden_file, playback_recorder, check_anomaly=check_quality,
                     second_peak_ratio=playback_second_peak_ratio)
-        except error.TestFail, e:
+        except error.TestFail as e:
             error_messages += str(e)
 
         try:
             audio_test_utils.check_recorded_frequency(
                     golden_file, record_recorder, check_anomaly=check_quality,
                     second_peak_ratio=record_second_peak_ratio)
-        except error.TestFail, e:
+        except error.TestFail as e:
             error_messages += str(e)
 
         if error_messages:

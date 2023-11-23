@@ -621,7 +621,7 @@ void
 CodeEmitterNV50::emitLOAD(const Instruction *i)
 {
    DataFile sf = i->src(0).getFile();
-   MAYBE_UNUSED int32_t offset = i->getSrc(0)->reg.data.offset;
+   ASSERTED int32_t offset = i->getSrc(0)->reg.data.offset;
 
    switch (sf) {
    case FILE_SHADER_INPUT:
@@ -881,8 +881,8 @@ CodeEmitterNV50::emitPFETCH(const Instruction *i)
    emitFlagsRd(i);
 }
 
-static void
-interpApply(const FixupEntry *entry, uint32_t *code, const FixupData& data)
+void
+nv50_interpApply(const FixupEntry *entry, uint32_t *code, const FixupData& data)
 {
    int ipa = entry->ipa;
    int encSize = entry->reg;
@@ -934,7 +934,7 @@ CodeEmitterNV50::emitINTERP(const Instruction *i)
       emitFlagsRd(i);
    }
 
-   addInterp(i->ipa, i->encSize, interpApply);
+   addInterp(i->ipa, i->encSize, nv50_interpApply);
 }
 
 void

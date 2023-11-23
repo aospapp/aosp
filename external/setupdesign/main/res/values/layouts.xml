@@ -53,4 +53,3 @@
     <item name="sud_glif_preference_template" type="layout">@layout/sud_glif_blank_template_compact</item>
     <item name="sud_glif_recycler_template" type="layout">@layout/sud_glif_recycler_template_compact</item>
 </resources>
-

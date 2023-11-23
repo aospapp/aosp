@@ -5,7 +5,7 @@ class netpipe(test.test):
     version = 2
 
     def run_once(self, pair, buffer, upper_bound, variance):
-        print "running on %s and %s\n" % (pair[0], pair[1])
+        print("running on %s and %s\n" % (pair[0], pair[1]))
 
         # Designate a platform label for the server side of tests.
         server_label = 'net_server'

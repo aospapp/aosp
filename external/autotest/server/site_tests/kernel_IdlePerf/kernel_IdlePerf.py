@@ -9,6 +9,7 @@ import os
 import json
 import math
 import re
+import numpy
 
 from autotest_lib.server import test
 from autotest_lib.server.cros import telemetry_runner
@@ -45,15 +46,21 @@ from autotest_lib.client.common_lib import error
 PAGESET_REPEAT = 7
 
 # PAGES can be set to a subset of pages to run for a shorter test, or None to
-# run all pages in top_25_smooth.
+# run all pages in rendering.desktop.
 # Simpler pages emphasise the issue more, as the system is more likely to enter
 # idle state.
 #
 # These were selected by running all pages many times (on a system which
-# exhibits the issue), and choosing the 5 pages which have the highest values
+# exhibits the issue), and choosing pages which have a high value
 # for mean_regression - 2 * stddev - i.e. give the clearest indication of a
 # regression.
-PAGES = ['games.yahoo', 'Blogger', 'LinkedIn', 'cats', 'booking']
+# The exact page set selected is a mix of real pages (e.g. blogspot_2018) and
+# synthetic (e.g. transform_transitions_js_block)
+# For a longer test,'twitter_2018', 'wikipedia_2018' can be added to PAGES.
+PAGES = ['blogspot_2018', 'transform_transitions_js_block', 'throughput_scrolling_passive_handler']
+
+# Benchmark to run
+BENCHMARK = 'rendering.desktop'
 
 # Path to sysfs control file for disabling idle state
 DISABLE_PATH = '/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable'
@@ -120,21 +127,27 @@ class kernel_IdlePerf(test.test):
                 host.run_output('echo {} > {}'.format(x, path))
 
     def _parse_results_file(self, path):
-        def _mean(values):
-            return sum(values) / float(len(values))
-
         with open(path) as fp:
             histogram_json = json.load(fp)
 
+        guids = {x["guid"]: x["values"][0] for x in histogram_json
+                    if "guid" in x and "values" in x and len(x["values"]) > 0}
+
         scores = {}
-        # list of % smooth scores for each page and for each pageset-repetition
-        for page in histogram_json['charts']['percentage_smooth']:
-            if page == 'summary':
-                continue
-            page_result = histogram_json['charts']['percentage_smooth'][page]
-            scores[page] = {'percentage_smooth': _mean(page_result['values']),
-                            'std': page_result['std']
-                           }
+        for e in histogram_json:
+            if "name" in e and e["name"] == "exp_percentage_smooth":
+                story_guid = e["diagnostics"]["stories"]
+                story = guids[story_guid]
+                if story not in scores: scores[story] = []
+                scores[story] += [e["sampleValues"][0]]
+
+        for story in scores:
+            scores[story] = {
+                'raw_exp_percentage_smooth_scores': scores[story],
+                'exp_percentage_smooth': numpy.mean(scores[story]),
+                'std': numpy.std(scores[story])
+            }
+
         return scores
 
     def _compare_results(self, idle_enabled, idle_disabled):
@@ -142,12 +155,12 @@ class kernel_IdlePerf(test.test):
             'passed': True
         }
         for page in idle_enabled:
-            diff = (idle_disabled[page]['percentage_smooth']
-                   - idle_enabled[page]['percentage_smooth'])
+            diff = (idle_disabled[page]['exp_percentage_smooth']
+                   - idle_enabled[page]['exp_percentage_smooth'])
             diff_std = (math.sqrt(idle_enabled[page]['std'] ** 2
                        + idle_disabled[page]['std'] ** 2))
-            passed = (idle_enabled[page]['percentage_smooth'] >
-                     (idle_disabled[page]['percentage_smooth'] - diff_std * 2))
+            passed = (idle_enabled[page]['exp_percentage_smooth'] >=
+                     (idle_disabled[page]['exp_percentage_smooth'] - diff_std * 2))
             key = re.sub('\W', '_', page)
             results[key] = {
                 'idle_enabled': idle_enabled[page],
@@ -165,24 +178,24 @@ class kernel_IdlePerf(test.test):
 
         args = ['--pageset-repeat={}'.format(PAGESET_REPEAT)]
         if PAGES:
-            stories = r'\|'.join(r'\(' + p + r'\)' for p in PAGES)
+            stories = r'\|'.join(r'\(^' + p + r'$\)' for p in PAGES)
             story_filter = '--story-filter={}'.format(stories)
             args.append(story_filter)
 
         logging.info('Running telemetry with args: {}'.format(args))
         result = telemetry.run_telemetry_benchmark(
-            'smoothness.top_25_smooth', self, *args)
+            BENCHMARK, self, *args)
         if result.status != telemetry_runner.SUCCESS_STATUS:
             raise error.TestFail('Failed to run benchmark')
 
         # ensure first run doesn't get overwritten by second run
-        default_path = os.path.join(self.resultsdir, 'results-chart.json')
+        default_path = os.path.join(self.resultsdir, 'histograms.json')
         if enable:
             unique_path = os.path.join(self.resultsdir,
-                                       'results-chart-idle-enabled.json')
+                                       'results-histograms-idle-enabled.json')
         else:
             unique_path = os.path.join(self.resultsdir,
-                                       'results-chart-idle-disabled.json')
+                                       'results-histograms-idle-disabled.json')
         os.rename(default_path, unique_path)
 
         return self._parse_results_file(unique_path)

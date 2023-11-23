@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and
@@ -1795,12 +1795,10 @@ public abstract class NumberFormat extends UFormat {
         public static final Field CURRENCY = new Field("currency");
 
         /**
-         * @hide draft / provisional / internal are hidden on Android
          */
         public static final Field MEASURE_UNIT = new Field("measure unit");
 
         /**
-         * @hide draft / provisional / internal are hidden on Android
          */
         public static final Field COMPACT = new Field("compact");
 

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/cache_mngr.c	Cache Manager
  *
@@ -33,6 +34,7 @@
  */
 
 #include <netlink-private/netlink.h>
+#include <netlink-private/utils.h>
 #include <netlink/netlink.h>
 #include <netlink/cache.h>
 #include <netlink/utils.h>
@@ -59,9 +61,15 @@ static int include_cb(struct nl_object *obj, struct nl_parser_param *p)
 
 	if (ops->co_include_event)
 		return ops->co_include_event(ca->ca_cache, obj, ca->ca_change,
+					     ca->ca_change_v2,
 					     ca->ca_change_data);
-	else
-		return nl_cache_include(ca->ca_cache, obj, ca->ca_change, ca->ca_change_data);
+	else {
+		if (ca->ca_change_v2)
+			return nl_cache_include_v2(ca->ca_cache, obj, ca->ca_change_v2, ca->ca_change_data);
+		else
+			return nl_cache_include(ca->ca_cache, obj, ca->ca_change, ca->ca_change_data);
+	}
+
 }
 
 static int event_input(struct nl_msg *msg, void *arg)
@@ -194,6 +202,70 @@ errout:
 }
 
 /**
+ * Set change_func_v2 for cache manager
+ * @arg mngr		Cache manager.
+ * @arg cache		Cache associated with the callback
+ * @arg cb		Function to be called upon changes.
+ * @arg data		Argument passed on to change callback
+ *
+ * Adds callback change_func_v2 to a registered cache. This callback provides
+ * in like the standard change_func the added or remove netlink object. In case
+ * of a change the old and the new object is provided as well as the according
+ * diff. If this callback is registered this has a higher priority then the
+ * change_func registered during cache registration. Hence only one callback is
+ * executed.
+ *
+ * The first netlink object in the callback is refering to the old object and
+ * the second to the new. This means on NL_ACT_CHANGE the first is the previous
+ * object in the cache and the second the updated version. On NL_ACT_DEL the
+ * first is the deleted object the second is NULL. On NL_ACT_NEW the first is
+ * NULL and the second the new netlink object.
+ *
+ * The user is responsible for calling nl_cache_mngr_poll() or monitor
+ * the socket and call nl_cache_mngr_data_ready() to allow the library
+ * to process netlink notification events.
+ *
+ * @see nl_cache_mngr_poll()
+ * @see nl_cache_mngr_data_ready()
+ *
+ * @return 0 on success or a negative error code.
+ * @return -NLE_PROTO_MISMATCH Protocol mismatch between cache manager and
+ * 			       cache type
+ * @return -NLE_OPNOTSUPP Cache type does not support updates
+ * @return -NLE_RANGE Cache of this type is not registered
+ */
+static int nl_cache_mngr_set_change_func_v2(struct nl_cache_mngr *mngr,
+					    struct nl_cache *cache,
+					    change_func_v2_t cb, void *data)
+{
+	struct nl_cache_ops *ops;
+	int i;
+
+	ops = cache->c_ops;
+	if (!ops)
+		return -NLE_INVAL;
+
+	if (ops->co_protocol != mngr->cm_protocol)
+		return -NLE_PROTO_MISMATCH;
+
+	if (ops->co_groups == NULL)
+		return -NLE_OPNOTSUPP;
+
+	for (i = 0; i < mngr->cm_nassocs; i++)
+		if (mngr->cm_assocs[i].ca_cache == cache)
+			break;
+
+	if (i >= mngr->cm_nassocs) {
+		return -NLE_RANGE;
+	}
+
+	mngr->cm_assocs[i].ca_change_v2 = cb;
+	mngr->cm_assocs[i].ca_change_data = data;
+
+	return 0;
+}
+
+/**
  * Add cache to cache manager
  * @arg mngr		Cache manager.
  * @arg cache		Cache to be added to cache manager
@@ -240,25 +312,26 @@ int nl_cache_mngr_add_cache(struct nl_cache_mngr *mngr, struct nl_cache *cache,
 		    mngr->cm_assocs[i].ca_cache->c_ops == ops)
 			return -NLE_EXIST;
 
-retry:
 	for (i = 0; i < mngr->cm_nassocs; i++)
 		if (!mngr->cm_assocs[i].ca_cache)
 			break;
 
 	if (i >= mngr->cm_nassocs) {
-		mngr->cm_nassocs += NASSOC_EXPAND;
-		mngr->cm_assocs = realloc(mngr->cm_assocs,
-					  mngr->cm_nassocs *
-					  sizeof(struct nl_cache_assoc));
-		if (mngr->cm_assocs == NULL)
+		struct nl_cache_assoc *cm_assocs;
+		int cm_nassocs = mngr->cm_nassocs + NASSOC_EXPAND;
+
+		cm_assocs = realloc(mngr->cm_assocs,
+				    cm_nassocs * sizeof(struct nl_cache_assoc));
+		if (cm_assocs == NULL)
 			return -NLE_NOMEM;
 
-		memset(mngr->cm_assocs + (mngr->cm_nassocs - NASSOC_EXPAND), 0,
+		memset(cm_assocs + mngr->cm_nassocs, 0,
 		       NASSOC_EXPAND * sizeof(struct nl_cache_assoc));
+		mngr->cm_assocs = cm_assocs;
+		mngr->cm_nassocs = cm_nassocs;
 
 		NL_DBG(1, "Increased capacity of cache manager %p " \
 			  "to %d\n", mngr, mngr->cm_nassocs);
-		goto retry;
 	}
 
 	for (grp = ops->co_groups; grp->ag_group; grp++) {
@@ -293,6 +366,41 @@ errout_drop_membership:
 /**
  * Add cache to cache manager
  * @arg mngr		Cache manager.
+ * @arg cache		Cache to be added to cache manager
+ * @arg cb		V2 function to be called upon changes.
+ * @arg data		Argument passed on to change callback
+ *
+ * Adds cache to the manager. The operation will trigger a full
+ * dump request from the kernel to initially fill the contents
+ * of the cache. The manager will subscribe to the notification group
+ * of the cache and keep track of any further changes.
+ *
+ * The user is responsible for calling nl_cache_mngr_poll() or monitor
+ * the socket and call nl_cache_mngr_data_ready() to allow the library
+ * to process netlink notification events.
+ *
+ * @see nl_cache_mngr_poll()
+ * @see nl_cache_mngr_data_ready()
+ *
+ * @return 0 on success or a negative error code.
+ * @return -NLE_PROTO_MISMATCH Protocol mismatch between cache manager and
+ * 			       cache type
+ * @return -NLE_OPNOTSUPP Cache type does not support updates
+ * @return -NLE_EXIST Cache of this type already being managed
+ */
+int nl_cache_mngr_add_cache_v2(struct nl_cache_mngr *mngr, struct nl_cache *cache,
+		      change_func_v2_t cb, void *data) {
+	int err;
+	err = nl_cache_mngr_add_cache(mngr, cache, NULL, NULL);
+	if (err < 0)
+		return err;
+
+	return nl_cache_mngr_set_change_func_v2(mngr, cache, cb, data);
+}
+
+/**
+ * Add cache to cache manager
+ * @arg mngr		Cache manager.
  * @arg name		Name of cache to keep track of
  * @arg cb		Function to be called upon changes.
  * @arg data		Argument passed on to change callback
@@ -307,6 +415,9 @@ errout_drop_membership:
  * The user is responsible for calling nl_cache_mngr_poll() or monitor
  * the socket and call nl_cache_mngr_data_ready() to allow the library
  * to process netlink notification events.
+ *
+ * @note Versions up to 3.4.0 actually required the result argument, preventing
+ * 	 NULL to be passed.
  *
  * @see nl_cache_mngr_poll()
  * @see nl_cache_mngr_data_ready()
@@ -338,7 +449,8 @@ int nl_cache_mngr_add(struct nl_cache_mngr *mngr, const char *name,
 	if (err < 0)
 		goto errout_free_cache;
 
-	*result = cache;
+	if (result)
+		*result = cache;
 	return 0;
 
 errout_free_cache:
@@ -391,8 +503,11 @@ int nl_cache_mngr_poll(struct nl_cache_mngr *mngr, int timeout)
 	NL_DBG(3, "Cache manager %p, poll() fd %d\n", mngr, fds.fd);
 	ret = poll(&fds, 1, timeout);
 	NL_DBG(3, "Cache manager %p, poll() returned %d\n", mngr, ret);
-	if (ret < 0)
+	if (ret < 0) {
+		NL_DBG(4, "nl_cache_mngr_poll(%p): poll() failed with %d (%s)\n",
+			mngr, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	/* No events, return */
 	if (ret == 0)

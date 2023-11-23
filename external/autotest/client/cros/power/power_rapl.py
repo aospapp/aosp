@@ -258,7 +258,7 @@ def create_powercap():
 
 
 class Powercap(power_status.PowerMeasurement):
-    """Classes to support RAPL power measurement via powercap sysfs
+    """Class to support RAPL power measurement via powercap sysfs
 
     This class utilizes the subset of Linux powercap driver to report
     energy consumption, in this manner, we do not need microarchitecture
@@ -319,7 +319,7 @@ class Powercap(power_status.PowerMeasurement):
 
 
 class PowercapPL1(power_status.PowerMeasurement):
-    """Classes to support RAPL power limit via powercap sysfs
+    """Class to support RAPL power limit via powercap sysfs
 
     This class utilizes the subset of Linux powercap driver to report
     energy consumption, in this manner, we do not need microarchitecture

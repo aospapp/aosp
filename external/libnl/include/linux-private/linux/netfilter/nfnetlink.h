@@ -1,17 +1,8 @@
-#ifndef _UAPI_NFNETLINK_H
-#define _UAPI_NFNETLINK_H
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+#ifndef _NFNETLINK_H
+#define _NFNETLINK_H
 #include <linux/types.h>
-
-#ifndef __KERNEL__
-/* nfnetlink groups: Up to 32 maximum - backwards compatibility for userspace */
-#define NF_NETLINK_CONNTRACK_NEW 		0x00000001
-#define NF_NETLINK_CONNTRACK_UPDATE		0x00000002
-#define NF_NETLINK_CONNTRACK_DESTROY		0x00000004
-#define NF_NETLINK_CONNTRACK_EXP_NEW		0x00000008
-#define NF_NETLINK_CONNTRACK_EXP_UPDATE		0x00000010
-#define NF_NETLINK_CONNTRACK_EXP_DESTROY	0x00000020
-#define NF_NETLINK_ACCT_QUOTA			0x00000040
-#endif
+#include <linux/netfilter/nfnetlink_compat.h>
 
 enum nfnetlink_groups {
 	NFNLGRP_NONE,
@@ -29,9 +20,11 @@ enum nfnetlink_groups {
 	NFNLGRP_CONNTRACK_EXP_DESTROY,
 #define NFNLGRP_CONNTRACK_EXP_DESTROY	NFNLGRP_CONNTRACK_EXP_DESTROY
 	NFNLGRP_NFTABLES,
-#define NFNLGRP_NFTABLES		NFNLGRP_NFTABLES
+#define NFNLGRP_NFTABLES                NFNLGRP_NFTABLES
 	NFNLGRP_ACCT_QUOTA,
 #define NFNLGRP_ACCT_QUOTA		NFNLGRP_ACCT_QUOTA
+	NFNLGRP_NFTRACE,
+#define NFNLGRP_NFTRACE			NFNLGRP_NFTRACE
 	__NFNLGRP_MAX,
 };
 #define NFNLGRP_MAX	(__NFNLGRP_MAX - 1)
@@ -65,6 +58,24 @@ struct nfgenmsg {
 #define NFNL_SUBSYS_ACCT		7
 #define NFNL_SUBSYS_CTNETLINK_TIMEOUT	8
 #define NFNL_SUBSYS_CTHELPER		9
-#define NFNL_SUBSYS_COUNT		10
+#define NFNL_SUBSYS_NFTABLES		10
+#define NFNL_SUBSYS_NFT_COMPAT		11
+#define NFNL_SUBSYS_COUNT		12
 
-#endif /* _UAPI_NFNETLINK_H */
+/* Reserved control nfnetlink messages */
+#define NFNL_MSG_BATCH_BEGIN		NLMSG_MIN_TYPE
+#define NFNL_MSG_BATCH_END		NLMSG_MIN_TYPE+1
+
+/**
+ * enum nfnl_batch_attributes - nfnetlink batch netlink attributes
+ *
+ * @NFNL_BATCH_GENID: generation ID for this changeset (NLA_U32)
+ */
+enum nfnl_batch_attributes {
+        NFNL_BATCH_UNSPEC,
+        NFNL_BATCH_GENID,
+        __NFNL_BATCH_MAX
+};
+#define NFNL_BATCH_MAX			(__NFNL_BATCH_MAX - 1)
+
+#endif /* _NFNETLINK_H */

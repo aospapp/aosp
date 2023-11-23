@@ -16,33 +16,29 @@ namespace android {
 std::unique_ptr<VideoFrame> VideoFrame::Create(std::shared_ptr<C2GraphicBlock> block) {
     if (!block) return nullptr;
 
-    std::vector<::base::ScopedFD> fds;
+    std::vector<int> fds;
     const C2Handle* const handle = block->handle();
     for (int i = 0; i < handle->numFds; i++) {
-        fds.emplace_back(dup(handle->data[i]));
-        if (!fds.back().is_valid()) {
-            ALOGE("Failed to dup(%d), errno=%d", handle->data[i], errno);
-            return nullptr;
-        }
+        fds.emplace_back(handle->data[i]);
     }
 
     return std::unique_ptr<VideoFrame>(new VideoFrame(std::move(block), std::move(fds)));
 }
 
-VideoFrame::VideoFrame(std::shared_ptr<C2GraphicBlock> block, std::vector<::base::ScopedFD> fds)
-      : mGraphicBlock(std::move(block)), mFds(std::move(fds)) {}
+VideoFrame::VideoFrame(std::shared_ptr<C2GraphicBlock> block, std::vector<int> fds)
+      : mGraphicBlock(std::move(block)), mFds(fds) {}
 
 VideoFrame::~VideoFrame() = default;
 
-const std::vector<::base::ScopedFD>& VideoFrame::getFDs() const {
+const std::vector<int>& VideoFrame::getFDs() const {
     return mFds;
 }
 
-void VideoFrame::setVisibleRect(const media::Rect& visibleRect) {
+void VideoFrame::setVisibleRect(const Rect& visibleRect) {
     mVisibleRect = visibleRect;
 }
 
-const media::Rect& VideoFrame::getVisibleRect() const {
+const Rect& VideoFrame::getVisibleRect() const {
     return mVisibleRect;
 }
 

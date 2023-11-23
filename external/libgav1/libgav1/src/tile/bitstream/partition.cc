@@ -26,53 +26,57 @@
 namespace libgav1 {
 namespace {
 
-uint16_t InverseCdfProbability(uint16_t probability) {
-  return kCdfMaxProbability - probability;
-}
-
-uint16_t CdfElementProbability(const uint16_t* const cdf, uint8_t element) {
-  return (element > 0 ? cdf[element - 1] : uint16_t{kCdfMaxProbability}) -
-         cdf[element];
-}
-
-void PartitionCdfGatherHorizontalAlike(const uint16_t* const partition_cdf,
-                                       BlockSize block_size,
-                                       uint16_t* const cdf) {
-  cdf[0] = kCdfMaxProbability;
-  cdf[0] -= CdfElementProbability(partition_cdf, kPartitionHorizontal);
-  cdf[0] -= CdfElementProbability(partition_cdf, kPartitionSplit);
-  cdf[0] -=
-      CdfElementProbability(partition_cdf, kPartitionHorizontalWithTopSplit);
-  cdf[0] -=
-      CdfElementProbability(partition_cdf, kPartitionHorizontalWithBottomSplit);
-  cdf[0] -=
-      CdfElementProbability(partition_cdf, kPartitionVerticalWithLeftSplit);
+uint16_t PartitionCdfGatherHorizontalAlike(const uint16_t* const partition_cdf,
+                                           BlockSize block_size) {
+  // The spec computes the cdf value using the following formula (not writing
+  // partition_cdf[] and using short forms for partition names for clarity):
+  //   cdf = None - H + V - S + S - HTS + HTS - HBS + HBS - VLS;
+  //   if (block_size != 128x128) {
+  //     cdf += VRS - H4;
+  //   }
+  // After canceling out the repeated terms with opposite signs, we have:
+  //   cdf = None - H + V - VLS;
+  //   if (block_size != 128x128) {
+  //     cdf += VRS - H4;
+  //   }
+  uint16_t cdf = partition_cdf[kPartitionNone] -
+                 partition_cdf[kPartitionHorizontal] +
+                 partition_cdf[kPartitionVertical] -
+                 partition_cdf[kPartitionVerticalWithLeftSplit];
   if (block_size != kBlock128x128) {
-    cdf[0] -= CdfElementProbability(partition_cdf, kPartitionHorizontal4);
+    cdf += partition_cdf[kPartitionVerticalWithRightSplit] -
+           partition_cdf[kPartitionHorizontal4];
   }
-  cdf[0] = InverseCdfProbability(cdf[0]);
-  cdf[1] = 0;
-  cdf[2] = 0;
+  return cdf;
 }
 
-void PartitionCdfGatherVerticalAlike(const uint16_t* const partition_cdf,
-                                     BlockSize block_size,
-                                     uint16_t* const cdf) {
-  cdf[0] = kCdfMaxProbability;
-  cdf[0] -= CdfElementProbability(partition_cdf, kPartitionVertical);
-  cdf[0] -= CdfElementProbability(partition_cdf, kPartitionSplit);
-  cdf[0] -=
-      CdfElementProbability(partition_cdf, kPartitionVerticalWithLeftSplit);
-  cdf[0] -=
-      CdfElementProbability(partition_cdf, kPartitionVerticalWithRightSplit);
-  cdf[0] -=
-      CdfElementProbability(partition_cdf, kPartitionHorizontalWithTopSplit);
+uint16_t PartitionCdfGatherVerticalAlike(const uint16_t* const partition_cdf,
+                                         BlockSize block_size) {
+  // The spec computes the cdf value using the following formula (not writing
+  // partition_cdf[] and using short forms for partition names for clarity):
+  //   cdf = H - V + V - S + HBS - VLS + VLS - VRS + S - HTS;
+  //   if (block_size != 128x128) {
+  //     cdf += H4 - V4;
+  //   }
+  // V4 is always zero. So, after canceling out the repeated terms with opposite
+  // signs, we have:
+  //   cdf = H + HBS - VRS - HTS;
+  //   if (block_size != 128x128) {
+  //     cdf += H4;
+  //   }
+  // VRS is zero for 128x128 blocks. So, further simplifying we have:
+  //   cdf = H + HBS - HTS;
+  //   if (block_size != 128x128) {
+  //     cdf += H4 - VRS;
+  //   }
+  uint16_t cdf = partition_cdf[kPartitionHorizontal] +
+                 partition_cdf[kPartitionHorizontalWithBottomSplit] -
+                 partition_cdf[kPartitionHorizontalWithTopSplit];
   if (block_size != kBlock128x128) {
-    cdf[0] -= CdfElementProbability(partition_cdf, kPartitionVertical4);
+    cdf += partition_cdf[kPartitionHorizontal4] -
+           partition_cdf[kPartitionVerticalWithRightSplit];
   }
-  cdf[0] = InverseCdfProbability(cdf[0]);
-  cdf[1] = 0;
-  cdf[2] = 0;
+  return cdf;
 }
 
 }  // namespace
@@ -81,13 +85,13 @@ uint16_t* Tile::GetPartitionCdf(int row4x4, int column4x4,
                                 BlockSize block_size) {
   const int block_size_log2 = k4x4WidthLog2[block_size];
   int top = 0;
-  if (IsInside(row4x4 - 1, column4x4)) {
+  if (IsTopInside(row4x4)) {
     top = static_cast<int>(
         k4x4WidthLog2[block_parameters_holder_.Find(row4x4 - 1, column4x4)
                           ->size] < block_size_log2);
   }
   int left = 0;
-  if (IsInside(row4x4, column4x4 - 1)) {
+  if (IsLeftInside(column4x4)) {
     left = static_cast<int>(
         k4x4HeightLog2[block_parameters_holder_.Find(row4x4, column4x4 - 1)
                            ->size] < block_size_log2);
@@ -116,17 +120,25 @@ bool Tile::ReadPartition(int row4x4, int column4x4, BlockSize block_size,
     const int bsize_log2 = k4x4WidthLog2[block_size];
     // The partition block size should be 8x8 or above.
     assert(bsize_log2 > 0);
-    const int cdf_size = SymbolDecoderContext::PartitionCdfSize(bsize_log2);
-    *partition =
-        static_cast<Partition>(reader_.ReadSymbol(partition_cdf, cdf_size));
+    if (bsize_log2 == 1) {
+      *partition = static_cast<Partition>(
+          reader_.ReadSymbol<kPartitionSplit + 1>(partition_cdf));
+    } else if (bsize_log2 == 5) {
+      *partition = static_cast<Partition>(
+          reader_.ReadSymbol<kPartitionVerticalWithRightSplit + 1>(
+              partition_cdf));
+    } else {
+      *partition = static_cast<Partition>(
+          reader_.ReadSymbol<kMaxPartitionTypes>(partition_cdf));
+    }
   } else if (has_columns) {
-    uint16_t cdf[3];
-    PartitionCdfGatherVerticalAlike(partition_cdf, block_size, cdf);
+    const uint16_t cdf =
+        PartitionCdfGatherVerticalAlike(partition_cdf, block_size);
     *partition = reader_.ReadSymbolWithoutCdfUpdate(cdf) ? kPartitionSplit
                                                          : kPartitionHorizontal;
   } else {
-    uint16_t cdf[3];
-    PartitionCdfGatherHorizontalAlike(partition_cdf, block_size, cdf);
+    const uint16_t cdf =
+        PartitionCdfGatherHorizontalAlike(partition_cdf, block_size);
     *partition = reader_.ReadSymbolWithoutCdfUpdate(cdf) ? kPartitionSplit
                                                          : kPartitionVertical;
   }

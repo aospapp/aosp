@@ -20,14 +20,25 @@
 #include <netlink/route/route.h>
 #include <netlink/idiag/idiagnl.h>
 #include <netlink/netfilter/ct.h>
+#include <netlink-private/object-api.h>
 #include <netlink-private/route/tc-api.h>
+#include <netlink-private/route/link/sriov.h>
+#include <netlink-private/route/nexthop-encap.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/genetlink.h>
 #include <linux/tc_act/tc_mirred.h>
+#include <linux/tc_act/tc_skbedit.h>
+#include <linux/tc_act/tc_gact.h>
+#include <linux/tc_act/tc_vlan.h>
+#include <linux/sock_diag.h>
+#include <linux/fib_rules.h>
 
-#define NL_SOCK_BUFSIZE_SET	(1<<0)
 #define NL_SOCK_PASSCRED	(1<<1)
 #define NL_OWN_PORT		(1<<2)
 #define NL_MSG_PEEK		(1<<3)
-#define NL_NO_AUTO_ACK		(1<<4)
+#define NL_MSG_PEEK_EXPLICIT	(1<<4)
+#define NL_NO_AUTO_ACK		(1<<5)
 
 #define NL_MSG_CRED_PRESENT 1
 
@@ -35,6 +46,7 @@ struct nl_cache_ops;
 struct nl_sock;
 struct nl_object;
 struct nl_hash_table;
+struct nl_vf_vlans;
 
 struct nl_cb
 {
@@ -95,6 +107,7 @@ struct nl_cache_assoc
 {
 	struct nl_cache *	ca_cache;
 	change_func_t		ca_change;
+	change_func_v2_t	ca_change_v2;
 	void *			ca_change_data;
 };
 
@@ -111,6 +124,7 @@ struct nl_cache_mngr
 struct nl_parser_param;
 
 #define LOOSE_COMPARISON	1
+#define ID_COMPARISON           2
 
 #define NL_OBJ_MARK		1
 
@@ -152,6 +166,26 @@ struct rtnl_link_map
 	uint8_t  lm_port;
 };
 
+struct rtnl_link_vf
+{
+	struct nl_list_head	vf_list;
+	int			ce_refcnt;
+	uint32_t		ce_mask;
+	uint32_t		vf_index;
+	uint64_t		vf_guid_node;
+	uint64_t		vf_guid_port;
+	uint32_t		vf_linkstate;
+	struct nl_addr *	vf_lladdr;
+	uint32_t		vf_max_tx_rate;
+	uint32_t		vf_min_tx_rate;
+	uint32_t		vf_rate;
+	uint32_t		vf_rss_query_en;
+	uint32_t		vf_spoofchk;
+	uint64_t		vf_stats[RTNL_LINK_VF_STATS_MAX+1];
+	uint32_t		vf_trust;
+	struct nl_vf_vlans *	vf_vlans;
+};
+
 #define IFQDISCSIZ	32
 
 struct rtnl_link
@@ -164,8 +198,9 @@ struct rtnl_link
 	uint32_t			l_index;
 	uint32_t			l_flags;
 	uint32_t			l_change;
-	uint32_t 			l_mtu;
+	uint32_t			l_mtu;
 	uint32_t			l_link;
+	int32_t                         l_link_netnsid;
 	uint32_t			l_txqlen;
 	uint32_t			l_weight;
 	uint32_t			l_master;
@@ -180,6 +215,7 @@ struct rtnl_link
 	uint8_t				l_linkmode;
 	/* 2 byte hole */
 	char *				l_info_kind;
+	char *				l_info_slave_kind;
 	struct rtnl_link_info_ops *	l_info_ops;
 	void *				l_af_data[AF_MAX];
 	void *				l_info;
@@ -187,13 +223,19 @@ struct rtnl_link
 	uint32_t			l_promiscuity;
 	uint32_t			l_num_tx_queues;
 	uint32_t			l_num_rx_queues;
+	uint32_t			l_gso_max_segs;
+	uint32_t			l_gso_max_size;
 	uint32_t			l_group;
 	uint8_t				l_carrier;
 	/* 3 byte hole */
+	uint32_t			l_carrier_changes;
 	struct rtnl_link_af_ops *	l_af_ops;
 	struct nl_data *		l_phys_port_id;
+	char				l_phys_port_name[IFNAMSIZ];
+	struct nl_data *		l_phys_switch_id;
 	int				l_ns_fd;
 	pid_t				l_ns_pid;
+	struct rtnl_link_vf *		l_vf_list;
 };
 
 struct rtnl_ncacheinfo
@@ -220,6 +262,7 @@ struct rtnl_neigh
 	uint32_t                n_state_mask;
 	uint32_t                n_flag_mask;
 	uint32_t		n_master;
+	uint16_t	n_vlan;
 };
 
 
@@ -261,6 +304,12 @@ struct rtnl_addr
 	struct rtnl_link *a_link;
 };
 
+struct rtnl_nh_encap
+{
+	struct nh_encap_ops *ops;
+	void *priv;    /* private data for encap type */
+};
+
 struct rtnl_nexthop
 {
 	uint8_t			rtnh_flags;
@@ -272,6 +321,9 @@ struct rtnl_nexthop
 	uint32_t		ce_mask; /* HACK to support attr macros */
 	struct nl_list_head	rtnh_list;
 	uint32_t		rtnh_realms;
+	struct nl_addr *	rtnh_newdst;
+	struct nl_addr *	rtnh_via;
+	struct rtnl_nh_encap *	rtnh_encap;
 };
 
 struct rtnl_route
@@ -286,6 +338,7 @@ struct rtnl_route
 	uint8_t			rt_scope;
 	uint8_t			rt_type;
 	uint8_t			rt_nmetrics;
+	uint8_t			rt_ttl_propagate;
 	uint32_t		rt_flags;
 	struct nl_addr *	rt_dst;
 	struct nl_addr *	rt_src;
@@ -307,7 +360,9 @@ struct rtnl_rule
 	uint8_t		r_family;
 	uint8_t		r_action;
 	uint8_t		r_dsfield; /* ipv4 only */
-	uint8_t		r_unused;
+	uint8_t		r_l3mdev;
+	uint8_t		r_protocol; /* protocol that installed rule */
+	uint8_t		r_ip_proto; /* IP/IPv6 protocol */
 	uint32_t	r_table;
 	uint32_t	r_flags;
 	uint32_t	r_prio;
@@ -319,6 +374,9 @@ struct rtnl_rule
 	struct nl_addr *r_dst;
 	char		r_iifname[IFNAMSIZ];
 	char		r_oifname[IFNAMSIZ];
+
+	struct fib_rule_port_range	r_sport;
+	struct fib_rule_port_range	r_dport;
 };
 
 struct rtnl_neightbl_parms
@@ -437,11 +495,11 @@ struct rtnl_neightbl
 
 struct rtnl_ratespec
 {
-	uint8_t			rs_cell_log;
+	uint64_t		rs_rate64;
 	uint16_t		rs_overhead;
 	int16_t			rs_cell_align;
 	uint16_t		rs_mpu;
-	uint32_t		rs_rate;
+	uint8_t			rs_cell_log;
 };
 
 struct rtnl_tstats
@@ -485,7 +543,8 @@ struct rtnl_tstats
 	struct nl_data *	pre ##_subdata;		\
 	struct rtnl_link *	pre ##_link;		\
 	struct rtnl_tc_ops *	pre ##_ops;		\
-	enum rtnl_tc_type	pre ##_type
+	enum rtnl_tc_type	pre ##_type;		\
+	uint32_t		pre ##_chain
 
 struct rtnl_tc
 {
@@ -520,6 +579,20 @@ struct rtnl_mirred
 	struct tc_mirred m_parm;
 };
 
+struct rtnl_skbedit
+{
+	struct tc_skbedit s_parm;
+	uint32_t	  s_flags;
+	uint32_t	  s_mark;
+	uint32_t	  s_prio;
+	uint16_t	  s_queue_mapping;
+};
+
+struct rtnl_gact
+{
+	struct tc_gact g_parm;
+};
+
 struct rtnl_u32
 {
 	uint32_t		cu_divisor;
@@ -528,10 +601,19 @@ struct rtnl_u32
 	uint32_t		cu_link;
 	struct nl_data *	cu_pcnt;
 	struct nl_data *	cu_selector;
+	struct nl_data *	cu_mark;
 	struct rtnl_act*	cu_act;
 	struct nl_data *	cu_police;
 	char			cu_indev[IFNAMSIZ];
 	int			cu_mask;
+};
+
+struct rtnl_mall
+{
+	uint32_t         m_classid;
+	uint32_t         m_flags;
+	struct rtnl_act *m_act;
+	int              m_mask;
 };
 
 struct rtnl_cgroup
@@ -598,6 +680,20 @@ struct rtnl_prio
 	uint32_t	qp_bands;
 	uint8_t		qp_priomap[TC_PRIO_MAX+1];
 	uint32_t	qp_mask;
+};
+
+struct rtnl_mqprio
+{
+        uint8_t         qm_num_tc;
+        uint8_t         qm_prio_map[TC_QOPT_BITMASK + 1];
+        uint8_t         qm_hw;
+        uint16_t        qm_count[TC_QOPT_MAX_QUEUE];
+        uint16_t        qm_offset[TC_QOPT_MAX_QUEUE];
+        uint16_t        qm_mode;
+        uint16_t        qm_shaper;
+        uint64_t        qm_min_rate[TC_QOPT_MAX_QUEUE];
+        uint64_t        qm_max_rate[TC_QOPT_MAX_QUEUE];
+        uint32_t        qm_mask;
 };
 
 struct rtnl_tbf
@@ -719,6 +815,20 @@ struct rtnl_fq_codel
 	uint32_t	fq_quantum;
 	int		fq_ecn;
 	uint32_t	fq_mask;
+};
+
+struct rtnl_hfsc_qdisc
+{
+	uint32_t		qh_defcls;
+	uint32_t		qh_mask;
+};
+
+struct rtnl_hfsc_class
+{
+	struct tc_service_curve ch_rsc;
+	struct tc_service_curve ch_fsc;
+	struct tc_service_curve ch_usc;
+	uint32_t		ch_mask;
 };
 
 struct flnl_request
@@ -986,7 +1096,7 @@ struct idiagnl_msg {
 	struct idiagnl_meminfo *    idiag_meminfo;
 	struct idiagnl_vegasinfo *  idiag_vegasinfo;
 	struct tcp_info		    idiag_tcpinfo;
-	uint32_t		    idiag_skmeminfo[IDIAG_SK_MEMINFO_VARS];
+	uint32_t		    idiag_skmeminfo[SK_MEMINFO_VARS];
 };
 
 struct idiagnl_req {
@@ -1000,4 +1110,232 @@ struct idiagnl_req {
 	uint32_t		idiag_states;
 	uint32_t		idiag_dbs;
 };
+
+// XFRM related definitions
+
+/* Selector, used as selector both on policy rules (SPD) and SAs. */
+struct xfrmnl_sel {
+	uint32_t        refcnt;
+	struct nl_addr* daddr;
+	struct nl_addr* saddr;
+	uint16_t        dport;
+	uint16_t        dport_mask;
+	uint16_t        sport;
+	uint16_t        sport_mask;
+	uint16_t        family;
+	uint8_t         prefixlen_d;
+	uint8_t         prefixlen_s;
+	uint8_t         proto;
+	int32_t         ifindex;
+	uint32_t        user;
+};
+
+/* Lifetime configuration, used for both policy rules (SPD) and SAs. */
+struct xfrmnl_ltime_cfg {
+	uint32_t        refcnt;
+	uint64_t        soft_byte_limit;
+	uint64_t        hard_byte_limit;
+	uint64_t        soft_packet_limit;
+	uint64_t        hard_packet_limit;
+	uint64_t        soft_add_expires_seconds;
+	uint64_t        hard_add_expires_seconds;
+	uint64_t        soft_use_expires_seconds;
+	uint64_t        hard_use_expires_seconds;
+};
+
+/* Current lifetime, used for both policy rules (SPD) and SAs. */
+struct xfrmnl_lifetime_cur {
+	uint64_t        bytes;
+	uint64_t        packets;
+	uint64_t        add_time;
+	uint64_t        use_time;
+};
+
+struct xfrmnl_replay_state {
+	uint32_t        oseq;
+	uint32_t        seq;
+	uint32_t        bitmap;
+};
+
+struct xfrmnl_replay_state_esn {
+	uint32_t        bmp_len;
+	uint32_t        oseq;
+	uint32_t        seq;
+	uint32_t        oseq_hi;
+	uint32_t        seq_hi;
+	uint32_t        replay_window;
+	uint32_t        bmp[0];
+};
+
+struct xfrmnl_mark {
+	uint32_t        v; /* value */
+	uint32_t        m; /* mask */
+};
+
+/* XFRM AE related definitions */
+
+struct xfrmnl_sa_id {
+	struct nl_addr* daddr;
+	uint32_t        spi;
+	uint16_t        family;
+	uint8_t         proto;
+};
+
+struct xfrmnl_ae {
+	NLHDR_COMMON
+
+	struct xfrmnl_sa_id             sa_id;
+	struct nl_addr*                 saddr;
+	uint32_t                        flags;
+	uint32_t                        reqid;
+	struct xfrmnl_mark              mark;
+	struct xfrmnl_lifetime_cur      lifetime_cur;
+	uint32_t                        replay_maxage;
+	uint32_t                        replay_maxdiff;
+	struct xfrmnl_replay_state      replay_state;
+	struct xfrmnl_replay_state_esn* replay_state_esn;
+};
+
+/* XFRM SA related definitions */
+
+struct xfrmnl_id {
+	struct nl_addr* daddr;
+	uint32_t        spi;
+	uint8_t         proto;
+};
+
+struct xfrmnl_stats {
+	uint32_t        replay_window;
+	uint32_t        replay;
+	uint32_t        integrity_failed;
+};
+
+struct xfrmnl_algo_aead {
+	char            alg_name[64];
+	uint32_t        alg_key_len;    /* in bits */
+	uint32_t        alg_icv_len;    /* in bits */
+	char            alg_key[0];
+};
+
+struct xfrmnl_algo_auth {
+	char            alg_name[64];
+	uint32_t        alg_key_len;    /* in bits */
+	uint32_t        alg_trunc_len;  /* in bits */
+	char            alg_key[0];
+};
+
+struct xfrmnl_algo {
+	char            alg_name[64];
+	uint32_t        alg_key_len;    /* in bits */
+	char            alg_key[0];
+};
+
+struct xfrmnl_encap_tmpl {
+	uint16_t        encap_type;
+	uint16_t        encap_sport;
+	uint16_t        encap_dport;
+	struct nl_addr* encap_oa;
+};
+
+struct xfrmnl_sa {
+	NLHDR_COMMON
+
+	struct xfrmnl_sel*              sel;
+	struct xfrmnl_id                id;
+	struct nl_addr*                 saddr;
+	struct xfrmnl_ltime_cfg*        lft;
+	struct xfrmnl_lifetime_cur      curlft;
+	struct xfrmnl_stats             stats;
+	uint32_t                        seq;
+	uint32_t                        reqid;
+	uint16_t                        family;
+	uint8_t                         mode;        /* XFRM_MODE_xxx */
+	uint8_t                         replay_window;
+	uint8_t                         flags;
+	struct xfrmnl_algo_aead*        aead;
+	struct xfrmnl_algo_auth*        auth;
+	struct xfrmnl_algo*             crypt;
+	struct xfrmnl_algo*             comp;
+	struct xfrmnl_encap_tmpl*       encap;
+	uint32_t                        tfcpad;
+	struct nl_addr*                 coaddr;
+	struct xfrmnl_mark              mark;
+	struct xfrmnl_user_sec_ctx*     sec_ctx;
+	uint32_t                        replay_maxage;
+	uint32_t                        replay_maxdiff;
+	struct xfrmnl_replay_state      replay_state;
+	struct xfrmnl_replay_state_esn* replay_state_esn;
+	uint8_t                         hard;
+};
+
+struct xfrmnl_usersa_flush {
+	uint8_t                         proto;
+};
+
+
+/* XFRM SP related definitions */
+
+struct xfrmnl_userpolicy_id {
+	struct xfrmnl_sel               sel;
+	uint32_t                        index;
+	uint8_t                         dir;
+};
+
+struct xfrmnl_user_sec_ctx {
+	uint16_t                        len;
+	uint16_t                        exttype;
+	uint8_t                         ctx_alg;
+	uint8_t                         ctx_doi;
+	uint16_t                        ctx_len;
+	char                            ctx[0];
+};
+
+struct xfrmnl_userpolicy_type {
+	uint8_t                         type;
+	uint16_t                        reserved1;
+	uint16_t                        reserved2;
+};
+
+struct xfrmnl_user_tmpl {
+	struct xfrmnl_id                id;
+	uint16_t                        family;
+	struct nl_addr*                 saddr;
+	uint32_t                        reqid;
+	uint8_t                         mode;
+	uint8_t                         share;
+	uint8_t                         optional;
+	uint32_t                        aalgos;
+	uint32_t                        ealgos;
+	uint32_t                        calgos;
+	struct nl_list_head             utmpl_list;
+};
+
+struct xfrmnl_sp {
+	NLHDR_COMMON
+
+	struct xfrmnl_sel*              sel;
+	struct xfrmnl_ltime_cfg*        lft;
+	struct xfrmnl_lifetime_cur      curlft;
+	uint32_t                        priority;
+	uint32_t                        index;
+	uint8_t                         dir;
+	uint8_t                         action;
+	uint8_t                         flags;
+	uint8_t                         share;
+	struct xfrmnl_user_sec_ctx*     sec_ctx;
+	struct xfrmnl_userpolicy_type   uptype;
+	uint32_t                        nr_user_tmpl;
+	struct nl_list_head             usertmpl_list;
+	struct xfrmnl_mark              mark;
+};
+
+struct rtnl_vlan
+{
+	struct tc_vlan v_parm;
+	uint16_t       v_vid;
+	uint16_t       v_proto;
+	uint8_t        v_prio;
+	uint32_t       v_flags;
+};
+
 #endif

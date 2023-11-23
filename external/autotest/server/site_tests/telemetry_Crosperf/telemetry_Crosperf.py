@@ -62,22 +62,36 @@ class telemetry_Crosperf(test.test):
     """
     version = 1
 
-    def scp_telemetry_results(self, client_ip, dut, file, host_dir,
+    def scp_telemetry_results(self, client_ip, dut, file_path, host_dir,
                               ignore_status=False):
         """
         Copy telemetry results from dut.
 
         @param client_ip: The ip address of the DUT
         @param dut: The autotest host object representing DUT.
-        @param file: The file to copy from DUT.
+        @param file_path: The file to copy from DUT.
         @param host_dir: The directory on host to put the file .
 
         @returns status code for scp command.
 
         """
-        cmd = []
-        src = ('root@%s:%s' % (dut.hostname if dut else client_ip, file))
-        cmd.extend(['scp', DUT_SCP_OPTIONS, RSA_KEY, '-v', src, host_dir])
+        cmd = ['scp', DUT_SCP_OPTIONS, RSA_KEY, '-v']
+        port = ''
+
+        if dut:
+          port = dut.port
+          ip = dut.hostname
+        else:
+          ip_and_port = client_ip.split(':')
+          ip = ip_and_port[0]
+          if len(ip_and_port) > 1:
+            port = ip_and_port[1]
+
+        if port:
+          cmd.extend(['-P', str(port)])
+
+        src = 'root@%s:%s' % (ip, file_path)
+        cmd.extend([src, host_dir])
         command = ' '.join(cmd)
 
         logging.debug('Retrieving Results: %s', command)
@@ -91,7 +105,9 @@ class telemetry_Crosperf(test.test):
             logging.error('Failed to retrieve results: %s', e)
             raise
 
-        logging.debug('command return value: %d', exit_code)
+        if exit_code:
+          logging.error('Command "%s" returned non-zero status: %d',
+                           command, exit_code)
         return exit_code
 
     @contextmanager
@@ -375,5 +391,19 @@ class telemetry_Crosperf(test.test):
             if not perf_exist:
                 raise error.TestFail('Error: No profiles collected, test may '
                                      'not run correctly.')
+
+        # In skylab run, environment variable SYNCHRONOUS_OFFLOAD_DIR is set to
+        # be a directory; In test_that run, it will not be set.
+        synchronous_dir = os.getenv('SYNCHRONOUS_OFFLOAD_DIR', '')
+        # For skylab run, push logs and json results to the synchronous offload
+        # directory for instant access for report.
+        if synchronous_dir and os.path.isdir(synchronous_dir):
+            try:
+                dst = os.path.join(synchronous_dir, 'results')
+                shutil.copytree(self.resultsdir, dst)
+            except:
+                raise RuntimeError(
+                    'Failed to copy results in %s to synchronous offload'
+                    ' directory %s' % (self.resultsdir, synchronous_dir))
 
         return result

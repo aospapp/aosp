@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * nl-list-sockets.c	Pretty-print /proc/net/netlink
  *
@@ -18,7 +19,7 @@ int main(int argc, char *argv[])
 	FILE *fd;
 	char buf[2048], p[64];
 
-	fd = fopen(PROC_NETLINK, "r");
+	fd = fopen(PROC_NETLINK, "re");
 	if (fd == NULL) {
 		perror("fopen");
 		return -1;

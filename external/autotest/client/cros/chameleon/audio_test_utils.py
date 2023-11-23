@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,6 +6,10 @@
 
 # TODO (cychiang) Move test utilities from chameleon_audio_helpers
 # to this module.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import multiprocessing
@@ -14,6 +19,7 @@ import re
 from contextlib import contextmanager
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.bin import utils
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros.audio import audio_analysis
 from autotest_lib.client.cros.audio import audio_spec
@@ -21,6 +27,7 @@ from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.audio import audio_quality_measurement
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
+from six.moves import range
 
 CHAMELEON_AUDIO_IDS_TO_CRAS_NODE_TYPES = {
         chameleon_audio_ids.CrosIds.HDMI: 'HDMI',
@@ -248,7 +255,7 @@ def has_echo_reference(host):
     """
     return audio_spec.has_echo_reference(get_board_name(host))
 
-def suspend_resume(host, suspend_time_secs, resume_network_timeout_secs=50):
+def suspend_resume(host, suspend_time_secs=30, resume_network_timeout_secs=60):
     """Performs the suspend/resume on Cros device.
 
     @param suspend_time_secs: Time in seconds to let Cros device suspend.
@@ -270,6 +277,28 @@ def suspend_resume(host, suspend_time_secs, resume_network_timeout_secs=50):
     host.test_wait_for_resume(boot_id,
                               suspend_time_secs + resume_network_timeout_secs)
     logging.info("DUT resumed!")
+
+
+def suspend_resume_and_verify(host,
+                              factory,
+                              suspend_time_secs=30,
+                              resume_network_timeout_secs=50,
+                              rpc_reconnect_timeout=60):
+    """Performs the suspend/resume on Cros device and verify it.
+
+    @param suspend_time_secs: Time in seconds to let Cros device suspend.
+    @resume_network_timeout_secs: Time in seconds to let Cros device resume and
+                                  obtain network.
+    @rpc_reconnect_timeout=60: Time in seconds to wait for multimedia server to
+                               reconnect.
+    """
+
+    suspend_resume(host,
+                   suspend_time_secs=suspend_time_secs,
+                   resume_network_timeout_secs=resume_network_timeout_secs)
+    utils.poll_for_condition(condition=factory.ready,
+                             timeout=rpc_reconnect_timeout,
+                             desc='multimedia server reconnect')
 
 
 def dump_cros_audio_logs(host,
@@ -480,7 +509,7 @@ def check_recorded_frequency(
     # Also ignore harmonics of ignore frequencies.
     ignore_frequencies_harmonics = []
     for ignore_freq in ignore_frequencies:
-        ignore_frequencies_harmonics += [ignore_freq * n for n in xrange(1, 4)]
+        ignore_frequencies_harmonics += [ignore_freq * n for n in range(1, 4)]
 
     data_format = recorder.data_format
     recorded_data = audio_data.AudioRawData(
@@ -614,7 +643,7 @@ def check_recorded_frequency(
                 if len(volume_changing) != len(volume_changes):
                     matched = False
                 else:
-                    for i in xrange(len(volume_changing)):
+                    for i in range(len(volume_changing)):
                         if volume_changing[i][1] != volume_changes[i]:
                             matched = False
                             break
@@ -627,7 +656,7 @@ def check_recorded_frequency(
 
         # Filter out the harmonics resulted from imperfect sin wave.
         # This list is different for different channels.
-        harmonics = [dominant_frequency * n for n in xrange(2, 10)]
+        harmonics = [dominant_frequency * n for n in range(2, 10)]
 
         def should_be_ignored(frequency):
             """Checks if frequency is close to any frequency in ignore list.
@@ -706,8 +735,8 @@ def longest_common_subsequence(list1, list2, equivalent_threshold):
     matching = [[0] * (length2 + 1)] * (length1 + 1)
     # matching[i][j] is the maximum number of matched pairs for first i items
     # in list1 and first j items in list2.
-    for i in xrange(length1):
-        for j in xrange(length2):
+    for i in range(length1):
+        for j in range(length2):
             # Maximum matched pairs may be obtained without
             # i-th item in list1 or without j-th item in list2
             matching[i + 1][j + 1] = max(matching[i + 1][j],
@@ -830,11 +859,12 @@ def get_internal_mic_node(host):
 
     @returns: The name of the expected internal microphone nodes.
     """
+    board_type = host.get_board_type()
     board = get_board_name(host)
     model = host.get_platform()
     sku = host.host_info_store.get().device_sku
 
-    return audio_spec.get_internal_mic_node(board, model, sku)
+    return audio_spec.get_internal_mic_node(board_type, board, model, sku)
 
 
 def get_plugged_internal_mics(host):
@@ -844,11 +874,12 @@ def get_plugged_internal_mics(host):
 
     @returns: A list of all the plugged internal microphone nodes.
     """
+    board_type = host.get_board_type()
     board = get_board_name(host)
     model = host.get_platform()
     sku = host.host_info_store.get().device_sku
 
-    return audio_spec.get_plugged_internal_mics(board, model, sku)
+    return audio_spec.get_plugged_internal_mics(board_type, board, model, sku)
 
 def get_headphone_node(host):
     """Return the expected headphone node.

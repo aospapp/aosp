@@ -29,7 +29,7 @@
 
 static entry_point_info_t bl32_ep_info;
 static entry_point_info_t bl33_ep_info;
-static console_pl011_t console;
+static console_t console;
 
 /******************************************************************************
  * On a GICv2 system, the Group 1 secure interrupts are treated as Group 0
@@ -166,6 +166,7 @@ void bl31_platform_setup(void)
 
 	hikey960_edma_init();
 	hikey960_iomcu_dma_init();
+	hikey960_gpio_init();
 
 	hisi_ipc_init();
 }

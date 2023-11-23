@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_golang-protobuf_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_golang-protobuf_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 bootstrap_go_package {
     name: "protoc-gen-go_descriptor",
     pkgPath: "github.com/golang/protobuf/protoc-gen-go/descriptor",
@@ -70,6 +87,10 @@ blueprint_go_binary {
         "protoc-gen-go/main.go",
         "protoc-gen-go/link_grpc.go",
     ],
+    testSrcs: [
+        // execs protoc from the PATH
+        //"protoc-gen-go/golden_test.go",
+    ],
 }
 
 bootstrap_go_package {
@@ -92,6 +113,9 @@ bootstrap_go_package {
         "proto/text.go",
         "proto/text_parser.go",
     ],
+    testSrcs: [
+        "proto/size2_test.go",
+    ],
 }
 
 bootstrap_go_package {
@@ -112,6 +136,7 @@ bootstrap_go_package {
     name: "golang-protobuf-proto_test",
     pkgPath: "github.com/golang/protobuf/proto_test",
     deps: [
+        "golang-protobuf-jsonpb",
         "golang-protobuf-proto",
         "golang-protobuf-proto-proto3_proto",
         "golang-protobuf-proto-test-proto",
@@ -122,6 +147,7 @@ bootstrap_go_package {
         "proto/any_test.go",
         "proto/clone_test.go",
         "proto/decode_test.go",
+        "proto/discard_test.go",
         "proto/encode_test.go",
         "proto/equal_test.go",
         // Requires golang.org/x/sync/errgroup
@@ -130,7 +156,6 @@ bootstrap_go_package {
         "proto/message_set_test.go",
         "proto/proto3_test.go",
         "proto/size_test.go",
-        "proto/size2_test.go",
         "proto/text_parser_test.go",
         "proto/text_test.go",
     ],

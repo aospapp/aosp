@@ -74,6 +74,10 @@ class NnApiHandler {
     };
   }
 
+  void StubGetDeviceWith(int(stub)(uint32_t, ANeuralNetworksDevice**)) {
+    nnapi_->ANeuralNetworks_getDevice = stub;
+  }
+
   template <int Value>
   void GetDeviceNameReturns() {
     nnapi_->ANeuralNetworksDevice_getName =
@@ -84,6 +88,11 @@ class NnApiHandler {
   }
 
   void GetDeviceNameReturnsName(const std::string& name);
+
+  void StubGetDeviceNameWith(int(stub)(const ANeuralNetworksDevice*,
+                                       const char**)) {
+    nnapi_->ANeuralNetworksDevice_getName = stub;
+  }
 
   // Configure all the functions related to device browsing to support
   // a device with the given name and the cpu fallback nnapi-reference.
@@ -107,6 +116,11 @@ class NnApiHandler {
     nnapi_->ANeuralNetworksModel_addOperand =
         [](ANeuralNetworksModel* model,
            const ANeuralNetworksOperandType* type) { return Value; };
+  }
+
+  void StubAddOperandWith(int(stub)(ANeuralNetworksModel* model,
+                                    const ANeuralNetworksOperandType* type)) {
+    nnapi_->ANeuralNetworksModel_addOperand = stub;
   }
 
   template <int Value>
@@ -243,7 +257,48 @@ class NnApiHandler {
     nnapi_->ANeuralNetworksModel_getSupportedOperationsForDevices = stub;
   }
 
-  void SetAndroidSdkVersion(int version);
+  template <int Value>
+  void ExecutionStartComputeReturns() {
+    nnapi_->ANeuralNetworksExecution_startCompute =
+        [](ANeuralNetworksExecution* execution, ANeuralNetworksEvent** event) {
+          *event = reinterpret_cast<ANeuralNetworksEvent*>(1);
+          return Value;
+        };
+  }
+
+  template <int Value>
+  void EventWaitReturns() {
+    nnapi_->ANeuralNetworksEvent_wait = [](ANeuralNetworksEvent* event) {
+      return Value;
+    };
+  }
+
+  template <int Value>
+  void SetPriorityReturns() {
+    nnapi_->ANeuralNetworksCompilation_setPriority =
+        [](ANeuralNetworksCompilation* compilation, int priority) -> int {
+      return Value;
+    };
+  }
+
+  template <int Value>
+  void SetOperandSymmPerChannelQuantParamsReturns() {
+    nnapi_->ANeuralNetworksModel_setOperandSymmPerChannelQuantParams =
+        [](ANeuralNetworksModel* model, int32_t index,
+           const ANeuralNetworksSymmPerChannelQuantParams* channelQuant) {
+          return Value;
+        };
+  }
+
+  /*
+   * Sets the SDK Version in the nnapi structure.
+   * If set_unsupported_ops_to_null is set to true, all the functions not
+   * available at the given sdk level will be set to null too.
+   */
+  void SetAndroidSdkVersion(int version,
+                            bool set_unsupported_ops_to_null = false);
+
+  const NnApi* GetNnApi() { return nnapi_; }
 
  protected:
   explicit NnApiHandler(NnApi* nnapi) : nnapi_(nnapi) { DCHECK(nnapi); }

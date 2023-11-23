@@ -1,4 +1,5 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -23,7 +24,8 @@
 
                 <ImageView
                     style="@style/MenuIconStyle"
-                    android:src="@drawable/ic_usb_black_24dp" />
+                    app:srcCompat="@drawable/ic_usb_black_24dp"
+                    android:contentDescription="@string/reconnect" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -33,12 +35,12 @@
 
                     <TextView
                         style="@style/MenuTextTop"
-                        android:text="Reconnect" />
+                        android:text="@string/reconnect" />
 
                     <TextView
                         android:visibility="gone"
                         style="@style/MenuTextBottom"
-                        android:text="TBD: Conn status" />
+                        android:text="@string/tbd_conn_status" />
 
 
                 </LinearLayout>
@@ -54,7 +56,8 @@
 
                 <ImageView
                     style="@style/MenuIconStyle"
-                    android:src="@drawable/ic_swap_horiz_black_24dp" />
+                    app:srcCompat="@drawable/ic_swap_horiz_black_24dp"
+                    android:contentDescription="@string/ping" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -64,11 +67,11 @@
 
                     <TextView
                         style="@style/MenuTextTop"
-                        android:text="Ping" />
+                        android:text="@string/ping" />
 
                     <TextView
                         style="@style/MenuTextBottom"
-                        android:text="Ping over USB with 1 byte" />
+                        android:text="@string/ping_over_usb_with_1_byte" />
 
 
                 </LinearLayout>
@@ -84,7 +87,8 @@
 
                 <ImageView
                     style="@style/MenuIconStyle"
-                    android:src="@drawable/ic_schedule_black_24dp" />
+                    app:srcCompat="@drawable/ic_schedule_black_24dp"
+                    android:contentDescription="@string/re_sync_clocks" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -94,7 +98,7 @@
 
                     <TextView
                         style="@style/MenuTextTop"
-                        android:text="Re-sync clocks" />
+                        android:text="@string/re_sync_clocks" />
 
                 </LinearLayout>
             </LinearLayout>
@@ -109,7 +113,8 @@
 
                 <ImageView
                     style="@style/MenuIconStyle"
-                    android:src="@drawable/ic_timelapse_black_24dp" />
+                    app:srcCompat="@drawable/ic_timelapse_black_24dp"
+                    android:contentDescription="@string/check_clock_drift" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -119,11 +124,11 @@
 
                     <TextView
                         style="@style/MenuTextTop"
-                        android:text="Check clock drift" />
+                        android:text="@string/check_clock_drift" />
 
                     <TextView
                         style="@style/MenuTextBottom"
-                        android:text="Check how much clocks diverged" />
+                        android:text="@string/check_how_much_clocks_diverged" />
 
 
                 </LinearLayout>
@@ -139,7 +144,8 @@
 
                 <ImageView
                     style="@style/MenuIconStyle"
-                    android:src="@drawable/ic_system_update_alt_black_24dp" />
+                    app:srcCompat="@drawable/ic_system_update_alt_black_24dp"
+                    android:contentDescription="@string/update_walt_firmware" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -149,11 +155,11 @@
 
                     <TextView
                         style="@style/MenuTextTop"
-                        android:text="Update WALT Firmware" />
+                        android:text="@string/update_walt_firmware" />
 
                     <TextView
                         style="@style/MenuTextBottom"
-                        android:text="Please press the button on the Teensy first" />
+                        android:text="@string/please_press_the_button_on_the_teensy_first" />
 
 
                 </LinearLayout>

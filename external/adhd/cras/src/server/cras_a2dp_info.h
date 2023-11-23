@@ -8,7 +8,7 @@
 
 #include "a2dp-codecs.h"
 
-#define A2DP_BUF_SIZE_BYTES 1024
+#define A2DP_BUF_SIZE_BYTES 2048
 
 /* Represents the codec and encoded state of a2dp iodev.
  * Members:
@@ -60,9 +60,9 @@ int a2dp_block_size(struct a2dp_info *a2dp, int encoded_bytes);
 int a2dp_queued_frames(const struct a2dp_info *a2dp);
 
 /*
- * Drains queued samples in a2dp_info.
+ * Empty all queued samples in a2dp_info.
  */
-void a2dp_drain(struct a2dp_info *a2dp);
+void a2dp_reset(struct a2dp_info *a2dp);
 
 /*
  * Encodes samples using the codec for this a2dp instance, returns the number of

@@ -105,6 +105,32 @@ void hostapd_notify_assoc_fils_finish(struct hostapd_data *hapd,
 #endif /* CONFIG_FILS */
 
 
+static bool check_sa_query_need(struct hostapd_data *hapd, struct sta_info *sta)
+{
+	if ((sta->flags &
+	     (WLAN_STA_ASSOC | WLAN_STA_MFP | WLAN_STA_AUTHORIZED)) !=
+	    (WLAN_STA_ASSOC | WLAN_STA_MFP | WLAN_STA_AUTHORIZED))
+		return false;
+
+	if (!sta->sa_query_timed_out && sta->sa_query_count > 0)
+		ap_check_sa_query_timeout(hapd, sta);
+
+	if (!sta->sa_query_timed_out && (sta->auth_alg != WLAN_AUTH_FT)) {
+		/*
+		 * STA has already been associated with MFP and SA Query timeout
+		 * has not been reached. Reject the association attempt
+		 * temporarily and start SA Query, if one is not pending.
+		 */
+		if (sta->sa_query_count == 0)
+			ap_sta_start_sa_query(hapd, sta);
+
+		return true;
+	}
+
+	return false;
+}
+
+
 int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 			const u8 *req_ies, size_t req_ies_len, int reassoc)
 {
@@ -293,6 +319,17 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 		    os_memcmp(ie + 2, "\x00\x50\xf2\x04", 4) == 0) {
 			struct wpabuf *wps;
 
+			if (check_sa_query_need(hapd, sta)) {
+				status = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
+
+				p = hostapd_eid_assoc_comeback_time(hapd, sta,
+								    p);
+
+				hostapd_sta_assoc(hapd, addr, reassoc, status,
+						  buf, p - buf);
+				return 0;
+			}
+
 			sta->flags |= WLAN_STA_WPS;
 			wps = ieee802_11_vendor_ie_concat(ie, ielen,
 							  WPS_IE_VENDOR_TYPE);
@@ -388,25 +425,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 			goto fail;
 		}
 
-		if ((sta->flags & (WLAN_STA_ASSOC | WLAN_STA_MFP)) ==
-		    (WLAN_STA_ASSOC | WLAN_STA_MFP) &&
-		    !sta->sa_query_timed_out &&
-		    sta->sa_query_count > 0)
-			ap_check_sa_query_timeout(hapd, sta);
-		if ((sta->flags & (WLAN_STA_ASSOC | WLAN_STA_MFP)) ==
-		    (WLAN_STA_ASSOC | WLAN_STA_MFP) &&
-		    !sta->sa_query_timed_out &&
-		    (sta->auth_alg != WLAN_AUTH_FT)) {
-			/*
-			 * STA has already been associated with MFP and SA
-			 * Query timeout has not been reached. Reject the
-			 * association attempt temporarily and start SA Query,
-			 * if one is not pending.
-			 */
-
-			if (sta->sa_query_count == 0)
-				ap_sta_start_sa_query(hapd, sta);
-
+		if (check_sa_query_need(hapd, sta)) {
 			status = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
 
 			p = hostapd_eid_assoc_comeback_time(hapd, sta, p);
@@ -439,7 +458,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 #ifdef CONFIG_SAE
 		if (hapd->conf->sae_pwe == 2 &&
 		    sta->auth_alg == WLAN_AUTH_SAE &&
-		    sta->sae && sta->sae->tmp && !sta->sae->tmp->h2e &&
+		    sta->sae && !sta->sae->h2e &&
 		    elems.rsnxe && elems.rsnxe_len >= 1 &&
 		    (elems.rsnxe[0] & BIT(WLAN_RSNX_CAPAB_SAE_H2E))) {
 			wpa_printf(MSG_INFO, "SAE: " MACSTR
@@ -844,8 +863,6 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 			     int offset, int width, int cf1, int cf2,
 			     int finished)
 {
-	/* TODO: If OCV is enabled deauth STAs that don't perform a SA Query */
-
 #ifdef NEED_AP_MLME
 	int channel, chwidth, is_dfs;
 	u8 seg0_idx = 0, seg1_idx = 0;
@@ -853,9 +870,10 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 
 	hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
 		       HOSTAPD_LEVEL_INFO,
-		       "driver %s channel switch: freq=%d, ht=%d, vht_ch=0x%x, offset=%d, width=%d (%s), cf1=%d, cf2=%d",
+		       "driver %s channel switch: freq=%d, ht=%d, vht_ch=0x%x, he_ch=0x%x, offset=%d, width=%d (%s), cf1=%d, cf2=%d",
 		       finished ? "had" : "starting",
-		       freq, ht, hapd->iconf->ch_switch_vht_config, offset,
+		       freq, ht, hapd->iconf->ch_switch_vht_config,
+		       hapd->iconf->ch_switch_he_config, offset,
 		       width, channel_width_to_string(width), cf1, cf2);
 
 	if (!hapd->iface->current_mode) {
@@ -895,9 +913,18 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 
 	switch (hapd->iface->current_mode->mode) {
 	case HOSTAPD_MODE_IEEE80211A:
-		if (cf1 > 5000)
+		if (cf1 == 5935)
+			seg0_idx = (cf1 - 5925) / 5;
+		else if (cf1 > 5950)
+			seg0_idx = (cf1 - 5950) / 5;
+		else if (cf1 > 5000)
 			seg0_idx = (cf1 - 5000) / 5;
-		if (cf2 > 5000)
+
+		if (cf2 == 5935)
+			seg1_idx = (cf2 - 5925) / 5;
+		else if (cf2 > 5950)
+			seg1_idx = (cf2 - 5950) / 5;
+		else if (cf2 > 5000)
 			seg1_idx = (cf2 - 5000) / 5;
 		break;
 	default:
@@ -918,8 +945,17 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 		else if (hapd->iconf->ch_switch_vht_config &
 			 CH_SWITCH_VHT_DISABLED)
 			hapd->iconf->ieee80211ac = 0;
+	} else if (hapd->iconf->ch_switch_he_config) {
+		/* CHAN_SWITCH HE config */
+		if (hapd->iconf->ch_switch_he_config &
+		    CH_SWITCH_HE_ENABLED)
+			hapd->iconf->ieee80211ax = 1;
+		else if (hapd->iconf->ch_switch_he_config &
+			 CH_SWITCH_HE_DISABLED)
+			hapd->iconf->ieee80211ax = 0;
 	}
 	hapd->iconf->ch_switch_vht_config = 0;
+	hapd->iconf->ch_switch_he_config = 0;
 
 	hapd->iconf->secondary_channel = offset;
 	hostapd_set_oper_chwidth(hapd->iconf, chwidth);
@@ -958,6 +994,29 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 
 	for (i = 0; i < hapd->iface->num_bss; i++)
 		hostapd_neighbor_set_own_report(hapd->iface->bss[i]);
+
+#ifdef CONFIG_OCV
+	if (hapd->conf->ocv) {
+		struct sta_info *sta;
+		bool check_sa_query = false;
+
+		for (sta = hapd->sta_list; sta; sta = sta->next) {
+			if (wpa_auth_uses_ocv(sta->wpa_sm) &&
+			    !(sta->flags & WLAN_STA_WNM_SLEEP_MODE)) {
+				sta->post_csa_sa_query = 1;
+				check_sa_query = true;
+			}
+		}
+
+		if (check_sa_query) {
+			wpa_printf(MSG_DEBUG,
+				   "OCV: Check post-CSA SA Query initiation in 15 seconds");
+			eloop_register_timeout(15, 0,
+					       hostapd_ocv_check_csa_sa_query,
+					       hapd, NULL);
+		}
+	}
+#endif /* CONFIG_OCV */
 #endif /* NEED_AP_MLME */
 }
 

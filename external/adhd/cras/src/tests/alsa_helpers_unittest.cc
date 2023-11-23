@@ -163,33 +163,11 @@ TEST(AlsaHelper, MatchChannelMapCapability51) {
 }
 
 TEST(AlsaHelper, Htimestamp) {
-  snd_pcm_t* dummy_handle = reinterpret_cast<snd_pcm_t*>(0x1);
+  snd_pcm_t* mock_handle = reinterpret_cast<snd_pcm_t*>(0x1);
   snd_pcm_uframes_t used;
   snd_pcm_uframes_t severe_underrun_frames = 480;
   struct timespec tstamp;
-  int htimestamp_enabled = 1;
   const char* dev_name = "dev_name";
-
-  // Enable htimestamp use.
-  ResetStubData();
-  EXPECT_EQ(0, cras_alsa_set_swparams(dummy_handle, &htimestamp_enabled));
-  EXPECT_EQ(snd_pcm_sw_params_set_tstamp_mode_called, 1);
-  EXPECT_EQ(snd_pcm_sw_params_set_tstamp_type_called, 1);
-  EXPECT_EQ(1, htimestamp_enabled);
-
-  // Try to enable htimestamp use: not supported.
-  ResetStubData();
-  snd_pcm_sw_params_ret_vals.push_back(-EINVAL);
-  EXPECT_EQ(0, cras_alsa_set_swparams(dummy_handle, &htimestamp_enabled));
-  EXPECT_EQ(snd_pcm_sw_params_set_tstamp_mode_called, 2);
-  EXPECT_EQ(snd_pcm_sw_params_set_tstamp_type_called, 2);
-  EXPECT_EQ(0, htimestamp_enabled);
-
-  // Disable htimestamp use.
-  ResetStubData();
-  EXPECT_EQ(0, cras_alsa_set_swparams(dummy_handle, &htimestamp_enabled));
-  EXPECT_EQ(snd_pcm_sw_params_set_tstamp_mode_called, 0);
-  EXPECT_EQ(snd_pcm_sw_params_set_tstamp_type_called, 0);
 
   ResetStubData();
   tstamp.tv_sec = 0;
@@ -198,7 +176,7 @@ TEST(AlsaHelper, Htimestamp) {
   snd_pcm_htimestamp_tstamp_ret_val.tv_sec = 10;
   snd_pcm_htimestamp_tstamp_ret_val.tv_nsec = 10000;
 
-  cras_alsa_get_avail_frames(dummy_handle, 48000, severe_underrun_frames,
+  cras_alsa_get_avail_frames(mock_handle, 48000, severe_underrun_frames,
                              dev_name, &used, &tstamp);
   EXPECT_EQ(used, snd_pcm_htimestamp_avail_ret_val);
   EXPECT_EQ(tstamp.tv_sec, snd_pcm_htimestamp_tstamp_ret_val.tv_sec);
@@ -206,7 +184,7 @@ TEST(AlsaHelper, Htimestamp) {
 }
 
 TEST(AlsaHelper, GetAvailFramesSevereUnderrun) {
-  snd_pcm_t* dummy_handle = reinterpret_cast<snd_pcm_t*>(0x1);
+  snd_pcm_t* mock_handle = reinterpret_cast<snd_pcm_t*>(0x1);
   snd_pcm_uframes_t avail;
   snd_pcm_uframes_t severe_underrun_frames = 480;
   snd_pcm_uframes_t buffer_size = 48000;
@@ -216,7 +194,7 @@ TEST(AlsaHelper, GetAvailFramesSevereUnderrun) {
 
   ResetStubData();
   snd_pcm_htimestamp_avail_ret_val = buffer_size + severe_underrun_frames + 1;
-  rc = cras_alsa_get_avail_frames(dummy_handle, buffer_size,
+  rc = cras_alsa_get_avail_frames(mock_handle, buffer_size,
                                   severe_underrun_frames, dev_name, &avail,
                                   &tstamp);
   // Returns -EPIPE when severe underrun happens.
@@ -224,7 +202,7 @@ TEST(AlsaHelper, GetAvailFramesSevereUnderrun) {
 
   ResetStubData();
   snd_pcm_htimestamp_avail_ret_val = buffer_size + severe_underrun_frames;
-  rc = cras_alsa_get_avail_frames(dummy_handle, buffer_size,
+  rc = cras_alsa_get_avail_frames(mock_handle, buffer_size,
                                   severe_underrun_frames, dev_name, &avail,
                                   &tstamp);
   // Underrun which is not severe enough will be masked.
@@ -234,7 +212,7 @@ TEST(AlsaHelper, GetAvailFramesSevereUnderrun) {
 
   ResetStubData();
   snd_pcm_htimestamp_avail_ret_val = buffer_size - 1;
-  rc = cras_alsa_get_avail_frames(dummy_handle, buffer_size,
+  rc = cras_alsa_get_avail_frames(mock_handle, buffer_size,
                                   severe_underrun_frames, dev_name, &avail,
                                   &tstamp);
   // When avail < buffer_size, there is no underrun.

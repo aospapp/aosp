@@ -13,8 +13,7 @@
 #define DRV_MAX_PLANES 4
 #define DRV_MAX_FDS (DRV_MAX_PLANES + 1)
 
-struct cros_gralloc_handle {
-	native_handle_t base;
+struct cros_gralloc_handle : public native_handle_t {
 	/*
 	 * File descriptors must immediately follow the native_handle_t base and used file
 	 * descriptors must be packed at the beginning of this array to work with
@@ -31,6 +30,7 @@ struct cros_gralloc_handle {
 	uint32_t width;
 	uint32_t height;
 	uint32_t format; /* DRM format */
+	uint32_t tiling;
 	uint64_t format_modifier;
 	uint64_t use_flags; /* Buffer creation flags */
 	uint32_t magic;

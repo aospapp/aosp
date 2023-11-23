@@ -158,19 +158,19 @@ static bool r600_is_zs_format_supported(enum pipe_format format)
 	return r600_translate_dbformat(format) != ~0U;
 }
 
-boolean r600_is_format_supported(struct pipe_screen *screen,
-				 enum pipe_format format,
-				 enum pipe_texture_target target,
-				 unsigned sample_count,
-				 unsigned storage_sample_count,
-				 unsigned usage)
+bool r600_is_format_supported(struct pipe_screen *screen,
+			      enum pipe_format format,
+			      enum pipe_texture_target target,
+			      unsigned sample_count,
+			      unsigned storage_sample_count,
+			      unsigned usage)
 {
 	struct r600_screen *rscreen = (struct r600_screen*)screen;
 	unsigned retval = 0;
 
 	if (target >= PIPE_MAX_TEXTURE_TYPES) {
 		R600_ERR("r600: unsupported texture type %d\n", target);
-		return FALSE;
+		return false;
 	}
 
 	if (MAX2(1, sample_count) != MAX2(1, storage_sample_count))
@@ -178,17 +178,17 @@ boolean r600_is_format_supported(struct pipe_screen *screen,
 
 	if (sample_count > 1) {
 		if (!rscreen->has_msaa)
-			return FALSE;
+			return false;
 
 		/* R11G11B10 is broken on R6xx. */
 		if (rscreen->b.chip_class == R600 &&
 		    format == PIPE_FORMAT_R11G11B10_FLOAT)
-			return FALSE;
+			return false;
 
 		/* MSAA integer colorbuffers hang. */
 		if (util_format_is_pure_integer(format) &&
 		    !util_format_is_depth_or_stencil(format))
-			return FALSE;
+			return false;
 
 		switch (sample_count) {
 		case 2:
@@ -196,7 +196,7 @@ boolean r600_is_format_supported(struct pipe_screen *screen,
 		case 8:
 			break;
 		default:
-			return FALSE;
+			return false;
 		}
 	}
 
@@ -520,15 +520,13 @@ static void *r600_create_rs_state(struct pipe_context *ctx,
 	}
 
 	spi_interp = S_0286D4_FLAT_SHADE_ENA(1);
-	if (state->sprite_coord_enable) {
-		spi_interp |= S_0286D4_PNT_SPRITE_ENA(1) |
-			      S_0286D4_PNT_SPRITE_OVRD_X(2) |
-			      S_0286D4_PNT_SPRITE_OVRD_Y(3) |
-			      S_0286D4_PNT_SPRITE_OVRD_Z(0) |
-			      S_0286D4_PNT_SPRITE_OVRD_W(1);
-		if (state->sprite_coord_mode != PIPE_SPRITE_COORD_UPPER_LEFT) {
-			spi_interp |= S_0286D4_PNT_SPRITE_TOP_1(1);
-		}
+	spi_interp |= S_0286D4_PNT_SPRITE_ENA(1) |
+		S_0286D4_PNT_SPRITE_OVRD_X(2) |
+		S_0286D4_PNT_SPRITE_OVRD_Y(3) |
+		S_0286D4_PNT_SPRITE_OVRD_Z(0) |
+		S_0286D4_PNT_SPRITE_OVRD_W(1);
+	if (state->sprite_coord_mode != PIPE_SPRITE_COORD_UPPER_LEFT) {
+		spi_interp |= S_0286D4_PNT_SPRITE_TOP_1(1);
 	}
 
 	r600_store_context_reg_seq(&rs->buffer, R_028A00_PA_SU_POINT_SIZE, 3);
@@ -1000,7 +998,7 @@ static void r600_init_color_surface(struct r600_context *rctx,
 			}
 
 			/* Set the contents to 0xCC. */
-			ptr = pipe_buffer_map(&rctx->b.b, &rctx->dummy_cmask->b.b, PIPE_TRANSFER_WRITE, &transfer);
+			ptr = pipe_buffer_map(&rctx->b.b, &rctx->dummy_cmask->b.b, PIPE_MAP_WRITE, &transfer);
 			memset(ptr, 0xCC, cmask.size);
 			pipe_buffer_unmap(&rctx->b.b, transfer);
 		}
@@ -2474,8 +2472,9 @@ void r600_update_ps_state(struct pipe_context *ctx, struct r600_pipe_shader *sha
 				rctx->rasterizer && rctx->rasterizer->flatshade))
 			tmp |= S_028644_FLAT_SHADE(1);
 
-		if (rshader->input[i].name == TGSI_SEMANTIC_GENERIC &&
-		    sprite_coord_enable & (1 << rshader->input[i].sid)) {
+		if (rshader->input[i].name == TGSI_SEMANTIC_PCOORD ||
+		    (rshader->input[i].name == TGSI_SEMANTIC_TEXCOORD &&
+		     sprite_coord_enable & (1 << rshader->input[i].sid))) {
 			tmp |= S_028644_PT_SPRITE_TEX(1);
 		}
 

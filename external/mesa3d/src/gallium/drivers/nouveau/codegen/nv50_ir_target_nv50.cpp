@@ -66,7 +66,7 @@ TargetNV50::getBuiltinOffset(int builtin) const
    return 0;
 }
 
-struct opProperties
+struct nv50_opProperties
 {
    operation op;
    unsigned int mNeg    : 4;
@@ -79,7 +79,7 @@ struct opProperties
    unsigned int fImm    : 3;
 };
 
-static const struct opProperties _initProps[] =
+static const struct nv50_opProperties _initProps[] =
 {
    //           neg  abs  not  sat  c[]  s[], a[], imm
    { OP_ADD,    0x3, 0x0, 0x0, 0x8, 0x2, 0x1, 0x1, 0x2 },
@@ -172,7 +172,7 @@ void TargetNV50::initOpInfo()
       opInfo[noPredList[i]].predicate = 0;
 
    for (i = 0; i < ARRAY_SIZE(_initProps); ++i) {
-      const struct opProperties *prop = &_initProps[i];
+      const struct nv50_opProperties *prop = &_initProps[i];
 
       for (int s = 0; s < 3; ++s) {
          if (prop->mNeg & (1 << s))
@@ -584,15 +584,16 @@ recordLocation(uint16_t *locs, uint8_t *masks,
 }
 
 void
-TargetNV50::parseDriverInfo(const struct nv50_ir_prog_info *info)
+TargetNV50::parseDriverInfo(const struct nv50_ir_prog_info *info,
+                            const struct nv50_ir_prog_info_out *info_out)
 {
    unsigned int i;
-   for (i = 0; i < info->numOutputs; ++i)
-      recordLocation(sysvalLocation, NULL, &info->out[i]);
-   for (i = 0; i < info->numInputs; ++i)
-      recordLocation(sysvalLocation, &wposMask, &info->in[i]);
-   for (i = 0; i < info->numSysVals; ++i)
-      recordLocation(sysvalLocation, NULL, &info->sv[i]);
+   for (i = 0; i < info_out->numOutputs; ++i)
+      recordLocation(sysvalLocation, NULL, &info_out->out[i]);
+   for (i = 0; i < info_out->numInputs; ++i)
+      recordLocation(sysvalLocation, &wposMask, &info_out->in[i]);
+   for (i = 0; i < info_out->numSysVals; ++i)
+      recordLocation(sysvalLocation, NULL, &info_out->sv[i]);
 
    if (sysvalLocation[SV_POSITION] >= 0x200) {
       // not assigned by driver, but we need it internally
@@ -600,7 +601,7 @@ TargetNV50::parseDriverInfo(const struct nv50_ir_prog_info *info)
       sysvalLocation[SV_POSITION] = 0;
    }
 
-   Target::parseDriverInfo(info);
+   Target::parseDriverInfo(info, info_out);
 }
 
 } // namespace nv50_ir

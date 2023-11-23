@@ -1,6 +1,6 @@
 #
-# Copyright (c) 2019, ARM Limited and Contributors. All rights reserved.
-# Copyright (c) 2019, Intel Corporation. All rights reserved.
+# Copyright (c) 2019-2020, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2019-2020, Intel Corporation. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -10,18 +10,23 @@ PLAT_INCLUDES		:=	\
 			-Iplat/intel/soc/common/drivers/		\
 			-Iplat/intel/soc/common/include/
 
+# Include GICv2 driver files
+include drivers/arm/gic/v2/gicv2.mk
+AGX_GICv2_SOURCES	:=	\
+			${GICV2_SOURCES}				\
+			plat/common/plat_gicv2.c
+
+
 PLAT_BL_COMMON_SOURCES	:=	\
-			drivers/arm/gic/common/gic_common.c		\
-			drivers/arm/gic/v2/gicv2_main.c			\
-			drivers/arm/gic/v2/gicv2_helpers.c		\
+			${AGX_GICv2_SOURCES}				\
 			drivers/delay_timer/delay_timer.c		\
 			drivers/delay_timer/generic_delay_timer.c  	\
 			drivers/ti/uart/aarch64/16550_console.S		\
 			lib/xlat_tables/aarch64/xlat_tables.c 		\
 			lib/xlat_tables/xlat_tables_common.c 		\
-			plat/common/plat_gicv2.c			\
 			plat/intel/soc/common/aarch64/platform_common.c \
-			plat/intel/soc/common/aarch64/plat_helpers.S
+			plat/intel/soc/common/aarch64/plat_helpers.S	\
+			plat/intel/soc/common/socfpga_delay_timer.c
 
 BL2_SOURCES     +=	\
 		common/desc_image_load.c				\
@@ -37,11 +42,12 @@ BL2_SOURCES     +=	\
 		plat/intel/soc/agilex/bl2_plat_setup.c			\
 		plat/intel/soc/agilex/soc/agilex_clock_manager.c	\
 		plat/intel/soc/agilex/soc/agilex_memory_controller.c	\
+		plat/intel/soc/agilex/soc/agilex_mmc.c			\
 		plat/intel/soc/agilex/soc/agilex_pinmux.c		\
                 plat/intel/soc/common/bl2_plat_mem_params_desc.c	\
-		plat/intel/soc/common/socfpga_delay_timer.c		\
 		plat/intel/soc/common/socfpga_image_load.c		\
 		plat/intel/soc/common/socfpga_storage.c			\
+		plat/intel/soc/common/soc/socfpga_emac.c		\
 		plat/intel/soc/common/soc/socfpga_handoff.c		\
 		plat/intel/soc/common/soc/socfpga_mailbox.c		\
 		plat/intel/soc/common/soc/socfpga_reset_manager.c	\

@@ -20,7 +20,7 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
 import static dagger.internal.codegen.CompilerMode.DEFAULT_MODE;
 import static dagger.internal.codegen.CompilerMode.FAST_INIT_MODE;
 import static dagger.internal.codegen.Compilers.compilerWithOptions;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_CODE_ANNOTATIONS;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
@@ -110,13 +110,13 @@ public class OptionalBindingRequestFulfillmentTest {
                 "",
                 "import com.google.common.base.Optional;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {")
             .addLinesIn(
                 FAST_INIT_MODE,
                 "  private volatile Provider<Maybe> provideMaybeProvider;",
                 "",
-                "  private Provider<Maybe> getMaybeProvider() {",
+                "  private Provider<Maybe> maybeProvider() {",
                 "    Object local = provideMaybeProvider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(0);",
@@ -139,7 +139,7 @@ public class OptionalBindingRequestFulfillmentTest {
                 "        Maybe_MaybeModule_ProvideMaybeFactory.create()));")
             .addLinesIn(
                 FAST_INIT_MODE, //
-                "        getMaybeProvider()));")
+                "        maybeProvider()));")
             .addLines(
                 "  }",
                 "",
@@ -250,7 +250,7 @@ public class OptionalBindingRequestFulfillmentTest {
             "import com.google.common.base.Optional;",
             "import dagger.producers.internal.CancellationListener;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent, CancellationListener {",
             "  @Override",
             "  public ListenableFuture<Optional<Maybe>> maybe() {",
@@ -261,7 +261,6 @@ public class OptionalBindingRequestFulfillmentTest {
             "  @Override",
             "  public ListenableFuture<Optional<DefinitelyNot>> definitelyNot() {",
             "    return Futures.immediateFuture(Optional.<DefinitelyNot>absent());",
-
             "  }",
             "",
             "  @Override",

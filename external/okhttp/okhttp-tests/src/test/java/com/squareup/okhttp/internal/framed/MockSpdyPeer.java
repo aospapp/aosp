@@ -27,9 +27,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import okio.Buffer;
 import okio.BufferedSource;
@@ -116,11 +118,13 @@ public final class MockSpdyPeer implements Closeable {
 
   public void play() throws IOException {
     if (serverSocket != null) throw new IllegalStateException();
+    final CountDownLatch startSignal = new CountDownLatch(1);
     serverSocket = new ServerSocket(0);
     serverSocket.setReuseAddress(true);
     port = serverSocket.getLocalPort();
     executor.execute(new Runnable() {
       @Override public void run() {
+        startSignal.countDown();
         try {
           readAndWriteFrames();
         } catch (IOException e) {
@@ -129,6 +133,11 @@ public final class MockSpdyPeer implements Closeable {
         }
       }
     });
+    try {
+      startSignal.await(5L, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+        // Do nothing
+    }
   }
 
   private void readAndWriteFrames() throws IOException {

@@ -8,24 +8,6 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
-
-VERIFY_VIDEO_NOT_LOADED_CMD = ("document.getElementById"
-    "('error-screen').innerText;")
-RESTRICTED_ONLY_ON_STRICT = 'https://www.youtube.com/watch?v=Fmwfmee2ZTE'
-RESTRICTED_ON_MODERATE = 'https://www.youtube.com/watch?v=yR79oLrI1g4'
-SEARCH_QUERY = 'https://www.youtube.com/results?search_query=adult'
-RESTRICTED_MODE_TOGGLE_ENABLED = 'aria-disabled="false"'
-RESTRICTED_MODE_TOGGLE_DISABLED = 'aria-disabled="true"'
-RESTRICTED_MODE_TOGGLE_SCRAPE_CMD = ("document.querySelector('* /deep/ "
-    "#restricted-mode').innerHTML;")
-BURGER_MENU_CLICK = ("document.querySelector('* /deep/ #masthead-container /de"
-    "ep/ #end /deep/ ytd-topbar-menu-button-renderer:last-of-type').click();")
-BURGER_MENU = ("document.querySelector('* /deep/ #masthead-container /deep/"
-    " #end /deep/ ytd-topbar-menu-button-renderer:last-of-type').innerHTML;")
-RESTRICTED_MENU_CLICK = ("document.querySelector('* /deep/ ytd-app /deep/"
-    " ytd-account-settings /deep/ #restricted').click();")
-
-
 class policy_ForceYouTubeRestrict(
         enterprise_policy_base.EnterprisePolicyTest):
     """
@@ -48,8 +30,52 @@ class policy_ForceYouTubeRestrict(
         'Disabled': 0,
         'NotSet': None}
 
+    def _search_for_adult_content(self):
+        SEARCH_QUERY = 'https://www.youtube.com/results?search_query=adult'
+        BURGER_MENU = (
+                "document.querySelector('* /deep/ #masthead-container /deep/"
+                " #end /deep/ ytd-topbar-menu-button-renderer:last-of-type').innerHTML;"
+        )
+        self.search_tab = self.navigate_to_url(SEARCH_QUERY)
+        utils.poll_for_condition(lambda: self.check_page_readiness(
+                self.search_tab, BURGER_MENU),
+                                 exception=error.TestFail(
+                                         'Page is not ready.'),
+                                 timeout=5,
+                                 sleep_interval=1)
 
-    def _get_content(self, restriction_type):
+    def _open_restricted_menu(self):
+        BURGER_MENU_CLICK = (
+                "document.querySelector('* /deep/ #masthead-container /de"
+                "ep/ #end /deep/ ytd-topbar-menu-button-renderer:last-of-type').click();"
+        )
+        RESTRICTED_MENU_CLICK = """
+buttons=document.querySelectorAll('a#endpoint.yt-simple-endpoint.style-scope.ytd-compact-link-renderer');
+for (let i = 0; i < buttons.length; i++) {
+  button=buttons[i];
+  if (button.innerText.startsWith("Restricted Mode:")) {
+     button.click();
+     break;
+  }
+}
+"""
+        self.search_tab.EvaluateJavaScript(BURGER_MENU_CLICK)
+        time.sleep(1)
+        self.search_tab.EvaluateJavaScript(RESTRICTED_MENU_CLICK)
+        time.sleep(1)
+
+    def _restricted_mode_by_policy(self):
+        RESTRICTED_MODE_SELECTOR = "document.querySelector('ytd-text-header-renderer.style-scope.ytd-section-list-renderer').innerText"
+        return self.search_tab.EvaluateJavaScript(RESTRICTED_MODE_SELECTOR)
+
+    def _restricted_mode_by_policy_strict(self):
+        return "Restricted Mode is enabled by your network administrator" in \
+           self._restricted_mode_by_policy()
+
+    def _restricted_mode_by_policy_moderate(self):
+        return self._restricted_mode_by_policy_strict()
+
+    def _get_content(self, restriction_type_url):
         """
         Checks the contents of the watch page.
 
@@ -58,7 +84,9 @@ class policy_ForceYouTubeRestrict(
         @returns text content of the element with video status.
 
         """
-        active_tab = self.navigate_to_url(restriction_type)
+        VERIFY_VIDEO_NOT_LOADED_CMD = ("document.getElementById"
+                                       "('error-screen').innerText;")
+        active_tab = self.navigate_to_url(restriction_type_url)
         utils.poll_for_condition(
             lambda: self.check_page_readiness(
                 active_tab, VERIFY_VIDEO_NOT_LOADED_CMD),
@@ -67,6 +95,13 @@ class policy_ForceYouTubeRestrict(
             sleep_interval=1)
         return active_tab.EvaluateJavaScript(VERIFY_VIDEO_NOT_LOADED_CMD)
 
+    def _strict_content(self):
+        RESTRICTED_ONLY_ON_STRICT = 'https://www.youtube.com/watch?v=Fmwfmee2ZTE'
+        return self._get_content(RESTRICTED_ONLY_ON_STRICT)
+
+    def _moderated_content(self):
+        RESTRICTED_ON_MODERATE = 'https://www.youtube.com/watch?v=yR79oLrI1g4'
+        return self._get_content(RESTRICTED_ON_MODERATE)
 
     def _check_restricted_mode(self, case):
         """
@@ -76,45 +111,29 @@ class policy_ForceYouTubeRestrict(
         @param case: policy value expected.
 
         """
-        # Navigates to the search page and verifies the status of the toggle
-        # button.
-        search_tab = self.navigate_to_url(SEARCH_QUERY)
-        utils.poll_for_condition(
-            lambda: self.check_page_readiness(search_tab, BURGER_MENU),
-            exception=error.TestFail('Page is not ready.'),
-            timeout=5,
-            sleep_interval=1)
-        search_tab.EvaluateJavaScript(BURGER_MENU_CLICK)
-        time.sleep(1)
-        search_tab.EvaluateJavaScript(RESTRICTED_MENU_CLICK)
-        time.sleep(1)
-        restricted_mode_toggle_status = search_tab.EvaluateJavaScript(
-            RESTRICTED_MODE_TOGGLE_SCRAPE_CMD)
+        # Navigates to the search page to search for adult content
+        self._search_for_adult_content()
+        # We could check for the status shown in restricted menu but
+        # unfortunately this is broken for the policy and therefore
+        # doesn't add value to the test
+        #self._open_restricted_menu()
 
-        if case == 'Strict' or case == 'Moderate':
-            if case == 'Strict':
-                strict_content = self._get_content(RESTRICTED_ONLY_ON_STRICT)
-                if 'restricted' not in strict_content:
-                    raise error.TestFail("Restricted mode is not on, "
-                        "user can view restricted video.")
-            elif case == 'Moderate':
-                moderate_content = self._get_content(RESTRICTED_ON_MODERATE)
-                if 'restricted' not in moderate_content:
-                    raise error.TestFail("Restricted mode is not on, "
-                        "user can view restricted video.")
-            if RESTRICTED_MODE_TOGGLE_ENABLED in restricted_mode_toggle_status:
-                raise error.TestFail("User is able to toggle restricted mode.")
+        if case == 'Strict':
+            if 'restricted' in self._strict_content() \
+               and self._restricted_mode_by_policy_strict():
+                return True
+            raise error.TestFail(
+                    "Restricted mode is not on, user can view restricted video."
+            )
+        elif case == 'Moderate':
+            if 'restricted' in self._moderated_content() \
+               and self._restricted_mode_by_policy_moderate():
+                return True
+            raise error.TestFail(
+                    "Restricted mode is not on, user can view restricted video."
+            )
         else:
-            strict_content = self._get_content(RESTRICTED_ONLY_ON_STRICT)
-            moderate_content = self._get_content(RESTRICTED_ON_MODERATE)
-            if ('restricted' in strict_content or
-                    'restricted' in moderate_content):
-                raise error.TestFail("Restricted mode is on and it "
-                    "shouldn't be.")
-            if (RESTRICTED_MODE_TOGGLE_DISABLED in
-                    restricted_mode_toggle_status):
-                raise error.TestFail("User is not able to "
-                    "toggle restricted mode.")
+            return True
 
 
     def run_once(self, case):

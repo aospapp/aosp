@@ -7,22 +7,14 @@
 #include <limits>
 
 #include <base/bind.h>
+#include <base/files/file_descriptor_watcher_posix.h>
+#include <base/files/file_util.h>
 #include <base/logging.h>
-#include <base/message_loop/message_loop.h>
+#include <base/strings/stringprintf.h>
+#include <base/threading/thread_task_runner_handle.h>
 #include <brillo/http/http_connection_curl.h>
 #include <brillo/http/http_request.h>
 #include <brillo/strings/string_utils.h>
-
-namespace {
-
-const char kCACertificatePath[] =
-#ifdef __ANDROID__
-    "/system/etc/security/cacerts_google";
-#else
-    "/usr/share/brillo-ca-certificates";
-#endif
-
-}  // namespace
 
 namespace brillo {
 namespace http {
@@ -31,7 +23,7 @@ namespace curl {
 // This is a class that stores connection data on particular CURL socket
 // and provides file descriptor watcher to monitor read and/or write operations
 // on the socket's file descriptor.
-class Transport::SocketPollData : public base::MessagePumpForIO::FdWatcher {
+class Transport::SocketPollData {
  public:
   SocketPollData(const std::shared_ptr<CurlInterface>& curl_interface,
                  CURLM* curl_multi_handle,
@@ -40,27 +32,35 @@ class Transport::SocketPollData : public base::MessagePumpForIO::FdWatcher {
       : curl_interface_(curl_interface),
         curl_multi_handle_(curl_multi_handle),
         transport_(transport),
-        socket_fd_(socket_fd),
-        file_descriptor_watcher_(FROM_HERE) {}
+        socket_fd_(socket_fd) {}
 
-  // Returns the pointer for the socket-specific file descriptor watcher.
-  base::MessagePumpForIO::FdWatchController* GetWatcher() {
-    return &file_descriptor_watcher_;
+  void StopWatcher() {
+    read_watcher_ = nullptr;
+    write_watcher_ = nullptr;
+  }
+
+  bool WatchReadable() {
+    read_watcher_ = base::FileDescriptorWatcher::WatchReadable(
+        socket_fd_,
+        base::BindRepeating(&Transport::SocketPollData::OnSocketReady,
+                            base::Unretained(this),
+                            CURL_CSELECT_IN));
+    return read_watcher_.get();
+  }
+
+  bool WatchWritable() {
+    write_watcher_ = base::FileDescriptorWatcher::WatchWritable(
+        socket_fd_,
+        base::BindRepeating(&Transport::SocketPollData::OnSocketReady,
+                            base::Unretained(this),
+                            CURL_CSELECT_OUT));
+    return write_watcher_.get();
   }
 
  private:
-  // Overrides from base::MessagePumpForIO::Watcher.
-  void OnFileCanReadWithoutBlocking(int fd) override {
-    OnSocketReady(fd, CURL_CSELECT_IN);
-  }
-  void OnFileCanWriteWithoutBlocking(int fd) override {
-    OnSocketReady(fd, CURL_CSELECT_OUT);
-  }
-
   // Data on the socket is available to be read from or written to.
   // Notify CURL of the action it needs to take on the socket file descriptor.
-  void OnSocketReady(int fd, int action) {
-    CHECK_EQ(socket_fd_, fd) << "Unexpected socket file descriptor";
+  void OnSocketReady(int action) {
     int still_running_count = 0;
     CURLMcode code = curl_interface_->MultiSocketAction(
         curl_multi_handle_, socket_fd_, action, &still_running_count);
@@ -79,8 +79,9 @@ class Transport::SocketPollData : public base::MessagePumpForIO::FdWatcher {
   Transport* transport_;
   // The socket file descriptor for the connection.
   curl_socket_t socket_fd_;
-  // File descriptor watcher to notify us of asynchronous I/O on the FD.
-  base::MessagePumpForIO::FdWatchController file_descriptor_watcher_;
+
+  std::unique_ptr<base::FileDescriptorWatcher::Controller> read_watcher_;
+  std::unique_ptr<base::FileDescriptorWatcher::Controller> write_watcher_;
 
   DISALLOW_COPY_AND_ASSIGN(SocketPollData);
 };
@@ -101,15 +102,18 @@ struct Transport::AsyncRequestData {
 Transport::Transport(const std::shared_ptr<CurlInterface>& curl_interface)
     : curl_interface_{curl_interface} {
   VLOG(2) << "curl::Transport created";
+  UseDefaultCertificate();
 }
 
 Transport::Transport(const std::shared_ptr<CurlInterface>& curl_interface,
                      const std::string& proxy)
     : curl_interface_{curl_interface}, proxy_{proxy} {
   VLOG(2) << "curl::Transport created with proxy " << proxy;
+  UseDefaultCertificate();
 }
 
 Transport::~Transport() {
+  ClearHost();
   ShutDownAsyncCurl();
   VLOG(2) << "curl::Transport destroyed";
 }
@@ -134,8 +138,14 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
   CURLcode code = curl_interface_->EasySetOptStr(curl_handle, CURLOPT_URL, url);
 
   if (code == CURLE_OK) {
+    // CURLOPT_CAINFO is a string, but CurlApi::EasySetOptStr will never pass
+    // curl_easy_setopt a null pointer, so we use EasySetOptPtr instead.
+    code = curl_interface_->EasySetOptPtr(curl_handle, CURLOPT_CAINFO, nullptr);
+  }
+  if (code == CURLE_OK) {
+    CHECK(base::PathExists(certificate_path_));
     code = curl_interface_->EasySetOptStr(curl_handle, CURLOPT_CAPATH,
-                                          kCACertificatePath);
+                                          certificate_path_.value());
   }
   if (code == CURLE_OK) {
     code =
@@ -168,6 +178,10 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
   if (code == CURLE_OK && !ip_address_.empty()) {
     code = curl_interface_->EasySetOptStr(
         curl_handle, CURLOPT_INTERFACE, ip_address_.c_str());
+  }
+  if (code == CURLE_OK && host_list_) {
+    code = curl_interface_->EasySetOptPtr(curl_handle, CURLOPT_RESOLVE,
+                                          host_list_);
   }
 
   // Setup HTTP request method and optional request body.
@@ -208,8 +222,7 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
 
 void Transport::RunCallbackAsync(const base::Location& from_here,
                                  const base::Closure& callback) {
-  base::MessageLoopForIO::current()->task_runner()->PostTask(
-      from_here, callback);
+  base::ThreadTaskRunnerHandle::Get()->PostTask(from_here, callback);
 }
 
 RequestID Transport::StartAsyncTransfer(http::Connection* connection,
@@ -272,6 +285,29 @@ void Transport::SetDefaultTimeout(base::TimeDelta timeout) {
 
 void Transport::SetLocalIpAddress(const std::string& ip_address) {
   ip_address_ = "host!" + ip_address;
+}
+
+void Transport::UseDefaultCertificate() {
+  UseCustomCertificate(Certificate::kDefault);
+}
+
+void Transport::UseCustomCertificate(Transport::Certificate cert) {
+  certificate_path_ = CertificateToPath(cert);
+  CHECK(base::PathExists(certificate_path_));
+}
+
+void Transport::ResolveHostToIp(const std::string& host,
+                                uint16_t port,
+                                const std::string& ip_address) {
+  host_list_ = curl_slist_append(
+      host_list_,
+      base::StringPrintf("%s:%d:%s", host.c_str(), port, ip_address.c_str())
+          .c_str());
+}
+
+void Transport::ClearHost() {
+  curl_slist_free_all(host_list_);
+  host_list_ = nullptr;
 }
 
 void Transport::AddEasyCurlError(brillo::ErrorPtr* error,
@@ -359,42 +395,22 @@ int Transport::MultiSocketCallback(CURL* easy,
 
     // Make sure we stop watching the socket file descriptor now, before
     // we schedule the SocketPollData for deletion.
-    poll_data->GetWatcher()->StopWatchingFileDescriptor();
+    poll_data->StopWatcher();
     // This method can be called indirectly from SocketPollData::OnSocketReady,
     // so delay destruction of SocketPollData object till the next loop cycle.
-    base::MessageLoopForIO::current()->task_runner()->DeleteSoon(FROM_HERE,
-                                                                 poll_data);
+    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, poll_data);
     return 0;
   }
 
-  base::MessagePumpForIO::Mode watch_mode = base::MessagePumpForIO::WATCH_READ;
-  switch (what) {
-    case CURL_POLL_IN:
-      watch_mode = base::MessagePumpForIO::WATCH_READ;
-      break;
-    case CURL_POLL_OUT:
-      watch_mode = base::MessagePumpForIO::WATCH_WRITE;
-      break;
-    case CURL_POLL_INOUT:
-      watch_mode = base::MessagePumpForIO::WATCH_READ_WRITE;
-      break;
-    default:
-      LOG(FATAL) << "Unknown CURL socket action: " << what;
-      break;
-  }
+  poll_data->StopWatcher();
 
-  // WatchFileDescriptor() can be called with the same controller object
-  // (watcher) to amend the watch mode, however this has cumulative effect.
-  // For example, if we were watching a file descriptor for READ operations
-  // and now call it to watch for WRITE, it will end up watching for both
-  // READ and WRITE. This is not what we want here, so stop watching the
-  // file descriptor on previous controller before starting with a different
-  // mode.
-  if (!poll_data->GetWatcher()->StopWatchingFileDescriptor())
-    LOG(WARNING) << "Failed to stop watching the previous socket descriptor";
-  CHECK(base::MessageLoopForIO::current()->WatchFileDescriptor(
-      s, true, watch_mode, poll_data->GetWatcher(), poll_data))
-      << "Failed to watch the CURL socket.";
+  bool success = true;
+  if (what == CURL_POLL_IN || what == CURL_POLL_INOUT)
+    success = poll_data->WatchReadable() && success;
+  if (what == CURL_POLL_OUT || what == CURL_POLL_INOUT)
+    success = poll_data->WatchWritable() && success;
+
+  CHECK(success) << "Failed to watch the CURL socket.";
   return 0;
 }
 
@@ -406,11 +422,11 @@ int Transport::MultiTimerCallback(CURLM* /* multi */,
   // Cancel any previous timer callbacks.
   transport->weak_ptr_factory_for_timer_.InvalidateWeakPtrs();
   if (timeout_ms >= 0) {
-    base::MessageLoopForIO::current()->task_runner()->PostDelayedTask(
-      FROM_HERE,
-      base::Bind(&Transport::OnTimer,
-                 transport->weak_ptr_factory_for_timer_.GetWeakPtr()),
-      base::TimeDelta::FromMilliseconds(timeout_ms));
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&Transport::OnTimer,
+                   transport->weak_ptr_factory_for_timer_.GetWeakPtr()),
+        base::TimeDelta::FromMilliseconds(timeout_ms));
   }
   return 0;
 }

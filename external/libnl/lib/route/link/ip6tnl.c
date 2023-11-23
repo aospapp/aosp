@@ -28,6 +28,7 @@
 #include <netlink/utils.h>
 #include <netlink/object.h>
 #include <netlink/route/rtnl.h>
+#include <netlink/route/link/ip6tnl.h>
 #include <netlink-private/route/link/api.h>
 #include <linux/if_tunnel.h>
 #include <netinet/in.h>
@@ -72,11 +73,15 @@ static int ip6_tnl_alloc(struct rtnl_link *link)
 {
 	struct ip6_tnl_info *ip6_tnl;
 
-	ip6_tnl = calloc(1, sizeof(*ip6_tnl));
-	if (!ip6_tnl)
-		return -NLE_NOMEM;
+	if (link->l_info)
+		memset(link->l_info, 0, sizeof(*ip6_tnl));
+	else {
+		ip6_tnl = calloc(1, sizeof(*ip6_tnl));
+		if (!ip6_tnl)
+			return -NLE_NOMEM;
 
-	link->l_info = ip6_tnl;
+		link->l_info = ip6_tnl;
+	}
 
 	return 0;
 }
@@ -88,7 +93,7 @@ static int ip6_tnl_parse(struct rtnl_link *link, struct nlattr *data,
 	struct ip6_tnl_info *ip6_tnl;
 	int err;
 
-	NL_DBG(3, "Parsing IP6_TNL link info");
+	NL_DBG(3, "Parsing IP6_TNL link info\n");
 
 	err = nla_parse_nested(tb, IFLA_IPTUN_MAX, data, ip6_tnl_policy);
 	if (err < 0)
@@ -213,10 +218,16 @@ static void ip6_tnl_dump_details(struct rtnl_link *link, struct nl_dump_params *
 {
 	struct ip6_tnl_info *ip6_tnl = link->l_info;
 	char *name, addr[INET6_ADDRSTRLEN];
+	struct rtnl_link *parent;
 
 	if (ip6_tnl->ip6_tnl_mask & IP6_TNL_ATTR_LINK) {
 		nl_dump(p, "      link ");
-		name = rtnl_link_get_name(link);
+
+		name = NULL;
+		parent = link_lookup(link->ce_cache, ip6_tnl->link);
+		if (parent)
+			name = rtnl_link_get_name(parent);
+
 		if (name)
 			nl_dump_line(p, "%s\n", name);
 		else

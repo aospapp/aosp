@@ -1,17 +1,15 @@
-shapiroc@chromium.org
-
-#Lab Platform Team
+# Chrome Fleet Software Team
 anhdle@chromium.org
 ayatane@chromium.org
 gregorynisbet@chromium.org
 guocb@chromium.org
+otabek@chromium.org
+sanikak@chromium.org
 vivekshah@chromium.org
 xianuowang@chromium.org
 xixuan@chromium.org
 
-# Test Platform Team
-akeshet@chromium.org
-jkop@chromium.org
-linxinan@chromium.org
-pprabhu@chromium.org
-zamorzaev@chromium.org
+include chromiumos/chromite:/OWNERS.testplatform
+
+# Core Infra Team
+dbeckett@chromium.org

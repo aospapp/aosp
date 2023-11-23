@@ -8,6 +8,9 @@
  * Media Patent License 1.0 was not distributed with this source code in the
  * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
  */
+
+#include <tuple>
+
 #include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 
 #include "config/aom_config.h"
@@ -314,9 +317,9 @@ TEST_P(LowbdDrPredTest, SaturatedValues) {
   }
 }
 
-using ::testing::make_tuple;
+using std::make_tuple;
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     C, LowbdDrPredTest,
     ::testing::Values(DrPredFunc<DrPred>(&z1_wrapper<av1_dr_prediction_z1_c>,
                                          NULL, AOM_BITS_8, kZ1Start),
@@ -325,6 +328,7 @@ INSTANTIATE_TEST_CASE_P(
                       DrPredFunc<DrPred>(&z3_wrapper<av1_dr_prediction_z3_c>,
                                          NULL, AOM_BITS_8, kZ3Start)));
 
+#if CONFIG_AV1_HIGHBITDEPTH
 class HighbdDrPredTest : public DrPredTest<uint16_t, DrPred_Hbd> {};
 
 TEST_P(HighbdDrPredTest, SaturatedValues) {
@@ -337,7 +341,7 @@ TEST_P(HighbdDrPredTest, SaturatedValues) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     C, HighbdDrPredTest,
     ::testing::Values(
         DrPredFunc<DrPred_Hbd>(&z1_wrapper_hbd<av1_highbd_dr_prediction_z1_c>,
@@ -358,18 +362,17 @@ INSTANTIATE_TEST_CASE_P(
                                NULL, AOM_BITS_10, kZ3Start),
         DrPredFunc<DrPred_Hbd>(&z3_wrapper_hbd<av1_highbd_dr_prediction_z3_c>,
                                NULL, AOM_BITS_12, kZ3Start)));
+#endif  // CONFIG_AV1_HIGHBITDEPTH
 
 #if HAVE_AVX2
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     AVX2, LowbdDrPredTest,
     ::testing::Values(DrPredFunc<DrPred>(&z1_wrapper<av1_dr_prediction_z1_c>,
                                          &z1_wrapper<av1_dr_prediction_z1_avx2>,
                                          AOM_BITS_8, kZ1Start),
-                      /* TODO(niva213@gmail.com): Re-enable this test after
-                      fixing valgrind issue: https://crbug.com/aomedia/2316
                       DrPredFunc<DrPred>(&z2_wrapper<av1_dr_prediction_z2_c>,
                                          &z2_wrapper<av1_dr_prediction_z2_avx2>,
-                                         AOM_BITS_8, kZ2Start), */
+                                         AOM_BITS_8, kZ2Start),
                       DrPredFunc<DrPred>(&z3_wrapper<av1_dr_prediction_z3_c>,
                                          &z3_wrapper<av1_dr_prediction_z3_avx2>,
                                          AOM_BITS_8, kZ3Start)));
@@ -400,7 +403,8 @@ TEST_P(LowbdDrPredTest, OperationCheck) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+#if CONFIG_AV1_HIGHBITDEPTH
+INSTANTIATE_TEST_SUITE_P(
     AVX2, HighbdDrPredTest,
     ::testing::Values(DrPredFunc<DrPred_Hbd>(
                           &z1_wrapper_hbd<av1_highbd_dr_prediction_z1_c>,
@@ -414,8 +418,6 @@ INSTANTIATE_TEST_CASE_P(
                           &z1_wrapper_hbd<av1_highbd_dr_prediction_z1_c>,
                           &z1_wrapper_hbd<av1_highbd_dr_prediction_z1_avx2>,
                           AOM_BITS_12, kZ1Start),
-                      /* TODO(niva213@gmail.com): Re-enable these tests after
-                      fixing valgrind issue: https://crbug.com/aomedia/2316
                       DrPredFunc<DrPred_Hbd>(
                           &z2_wrapper_hbd<av1_highbd_dr_prediction_z2_c>,
                           &z2_wrapper_hbd<av1_highbd_dr_prediction_z2_avx2>,
@@ -427,7 +429,7 @@ INSTANTIATE_TEST_CASE_P(
                       DrPredFunc<DrPred_Hbd>(
                           &z2_wrapper_hbd<av1_highbd_dr_prediction_z2_c>,
                           &z2_wrapper_hbd<av1_highbd_dr_prediction_z2_avx2>,
-                          AOM_BITS_12, kZ2Start),*/
+                          AOM_BITS_12, kZ2Start),
                       DrPredFunc<DrPred_Hbd>(
                           &z3_wrapper_hbd<av1_highbd_dr_prediction_z3_c>,
                           &z3_wrapper_hbd<av1_highbd_dr_prediction_z3_avx2>,
@@ -466,7 +468,7 @@ TEST_P(HighbdDrPredTest, OperationCheck) {
     }
   }
 }
-
+#endif  // CONFIG_AV1_HIGHBITDEPTH
 #endif  // HAVE_AVX2
 
 }  // namespace

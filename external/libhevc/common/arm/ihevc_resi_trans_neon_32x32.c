@@ -86,8 +86,11 @@
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -98,18 +101,17 @@
  */
 UWORD32 ihevc_resi_trans_32x32_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred,
     WORD32 *pi4_temp, WORD16 *pi2_dst, WORD32 src_strd, WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag)
+    WORD32 dst_strd, CHROMA_PLANE_ID_T e_chroma_plane)
 {
     int16x8_t diff_16[4][2];
     WORD32 i;
     int32x2_t sad;
     int64x2_t tmp_a;
     UWORD32 u4_blk_sad = 0;
-    WORD32 dst_strd = dst_strd_chr_flag >> 16;
     WORD32 *pi4_temp_orig = pi4_temp;
     int16x8_t abs = vdupq_n_s16(0);
     int32x4_t sum_val = vdupq_n_s32(0);
-
+    UNUSED(e_chroma_plane);
 
     // Stage 1
     for(i = 0; i < 16; i++)

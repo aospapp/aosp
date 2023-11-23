@@ -33,106 +33,37 @@
 // The purpose of this file is to glue the mismatching headers (Android NDK vs
 // glibc) and therefore avoid doing otherwise awkward #ifdefs in the code.
 // The following quirks are currently handled by this file:
-// - MIPS: Keep using forked definitions of user.h structs. The definition in
-//     the NDK is completely different. Internal bug b/18097715
 // - i386: Use the Android NDK but alias user_fxsr_struct > user_fpxregs_struct.
-// - x86_64: Override a typo in user_fpregs_struct (mxcsr_mask -> mxcr_mask).
-//     The typo has been fixed in NDK r10d, but a preprocessor workaround is
-//     required to make breakpad build with r10c and lower (more details below).
-// - Other platforms: Just use the Android NDK unchanged.
 
-#ifdef __mips__
+// TODO(primiano): remove these changes after Chromium has stably rolled to
+// an NDK with the appropriate fixes. https://crbug.com/358831
+
+// With traditional headers, <sys/user.h> forgot to do this. Unified headers get
+// it right.
+#include <sys/types.h>
+
+#include_next <sys/user.h>
+
+#include <android/api-level.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
 
-#define EF_REG0 6
-#define EF_REG1 7
-#define EF_REG2 8
-#define EF_REG3 9
-#define EF_REG4 10
-#define EF_REG5 11
-#define EF_REG6 12
-#define EF_REG7 13
-#define EF_REG8 14
-#define EF_REG9 15
-#define EF_REG10 16
-#define EF_REG11 17
-#define EF_REG12 18
-#define EF_REG13 19
-#define EF_REG14 20
-#define EF_REG15 21
-#define EF_REG16 22
-#define EF_REG17 23
-#define EF_REG18 24
-#define EF_REG19 25
-#define EF_REG20 26
-#define EF_REG21 27
-#define EF_REG22 28
-#define EF_REG23 29
-#define EF_REG24 30
-#define EF_REG25 31
+#if defined(__i386__)
+#if __ANDROID_API__ < 21 && !defined(__ANDROID_API_N__)
 
-/*
- * k0/k1 unsaved
- */
-#define EF_REG26 32
-#define EF_REG27 33
-#define EF_REG28 34
-#define EF_REG29 35
-#define EF_REG30 36
-#define EF_REG31 37
+// user_fpxregs_struct was called user_fxsr_struct in traditional headers before
+// API level 21. Unified headers call it user_fpxregs_struct regardless of the
+// chosen API level. __ANDROID_API_N__ is a proxy for determining whether
+// unified headers are in use. It’s only defined by unified headers.
+typedef struct user_fxsr_struct user_fpxregs_struct;
 
-/*
- * Saved special registers
- */
-#define EF_LO 38
-#define EF_HI 39
-#define EF_CP0_EPC 40
-#define EF_CP0_BADVADDR 41
-#define EF_CP0_STATUS 42
-#define EF_CP0_CAUSE 43
-
-struct user_regs_struct {
-  unsigned long long regs[32];
-  unsigned long long lo;
-  unsigned long long hi;
-  unsigned long long epc;
-  unsigned long long badvaddr;
-  unsigned long long status;
-  unsigned long long cause;
-};
-
-struct user_fpregs_struct {
-  unsigned long long regs[32];
-  unsigned int fpcsr;
-  unsigned int fir;
-};
+#endif  // __ANDROID_API__ < 21 && !defined(__ANDROID_API_N__)
+#endif  // defined(__i386__)
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
-
-#else  //  __mips__
-
-// TODO(primiano): remove this after Chromium has stably rolled to NDK r10d.
-// Historical context: NDK releases < r10d had a typo in sys/user.h (mxcsr_mask
-// instead of mxcr_mask), which is fixed in r10d. However, just switching to use
-// the correct one (mxcr_mask) would put Breakpad in a state where it can be
-// rolled in chromium only atomically with the r10d NDK. A revert of either
-// project (android_tools, breakpad) would make the other one unrollable.
-// This hack makes breakpad code compatible with both r10c and r10d NDKs,
-// reducing the dependency entangling with android_tools.
-#if defined(__x86_64__)
-#define mxcsr_mask mxcr_mask
-#endif
-
-#include_next <sys/user.h>
-
-#if defined(__x86_64__)
-#undef mxcsr_mask
-#endif
-
-#endif  // __mips__
 
 #endif  // GOOGLE_BREAKPAD_COMMON_ANDROID_INCLUDE_SYS_USER_H

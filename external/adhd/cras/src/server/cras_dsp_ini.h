@@ -6,11 +6,11 @@
 #ifndef CRAS_DSP_INI_H_
 #define CRAS_DSP_INI_H_
 
+#include "iniparser_wrapper.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <iniparser.h>
 
 #include "array.h"
 #include "dumper.h"
@@ -71,7 +71,7 @@ struct ini {
 };
 
 /*
- * Creates a dummy ini structure equivalent to:
+ * Creates a mock ini structure equivalent to:
  *
  * [src]
  * out0={tmp:0}
@@ -86,7 +86,7 @@ struct ini {
  * The caller of this function is responsible to free the returned
  * ini by calling cras_dsp_ini_free().
  */
-struct ini *create_dummy_ini(const char *purpose, unsigned int num_channels);
+struct ini *create_mock_ini(const char *purpose, unsigned int num_channels);
 
 /* Reads the ini file into the ini structure */
 struct ini *cras_dsp_ini_create(const char *ini_filename);

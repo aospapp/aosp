@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import multiprocessing
@@ -9,6 +14,7 @@ import threading
 
 from autotest_lib.client.common_lib import autotemp
 from autotest_lib.server import utils
+import six
 
 _MASTER_SSH_COMMAND_TEMPLATE = (
     '/usr/bin/ssh -a -x -N '
@@ -18,9 +24,9 @@ _MASTER_SSH_COMMAND_TEMPLATE = (
     '-o UserKnownHostsFile=/dev/null '
     '-o BatchMode=yes '
     '-o ConnectTimeout=30 '
-    '-o ServerAliveInterval=900 '
-    '-o ServerAliveCountMax=3 '
-    '-o ConnectionAttempts=4 '
+    '-o ServerAliveInterval=30 '
+    '-o ServerAliveCountMax=1 '
+    '-o ConnectionAttempts=1 '
     '-o Protocol=2 '
     '-l %(user)s -p %(port)d %(hostname)s')
 
@@ -162,7 +168,7 @@ class ConnectionPool(object):
 
     def shutdown(self):
         """Closes all ssh multiplex connections."""
-        for ssh in self._pool.itervalues():
+        for ssh in six.itervalues(self._pool):
             ssh.close()
 
 

@@ -12,6 +12,9 @@
 
 """ Read properties and events of a linux input device. """
 
+from __future__ import division
+from __future__ import print_function
+
 import array
 import copy
 import fcntl
@@ -24,6 +27,7 @@ import time
 from collections import OrderedDict
 
 from linux_input import *
+from six.moves import range
 
 
 # The regular expression of possible keyboard types.
@@ -239,7 +243,7 @@ class InputDevice:
         Queries device file for current value of all switches and returns
         a boolean indicating whether the switch sw is set.
         """
-        size = SW_CNT / 8    # Buffer size of one __u16
+        size = SW_CNT // 8    # Buffer size of one __u16
         buf = array.array('H', [0])
         fcntl.ioctl(self.f, EVIOCGSW(size), buf)
         return SwValuator(((buf[0] >> sw) & 0x01) == 1)
@@ -261,7 +265,7 @@ class InputDevice:
         if ev_type not in EV_SIZES:
             return
 
-        size = EV_SIZES[ev_type] / 8    # Convert bits to bytes
+        size = EV_SIZES[ev_type] // 8    # Convert bits to bytes
         ev_code = array.array('B', [0] * size)
         try:
             count = fcntl.ioctl(self.f, EVIOCGBIT(ev_type, size), ev_code, 1)
@@ -273,15 +277,16 @@ class InputDevice:
                         self.events[ev_type][c] = self._ioctl_get_switch(c)
                     else:
                         self.events[ev_type][c] = Valuator()
-        except IOError as (errno, strerror):
+        except IOError as errs:
             # Errno 22 signifies that this event type has no event codes.
+            (errno, strerror) = errs.args
             if errno != 22:
                 raise
 
     def _ioctl_types(self):
         """ Queries device file for supported event types. """
-        ev_types = array.array('B', [0] * (EV_CNT / 8))
-        fcntl.ioctl(self.f, EVIOCGBIT(EV_SYN, EV_CNT / 8), ev_types, 1)
+        ev_types = array.array('B', [0] * (EV_CNT // 8))
+        fcntl.ioctl(self.f, EVIOCGBIT(EV_SYN, EV_CNT // 8), ev_types, 1)
         types  = []
         for t in range(EV_CNT):
             if test_bit(t, ev_types):
@@ -519,8 +524,14 @@ class InputDevice:
                 (EV_ABS in self.events))
 
     def is_keyboard(self):
-        return ((EV_KEY in self.events) and
-                (KEY_F2 in self.events[EV_KEY]))
+        if EV_KEY not in self.events:
+            return False
+        # Check first 31 keys. This is the same method udev and the
+        # Chromium browser use.
+        for key in range(KEY_ESC, KEY_D + 1):
+            if key not in self.events[EV_KEY]:
+                return False
+        return True
 
     def is_touchscreen(self):
         return ((EV_KEY in self.events) and
@@ -561,30 +572,30 @@ class InputDevice:
     def print_abs_info(self, axis):
         if EV_ABS in self.events and axis in self.events[EV_ABS]:
             a = self.events[EV_ABS][axis]
-            print '      Value       %6d' % a.value
-            print '      Min         %6d' % a.min
-            print '      Max         %6d' % a.max
+            print('      Value       %6d' % a.value)
+            print('      Min         %6d' % a.min)
+            print('      Max         %6d' % a.max)
             if a.fuzz != 0:
-                print '      Fuzz        %6d' % a.fuzz
+                print('      Fuzz        %6d' % a.fuzz)
             if a.flat != 0:
-                print '      Flat        %6d' % a.flat
+                print('      Flat        %6d' % a.flat)
             if a.resolution != 0:
-                print '      Resolution  %6d' % a.resolution
+                print('      Resolution  %6d' % a.resolution)
 
     def print_props(self):
-        print ('Input driver Version: %d.%d.%d' %
-               (self.version[0], self.version[1], self.version[2]))
-        print ('Input device ID: bus %x vendor %x product %x version %x' %
-               (self.id_bus, self.id_vendor, self.id_product, self.id_version))
-        print 'Input device name: "%s"' % (self.name)
+        print(('Input driver Version: %d.%d.%d' %
+               (self.version[0], self.version[1], self.version[2])))
+        print(('Input device ID: bus %x vendor %x product %x version %x' %
+               (self.id_bus, self.id_vendor, self.id_product, self.id_version)))
+        print('Input device name: "%s"' % (self.name))
         for t in self.events:
-            print '  Event type %d (%s)' % (t, EV_TYPES.get(t, '?'))
+            print('  Event type %d (%s)' % (t, EV_TYPES.get(t, '?')))
             for c in self.events[t]:
                 if (t in EV_STRINGS):
                     code = EV_STRINGS[t].get(c, '?')
-                    print '    Event code %s (%d)' % (code, c)
+                    print('    Event code %s (%d)' % (code, c))
                 else:
-                    print '    Event code (%d)' % (c)
+                    print('    Event code (%d)' % (c))
                 self.print_abs_info(c)
 
     def get_slots(self):
@@ -601,14 +612,14 @@ class InputDevice:
     def print_slots(self):
         slot_dict = self.get_slots()
         for slot_id, slot in slot_dict.items():
-            print 'slot #%d' % slot_id
+            print('slot #%d' % slot_id)
             for a in slot:
                 abs = EV_STRINGS[EV_ABS].get(a, '?')
-                print '  %s = %6d' % (abs, slot[a].value)
+                print('  %s = %6d' % (abs, slot[a].value))
 
 
 def print_report(device):
-    print '----- EV_SYN -----'
+    print('----- EV_SYN -----')
     if device.is_touchpad():
         f = device.get_num_fingers()
         if f == 0:
@@ -617,7 +628,7 @@ def print_report(device):
         y = device.get_y()
         z = device.get_pressure()
         l = device.get_left()
-        print 'Left=%d Fingers=%d X=%d Y=%d Pressure=%d' % (l, f, x, y, z)
+        print('Left=%d Fingers=%d X=%d Y=%d Pressure=%d' % (l, f, x, y, z))
         if device.is_mt():
             device.print_slots()
 
@@ -674,12 +685,12 @@ if __name__ == "__main__":
         for path in glob.glob('/dev/input/event*'):
             device = InputDevice(path)
             if device.is_touchpad():
-                print 'Using touchpad %s.' % path
+                print('Using touchpad %s.' % path)
                 options.devpath = path
                 devices.append(device)
                 break
         else:
-            print 'No touchpad found!'
+            print('No touchpad found!')
             exit()
     elif options.audio_jack:
         for path in glob.glob('/dev/input/event*'):
@@ -688,24 +699,24 @@ if __name__ == "__main__":
                 devices.append(device)
         device = None
     elif os.path.exists(options.devpath):
-        print 'Using %s.' % options.devpath
+        print('Using %s.' % options.devpath)
         devices.append(InputDevice(options.devpath))
     else:
-        print '%s does not exist.' % options.devpath
+        print('%s does not exist.' % options.devpath)
         exit()
 
     for device in devices:
         device.print_props()
         if device.is_touchpad():
-            print ('x: (%d,%d), y: (%d,%d), z: (%d, %d)' %
+            print(('x: (%d,%d), y: (%d,%d), z: (%d, %d)' %
                    (device.get_x_min(), device.get_x_max(),
                     device.get_y_min(), device.get_y_max(),
-                    device.get_pressure_min(), device.get_pressure_max()))
+                    device.get_pressure_min(), device.get_pressure_max())))
             device.print_slots()
-            print 'Number of fingers: %d' % device.get_num_fingers()
-            print 'Current slot id: %d' % device.get_current_slot_id()
-    print '------------------'
-    print
+            print('Number of fingers: %d' % device.get_num_fingers())
+            print('Current slot id: %d' % device.get_current_slot_id())
+    print('------------------')
+    print()
 
     ev = InputEvent()
     while True:
@@ -718,6 +729,6 @@ if __name__ == "__main__":
             except KeyboardInterrupt:
                 exit()
             is_syn = device.process_event(ev)
-            print ev
+            print(ev)
             if is_syn:
                 print_report(device)

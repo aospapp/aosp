@@ -30,9 +30,6 @@
 #elif defined TC3_UNILIB_APPLE
 #include "utils/utf8/unilib-apple.h"
 #define INIT_UNILIB_FOR_TESTING(VAR) VAR()
-#elif defined TC3_UNILIB_DUMMY
-#include "utils/utf8/unilib-dummy.h"
-#define INIT_UNILIB_FOR_TESTING(VAR) VAR()
 #else
 #error No TC3_UNILIB implementation specified.
 #endif
@@ -108,6 +105,18 @@ class UniLib : public UniLibBase {
     return libtextclassifier3::IsDot(codepoint);
   }
 
+  bool IsApostrophe(char32 codepoint) const {
+    return libtextclassifier3::IsApostrophe(codepoint);
+  }
+
+  bool IsQuotation(char32 codepoint) const {
+    return libtextclassifier3::IsQuotation(codepoint);
+  }
+
+  bool IsAmpersand(char32 codepoint) const {
+    return libtextclassifier3::IsAmpersand(codepoint);
+  }
+
   bool IsLatinLetter(char32 codepoint) const {
     return libtextclassifier3::IsLatinLetter(codepoint);
   }
@@ -142,6 +151,31 @@ class UniLib : public UniLibBase {
 
   bool IsLetter(char32 codepoint) const {
     return libtextclassifier3::IsLetter(codepoint);
+  }
+
+  bool IsValidUtf8(const UnicodeText& text) const {
+    // Basic check of structural validity of UTF8.
+    if (!text.is_valid()) {
+      return false;
+    }
+    // In addition to that, we declare that a valid UTF8 is when the number of
+    // codepoints in the string as measured by ICU is the same as the number of
+    // codepoints as measured by UnicodeText. Because if we don't do this check,
+    // the indices might differ, and cause trouble, because the assumption
+    // throughout the code is that ICU indices and UnicodeText indices are the
+    // same.
+    // NOTE: This is not perfect, as this doesn't check the alignment of the
+    // codepoints, but for the practical purposes should be enough.
+    const StatusOr<int32> icu_length = Length(text);
+    if (!icu_length.ok()) {
+      return false;
+    }
+
+    if (icu_length.ValueOrDie() != text.size_codepoints()) {
+      return false;
+    }
+
+    return true;
   }
 };
 

@@ -7,7 +7,10 @@ Module used to parse the autotest job results and generate an HTML report.
 @author: Dror Russo (drusso@redhat.com)
 """
 
-import os, sys, re, getopt, time, datetime, commands
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import os, sys, re, getopt, time, datetime, subprocess
 import common
 
 
@@ -1416,8 +1419,8 @@ return true;
     else:   #if no output file defined, print html file to console
         output = sys.stdout
     # create html page
-    print >> output, html_prefix
-    print >> output, '<h2 id=\"page_title\">Autotest job execution report</h2>'
+    print(html_prefix, file=output)
+    print('<h2 id=\"page_title\">Autotest job execution report</h2>', file=output)
 
     # formating date and time to print
     t = datetime.datetime.now()
@@ -1444,20 +1447,20 @@ return true;
 
     kvm_ver_str = metadata.get('kvmver', None)
 
-    print >> output, '<table class="stats2">'
-    print >> output, '<tr><td>HOST</td><td>:</td><td>%s</td></tr>' % host
-    print >> output, '<tr><td>RESULTS DIR</td><td>:</td><td>%s</td></tr>'  % tag
-    print >> output, '<tr><td>DATE</td><td>:</td><td>%s</td></tr>' % now.ctime()
-    print >> output, '<tr><td>STATS</td><td>:</td><td>%s</td></tr>'% stat_str
-    print >> output, '<tr><td></td><td></td><td></td></tr>'
+    print('<table class="stats2">', file=output)
+    print('<tr><td>HOST</td><td>:</td><td>%s</td></tr>' % host, file=output)
+    print('<tr><td>RESULTS DIR</td><td>:</td><td>%s</td></tr>'  % tag, file=output)
+    print('<tr><td>DATE</td><td>:</td><td>%s</td></tr>' % now.ctime(), file=output)
+    print('<tr><td>STATS</td><td>:</td><td>%s</td></tr>'% stat_str, file=output)
+    print('<tr><td></td><td></td><td></td></tr>', file=output)
     if kvm_ver_str is not None:
-        print >> output, '<tr><td>KVM VERSION</td><td>:</td><td>%s</td></tr>' % kvm_ver_str
-    print >> output, '</table>'
+        print('<tr><td>KVM VERSION</td><td>:</td><td>%s</td></tr>' % kvm_ver_str, file=output)
+    print('</table>', file=output)
 
     ## print test results
-    print >> output, '<br>'
-    print >> output, '<h2 id=\"page_sub_title\">Test Results</h2>'
-    print >> output, '<h2 id=\"comment\">click on table headers to asc/desc sort</h2>'
+    print('<br>', file=output)
+    print('<h2 id=\"page_sub_title\">Test Results</h2>', file=output)
+    print('<h2 id=\"comment\">click on table headers to asc/desc sort</h2>', file=output)
     result_table_prefix = """<table
 id="t1" class="stats table-autosort:4 table-autofilter table-stripeclass:alternate table-page-number:t1page table-page-count:t1pages table-filtered-rowcount:t1filtercount table-rowcount:t1allcount">
 <thead class="th table-sorted-asc table-sorted-desc">
@@ -1471,24 +1474,24 @@ id="t1" class="stats table-autosort:4 table-autofilter table-stripeclass:alterna
 </tr></thead>
 <tbody>
 """
-    print >> output, result_table_prefix
+    print(result_table_prefix, file=output)
     def print_result(result, indent):
         while result != []:
             r = result.pop(0)
             res = results[r][2]
-            print >> output, '<tr>'
-            print >> output, '<td align="left">%s</td>' % res['time']
-            print >> output, '<td align="left" style="padding-left:%dpx">%s</td>' % (indent * 20, res['title'])
+            print('<tr>', file=output)
+            print('<td align="left">%s</td>' % res['time'], file=output)
+            print('<td align="left" style="padding-left:%dpx">%s</td>' % (indent * 20, res['title']), file=output)
             if res['status'] == 'GOOD':
-                print >> output, '<td align=\"left\"><b><font color="#00CC00">PASS</font></b></td>'
+                print('<td align=\"left\"><b><font color="#00CC00">PASS</font></b></td>', file=output)
             elif res['status'] == 'FAIL':
-                print >> output, '<td align=\"left\"><b><font color="red">FAIL</font></b></td>'
+                print('<td align=\"left\"><b><font color="red">FAIL</font></b></td>', file=output)
             elif res['status'] == 'ERROR':
-                print >> output, '<td align=\"left\"><b><font color="red">ERROR!</font></b></td>'
+                print('<td align=\"left\"><b><font color="red">ERROR!</font></b></td>', file=output)
             else:
-                print >> output, '<td align=\"left\">%s</td>' % res['status']
+                print('<td align=\"left\">%s</td>' % res['status'], file=output)
             # print exec time (seconds)
-            print >> output, '<td align="left">%s</td>' % res['exec_time_sec']
+            print('<td align="left">%s</td>' % res['exec_time_sec'], file=output)
             # print log only if test failed..
             if res['log']:
                 #chop all '\n' from log text (to prevent html errors)
@@ -1501,39 +1504,39 @@ id="t1" class="stats table-autosort:4 table-autofilter table-stripeclass:alterna
                 updated_tag = rx2.sub('_', res['title'])
 
                 html_body_text = '<html><head><title>%s</title></head><body>%s</body></html>' % (str(updated_tag), log_text)
-                print >> output, '<td align=\"left\"><A HREF=\"#\" onClick=\"popup(\'%s\',\'%s\')\">Info</A></td>' % (str(updated_tag), str(html_body_text))
+                print('<td align=\"left\"><A HREF=\"#\" onClick=\"popup(\'%s\',\'%s\')\">Info</A></td>' % (str(updated_tag), str(html_body_text)), file=output)
             else:
-                print >> output, '<td align=\"left\"></td>'
+                print('<td align=\"left\"></td>', file=output)
             # print execution time
-            print >> output, '<td align="left"><A HREF=\"%s\">Debug</A></td>' % os.path.join(dirname, res['subdir'], "debug")
+            print('<td align="left"><A HREF=\"%s\">Debug</A></td>' % os.path.join(dirname, res['subdir'], "debug"), file=output)
 
-            print >> output, '</tr>'
+            print('</tr>', file=output)
             print_result(results[r][1], indent + 1)
 
     print_result(results[""][1], 0)
-    print >> output, "</tbody></table>"
+    print("</tbody></table>", file=output)
 
 
-    print >> output, '<h2 id=\"page_sub_title\">Host Info</h2>'
-    print >> output, '<h2 id=\"comment\">click on each item to expend/collapse</h2>'
+    print('<h2 id=\"page_sub_title\">Host Info</h2>', file=output)
+    print('<h2 id=\"comment\">click on each item to expend/collapse</h2>', file=output)
     ## Meta list comes here..
-    print >> output, '<p>'
-    print >> output, '<A href="#" class="button" onClick="expandTree(\'meta_tree\');return false;">Expand All</A>'
-    print >> output, '&nbsp;&nbsp;&nbsp'
-    print >> output, '<A class="button" href="#" onClick="collapseTree(\'meta_tree\'); return false;">Collapse All</A>'
-    print >> output, '</p>'
+    print('<p>', file=output)
+    print('<A href="#" class="button" onClick="expandTree(\'meta_tree\');return false;">Expand All</A>', file=output)
+    print('&nbsp;&nbsp;&nbsp', file=output)
+    print('<A class="button" href="#" onClick="collapseTree(\'meta_tree\'); return false;">Collapse All</A>', file=output)
+    print('</p>', file=output)
 
-    print >> output, '<ul class="mktree" id="meta_tree">'
+    print('<ul class="mktree" id="meta_tree">', file=output)
     counter = 0
-    keys = metadata.keys()
+    keys = list(metadata.keys())
     keys.sort()
     for key in keys:
         val = metadata[key]
-        print >> output, '<li id=\"meta_headline\">%s' % key
-        print >> output, '<ul><table class="meta_table"><tr><td align="left">%s</td></tr></table></ul></li>' % val
-    print >> output, '</ul>'
+        print('<li id=\"meta_headline\">%s' % key, file=output)
+        print('<ul><table class="meta_table"><tr><td align="left">%s</td></tr></table></ul></li>' % val, file=output)
+    print('</ul>', file=output)
 
-    print >> output, "</body></html>"
+    print("</body></html>", file=output)
     if output_file_name:
         output.close()
 
@@ -1653,13 +1656,13 @@ def usage():
     """
     Print stand alone program usage.
     """
-    print 'usage:',
-    print 'make_html_report.py -r <result_directory> [-f output_file] [-R]'
-    print '(e.g. make_html_reporter.py -r '\
-          '/usr/local/autotest/client/results/default -f /tmp/myreport.html)'
-    print 'add "-R" for an html report with relative-paths (relative '\
-          'to results directory)'
-    print ''
+    print('usage:',)
+    print('make_html_report.py -r <result_directory> [-f output_file] [-R]')
+    print('(e.g. make_html_reporter.py -r '\
+          '/usr/local/autotest/client/results/default -f /tmp/myreport.html)')
+    print('add "-R" for an html report with relative-paths (relative '
+          'to results directory)')
+    print('')
     sys.exit(1)
 
 
@@ -1672,7 +1675,7 @@ def get_keyval_value(result_dir, key):
     @param key: Specific key we're retrieving.
     """
     keyval_pattern = os.path.join(result_dir, "kvm.*", "keyval")
-    keyval_lines = commands.getoutput(r"grep -h '\b%s\b.*=' %s"
+    keyval_lines = subprocess.getoutput(r"grep -h '\b%s\b.*=' %s"
                                       % (key, keyval_pattern))
     if not keyval_lines:
         return "Unknown"
@@ -1782,7 +1785,7 @@ def main(argv):
             create_report(dirname, html_path, output_file_name)
             sys.exit(0)
         else:
-            print 'Invalid result directory <%s>' % dirname
+            print('Invalid result directory <%s>' % dirname)
             sys.exit(1)
     else:
         usage()

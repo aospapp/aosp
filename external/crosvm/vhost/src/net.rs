@@ -2,43 +2,42 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use libc;
 use net_util::TapT;
-use std::fs::{File, OpenOptions};
 use std::marker::PhantomData;
 use std::os::unix::fs::OpenOptionsExt;
-use std::os::unix::io::{AsRawFd, RawFd};
-use virtio_sys;
+use std::{
+    fs::{File, OpenOptions},
+    path::PathBuf,
+};
 
-use sys_util::{ioctl_with_ref, GuestMemory};
+use base::{ioctl_with_ref, AsRawDescriptor, RawDescriptor};
+use vm_memory::GuestMemory;
 
 use super::{ioctl_result, Error, Result, Vhost};
-
-static DEVICE: &'static str = "/dev/vhost-net";
 
 /// Handle to run VHOST_NET ioctls.
 ///
 /// This provides a simple wrapper around a VHOST_NET file descriptor and
 /// methods that safely run ioctls on that file descriptor.
 pub struct Net<T> {
-    // fd must be dropped first, which will stop and tear down the
+    // descriptor must be dropped first, which will stop and tear down the
     // vhost-net worker before GuestMemory can potentially be unmapped.
-    fd: File,
+    descriptor: File,
     mem: GuestMemory,
     phantom: PhantomData<T>,
 }
 
-pub trait NetT<T: TapT>: Vhost + AsRawFd + Send + Sized {
+pub trait NetT<T: TapT>: Vhost + AsRawDescriptor + Send + Sized {
     /// Create a new NetT instance
-    fn new(mem: &GuestMemory) -> Result<Self>;
+    fn new(vhost_net_device_path: &PathBuf, mem: &GuestMemory) -> Result<Self>;
 
     /// Set the tap file descriptor that will serve as the VHOST_NET backend.
     /// This will start the vhost worker for the given queue.
     ///
     /// # Arguments
     /// * `queue_index` - Index of the queue to modify.
-    /// * `fd` - Tap interface that will be used as the backend.
-    fn set_backend(&self, queue_index: usize, fd: &T) -> Result<()>;
+    /// * `descriptor` - Tap interface that will be used as the backend.
+    fn set_backend(&self, queue_index: usize, descriptor: Option<&T>) -> Result<()>;
 }
 
 impl<T> NetT<T> for Net<T>
@@ -49,29 +48,34 @@ where
     ///
     /// # Arguments
     /// * `mem` - Guest memory mapping.
-    fn new(mem: &GuestMemory) -> Result<Net<T>> {
+    fn new(vhost_net_device_path: &PathBuf, mem: &GuestMemory) -> Result<Net<T>> {
         Ok(Net::<T> {
-            fd: OpenOptions::new()
+            descriptor: OpenOptions::new()
                 .read(true)
                 .write(true)
                 .custom_flags(libc::O_CLOEXEC | libc::O_NONBLOCK)
-                .open(DEVICE)
+                .open(vhost_net_device_path)
                 .map_err(Error::VhostOpen)?,
             mem: mem.clone(),
             phantom: PhantomData,
         })
     }
 
-    fn set_backend(&self, queue_index: usize, fd: &T) -> Result<()> {
+    fn set_backend(&self, queue_index: usize, event: Option<&T>) -> Result<()> {
         let vring_file = virtio_sys::vhost_vring_file {
             index: queue_index as u32,
-            fd: fd.as_raw_fd(),
+            event: event.map_or(-1, |event| event.as_raw_descriptor()),
         };
 
-        // This ioctl is called on a valid vhost_net fd and has its
+        // This ioctl is called on a valid vhost_net descriptor and has its
         // return value checked.
-        let ret =
-            unsafe { ioctl_with_ref(&self.fd, virtio_sys::VHOST_NET_SET_BACKEND(), &vring_file) };
+        let ret = unsafe {
+            ioctl_with_ref(
+                &self.descriptor,
+                virtio_sys::VHOST_NET_SET_BACKEND(),
+                &vring_file,
+            )
+        };
         if ret < 0 {
             return ioctl_result();
         }
@@ -85,9 +89,9 @@ impl<T> Vhost for Net<T> {
     }
 }
 
-impl<T> AsRawFd for Net<T> {
-    fn as_raw_fd(&self) -> RawFd {
-        self.fd.as_raw_fd()
+impl<T> AsRawDescriptor for Net<T> {
+    fn as_raw_descriptor(&self) -> RawDescriptor {
+        self.descriptor.as_raw_descriptor()
     }
 }
 
@@ -99,7 +103,7 @@ pub mod fakes {
     const TMP_FILE: &str = "/tmp/crosvm_vhost_test_file";
 
     pub struct FakeNet<T> {
-        fd: File,
+        descriptor: File,
         mem: GuestMemory,
         phantom: PhantomData<T>,
     }
@@ -114,9 +118,9 @@ pub mod fakes {
     where
         T: TapT,
     {
-        fn new(mem: &GuestMemory) -> Result<FakeNet<T>> {
+        fn new(_vhost_net_device_path: &PathBuf, mem: &GuestMemory) -> Result<FakeNet<T>> {
             Ok(FakeNet::<T> {
-                fd: OpenOptions::new()
+                descriptor: OpenOptions::new()
                     .read(true)
                     .append(true)
                     .create(true)
@@ -127,7 +131,7 @@ pub mod fakes {
             })
         }
 
-        fn set_backend(&self, _queue_index: usize, _fd: &T) -> Result<()> {
+        fn set_backend(&self, _queue_index: usize, _fd: Option<&T>) -> Result<()> {
             Ok(())
         }
     }
@@ -138,9 +142,9 @@ pub mod fakes {
         }
     }
 
-    impl<T> AsRawFd for FakeNet<T> {
-        fn as_raw_fd(&self) -> RawFd {
-            self.fd.as_raw_fd()
+    impl<T> AsRawDescriptor for FakeNet<T> {
+        fn as_raw_descriptor(&self) -> RawDescriptor {
+            self.descriptor.as_raw_descriptor()
         }
     }
 }

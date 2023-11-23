@@ -50,8 +50,10 @@ public class OfflineInstrumentationAccessGenerator implements
 		mv.visitLdcInsn(Long.valueOf(classid));
 		mv.visitLdcInsn(classname);
 		InstrSupport.push(mv, probecount);
-		mv.visitMethodInsn(Opcodes.INVOKESTATIC, runtimeClassName, "getProbes",
-				"(JLjava/lang/String;I)[Z", false);
+		// BEGIN android-change
+		mv.visitMethodInsn(Opcodes.INVOKESTATIC, runtimeClassName, "getExecutionData",
+				"(JLjava/lang/String;I)Lorg/jacoco/core/data/IExecutionData;", false);
+		// END android-change
 		return 4;
 	}
 

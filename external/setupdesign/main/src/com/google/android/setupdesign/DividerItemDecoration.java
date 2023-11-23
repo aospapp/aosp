@@ -21,10 +21,10 @@ import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import androidx.annotation.IntDef;
 import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
+import androidx.annotation.IntDef;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -125,7 +125,7 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration {
     }
   }
 
-  private boolean shouldDrawDividerBelow(View view, RecyclerView parent) {
+  protected boolean shouldDrawDividerBelow(View view, RecyclerView parent) {
     final RecyclerView.ViewHolder holder = parent.getChildViewHolder(view);
     final int index = holder.getLayoutPosition();
     final int lastItemIndex = parent.getAdapter().getItemCount() - 1;

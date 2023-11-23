@@ -25,7 +25,7 @@
 
 #include "main/glheader.h"
 #include "main/context.h"
-#include "main/imports.h"
+
 #include "main/format_pack.h"
 #include "main/format_unpack.h"
 #include "main/stencil.h"
@@ -329,7 +329,7 @@ put_s8_values(struct gl_context *ctx, struct gl_renderbuffer *rb,
               const GLubyte stencil[])
 {
    const GLint w = rb->Width, h = rb->Height;
-   gl_pack_ubyte_stencil_func pack_stencil =
+   mesa_pack_ubyte_stencil_func pack_stencil =
       _mesa_get_pack_ubyte_stencil_func(rb->Format);
    GLuint i;
 
@@ -434,9 +434,9 @@ _swrast_stencil_and_ztest_span(struct gl_context *ctx, SWspan *span)
       put_s8_values(ctx, rb, count, span->array->x, span->array->y,
                     stencilBuf);
    }
-   
+
    span->writeAll = GL_FALSE;
-   
+
    return GL_TRUE;  /* one or more fragments passed both tests */
 }
 

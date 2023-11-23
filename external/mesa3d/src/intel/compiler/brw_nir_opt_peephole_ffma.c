@@ -36,7 +36,7 @@
 static inline bool
 are_all_uses_fadd(nir_ssa_def *def)
 {
-   if (!list_empty(&def->if_uses))
+   if (!list_is_empty(&def->if_uses))
       return false;
 
    nir_foreach_use(use_src, def) {
@@ -50,8 +50,7 @@ are_all_uses_fadd(nir_ssa_def *def)
       case nir_op_fadd:
          break; /* This one's ok */
 
-      case nir_op_imov:
-      case nir_op_fmov:
+      case nir_op_mov:
       case nir_op_fneg:
       case nir_op_fabs:
          assert(use_alu->dest.dest.is_ssa);
@@ -91,8 +90,7 @@ get_mul_for_src(nir_alu_src *src, unsigned num_components,
       return NULL;
 
    switch (alu->op) {
-   case nir_op_imov:
-   case nir_op_fmov:
+   case nir_op_mov:
       alu = get_mul_for_src(&alu->src[0], alu->dest.dest.ssa.num_components,
                             swizzle, negate, abs);
       break;
@@ -155,7 +153,7 @@ any_alu_src_is_a_constant(nir_alu_src srcs[])
             nir_instr_as_load_const (srcs[i].src.ssa->parent_instr);
 
          if (list_is_singular(&load_const->def.uses) &&
-             list_empty(&load_const->def.if_uses)) {
+             list_is_empty(&load_const->def.if_uses)) {
             return true;
          }
       }
@@ -258,7 +256,7 @@ brw_nir_opt_peephole_ffma_block(nir_builder *b, nir_block *block)
                                nir_src_for_ssa(&ffma->dest.dest.ssa));
 
       nir_builder_instr_insert(b, &ffma->instr);
-      assert(list_empty(&add->dest.dest.ssa.uses));
+      assert(list_is_empty(&add->dest.dest.ssa.uses));
       nir_instr_remove(&add->instr);
 
       progress = true;
@@ -279,9 +277,12 @@ brw_nir_opt_peephole_ffma_impl(nir_function_impl *impl)
       progress |= brw_nir_opt_peephole_ffma_block(&builder, block);
    }
 
-   if (progress)
+   if (progress) {
       nir_metadata_preserve(impl, nir_metadata_block_index |
                                   nir_metadata_dominance);
+   } else {
+      nir_metadata_preserve(impl, nir_metadata_all);
+   }
 
    return progress;
 }

@@ -30,7 +30,7 @@ repository](/examples/sdk/README.md).
 To start using the Client API, first check out the latest SDK release:
 
 ```bash
-git clone https://android.googlesource.com/platform/external/perfetto -b v4.1
+git clone https://android.googlesource.com/platform/external/perfetto -b v14.0
 ```
 
 The SDK consists of two files, `sdk/perfetto.h` and `sdk/perfetto.cc`. These are
@@ -92,7 +92,7 @@ Track events are the suggested option when dealing with app-specific tracing as
 they take care of a number of subtleties (e.g., thread safety, flushing, string
 interning).
 Track events are time bounded events (e.g., slices, counter) based on simple
-annotation tags in the codebase, like this:
+`TRACE_EVENT` annotation tags in the codebase, like this:
 
 ```c++
 #include <perfetto.h>
@@ -161,7 +161,7 @@ Unlike track events, when working with custom data sources, you will also need
 corresponding changes in [trace processor](/docs/analysis/trace-processor.md)
 to enable importing your data format.
 
-A custom data source is a subclass of `perfetto::DataSource`. Perfetto with
+A custom data source is a subclass of `perfetto::DataSource`. Perfetto will
 automatically create one instance of the class for each tracing session it is
 active in (usually just one).
 
@@ -367,7 +367,7 @@ std::vector<char> trace_data(tracing_session->ReadTraceBlocking());
 
 // Write the trace into a file.
 std::ofstream output;
-output.open("example.pftrace", std::ios::out | std::ios::binary);
+output.open("example.perfetto-trace", std::ios::out | std::ios::binary);
 output.write(&trace_data[0], trace_data.size());
 output.close();
 ```
@@ -377,7 +377,7 @@ directly into a file by passing a file descriptor into Setup(), remembering
 to close the file after tracing is done:
 
 ```C++
-int fd = open("example.pftrace", O_RDWR | O_CREAT | O_TRUNC, 0600);
+int fd = open("example.perfetto-trace", O_RDWR | O_CREAT | O_TRUNC, 0600);
 tracing_session->Setup(cfg, fd);
 tracing_session->StartBlocking();
 // ...

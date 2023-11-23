@@ -72,7 +72,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * @since 5.0
  */
 @Beta
-@GwtCompatible
+@GwtCompatible(emulated = true)
 @Immutable
 public final class InternetDomainName {
 
@@ -237,8 +237,13 @@ public final class InternetDomainName {
 
   private static final CharMatcher DASH_MATCHER = CharMatcher.anyOf("-_");
 
+  private static final CharMatcher DIGIT_MATCHER = CharMatcher.inRange('0', '9');
+
+  private static final CharMatcher LETTER_MATCHER =
+      CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('A', 'Z'));
+
   private static final CharMatcher PART_CHAR_MATCHER =
-      CharMatcher.javaLetterOrDigit().or(DASH_MATCHER);
+      DIGIT_MATCHER.or(LETTER_MATCHER).or(DASH_MATCHER);
 
   /**
    * Helper method for {@link #validateSyntax(List)}. Validates that one part of a domain name is
@@ -261,7 +266,7 @@ public final class InternetDomainName {
      * GWT claims to support java.lang.Character's char-classification methods, but it actually only
      * works for ASCII. So for now, assume any non-ASCII characters are valid. The only place this
      * seems to be documented is here:
-     * http://osdir.com/ml/GoogleWebToolkitContributors/2010-03/msg00178.html
+     * https://groups.google.com/d/topic/google-web-toolkit-contributors/1UEzsryq1XI
      *
      * <p>ASCII characters in the part are expected to be valid per RFC 1035, with underscore also
      * being allowed due to widespread practice.
@@ -287,7 +292,7 @@ public final class InternetDomainName {
      * address like 127.0.0.1 from looking like a valid domain name.
      */
 
-    if (isFinalPart && CharMatcher.digit().matches(part.charAt(0))) {
+    if (isFinalPart && DIGIT_MATCHER.matches(part.charAt(0))) {
       return false;
     }
 

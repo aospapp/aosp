@@ -16,6 +16,20 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    default_applicable_licenses: ["external_wycheproof_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "external_wycheproof_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
 }
 
 java_library_static {
@@ -29,10 +43,10 @@ java_library_static {
         "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
     ],
-    sdk_version: "none",
-    system_modules: "art-module-platform-api-stubs-system-modules",
+    sdk_version: "current",
     libs: [
-        "conscrypt.module.platform.api.stubs",
+        "bouncycastle-repackaged-unbundled",
+        "conscrypt.module.platform.api",
         "junit",
     ],
 }

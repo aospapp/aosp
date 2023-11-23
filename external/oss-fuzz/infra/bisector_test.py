@@ -29,8 +29,11 @@ import test_repos
 TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
+@unittest.skip('Test is too long to be run with presubmit.')
 class BisectIntegrationTests(unittest.TestCase):
   """Class to test the functionality of bisection method."""
+
+  BISECT_TYPE = 'regressed'
 
   def test_bisect_invalid_repo(self):
     """Test the bisection method on a project that does not exist."""
@@ -41,22 +44,23 @@ class BisectIntegrationTests(unittest.TestCase):
         sanitizer='address',
         architecture='x86_64')
     with self.assertRaises(ValueError):
-      bisector.bisect(test_repo.old_commit, test_repo.new_commit,
-                      test_repo.test_case_path, test_repo.fuzz_target,
-                      build_data)
+      bisector.bisect(self.BISECT_TYPE, test_repo.old_commit,
+                      test_repo.new_commit, test_repo.test_case_path,
+                      test_repo.fuzz_target, build_data)
 
   def test_bisect(self):
     """Test the bisect method on example projects."""
     for test_repo in test_repos.TEST_REPOS:
-      build_data = build_specified_commit.BuildData(
-          project_name=test_repo.project_name,
-          engine='libfuzzer',
-          sanitizer='address',
-          architecture='x86_64')
-      error_sha = bisector.bisect(test_repo.old_commit, test_repo.new_commit,
-                                  test_repo.test_case_path,
-                                  test_repo.fuzz_target, build_data)
-      self.assertEqual(error_sha, test_repo.intro_commit)
+      if test_repo.new_commit:
+        build_data = build_specified_commit.BuildData(
+            project_name=test_repo.project_name,
+            engine='libfuzzer',
+            sanitizer='address',
+            architecture='x86_64')
+        result = bisector.bisect(self.BISECT_TYPE, test_repo.old_commit,
+                                 test_repo.new_commit, test_repo.test_case_path,
+                                 test_repo.fuzz_target, build_data)
+        self.assertEqual(result.commit, test_repo.intro_commit)
 
 
 if __name__ == '__main__':

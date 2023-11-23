@@ -160,6 +160,7 @@ class FileCloser {
       SAFTM_LOG(ERROR) << "Error closing file descriptor: " << last_error;
     }
   }
+
  private:
   const int fd_;
 
@@ -195,13 +196,23 @@ MmapHandle MmapFile(int fd) {
   size_t file_size_in_bytes = static_cast<size_t>(sb.st_size);
 
   // Perform actual mmap.
+  return MmapFile(fd, /*offset_in_bytes=*/0, file_size_in_bytes);
+}
+
+MmapHandle MmapFile(int fd, size_t offset_in_bytes, size_t size_in_bytes) {
+  // Make sure the offset is a multiple of the page size, as returned by
+  // sysconf(_SC_PAGE_SIZE); this is required by the man-page for mmap.
+  static const size_t kPageSize = sysconf(_SC_PAGE_SIZE);
+  const size_t aligned_offset = (offset_in_bytes / kPageSize) * kPageSize;
+  const size_t alignment_shift = offset_in_bytes - aligned_offset;
+  const size_t aligned_length = size_in_bytes + alignment_shift;
+
   void *mmap_addr = mmap(
 
       // Let system pick address for mmapp-ed data.
       nullptr,
 
-      // Mmap all bytes from the file.
-      file_size_in_bytes,
+      aligned_length,
 
       // One can read / write the mapped data (but see MAP_PRIVATE below).
       // Normally, we expect only to read it, but in the future, we may want to
@@ -215,16 +226,15 @@ MmapHandle MmapFile(int fd) {
       // Descriptor of file to mmap.
       fd,
 
-      // Map bytes right from the beginning of the file.  This, and
-      // file_size_in_bytes (2nd argument) means we map all bytes from the file.
-      0);
+      aligned_offset);
   if (mmap_addr == MAP_FAILED) {
     const std::string last_error = GetLastSystemError();
     SAFTM_LOG(ERROR) << "Error while mmapping: " << last_error;
     return GetErrorMmapHandle();
   }
 
-  return MmapHandle(mmap_addr, file_size_in_bytes);
+  return MmapHandle(static_cast<char *>(mmap_addr) + alignment_shift,
+                    size_in_bytes);
 }
 
 bool Unmap(MmapHandle mmap_handle) {

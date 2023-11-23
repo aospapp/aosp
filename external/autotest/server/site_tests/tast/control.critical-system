@@ -2,14 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from autotest_lib.client.common_lib import utils
+
 AUTHOR = 'Chromium OS team'
 NAME = 'tast.critical-system'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
+DEPENDENCIES = 'servo_state:WORKING'
 # System tests can't be broken by Android or Chrome changes, so these tests
 # don't run in the PFQs.
 ATTRIBUTES = 'suite:bvt-tast-cq'
-MAX_RESULT_SIZE_KB = 50 * 1024
+MAX_RESULT_SIZE_KB = 256 * 1024
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -28,17 +31,23 @@ tests fail.
 See http://go/tast-failures for information about investigating failures.
 '''
 
+args_dict = utils.args_to_dict(args)
+assert 'servo_state:WORKING' in DEPENDENCIES
+servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
+
 def run(machine):
     job.run_test('tast',
-                 host=hosts.create_host(machine),
+                 host=hosts.create_host(machine, servo_args=servo_args),
                  test_exprs=['('
-                             '!disabled && '
-                             '("group:mainline" || !"group:*") && '
+                             '"group:mainline" && '
                              '!informational && '
                              '!"dep:chrome" && '
+                             '!"dep:plugin_vm" && '
                              '!"dep:android*"'
                              ')'],
+                 download_data_lazily=False,
                  ignore_test_failures=False, max_run_sec=3600,
-                 command_args=args)
+                 command_args=args,
+                 clear_tpm=True)
 
 parallel_simple(run, machines)

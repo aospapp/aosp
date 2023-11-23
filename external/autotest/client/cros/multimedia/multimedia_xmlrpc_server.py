@@ -8,8 +8,10 @@
 import argparse
 import code
 import logging
-import xmlrpclib
+import os
+import six.moves.xmlrpc_client
 import traceback
+
 import common   # pylint: disable=unused-import
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import logging_config
@@ -18,6 +20,7 @@ from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros import xmlrpc_server
 from autotest_lib.client.cros.multimedia import assistant_facade_native
 from autotest_lib.client.cros.multimedia import audio_facade_native
+from autotest_lib.client.cros.multimedia import bluetooth_facade_native
 from autotest_lib.client.cros.multimedia import browser_facade_native
 from autotest_lib.client.cros.multimedia import cfm_facade_native
 from autotest_lib.client.cros.multimedia import display_facade_native
@@ -46,23 +49,34 @@ class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
             arc_res = arc_resource.ArcResource()
 
         self._facades = {
-            'assistant' : assistant_facade_native.AssistantFacadeNative(
-                    resource),
-            'audio': audio_facade_native.AudioFacadeNative(
-                    resource, arc_resource=arc_res),
-            'video': video_facade_native.VideoFacadeNative(
-                    resource, arc_resource=arc_res),
-            'display': display_facade_native.DisplayFacadeNative(resource),
-            'system': system_facade_native.SystemFacadeNative(),
-            'usb': usb_facade_native.USBFacadeNative(),
-            'browser': browser_facade_native.BrowserFacadeNative(resource),
-            'input': input_facade_native.InputFacadeNative(),
-            'cfm_main_screen': cfm_facade_native.CFMFacadeNative(
-                              resource, 'hotrod'),
-            'cfm_mimo_screen': cfm_facade_native.CFMFacadeNative(
-                              resource, 'control'),
-            'kiosk': kiosk_facade_native.KioskFacadeNative(resource),
-            'graphics': graphics_facade_native.GraphicsFacadeNative()
+                'assistant':
+                assistant_facade_native.AssistantFacadeNative(resource),
+                'audio':
+                audio_facade_native.AudioFacadeNative(resource,
+                                                      arc_resource=arc_res),
+                'bluetooth':
+                bluetooth_facade_native.BluetoothFacadeNative(),
+                'video':
+                video_facade_native.VideoFacadeNative(resource,
+                                                      arc_resource=arc_res),
+                'display':
+                display_facade_native.DisplayFacadeNative(resource),
+                'system':
+                system_facade_native.SystemFacadeNative(),
+                'usb':
+                usb_facade_native.USBFacadeNative(),
+                'browser':
+                browser_facade_native.BrowserFacadeNative(resource),
+                'input':
+                input_facade_native.InputFacadeNative(),
+                'cfm_main_screen':
+                cfm_facade_native.CFMFacadeNative(resource, 'hotrod'),
+                'cfm_mimo_screen':
+                cfm_facade_native.CFMFacadeNative(resource, 'control'),
+                'kiosk':
+                kiosk_facade_native.KioskFacadeNative(resource),
+                'graphics':
+                graphics_facade_native.GraphicsFacadeNative()
         }
 
 
@@ -106,28 +120,38 @@ def config_logging():
     config.configure_logging(use_console=True, verbose=True)
 
 
-if __name__ == '__main__':
+def main():
+    """The main function, to run the XMLRPC server."""
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='store_true', required=False,
                         help=('create a debug console with a ServerProxy "s" '
                               'connecting to the XML RPC sever at localhost'))
     args = parser.parse_args()
+    pid = os.getpid()
 
     if args.debug:
-        s = xmlrpclib.ServerProxy('http://localhost:%d' %
+        s = six.moves.xmlrpc_client.ServerProxy('http://localhost:%d' %
                                   constants.MULTIMEDIA_XMLRPC_SERVER_PORT,
                                   allow_none=True)
         code.interact(local=locals())
     else:
         config_logging()
-        logging.debug('multimedia_xmlrpc_server main...')
+        logging.debug('multimedia_xmlrpc_server[%s] main...', pid)
+        xmlrpc_server.terminate_old(__file__)
 
+        # bind before full setup, so the error is the last thing in the log
+        server = xmlrpc_server.XmlRpcServer(
+                'localhost', constants.MULTIMEDIA_XMLRPC_SERVER_PORT)
 
         # Restart Cras to clean up any audio activities.
         upstart.restart_job('cras')
 
         with facade_resource.FacadeResource() as res:
-            server = xmlrpc_server.XmlRpcServer(
-                    'localhost', constants.MULTIMEDIA_XMLRPC_SERVER_PORT)
             server.register_delegate(MultimediaXmlRpcDelegate(res))
             server.run()
+            logging.debug('multimedia_xmlrpc_server[%s] exiting...', pid)
+        logging.debug('multimedia_xmlrpc_server[%s] done.\n', pid)
+
+
+if __name__ == '__main__':
+    main()

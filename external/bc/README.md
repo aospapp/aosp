@@ -1,14 +1,15 @@
 # `bc`
 
-[![Build Status][13]][14]
-[![codecov][15]][16]
 [![Coverity Scan Build Status][17]][18]
+
+***WARNING: This project has moved to [https://git.yzena.com/][20] for [these
+reasons][21], though GitHub will remain a mirror.***
 
 This is an implementation of the [POSIX `bc` calculator][12] that implements
 [GNU `bc`][1] extensions, as well as the period (`.`) extension for the BSD
 flavor of `bc`.
 
-For more information, see this `bc`'s [full manual][2].
+For more information, see this `bc`'s full manual.
 
 This `bc` also includes an implementation of `dc` in the same binary, accessible
 via a symbolic link, which implements all FreeBSD and GNU extensions. (If a
@@ -16,45 +17,99 @@ standalone `dc` binary is desired, `bc` can be copied and renamed to `dc`.) The
 `!` command is omitted; I believe this poses security concerns and that such
 functionality is unnecessary.
 
-For more information, see the `dc`'s [full manual][3].
+For more information, see the `dc`'s full manual.
+
+This `bc` also provides `bc`'s math as a library with C bindings, called `bcl`.
+
+For more information, see the full manual for `bcl`.
 
 This `bc` is Free and Open Source Software (FOSS). It is offered under the BSD
 2-clause License. Full license text may be found in the [`LICENSE.md`][4] file.
 
 ## Prerequisites
 
-This `bc` only requires a C99-compatible compiler and a (mostly) POSIX
-2008-compatible system with the XSI (X/Open System Interfaces) option group.
+This `bc` only requires either:
+
+1.	Windows 10 or later, or
+2.	A C99-compatible compiler and a (mostly) POSIX 2008-compatible system with
+	the XSI (X/Open System Interfaces) option group.
 
 Since POSIX 2008 with XSI requires the existence of a C99 compiler as `c99`, any
 POSIX and XSI-compatible system will have everything needed.
 
-Systems that are known to work:
+POSIX-compatible systems that are known to work:
 
 * Linux
 * FreeBSD
 * OpenBSD
 * NetBSD
 * Mac OSX
+* Solaris* (as long as the Solaris version supports POSIX 2008)
+* AIX
+* HP-UX* (except for history)
+
+In addition, there is compatibility code to make this `bc` work on Windows.
 
 Please submit bug reports if this `bc` does not build out of the box on any
-system besides Windows. If Windows binaries are needed, they can be found at
-[xstatic][6].
+system.
 
 ## Build
 
-This `bc` should build unmodified on any POSIX-compliant system.
+### Windows
+
+There is no guarantee that this `bc` will work on any version of Windows earlier
+than Windows 10 (I cannot test on earlier versions), but it is guaranteed to
+work on Windows 10 at least.
+
+Also, if building with MSBuild, the MSBuild bundled with Visual Studio is
+required.
+
+**Note**: Unlike the POSIX-compatible platforms, only one build configuration is
+supported on Windows: extra math and prompt enabled, history and NLS (locale
+support) disabled, with both calculators built.
+
+#### `bc`
+
+To build `bc`, you can open the `bc.sln` file in Visual Studio, select the
+configuration, and build.
+
+You can also build using MSBuild with the following from the root directory:
+
+```
+msbuild -property:Configuration=<config> bc.sln
+```
+
+where `<config>` is either one of `Debug` or `Release`.
+
+#### `bcl` (Library)
+
+To build the library, you can open the `bcl.sln` file in Visual Studio, select
+the configuration, and build.
+
+You can also build using MSBuild with the following from the root directory:
+
+```
+msbuild -property:Configuration=<config> bcl.sln
+```
+
+where `<config>` is either one of `Debug` or `Release`.
+
+### POSIX-Compatible Systems
+
+This `bc` should build unmodified on any POSIX-compliant system or on Windows
+starting with Windows 10 (though earlier versions may work).
 
 For more complex build requirements than the ones below, see the
 [build manual][5].
 
-### Pre-built Binaries
+On POSIX-compatible systems, `bc` is built as `bin/bc` and `dc` is built as
+`bin/dc` by default. On Windows, they are built as `Release/bc/bc.exe` and
+`Release/bc/dc.exe`.
 
-It is possible to download pre-compiled binaries for a wide list of platforms,
-including Linux- and Windows-based systems, from [xstatic][6]. This link always
-points to the latest release of `bc`.
+**Note**: On Windows, `dc.exe` is just copied from `bc.exe`; it is not linked.
+Patches are welcome for a way to do that.
 
-### Default
+#### Default
 
 For the default build with optimization, use the following commands in the root
 directory:
@@ -64,7 +119,7 @@ directory:
 make
 ```
 
-### One Calculator
+#### One Calculator
 
 To only build `bc`, use the following commands:
 
@@ -80,7 +135,7 @@ To only build `dc`, use the following commands:
 make
 ```
 
-### Debug
+#### Debug
 
 For debug builds, use the following commands in the root directory:
 
@@ -89,7 +144,7 @@ For debug builds, use the following commands in the root directory:
 make
 ```
 
-### Install
+#### Install
 
 To install, use the following command:
 
@@ -102,15 +157,36 @@ other locations, use the `PREFIX` environment variable when running
 `configure.sh` or pass the `--prefix=<prefix>` option to `configure.sh`. See the
 [build manual][5], or run `./configure.sh --help`, for more details.
 
-### Package and Distro Maintainers
+#### Library
 
-#### Recommended Compiler
+This `bc` does provide a way to build a math library with C bindings. This is
+done by the `-a` or `--library` options to `configure.sh`:
+
+```
+./configure.sh -a
+```
+
+When building the library, the executables are not built. For more information,
+see the [build manual][5].
+
+The library API can be found in [`manuals/bcl.3.md`][26] or `man bcl` once the
+library is installed.
+
+The library is built as `bin/libbcl.a` on POSIX-compatible systems or as
+`Release/bcl/bcl.lib` on Windows.
+
+#### Package and Distro Maintainers
+
+##### Recommended Compiler
 
 When I ran benchmarks with my `bc` compiled under `clang`, it performed much
 better than when compiled under `gcc`. I recommend compiling this `bc` with
 `clang`.
 
-#### Recommended Optimizations
+I also recommend building this `bc` with C11 if you can because `bc` will detect
+a C11 compiler and add `_Noreturn` to any relevant function(s).
+
+##### Recommended Optimizations
 
 I wrote this `bc` with Separation of Concerns, which means that there are many
 small functions that could be inlined. However, they are often called across
@@ -126,7 +202,6 @@ optimizations I recommend are:
 
 1.	`-O3`
 2.	`-flto` (link-time optimization)
-3.	`-march=native` (optimize for the current CPU)
 
 in that order.
 
@@ -134,16 +209,16 @@ Link-time optimization, in particular, speeds up the `bc` a lot. This is because
 when link-time optimization is turned on, the optimizer can look across files
 and inline *much* more heavily.
 
-For packages that are not built on the oldest supported hardware,
-`-march=native` is not recommended because of the possibility of illegal
-instructions.
+However, I recommend ***NOT*** using `-march=native`. Doing so will reduce this
+`bc`'s performance, at least when building with link-time optimization. See the
+[benchmarks][19] for more details.
 
-#### Stripping Binaries
+##### Stripping Binaries
 
 By default, non-debug binaries are stripped, but stripping can be disabled with
 the `-T` option to `configure.sh`.
 
-#### Using This `bc` as an Alternative
+##### Using This `bc` as an Alternative
 
 If this `bc` is packaged as an alternative to an already existing `bc` package,
 it is possible to rename it in the build to prevent name collision. To prepend
@@ -162,9 +237,10 @@ EXECSUFFIX=<some_suffix> ./configure.sh
 If a package maintainer wishes to add both a prefix and a suffix, that is
 allowed.
 
-**Note**: The suggested name (and package name) is `bc-gh`.
+**Note**: The suggested name (and package name) when `bc` is not available is
+`bc-gh`.
 
-#### Karatsuba Number
+##### Karatsuba Number
 
 Package and distro maintainers have one tool at their disposal to build this
 `bc` in the optimal configuration: `karatsuba.py`.
@@ -173,6 +249,8 @@ This script is not a compile-time or runtime prerequisite; it is for package and
 distro maintainers to run once when a package is being created. It finds the
 optimal Karatsuba number (see the [algorithms manual][7] for more information)
 for the machine that it is running on.
+
+The easiest way to run this script is with `make karatsuba`.
 
 If desired, maintainers can also skip running this script because there is a
 sane default for the Karatsuba number.
@@ -198,6 +276,7 @@ translations will also be added as they are provided.
 
 This `bc` compares favorably to GNU `bc`.
 
+* This `bc` builds natively on Windows.
 * It has more extensions, which make this `bc` more useful for scripting.
 * This `bc` is a bit more POSIX compliant.
 * It has a much less buggy parser. The GNU `bc` will give parse errors for what
@@ -227,9 +306,16 @@ To see what algorithms this `bc` uses, see the [algorithms manual][7].
 
 ## Locales
 
-Currently, this `bc` only has support for English (and US English), French and
-German locales. Patches are welcome for translations; use the existing `*.msg`
-files in `locales/` as a starting point.
+Currently, there is no locale support on Windows.
+
+Additionally, this `bc` only has support for English (and US English), French,
+German, Portuguese, Dutch, Polish, Russian, Japanese, and Chinese locales.
+Patches are welcome for translations; use the existing `*.msg` files in
+`locales/` as a starting point.
+
+In addition, patches for improvements are welcome; the last two messages in
+Portuguese were made with Google Translate, and the Dutch, Polish, Russian,
+Japanese, and Chinese locales were all generated with [DeepL][22].
 
 The message files provided assume that locales apply to all regions where a
 language is used, but this might not be true for, e.g., `fr_CA` and `fr_CH`.
@@ -246,9 +332,14 @@ Other projects based on this bc are:
 * [toybox `bc`][9]. The maintainer has also made his own changes, so bugs in the
   toybox `bc` should be reported there.
 
+* [FreeBSD `bc`][23]. While the `bc` in FreeBSD is kept up-to-date, it is better
+  to [report bugs there][24], as well as [submit patches][25], and the
+  maintainers of the package will contact me if necessary.
+
 ## Language
 
-This `bc` is written in pure ISO C99, using POSIX 2008 APIs.
+This `bc` is written in pure ISO C99, using POSIX 2008 APIs with custom Windows
+compatibility code.
 
 ## Commit Messages
 
@@ -266,8 +357,14 @@ tarballs.
 Files:
 
 	.gitignore           The git ignore file (maintainer use only).
-	.travis.yml          The Travis CI file (maintainer use only).
-	codecov.yml          The Codecov file (maintainer use only).
+	.gitattributes       The git attributes file (maintainer use only).
+	bc.sln               The Visual Studio solution file for bc.
+	bc.vcxproj           The Visual Studio project file for bc.
+	bc.vcxproj.filters   The Visual Studio filters file for bc.
+	bcl.sln              The Visual Studio solution file for bcl.
+	bcl.vcxproj          The Visual Studio project file for bcl.
+	bcl.vcxproj.filters  The Visual Studio filters file for bcl.
+	configure            A symlink to configure.sh to make packaging easier.
 	configure.sh         The configure script.
 	functions.sh         A script with functions used by other scripts.
 	install.sh           Install script.
@@ -277,6 +374,8 @@ Files:
 	locale_install.sh    A script to install locales, if desired.
 	locale_uninstall.sh  A script to uninstall locales.
 	Makefile.in          The Makefile template.
+	manpage.sh           Script to generate man pages from markdown files
+	                     (maintainer use only).
 	NOTICE.md            List of contributors and copyright owners.
 	RELEASE.md           A checklist for making a release (maintainer use only).
 	release.sh           A script to test for release (maintainer use only).
@@ -292,21 +391,21 @@ Folders:
 	tests    All tests.
 
 [1]: https://www.gnu.org/software/bc/
-[2]: ./manuals/bc.md
-[3]: ./manuals/dc.md
 [4]: ./LICENSE.md
 [5]: ./manuals/build.md
-[6]: https://pkg.musl.cc/bc/
 [7]: ./manuals/algorithms.md
 [8]: https://git.busybox.net/busybox/tree/miscutils/bc.c
 [9]: https://github.com/landley/toybox/blob/master/toys/pending/bc.c
 [10]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
 [11]: http://semver.org/
 [12]: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/bc.html
-[13]: https://travis-ci.com/gavinhoward/bc.svg?branch=master
-[14]: https://travis-ci.com/gavinhoward/bc
-[15]: https://codecov.io/gh/gavinhoward/bc/branch/master/graph/badge.svg
-[16]: https://codecov.io/gh/gavinhoward/bc
 [17]: https://img.shields.io/coverity/scan/16609.svg
 [18]: https://scan.coverity.com/projects/gavinhoward-bc
 [19]: ./manuals/benchmarks.md
+[20]: https://git.yzena.com/gavin/bc
+[21]: https://gavinhoward.com/2020/04/i-am-moving-away-from-github/
+[22]: https://www.deepl.com/translator
+[23]: https://cgit.freebsd.org/src/tree/contrib/bc
+[24]: https://bugs.freebsd.org/
+[25]: https://reviews.freebsd.org/
+[26]: ./manuals/bcl.3.md

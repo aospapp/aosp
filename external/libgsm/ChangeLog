@@ -1,3 +1,12 @@
+Fri Mar 27 15:18:06  2020
+
+	* Release 1.0 Patchlevel 19
+	Make it easier to include gsm.h from C++ by wrapping it with macros. 
+	Throw a #define _POSIX_C_SOURCE 200809L into toast.h to make it
+	possible for Linux glibc to just work.
+	(Thanks to enh@google.com for the suggestion; errors are mine.)
+	Switch from compress/.Z to gzip/.gz 
+
 Sat May  5 21:48:20  2018
 
 	* Release 1.0 Patchlevel 18

@@ -4,7 +4,8 @@
 
 AUTHOR = 'dbeckett'
 NAME = 'policy_ArcDisableScreenshots.not_set'
-ATTRIBUTES = 'suite:ent-nightly, suite:policy'
+# Disable this test until it can be fixed: http://b/170958240
+# ATTRIBUTES = 'suite:ent-nightly, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

@@ -7,11 +7,10 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_IntegratedU2F.faft_cr50_tot"
 PURPOSE = "Verify U2F"
-# TODO(b/131060420): add to TOT suite once test issues have been resolved.
-#ATTRIBUTES = "suite:faft_cr50_tot"
+ATTRIBUTES = "suite:faft_cr50_tot"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify second-factor authentication (U2F) using the on-board cr50 firmware

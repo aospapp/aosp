@@ -23,6 +23,7 @@
 #include <array>
 #include <atomic>
 #include <bitset>
+#include <list>
 #include <map>
 #include <memory>
 #include <vector>
@@ -38,6 +39,9 @@
 #include "perfetto/tracing/internal/basic_types.h"
 #include "perfetto/tracing/internal/tracing_muxer.h"
 #include "perfetto/tracing/tracing.h"
+
+#include "protos/perfetto/common/interceptor_descriptor.gen.h"
+
 namespace perfetto {
 
 class ConsumerEndpoint;
@@ -99,31 +103,61 @@ class TracingMuxerImpl : public TracingMuxer {
                           DataSourceFactory,
                           DataSourceStaticState*) override;
   std::unique_ptr<TraceWriterBase> CreateTraceWriter(
+      DataSourceStaticState*,
+      uint32_t data_source_instance_index,
       DataSourceState*,
       BufferExhaustedPolicy buffer_exhausted_policy) override;
   void DestroyStoppedTraceWritersForCurrentThread() override;
+  void RegisterInterceptor(const InterceptorDescriptor&,
+                           InterceptorFactory,
+                           InterceptorBase::TLSFactory,
+                           InterceptorBase::TracePacketCallback) override;
 
   std::unique_ptr<TracingSession> CreateTracingSession(BackendType);
 
   // Producer-side bookkeeping methods.
   void UpdateDataSourcesOnAllBackends();
   void SetupDataSource(TracingBackendId,
+                       uint32_t backend_connection_id,
                        DataSourceInstanceID,
                        const DataSourceConfig&);
   void StartDataSource(TracingBackendId, DataSourceInstanceID);
   void StopDataSource_AsyncBegin(TracingBackendId, DataSourceInstanceID);
   void StopDataSource_AsyncEnd(TracingBackendId, DataSourceInstanceID);
+  void ClearDataSourceIncrementalState(TracingBackendId, DataSourceInstanceID);
+  void SyncProducersForTesting();
 
   // Consumer-side bookkeeping methods.
   void SetupTracingSession(TracingSessionGlobalID,
                            const std::shared_ptr<TraceConfig>&,
                            base::ScopedFile trace_fd = base::ScopedFile());
   void StartTracingSession(TracingSessionGlobalID);
+  void ChangeTracingSessionConfig(TracingSessionGlobalID, const TraceConfig&);
   void StopTracingSession(TracingSessionGlobalID);
   void DestroyTracingSession(TracingSessionGlobalID);
+  void FlushTracingSession(TracingSessionGlobalID,
+                           uint32_t,
+                           std::function<void(bool)>);
   void ReadTracingSessionData(
       TracingSessionGlobalID,
       std::function<void(TracingSession::ReadTraceCallbackArgs)>);
+  void GetTraceStats(TracingSessionGlobalID,
+                     TracingSession::GetTraceStatsCallback);
+  void QueryServiceState(TracingSessionGlobalID,
+                         TracingSession::QueryServiceStateCallback);
+
+  // Sets the batching period to |batch_commits_duration_ms| on the backends
+  // with type |backend_type|.
+  void SetBatchCommitsDurationForTesting(uint32_t batch_commits_duration_ms,
+                                         BackendType backend_type);
+
+  // Enables direct SMB patching on the backends with type |backend_type| (see
+  // SharedMemoryArbiter::EnableDirectSMBPatching). Returns true if the
+  // operation succeeded for all backends with type |backend_type|, false
+  // otherwise.
+  bool EnableDirectSMBPatchingForTesting(BackendType backend_type);
+
+  void SetMaxProducerReconnectionsForTesting(uint32_t count);
 
  private:
   // For each TracingBackend we create and register one ProducerImpl instance.
@@ -135,7 +169,9 @@ class TracingMuxerImpl : public TracingMuxer {
   // because the Producer virtual methods don't allow to identify the service.
   class ProducerImpl : public Producer {
    public:
-    ProducerImpl(TracingMuxerImpl*, TracingBackendId);
+    ProducerImpl(TracingMuxerImpl*,
+                 TracingBackendId,
+                 uint32_t shmem_batch_commits_duration_ms);
     ~ProducerImpl() override;
 
     void Initialize(std::unique_ptr<ProducerEndpoint> endpoint);
@@ -155,17 +191,38 @@ class TracingMuxerImpl : public TracingMuxer {
     void Flush(FlushRequestID, const DataSourceInstanceID*, size_t) override;
     void ClearIncrementalState(const DataSourceInstanceID*, size_t) override;
 
+    void SweepDeadServices();
+
     PERFETTO_THREAD_CHECKER(thread_checker_)
     TracingMuxerImpl* const muxer_;
     TracingBackendId const backend_id_;
     bool connected_ = false;
+    uint32_t connection_id_ = 0;
+
+    const uint32_t shmem_batch_commits_duration_ms_ = 0;
 
     // Set of data sources that have been actually registered on this producer.
     // This can be a subset of the global |data_sources_|, because data sources
     // can register before the producer is fully connected.
     std::bitset<kMaxDataSources> registered_data_sources_{};
 
-    std::unique_ptr<ProducerEndpoint> service_;  // Keep last.
+    // A collection of disconnected service endpoints. Since trace writers on
+    // arbitrary threads might continue writing data to disconnected services,
+    // we keep the old services around and periodically try to clean up ones
+    // that no longer have any writers (see SweepDeadServices).
+    std::list<std::shared_ptr<ProducerEndpoint>> dead_services_;
+
+    // The currently active service endpoint is maintained as an atomic shared
+    // pointer so it won't get deleted from underneath threads that are creating
+    // trace writers. At any given time one endpoint can be shared (and thus
+    // kept alive) by the |service_| pointer, an entry in |dead_services_| and
+    // as a pointer on the stack in CreateTraceWriter() (on an arbitrary
+    // thread). The endpoint is never shared outside ProducerImpl itself.
+    //
+    // WARNING: Any *write* access to this variable or any *read* access from a
+    // non-muxer thread must be done through std::atomic_{load,store} to avoid
+    // data races.
+    std::shared_ptr<ProducerEndpoint> service_;  // Keep last.
   };
 
   // For each TracingSession created by the API client (Tracing::NewTrace() we
@@ -176,7 +233,10 @@ class TracingMuxerImpl : public TracingMuxer {
   // tracing sessions.
   class ConsumerImpl : public Consumer {
    public:
-    ConsumerImpl(TracingMuxerImpl*, TracingBackendId, TracingSessionGlobalID);
+    ConsumerImpl(TracingMuxerImpl*,
+                 BackendType,
+                 TracingBackendId,
+                 TracingSessionGlobalID);
     ~ConsumerImpl() override;
 
     void Initialize(std::unique_ptr<ConsumerEndpoint> endpoint);
@@ -184,7 +244,7 @@ class TracingMuxerImpl : public TracingMuxer {
     // perfetto::Consumer implementation.
     void OnConnect() override;
     void OnDisconnect() override;
-    void OnTracingDisabled() override;
+    void OnTracingDisabled(const std::string& error) override;
     void OnTraceData(std::vector<TracePacket>, bool has_more) override;
     void OnDetach(bool success) override;
     void OnAttach(bool success, const TraceConfig&) override;
@@ -192,12 +252,14 @@ class TracingMuxerImpl : public TracingMuxer {
     void OnObservableEvents(const ObservableEvents&) override;
 
     void NotifyStartComplete();
+    void NotifyError(const TracingError&);
     void NotifyStopComplete();
 
     // Will eventually inform the |muxer_| when it is safe to remove |this|.
     void Disconnect();
 
     TracingMuxerImpl* const muxer_;
+    BackendType const backend_type_;
     TracingBackendId const backend_id_;
     TracingSessionGlobalID const session_id_;
     bool connected_ = false;
@@ -211,6 +273,10 @@ class TracingMuxerImpl : public TracingMuxer {
     // need to wait until the session has started before stopping it.
     bool stop_pending_ = false;
 
+    // Similarly we need to buffer a call to get trace statistics if the
+    // consumer wasn't connected yet.
+    bool get_trace_stats_pending_ = false;
+
     // Whether this session was already stopped. This will happen in response to
     // Stop{,Blocking}, but also if the service stops the session for us
     // automatically (e.g., when there are no data sources).
@@ -221,8 +287,16 @@ class TracingMuxerImpl : public TracingMuxer {
     std::shared_ptr<TraceConfig> trace_config_;
     base::ScopedFile trace_fd_;
 
+    // If the API client passes a callback to start, we should invoke this when
+    // NotifyStartComplete() is invoked.
+    std::function<void()> start_complete_callback_;
+
     // An internal callback used to implement StartBlocking().
     std::function<void()> blocking_start_complete_callback_;
+
+    // If the API client passes a callback to get notification about the
+    // errors, we should invoke this when NotifyError() is invoked.
+    std::function<void(TracingError)> error_callback_;
 
     // If the API client passes a callback to stop, we should invoke this when
     // OnTracingDisabled() is invoked.
@@ -234,6 +308,12 @@ class TracingMuxerImpl : public TracingMuxer {
     // Callback passed to ReadTrace().
     std::function<void(TracingSession::ReadTraceCallbackArgs)>
         read_trace_callback_;
+
+    // Callback passed to GetTraceStats().
+    TracingSession::GetTraceStatsCallback get_trace_stats_callback_;
+
+    // Callback for a pending call to QueryServiceState().
+    TracingSession::QueryServiceStateCallback query_service_state_callback_;
 
     // The states of all data sources in this tracing session. |true| means the
     // data source has started tracing.
@@ -248,19 +328,26 @@ class TracingMuxerImpl : public TracingMuxer {
   // Tracing::CreateTracingSession().
   class TracingSessionImpl : public TracingSession {
    public:
-    TracingSessionImpl(TracingMuxerImpl*, TracingSessionGlobalID);
+    TracingSessionImpl(TracingMuxerImpl*, TracingSessionGlobalID, BackendType);
     ~TracingSessionImpl() override;
     void Setup(const TraceConfig&, int fd) override;
     void Start() override;
     void StartBlocking() override;
+    void SetOnStartCallback(std::function<void()>) override;
+    void SetOnErrorCallback(std::function<void(TracingError)>) override;
     void Stop() override;
     void StopBlocking() override;
+    void Flush(std::function<void(bool)>, uint32_t timeout_ms) override;
     void ReadTrace(ReadTraceCallback) override;
     void SetOnStopCallback(std::function<void()>) override;
+    void GetTraceStats(GetTraceStatsCallback) override;
+    void QueryServiceState(QueryServiceStateCallback) override;
+    void ChangeTraceConfig(const TraceConfig&) override;
 
    private:
     TracingMuxerImpl* const muxer_;
     TracingSessionGlobalID const session_id_;
+    BackendType const backend_type_;
   };
 
   struct RegisteredDataSource {
@@ -269,12 +356,20 @@ class TracingMuxerImpl : public TracingMuxer {
     DataSourceStaticState* static_state = nullptr;
   };
 
+  struct RegisteredInterceptor {
+    protos::gen::InterceptorDescriptor descriptor;
+    InterceptorFactory factory{};
+    InterceptorBase::TLSFactory tls_factory{};
+    InterceptorBase::TracePacketCallback packet_callback{};
+  };
+
   struct RegisteredBackend {
     // Backends are supposed to have static lifetime.
     TracingBackend* backend = nullptr;
     TracingBackendId id = 0;
     BackendType type{};
 
+    TracingBackend::ConnectProducerArgs producer_conn_args;
     std::unique_ptr<ProducerImpl> producer;
 
     // The calling code can request more than one concurrently active tracing
@@ -285,7 +380,9 @@ class TracingMuxerImpl : public TracingMuxer {
   explicit TracingMuxerImpl(const TracingInitArgs&);
   void Initialize(const TracingInitArgs& args);
   ConsumerImpl* FindConsumer(TracingSessionGlobalID session_id);
+  void InitializeConsumer(TracingSessionGlobalID session_id);
   void OnConsumerDisconnected(ConsumerImpl* consumer);
+  void OnProducerDisconnected(ProducerImpl* producer);
 
   struct FindDataSourceRes {
     FindDataSourceRes() = default;
@@ -302,8 +399,14 @@ class TracingMuxerImpl : public TracingMuxer {
   std::unique_ptr<base::TaskRunner> task_runner_;
   std::vector<RegisteredDataSource> data_sources_;
   std::vector<RegisteredBackend> backends_;
+  std::vector<RegisteredInterceptor> interceptors_;
+  TracingPolicy* policy_ = nullptr;
 
   std::atomic<TracingSessionGlobalID> next_tracing_session_id_{};
+
+  // Maximum number of times we will try to reconnect producer backend.
+  // Should only be modified for testing purposes.
+  std::atomic<uint32_t> max_producer_reconnections_{100u};
 
   PERFETTO_THREAD_CHECKER(thread_checker_)
 };

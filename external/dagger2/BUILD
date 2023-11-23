@@ -12,14 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_java//java:defs.bzl", "java_library")
+load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
+load("@io_bazel_rules_kotlin//kotlin:kotlin.bzl", "define_kt_toolchain")
+
 package(default_visibility = ["//visibility:public"])
+
+define_kt_toolchain(
+    name = "kotlin_toolchain",
+    api_version = "1.4",
+    jvm_target = "1.8",
+    language_version = "1.4",
+)
 
 package_group(
     name = "src",
     packages = ["//..."],
 )
-
-load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 
 java_library(
     name = "dagger_with_compiler",
@@ -32,6 +42,22 @@ java_library(
     exports = [
         ":dagger_with_compiler",
         "//java/dagger/producers",
+    ],
+)
+
+java_library(
+    name = "spi",
+    exports = ["//java/dagger/spi"],
+)
+
+java_library(
+    name = "compiler_internals",
+    exports = [
+        "//java/dagger/internal/codegen:processor",
+        "//java/dagger/internal/codegen/base",
+        "//java/dagger/internal/codegen/binding",
+        "//java/dagger/internal/codegen/validation",
+        "//java/dagger/internal/codegen/writing",
     ],
 )
 
@@ -49,118 +75,48 @@ android_library(
     ],
 )
 
-load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
-
-SHADE_RULES = ["rule com.google.auto.common.** dagger.shaded.auto.common.@1"]
-
-jarjar_library(
-    name = "shaded_compiler",
-    jars = [
-        "//java/dagger/internal/codegen:base",
-        "//java/dagger/internal/codegen:binding",
-        "//java/dagger/internal/codegen:binding_graph_validation",
-        "//java/dagger/internal/codegen:jdk-and-guava-extras",
-        "//java/dagger/internal/codegen:processor",
-        "//java/dagger/internal/codegen:validation",
-        "//java/dagger/internal/codegen:writing",
-        "//java/dagger/internal/codegen/javapoet",
-        "//java/dagger/internal/codegen/langmodel",
-        "//java/dagger/internal/codegen/serialization",
-        "//java/dagger/model:internal-proxies",
-        "//java/dagger/errorprone",
-        "@com_google_auto_auto_common//jar",
-    ],
-    rules = SHADE_RULES,
-)
-
-jarjar_library(
-    name = "shaded_compiler_src",
-    jars = [
-        "//java/dagger/internal/codegen:libbase-src.jar",
-        "//java/dagger/internal/codegen:libbinding-src.jar",
-        "//java/dagger/internal/codegen:libbinding_graph_validation-src.jar",
-        "//java/dagger/internal/codegen:libjdk-and-guava-extras-src.jar",
-        "//java/dagger/internal/codegen:libprocessor-src.jar",
-        "//java/dagger/internal/codegen:libvalidation-src.jar",
-        "//java/dagger/internal/codegen:libwriting-src.jar",
-        "//java/dagger/internal/codegen/javapoet:libjavapoet-src.jar",
-        "//java/dagger/internal/codegen/langmodel:liblangmodel-src.jar",
-        # TODO(ronshapiro): is there a generated src.jar for protos in Bazel?
-        "//java/dagger/errorprone:liberrorprone-src.jar",
-    ],
-)
-
-jarjar_library(
-    name = "shaded_spi",
-    jars = [
-        "//java/dagger/internal/codegen:jdk-and-guava-extras",
-        "//java/dagger/model",
-        "//java/dagger/spi",
-        "@com_google_auto_auto_common//jar",
-    ],
-    rules = SHADE_RULES,
-)
-
-jarjar_library(
-    name = "shaded_spi_src",
-    jars = [
-        "//java/dagger/internal/codegen:libjdk-and-guava-extras-src.jar",
-        "//java/dagger/model:libmodel-src.jar",
-        "//java/dagger/spi:libspi-src.jar",
-    ],
-)
-
-javadoc_library(
-    name = "spi-javadoc",
-    srcs = [
-        "//java/dagger/model:model-srcs",
-        "//java/dagger/spi:spi-srcs",
-    ],
-    root_packages = [
-        "dagger.model",
-        "dagger.spi",
-    ],
-    deps = [
-        "//java/dagger/model",
-        "//java/dagger/spi",
-    ],
-)
-
 jarjar_library(
     name = "shaded_android_processor",
     jars = [
         "//java/dagger/android/processor",
-        "@com_google_auto_auto_common//jar",
+        "@maven//:com_google_auto_auto_common",
     ],
-    rules = SHADE_RULES,
+    rules = [
+        "rule com.google.auto.common.** dagger.android.shaded.auto.common.@1",
+    ],
 )
 
 jarjar_library(
     name = "shaded_grpc_server_processor",
     jars = [
         "//java/dagger/grpc/server/processor",
-        "@com_google_auto_auto_common//jar",
+        "@maven//:com_google_auto_auto_common",
     ],
-    rules = SHADE_RULES,
+    rules = [
+        "rule com.google.auto.common.** dagger.grpc.shaded.auto.common.@1",
+    ],
 )
 
 # coalesced javadocs used for the gh-pages site
 javadoc_library(
     name = "user-docs",
+    testonly = 1,
     srcs = [
         "//java/dagger:javadoc-srcs",
         "//java/dagger/android:android-srcs",
         "//java/dagger/android/support:support-srcs",
         "//java/dagger/grpc/server:javadoc-srcs",
         "//java/dagger/grpc/server/processor:javadoc-srcs",
-        "//java/dagger/model:model-srcs",
+        "//java/dagger/hilt:javadoc-srcs",
         "//java/dagger/producers:producers-srcs",
         "//java/dagger/spi:spi-srcs",
     ],
-    android_api_level = 26,
+    android_api_level = 30,
     # TODO(ronshapiro): figure out how to specify the version number for release builds
     doctitle = "Dagger Dependency Injection API",
     exclude_packages = [
+        "dagger.hilt.android.internal",
+        "dagger.hilt.internal",
         "dagger.internal",
         "dagger.producers.internal",
         "dagger.producers.monitoring.internal",
@@ -172,7 +128,8 @@ javadoc_library(
         "//java/dagger/android/support",
         "//java/dagger/grpc/server",
         "//java/dagger/grpc/server/processor",
-        "//java/dagger/model",
+        "//java/dagger/hilt/android:artifact-lib",
+        "//java/dagger/hilt/android/testing:artifact-lib",
         "//java/dagger/producers",
         "//java/dagger/spi",
     ],

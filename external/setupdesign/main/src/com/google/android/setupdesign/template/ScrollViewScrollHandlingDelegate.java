@@ -16,10 +16,10 @@
 
 package com.google.android.setupdesign.template;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.util.Log;
 import android.widget.ScrollView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.google.android.setupdesign.template.RequireScrollMixin.ScrollHandlingDelegate;
 import com.google.android.setupdesign.view.BottomScrollView;
 import com.google.android.setupdesign.view.BottomScrollView.BottomScrollListener;

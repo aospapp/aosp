@@ -187,6 +187,33 @@ static inline uint64_t cras_frames_since_time(const struct timespec *beg,
 	return cras_time_to_frames(&time_since, rate);
 }
 
+/* Calculates frames until time end. */
+static inline uint64_t cras_frames_until_time(const struct timespec *end,
+					      unsigned int rate)
+{
+	struct timespec now, time_until;
+
+	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+	if (!timespec_after(end, &now))
+		return 0;
+
+	subtract_timespecs(end, &now, &time_until);
+	return cras_time_to_frames(&time_until, rate);
+}
+
+/* Returns true if the difference between a and b is  shorter than t. */
+static inline bool timespec_diff_shorter_than(const struct timespec *a,
+					      const struct timespec *b,
+					      const struct timespec *t)
+{
+	struct timespec diff;
+	if (timespec_after(a, b))
+		subtract_timespecs(a, b, &diff);
+	else
+		subtract_timespecs(b, a, &diff);
+	return timespec_after(t, &diff);
+}
+
 /* Poll on the given file descriptors.
  *
  * See ppoll(). This implementation changes the value of timeout to the

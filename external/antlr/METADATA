@@ -10,6 +10,7 @@ third_party {
     value: "https://github.com/antlr/antlr3/archive/3.5.2.zip"
   }
   version: "3.5.2"
+  license_type: NOTICE
   last_upgrade_date {
     year: 2018
     month: 8

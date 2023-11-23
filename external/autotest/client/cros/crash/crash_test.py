@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import contextlib
-import fcntl
 import glob
 import logging
 import os
@@ -83,10 +81,11 @@ class CrashTest(test.test):
     _CRASH_RUN_STATE_DIR = '/run/crash_reporter'
     _CRASH_TEST_IN_PROGRESS = _CRASH_RUN_STATE_DIR + '/crash-test-in-progress'
     _MOCK_CRASH_SENDING = _CRASH_RUN_STATE_DIR + '/mock-crash-sending'
+    _FILTER_IN = _CRASH_RUN_STATE_DIR + '/filter-in'
     _PAUSE_FILE = '/var/lib/crash_sender_paused'
     _SYSTEM_CRASH_DIR = '/var/spool/crash'
     _FALLBACK_USER_CRASH_DIR = '/home/chronos/crash'
-    _EARLY_BOOT_CRASH_DIR = '/mnt/stateful_partition/unencrypted/preserve/crash'
+    _REBOOT_VAULT_CRASH_DIR = '/mnt/stateful_partition/reboot_vault/crash'
     _USER_CRASH_DIRS = '/home/chronos/u-*/crash'
     _USER_CRASH_DIR_REGEX = re.compile('/home/chronos/u-([a-f0-9]+)/crash')
 
@@ -94,8 +93,8 @@ class CrashTest(test.test):
     _MAX_CRASH_SIZE = 1024 * 1024
 
     # Use the same file format as crash does normally:
-    # <basename>.#.#.#.meta
-    _FAKE_TEST_BASENAME = 'fake.1.2.3'
+    # <basename>.#.#.#.#.meta
+    _FAKE_TEST_BASENAME = 'fake.1.2.3.4'
 
     def _set_system_sending(self, is_enabled):
         """Sets whether or not the system crash_sender is allowed to run.
@@ -113,6 +112,18 @@ class CrashTest(test.test):
         else:
             utils.system('touch ' + self._PAUSE_FILE)
 
+    def _remove_all_files_in_dir(self, d):
+        """Recursively remove all of the files in |d|, without removing |d|.
+      """
+        try:
+            root, dirs, files = next(os.walk(d))
+        except StopIteration:
+            return
+        for path in files:
+            os.remove(os.path.join(root, path))
+        for path in dirs:
+            shutil.rmtree(os.path.join(root, path))
+
 
     def _reset_rate_limiting(self):
         """Reset the count of crash reports sent today.
@@ -120,7 +131,7 @@ class CrashTest(test.test):
         This clears the contents of the rate limiting directory which has
         the effect of reseting our count of crash reports sent.
         """
-        utils.system('rm -rf ' + self._CRASH_SENDER_RATE_DIR)
+        self._remove_all_files_in_dir(self._CRASH_SENDER_RATE_DIR)
 
 
     def _clear_spooled_crashes(self):
@@ -128,10 +139,11 @@ class CrashTest(test.test):
 
         This will remove all crash reports which are waiting to be sent.
         """
-        utils.system('rm -rf ' + self._SYSTEM_CRASH_DIR)
-        utils.system('rm -rf ' + self._EARLY_BOOT_CRASH_DIR)
-        utils.system('rm -rf %s %s' % (self._USER_CRASH_DIRS,
-                                       self._FALLBACK_USER_CRASH_DIR))
+        self._remove_all_files_in_dir(self._SYSTEM_CRASH_DIR)
+        self._remove_all_files_in_dir(self._REBOOT_VAULT_CRASH_DIR)
+        for d in glob.glob(self._USER_CRASH_DIRS):
+            self._remove_all_files_in_dir(d)
+        self._remove_all_files_in_dir(self._FALLBACK_USER_CRASH_DIR)
 
 
     def _kill_running_sender(self):
@@ -139,21 +151,16 @@ class CrashTest(test.test):
         utils.system('pkill -9 -e --exact crash_sender', ignore_status=True)
 
 
-    def _set_sending_mock(self, mock_enabled, send_success=True):
+    def _set_sending_mock(self, mock_enabled):
         """Enables / disables mocking of the sending process.
 
         This uses the _MOCK_CRASH_SENDING file to achieve its aims. See notes
         at the top.
 
         @param mock_enabled: If True, mocking is enabled, else it is disabled.
-        @param send_success: If mock_enabled this is True for the mocking to
-                indicate success, False to indicate failure.
         """
         if mock_enabled:
-            if send_success:
-                data = ''
-            else:
-                data = '1'
+            data = ''
             logging.info('Setting sending mock')
             utils.open_write_close(self._MOCK_CRASH_SENDING, data)
         else:
@@ -171,7 +178,7 @@ class CrashTest(test.test):
         """
         autotest_cros_dir = os.path.join(os.path.dirname(__file__), '..')
         if has_consent:
-            if os.path.isdir(constants.WHITELIST_DIR):
+            if os.path.isdir(constants.ALLOWLIST_DIR):
                 # Create policy file that enables metrics/consent.
                 shutil.copy('%s/mock_metrics_on.policy' % autotest_cros_dir,
                             constants.SIGNED_POLICY_FILE)
@@ -189,7 +196,7 @@ class CrashTest(test.test):
             shutil.move(temp_file, self._CONSENT_FILE)
             logging.info('Created %s', self._CONSENT_FILE)
         else:
-            if os.path.isdir(constants.WHITELIST_DIR):
+            if os.path.isdir(constants.ALLOWLIST_DIR):
                 # Create policy file that disables metrics/consent.
                 shutil.copy('%s/mock_metrics_off.policy' % autotest_cros_dir,
                             constants.SIGNED_POLICY_FILE)
@@ -359,7 +366,6 @@ class CrashTest(test.test):
 
 
     def _prepare_sender_one_crash(self,
-                                  send_success,
                                   reports_enabled,
                                   report):
         """Create metadata for a fake crash report.
@@ -367,13 +373,11 @@ class CrashTest(test.test):
         This enabled mocking of the crash sender, then creates a fake
         crash report for testing purposes.
 
-        @param send_success: True to make the crash_sender success, False to
-                make it fail.
         @param reports_enabled: True to enable consent to that reports will be
                 sent.
         @param report: Report to use for crash, if None we create one.
         """
-        self._set_sending_mock(mock_enabled=True, send_success=send_success)
+        self._set_sending_mock(mock_enabled=True)
         self._set_consent(reports_enabled)
         if report is None:
             # Use the same file format as crash does normally:
@@ -525,19 +529,11 @@ class CrashTest(test.test):
                 self._log_reader.get_logs()))
 
 
-    def _call_sender_one_crash(self,
-                               send_success=True,
-                               reports_enabled=True,
-                               report=None,
-                               should_fail=False,
-                               ignore_pause=True):
+    def _call_sender_one_crash(self, reports_enabled=True, report=None):
         """Call the crash sender script to mock upload one crash.
 
-        @param send_success: Mock a successful send if true
         @param reports_enabled: Has the user consented to sending crash reports.
         @param report: report to use for crash, if None we create one.
-        @param should_fail: expect the crash_sender program to fail
-        @param ignore_pause: crash_sender should ignore pause file existence
 
         @returns a dictionary describing the result with the keys
           from _parse_sender_output, as well as:
@@ -546,16 +542,14 @@ class CrashTest(test.test):
             rate_count: how many crashes have been uploaded in the past
               24 hours.
         """
-        report = self._prepare_sender_one_crash(send_success,
-                                                reports_enabled,
+        report = self._prepare_sender_one_crash(reports_enabled,
                                                 report)
         self._log_reader.set_start_by_current()
         script_output = ""
         try:
             script_output = utils.system_output(
-                '%s %s2>&1' % (self._CRASH_SENDER_PATH,
-                               "--ignore_pause_file " if ignore_pause else ""),
-                ignore_status=should_fail)
+                '%s --ignore_pause_file 2>&1' % (self._CRASH_SENDER_PATH),
+                ignore_status=False)
         except error.CmdError as err:
             raise error.TestFail('"%s" returned an unexpected non-zero '
                                  'value (%s).'
@@ -595,54 +589,21 @@ class CrashTest(test.test):
         return result
 
 
-    def _replace_crash_reporter_filter_in(self, new_parameter):
-        """Replaces the --filter_in= parameter of the crash reporter.
-
-        The kernel is set up to call the crash reporter with the core dump
-        as stdin when a process dies. This function adds a filter to the
-        command line used to call the crash reporter. This is used to ignore
-        crashes in which we have no interest.
-
-        This removes any --filter_in= parameter and optionally replaces it
-        with a new one.
-
-        @param new_parameter: This is parameter to add to the command line
-                instead of the --filter_in=... that was there.
-        """
-        core_pattern = utils.read_file(self._CORE_PATTERN)[:-1]
-        core_pattern = re.sub('--filter_in=\S*\s*', '',
-                              core_pattern).rstrip()
-        if new_parameter:
-            core_pattern += ' ' + new_parameter
-        utils.system('echo "%s" > %s' % (core_pattern, self._CORE_PATTERN))
-
-
     def enable_crash_filtering(self, name):
-        """Add a --filter_in argument to the kernel core dump cmdline.
+        """Writes the given parameter to the filter-in file.
 
-        @param name: Filter text to use. This is passed as a --filter_in
-                argument to the crash reporter.
+        This is used to ignore crashes in which we have no interest.
+
+        @param new_parameter: The filter to write to the file, if any.
         """
-        self._replace_crash_reporter_filter_in('--filter_in=' + name)
+        utils.open_write_close(self._FILTER_IN, name)
 
 
     def disable_crash_filtering(self):
-        """Remove the --filter_in argument from the kernel core dump cmdline.
+        """Remove the filter-in file.
 
-        Next time the crash reporter is invoked (due to a crash) it will not
-        receive a --filter_in paramter."""
-        self._replace_crash_reporter_filter_in('')
-
-
-    @contextlib.contextmanager
-    def hold_crash_lock(self):
-        """A context manager to hold the crash sender lock."""
-        with open(self._CRASH_SENDER_LOCK_PATH, 'w+') as f:
-            fcntl.lockf(f.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.lockf(f.fileno(), fcntl.LOCK_UN)
+        Next time the crash reporter is invoked, it will not filter crashes."""
+        os.remove(self._FILTER_IN)
 
 
     def initialize(self):
@@ -673,6 +634,13 @@ class CrashTest(test.test):
         if self._automatic_consent_saving:
             self._pop_consent()
         self._set_crash_test_in_progress(False)
+
+        # Re-initialize crash reporter to clear any state left over
+        # (e.g. core_pattern)
+        self._initialize_crash_reporter(True)
+
+        self.disable_crash_filtering()
+
         test.test.cleanup(self)
 
 

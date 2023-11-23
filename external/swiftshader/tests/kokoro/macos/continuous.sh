@@ -5,9 +5,9 @@ set -e
 # Display commands being run.
 set -x
 
-cd git/SwiftShader
+cmake --version
 
-git submodule update --init
+cd git/SwiftShader
 
 mkdir -p build && cd build
 
@@ -16,7 +16,7 @@ if [[ -z "${REACTOR_BACKEND}" ]]; then
 fi
 
 # Lower the amount of debug info, to reduce Kokoro build times.
-LESS_DEBUG_INFO=1
+SWIFTSHADER_LESS_DEBUG_INFO=1
 
 # Disable ASAN checks for debug builds, to reduce Kokoro build times.
 # ASAN builds are recommended to be optimized.
@@ -25,7 +25,13 @@ if [[ "${BUILD_TYPE}" == "Debug" ]]; then
   ASAN="OFF"
 fi
 
-cmake .. "-DSWIFTSHADER_ASAN=${ASAN}" "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" "-DREACTOR_BACKEND=${REACTOR_BACKEND}" "-DREACTOR_VERIFY_LLVM_IR=1" "-DLESS_DEBUG_INFO=${LESS_DEBUG_INFO}"
+cmake .. \
+    "-DSWIFTSHADER_ASAN=${ASAN}" \
+    "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
+    "-DREACTOR_BACKEND=${REACTOR_BACKEND}" \
+    "-DSWIFTSHADER_LLVM_VERSION=${LLVM_VERSION}" \
+    "-DREACTOR_VERIFY_LLVM_IR=1" \
+    "-DSWIFTSHADER_LESS_DEBUG_INFO=${SWIFTSHADER_LESS_DEBUG_INFO}"
 cmake --build . -- -j$(sysctl -n hw.logicalcpu)
 
 # Run unit tests
@@ -34,6 +40,7 @@ cd .. # Some tests must be run from project root
 
 build/ReactorUnitTests
 build/gles-unittests
+build/system-unittests
 build/vk-unittests
 
 # Incrementally build and run rr::Print unit tests

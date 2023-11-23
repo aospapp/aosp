@@ -53,7 +53,7 @@ subprojects {
     idea.module.inheritOutputDirs = true
 
     group = "io.grpc"
-    version = "1.16.0-SNAPSHOT" // CURRENT_GRPC_VERSION
+    version = "1.16.1" // CURRENT_GRPC_VERSION
 
     sourceCompatibility = 1.7
     targetCompatibility = 1.7
@@ -110,8 +110,8 @@ subprojects {
         protocPluginBaseName = 'protoc-gen-grpc-java'
         javaPluginPath = "$rootDir/compiler/build/exe/java_plugin/$protocPluginBaseName$exeSuffix"
 
-        nettyVersion = '4.1.27.Final'
-        guavaVersion = '20.0'
+        nettyVersion = '4.1.30.Final'
+        guavaVersion = '26.0-android'
         protobufVersion = '3.5.1'
         protocVersion = '3.5.1-1'
         protobufNanoVersion = '3.0.0-alpha-5'
@@ -201,7 +201,7 @@ subprojects {
             guava: "com.google.guava:guava:${guavaVersion}",
             hpack: 'com.twitter:hpack:0.10.1',
             javax_annotation: 'javax.annotation:javax.annotation-api:1.2',
-            jsr305: 'com.google.code.findbugs:jsr305:3.0.0',
+            jsr305: 'com.google.code.findbugs:jsr305:3.0.2',
             oauth_client: 'com.google.auth:google-auth-library-oauth2-http:0.9.0',
             google_api_protos: 'com.google.api.grpc:proto-google-common-protos:1.0.0',
             google_auth_credentials: 'com.google.auth:google-auth-library-credentials:0.9.0',
@@ -224,7 +224,7 @@ subprojects {
             netty: "io.netty:netty-codec-http2:[${nettyVersion}]",
             netty_epoll: "io.netty:netty-transport-native-epoll:${nettyVersion}" + epoll_suffix,
             netty_proxy_handler: "io.netty:netty-handler-proxy:${nettyVersion}",
-            netty_tcnative: 'io.netty:netty-tcnative-boringssl-static:2.0.12.Final',
+            netty_tcnative: 'io.netty:netty-tcnative-boringssl-static:2.0.17.Final',
 
             conscrypt: 'org.conscrypt:conscrypt-openjdk-uber:1.0.1',
             re2j: 'com.google.re2j:re2j:1.2',
@@ -233,7 +233,7 @@ subprojects {
             junit: 'junit:junit:4.12',
             mockito: 'org.mockito:mockito-core:1.9.5',
             truth: 'com.google.truth:truth:0.42',
-            guava_testlib: 'com.google.guava:guava-testlib:20.0',
+            guava_testlib: "com.google.guava:guava-testlib:${guavaVersion}",
 
             // Benchmark dependencies
             hdrhistogram: 'org.hdrhistogram:HdrHistogram:2.1.10',

@@ -1,6 +1,31 @@
+package {
+    default_applicable_licenses: ["external_libyuv_files_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_libyuv_files_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+        "LICENSE_THIRD_PARTY",
+        "PATENTS",
+    ],
+}
+
 cc_library {
     name: "libyuv",
     vendor_available: true,
+    product_available: true,
     host_supported: true,
     vndk: {
         enabled: true,

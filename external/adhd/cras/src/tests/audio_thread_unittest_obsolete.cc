@@ -52,8 +52,8 @@ static unsigned int dev_stream_mix_called;
 
 static struct timespec time_now;
 static int cras_fmt_conversion_needed_return_val;
-static struct cras_audio_area* dummy_audio_area1;
-static struct cras_audio_area* dummy_audio_area2;
+static struct cras_audio_area* mock_audio_area1;
+static struct cras_audio_area* mock_audio_area2;
 static struct cras_audio_format cras_iodev_set_format_val;
 
 static struct dev_stream_capture_call dev_stream_capture_call;
@@ -95,18 +95,18 @@ class ReadStreamSuite : public testing::Test {
     SetupRstream(&rstream2_, 2);
     shm2_ = cras_rstream_input_shm(rstream2_);
 
-    dummy_audio_area1 = (cras_audio_area*)calloc(
+    mock_audio_area1 = (cras_audio_area*)calloc(
         1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-    dummy_audio_area1->num_channels = 2;
-    channel_area_set_channel(&dummy_audio_area1->channels[0], CRAS_CH_FL);
-    channel_area_set_channel(&dummy_audio_area1->channels[1], CRAS_CH_FR);
-    rstream_->input_audio_area = dummy_audio_area1;
-    dummy_audio_area2 = (cras_audio_area*)calloc(
+    mock_audio_area1->num_channels = 2;
+    channel_area_set_channel(&mock_audio_area1->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&mock_audio_area1->channels[1], CRAS_CH_FR);
+    rstream_->input_audio_area = mock_audio_area1;
+    mock_audio_area2 = (cras_audio_area*)calloc(
         1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-    dummy_audio_area2->num_channels = 2;
-    channel_area_set_channel(&dummy_audio_area2->channels[0], CRAS_CH_FL);
-    channel_area_set_channel(&dummy_audio_area2->channels[1], CRAS_CH_FR);
-    rstream2_->input_audio_area = dummy_audio_area2;
+    mock_audio_area2->num_channels = 2;
+    channel_area_set_channel(&mock_audio_area2->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&mock_audio_area2->channels[1], CRAS_CH_FR);
+    rstream2_->input_audio_area = mock_audio_area2;
 
     dev_stream_mix_dont_fill_next = 0;
     dev_stream_mix_count = 0;
@@ -123,8 +123,8 @@ class ReadStreamSuite : public testing::Test {
     free(rstream_);
     free(shm2_->area);
     free(rstream2_);
-    free(dummy_audio_area1);
-    free(dummy_audio_area2);
+    free(mock_audio_area1);
+    free(mock_audio_area2);
   }
 
   void SetupRstream(struct cras_rstream** rstream, int fd) {
@@ -1444,18 +1444,18 @@ class ActiveDevicesSuite : public testing::Test {
     rstream2_->buffer_frames -= 50;
     rstream2_->cb_threshold -= 50;
 
-    dummy_audio_area1 = (cras_audio_area*)calloc(
+    mock_audio_area1 = (cras_audio_area*)calloc(
         1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-    dummy_audio_area1->num_channels = 2;
-    channel_area_set_channel(&dummy_audio_area1->channels[0], CRAS_CH_FL);
-    channel_area_set_channel(&dummy_audio_area1->channels[1], CRAS_CH_FR);
-    rstream_->input_audio_area = dummy_audio_area1;
-    dummy_audio_area2 = (cras_audio_area*)calloc(
+    mock_audio_area1->num_channels = 2;
+    channel_area_set_channel(&mock_audio_area1->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&mock_audio_area1->channels[1], CRAS_CH_FR);
+    rstream_->input_audio_area = mock_audio_area1;
+    mock_audio_area2 = (cras_audio_area*)calloc(
         1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-    dummy_audio_area2->num_channels = 2;
-    channel_area_set_channel(&dummy_audio_area2->channels[0], CRAS_CH_FL);
-    channel_area_set_channel(&dummy_audio_area2->channels[1], CRAS_CH_FR);
-    rstream2_->input_audio_area = dummy_audio_area2;
+    mock_audio_area2->num_channels = 2;
+    channel_area_set_channel(&mock_audio_area2->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&mock_audio_area2->channels[1], CRAS_CH_FR);
+    rstream2_->input_audio_area = mock_audio_area2;
 
     cras_iodev_set_format_called = 0;
     close_dev_called_ = 0;
@@ -1483,8 +1483,8 @@ class ActiveDevicesSuite : public testing::Test {
     shm = cras_rstream_output_shm(rstream_);
     free(shm->header);
     free(rstream_);
-    free(dummy_audio_area1);
-    free(dummy_audio_area2);
+    free(mock_audio_area1);
+    free(mock_audio_area2);
   }
 
   void SetupRstream(struct cras_rstream** rstream) {

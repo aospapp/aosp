@@ -14,9 +14,18 @@ with devil_env.SysPath(devil_env.PYMOCK_PATH):
 
 
 # pylint: disable=unused-argument
-def _ShellCommandHandler(cmd, shell=False, check_return=False,
-    cwd=None, env=None, run_as=None, as_root=False, single_line=False,
-    large_output=False, raw_output=False, timeout=None, retries=None):
+def _ShellCommandHandler(cmd,
+                         shell=False,
+                         check_return=False,
+                         cwd=None,
+                         env=None,
+                         run_as=None,
+                         as_root=False,
+                         single_line=False,
+                         large_output=False,
+                         raw_output=False,
+                         timeout=None,
+                         retries=None):
   if cmd.startswith('for CPU in '):
     if 'scaling_available_governors' in cmd:
       contents = 'interactive ondemand userspace powersave performance'
@@ -38,7 +47,7 @@ class PerfControlTest(unittest.TestCase):
   # pylint: disable=no-self-use
   def testNexus5HighPerfMode(self):
     # Mock out the device state for PerfControl.
-    cpu_list = ['cpu%d' % cpu for cpu in xrange(4)]
+    cpu_list = ['cpu%d' % cpu for cpu in range(4)]
     mock_device = mock.Mock(spec=device_utils.DeviceUtils)
     mock_device.product_model = 'Nexus 5'
     mock_device.adb = mock.Mock(spec=adb_wrapper.AdbWrapper)
@@ -61,7 +70,7 @@ class PerfControlTest(unittest.TestCase):
 
   def testNexus5XHighPerfMode(self):
     # Mock out the device state for PerfControl.
-    cpu_list = ['cpu%d' % cpu for cpu in xrange(6)]
+    cpu_list = ['cpu%d' % cpu for cpu in range(6)]
     mock_device = mock.Mock(spec=device_utils.DeviceUtils)
     mock_device.product_model = 'Nexus 5X'
     mock_device.adb = mock.Mock(spec=adb_wrapper.AdbWrapper)
@@ -84,7 +93,7 @@ class PerfControlTest(unittest.TestCase):
 
   def testNexus5XDefaultPerfMode(self):
     # Mock out the device state for PerfControl.
-    cpu_list = ['cpu%d' % cpu for cpu in xrange(6)]
+    cpu_list = ['cpu%d' % cpu for cpu in range(6)]
     mock_device = mock.Mock(spec=device_utils.DeviceUtils)
     mock_device.product_model = 'Nexus 5X'
     mock_device.adb = mock.Mock(spec=adb_wrapper.AdbWrapper)

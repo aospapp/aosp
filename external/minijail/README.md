@@ -1,6 +1,9 @@
 # Minijail
 
-The Minijail homepage and main repo is
+The Minijail homepage is
+https://google.github.io/minijail/.
+
+The main source repo is
 https://android.googlesource.com/platform/external/minijail/.
 
 There might be other copies floating around, but this is the official one!
@@ -60,7 +63,7 @@ We've got a couple of contact points.
 The following talk serves as a good introduction to Minijail and how it can be used.
 
 [Video](https://drive.google.com/file/d/0BwPS_JpKyELWZTFBcTVsa1hhYjA/preview),
-[slides](https://docs.google.com/presentation/d/1r6LpvDZtYrsl7ryOV4HtpUR-phfCLRL6PA-chcL1Kno/present).
+[slides](https://docs.google.com/presentation/d/e/2PACX-1vRBqpin5xR9sng6lIBPjG0XQtu-uWWgr0ds-M3zW13XpDO-bTcMERLwoHUEB9078p1yqr9L-su9n5dk/pub).
 
 ## Example usage
 
@@ -90,3 +93,24 @@ CapPrm: 0000000000003000
 CapEff: 0000000000003000
 CapBnd: 0000000000003000
 ```
+
+## Historical notes
+
+Q. "Why is it called minijail0?"
+
+A. It is minijail0 because it was a rewrite of an earlier program named
+minijail, which was considerably less mini, and in particular had a dependency
+on libchrome (the Chrome OS packaged version of Chromium's //base).  We needed a
+new name to not collide with the deprecated one.
+
+We didn't want to call it minijail2 or something that would make people
+start using it before we were ready, and it was also concretely _less_ since it
+dropped libbase, etc.  Technically, we needed to be able to fork/preload with
+minimal extra syscall noise which was too hard with libbase at the time (onexit
+handlers, etc that called syscalls we didn't want to allow).  Also, Elly made a
+strong case that C would be the right choice for this for linking and ease of
+controlled surprise system call use.
+
+https://crrev.com/c/4585/ added the original implementation.
+
+Source: Conversations with original authors, ellyjones@ and wad@.

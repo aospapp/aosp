@@ -19,17 +19,22 @@ class MockConnection : public Connection {
  public:
   using Connection::Connection;
 
-  MOCK_METHOD2(SendHeaders, bool(const HeaderList&, ErrorPtr*));
-  MOCK_METHOD2(MockSetRequestData, bool(Stream*, ErrorPtr*));
-  MOCK_METHOD1(MockSetResponseData, void(Stream*));
-  MOCK_METHOD1(FinishRequest, bool(ErrorPtr*));
-  MOCK_METHOD2(FinishRequestAsync,
-               RequestID(const SuccessCallback&, const ErrorCallback&));
-  MOCK_CONST_METHOD0(GetResponseStatusCode, int());
-  MOCK_CONST_METHOD0(GetResponseStatusText, std::string());
-  MOCK_CONST_METHOD0(GetProtocolVersion, std::string());
-  MOCK_CONST_METHOD1(GetResponseHeader, std::string(const std::string&));
-  MOCK_CONST_METHOD1(MockExtractDataStream, Stream*(brillo::ErrorPtr*));
+  MOCK_METHOD(bool, SendHeaders, (const HeaderList&, ErrorPtr*), (override));
+  MOCK_METHOD(bool, MockSetRequestData, (Stream*, ErrorPtr*));
+  MOCK_METHOD(void, MockSetResponseData, (Stream*));
+  MOCK_METHOD(bool, FinishRequest, (ErrorPtr*), (override));
+  MOCK_METHOD(RequestID,
+              FinishRequestAsync,
+              (const SuccessCallback&, const ErrorCallback&),
+              (override));
+  MOCK_METHOD(int, GetResponseStatusCode, (), (const, override));
+  MOCK_METHOD(std::string, GetResponseStatusText, (), (const, override));
+  MOCK_METHOD(std::string, GetProtocolVersion, (), (const, override));
+  MOCK_METHOD(std::string,
+              GetResponseHeader,
+              (const std::string&),
+              (const, override));
+  MOCK_METHOD(Stream*, MockExtractDataStream, (brillo::ErrorPtr*), (const));
 
  private:
   bool SetRequestData(StreamPtr stream, brillo::ErrorPtr* error) override {

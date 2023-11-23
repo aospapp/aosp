@@ -54,11 +54,6 @@ class LabelsMapping(collections.MutableMapping):
         for str_label in str_labels:
             self._add_label(str_label)
 
-    @classmethod
-    def from_host(cls, host):
-        """Create instance using a frontend.afe.models.Host object."""
-        return cls(l.name for l in host.labels.all())
-
     def _add_label(self, str_label):
         """Add a label string to the internal map or plain labels list."""
         try:

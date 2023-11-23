@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2019-2020 Collabora, Ltd.
  * Copyright 2018-2019 Alyssa Rosenzweig
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,270 +23,595 @@
  *
  */
 
+#include "pan_bo.h"
 #include "pan_context.h"
+#include "pan_cmdstream.h"
 #include "pan_util.h"
-#include "pan_format.h"
+#include "panfrost-quirks.h"
 
-#include "util/u_format.h"
 
-static struct mali_rt_format
-panfrost_mfbd_format(struct pipe_surface *surf)
+static bool
+panfrost_mfbd_has_zs_crc_ext(struct panfrost_batch *batch)
+{
+        if (batch->key.nr_cbufs == 1) {
+                struct pipe_surface *surf = batch->key.cbufs[0];
+                struct panfrost_resource *rsrc = pan_resource(surf->texture);
+
+                if (rsrc->checksummed)
+                        return true;
+        }
+
+        if (batch->key.zsbuf &&
+            ((batch->clear | batch->draws) & PIPE_CLEAR_DEPTHSTENCIL))
+                return true;
+
+        return false;
+}
+
+static unsigned
+panfrost_mfbd_size(struct panfrost_batch *batch)
+{
+        unsigned rt_count = MAX2(batch->key.nr_cbufs, 1);
+
+        return MALI_MULTI_TARGET_FRAMEBUFFER_LENGTH +
+               (panfrost_mfbd_has_zs_crc_ext(batch) * MALI_ZS_CRC_EXTENSION_LENGTH) +
+               (rt_count * MALI_RENDER_TARGET_LENGTH);
+}
+
+static enum mali_mfbd_color_format
+panfrost_mfbd_raw_format(unsigned bits)
+{
+        switch (bits) {
+        case    8: return MALI_MFBD_COLOR_FORMAT_RAW8;
+        case   16: return MALI_MFBD_COLOR_FORMAT_RAW16;
+        case   24: return MALI_MFBD_COLOR_FORMAT_RAW24;
+        case   32: return MALI_MFBD_COLOR_FORMAT_RAW32;
+        case   48: return MALI_MFBD_COLOR_FORMAT_RAW48;
+        case   64: return MALI_MFBD_COLOR_FORMAT_RAW64;
+        case   96: return MALI_MFBD_COLOR_FORMAT_RAW96;
+        case  128: return MALI_MFBD_COLOR_FORMAT_RAW128;
+        case  192: return MALI_MFBD_COLOR_FORMAT_RAW192;
+        case  256: return MALI_MFBD_COLOR_FORMAT_RAW256;
+        case  384: return MALI_MFBD_COLOR_FORMAT_RAW384;
+        case  512: return MALI_MFBD_COLOR_FORMAT_RAW512;
+        case  768: return MALI_MFBD_COLOR_FORMAT_RAW768;
+        case 1024: return MALI_MFBD_COLOR_FORMAT_RAW1024;
+        case 1536: return MALI_MFBD_COLOR_FORMAT_RAW1536;
+        case 2048: return MALI_MFBD_COLOR_FORMAT_RAW2048;
+        default: unreachable("invalid raw bpp");
+        }
+}
+
+static void
+panfrost_mfbd_rt_init_format(struct pipe_surface *surf,
+                             struct MALI_RENDER_TARGET *rt)
 {
         /* Explode details on the format */
 
         const struct util_format_description *desc =
-                util_format_description(surf->texture->format);
+                util_format_description(surf->format);
 
-        /* Fill in accordingly, defaulting to RGBA8888 (UNORM) */
+        /* The swizzle for rendering is inverted from texturing */
 
-        struct mali_rt_format fmt = {
-                .unk1 = 0x4000000,
-                .unk2 = 0x1,
-                .nr_channels = MALI_POSITIVE(desc->nr_channels),
-                .flags = 0x444,
-                .swizzle = panfrost_translate_swizzle_4(desc->swizzle),
-                .unk4 = 0x8
-        };
+        unsigned char swizzle[4];
+        panfrost_invert_swizzle(desc->swizzle, swizzle);
 
-        /* Set flags for alternative formats */
+        rt->swizzle = panfrost_translate_swizzle_4(swizzle);
 
-        if (surf->texture->format == PIPE_FORMAT_B5G6R5_UNORM) {
-                fmt.unk1 = 0x14000000;
-                fmt.nr_channels = MALI_POSITIVE(2);
-                fmt.flags |= 0x1;
-        }
+        /* Fill in accordingly, defaulting to 8-bit UNORM */
 
-        return fmt;
-}
+        if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB)
+                rt->srgb = true;
 
+        struct pan_blendable_format fmt = panfrost_blend_format(surf->format);
 
-static void
-panfrost_mfbd_clear(
-                struct panfrost_job *job,
-                struct bifrost_framebuffer *fb,
-                struct bifrost_fb_extra *fbx,
-                struct bifrost_render_target *rt)
-{
-        if (job->clear & PIPE_CLEAR_COLOR) {
-                rt->clear_color_1 = job->clear_color;
-                rt->clear_color_2 = job->clear_color;
-                rt->clear_color_3 = job->clear_color;
-                rt->clear_color_4 = job->clear_color;
-        }
+        if (fmt.internal) {
+                rt->internal_format = fmt.internal;
+                rt->writeback_format = fmt.writeback;
+        } else {
+                /* Construct RAW internal/writeback, where internal is
+                 * specified logarithmically (round to next power-of-two).
+                 * Offset specified from RAW8, where 8 = 2^3 */
 
-        if (job->clear & PIPE_CLEAR_DEPTH) {
-                fb->clear_depth = job->clear_depth;
-        }
+                unsigned bits = desc->block.bits;
+                unsigned offset = util_logbase2_ceil(bits) - 3;
+                assert(offset <= 4);
 
-        if (job->clear & PIPE_CLEAR_STENCIL) {
-                fb->clear_stencil = job->clear_stencil;
+                rt->internal_format =
+                        MALI_COLOR_BUFFER_INTERNAL_FORMAT_RAW8 + offset;
+
+                rt->writeback_format = panfrost_mfbd_raw_format(bits);
         }
 }
 
 static void
-panfrost_mfbd_set_cbuf(
-                struct bifrost_render_target *rt,
-                struct pipe_surface *surf,
-                bool flip_y)
+panfrost_mfbd_rt_set_buf(struct pipe_surface *surf,
+                         struct MALI_RENDER_TARGET *rt)
 {
+        struct panfrost_device *dev = pan_device(surf->context->screen);
+        unsigned version = dev->gpu_id >> 12;
         struct panfrost_resource *rsrc = pan_resource(surf->texture);
-        int stride = rsrc->bo->slices[0].stride;
+        unsigned level = surf->u.tex.level;
+        unsigned first_layer = surf->u.tex.first_layer;
+        assert(surf->u.tex.last_layer == first_layer);
+        int stride = rsrc->slices[level].stride;
 
-        rt->format = panfrost_mfbd_format(surf);
+        /* Only set layer_stride for layered MSAA rendering  */
 
-        /* Now, we set the layout specific pieces */
+        unsigned nr_samples = surf->texture->nr_samples;
+        unsigned layer_stride = (nr_samples > 1) ? rsrc->slices[level].size0 : 0;
+        mali_ptr base = panfrost_get_texture_address(rsrc, level, first_layer, 0);
 
-        if (rsrc->bo->layout == PAN_LINEAR) {
-                mali_ptr framebuffer = rsrc->bo->gpu;
+        if (layer_stride)
+                rt->writeback_msaa = MALI_MSAA_LAYERED;
+        else if (surf->nr_samples)
+                rt->writeback_msaa = MALI_MSAA_AVERAGE;
+        else
+                rt->writeback_msaa = MALI_MSAA_SINGLE;
 
-                if (flip_y) {
-                        framebuffer += stride * (surf->texture->height0 - 1);
-                        stride = -stride;
+        panfrost_mfbd_rt_init_format(surf, rt);
+
+        if (rsrc->modifier == DRM_FORMAT_MOD_LINEAR) {
+                if (version >= 7)
+                        rt->bifrost_v7.writeback_block_format = MALI_BLOCK_FORMAT_V7_LINEAR;
+                else
+                        rt->midgard.writeback_block_format = MALI_BLOCK_FORMAT_LINEAR;
+
+                rt->rgb.base = base;
+                rt->rgb.row_stride = stride;
+                rt->rgb.surface_stride = layer_stride;
+        } else if (rsrc->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
+                if (version >= 7)
+                        rt->bifrost_v7.writeback_block_format = MALI_BLOCK_FORMAT_V7_TILED_U_INTERLEAVED;
+                else
+                        rt->midgard.writeback_block_format = MALI_BLOCK_FORMAT_TILED_U_INTERLEAVED;
+
+                rt->rgb.base = base;
+                rt->rgb.row_stride = stride * 16;
+                rt->rgb.surface_stride = layer_stride;
+        } else if (drm_is_afbc(rsrc->modifier)) {
+                if (version >= 7)
+                        rt->bifrost_v7.writeback_block_format = MALI_BLOCK_FORMAT_V7_AFBC;
+                else
+                        rt->midgard.writeback_block_format = MALI_BLOCK_FORMAT_AFBC;
+
+                unsigned header_size = rsrc->slices[level].header_size;
+
+                rt->afbc.header = base;
+                rt->afbc.chunk_size = 9;
+                rt->afbc.body = base + header_size;
+
+                if (!(dev->quirks & IS_BIFROST))
+                        rt->midgard_afbc.sparse = true;
+
+                if (rsrc->modifier & AFBC_FORMAT_MOD_YTR)
+                        rt->afbc.yuv_transform_enable = true;
+
+                /* TODO: The blob sets this to something nonzero, but it's not
+                 * clear what/how to calculate/if it matters */
+                rt->afbc.body_size = 0;
+        } else {
+                unreachable("Invalid mod");
+        }
+}
+
+static void
+panfrost_mfbd_emit_rt(struct panfrost_batch *batch,
+                      void *rtp, struct pipe_surface *surf,
+                      unsigned rt_offset, unsigned rt_idx)
+{
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+        unsigned version = dev->gpu_id >> 12;
+
+        pan_pack(rtp, RENDER_TARGET, rt) {
+                rt.clean_pixel_write_enable = true;
+                if (surf) {
+                        rt.write_enable = true;
+                        rt.dithering_enable = true;
+                        rt.internal_buffer_offset = rt_offset;
+                        panfrost_mfbd_rt_set_buf(surf, &rt);
+                } else {
+                        rt.internal_format = MALI_COLOR_BUFFER_INTERNAL_FORMAT_R8G8B8A8;
+                        rt.internal_buffer_offset = rt_offset;
+                        if (version >= 7) {
+                                rt.bifrost_v7.writeback_block_format = MALI_BLOCK_FORMAT_V7_TILED_U_INTERLEAVED;
+                                rt.dithering_enable = true;
+                        }
                 }
 
-                rt->framebuffer = framebuffer;
-                rt->framebuffer_stride = stride / 16;
-        } else if (rsrc->bo->layout == PAN_AFBC) {
-                rt->afbc.metadata = rsrc->bo->afbc_slab.gpu;
-                rt->afbc.stride = 0;
-                rt->afbc.unk = 0x30009;
+                if (batch->clear & (PIPE_CLEAR_COLOR0 << rt_idx)) {
+                        rt.clear.color_0 = batch->clear_color[rt_idx][0];
+                        rt.clear.color_1 = batch->clear_color[rt_idx][1];
+                        rt.clear.color_2 = batch->clear_color[rt_idx][2];
+                        rt.clear.color_3 = batch->clear_color[rt_idx][3];
+                }
+        }
+}
 
-                rt->format.flags |= MALI_MFBD_FORMAT_AFBC;
+static enum mali_z_internal_format
+get_z_internal_format(struct panfrost_batch *batch)
+{
+        struct pipe_surface *zs_surf = batch->key.zsbuf;
 
-                mali_ptr afbc_main = rsrc->bo->afbc_slab.gpu + rsrc->bo->afbc_metadata_size;
-                rt->framebuffer = afbc_main;
+        /* Default to 24 bit depth if there's no surface. */
+        if (!zs_surf || !((batch->clear | batch->draws) & PIPE_CLEAR_DEPTHSTENCIL))
+                return MALI_Z_INTERNAL_FORMAT_D24;
 
-                /* TODO: Investigate shift */
-                rt->framebuffer_stride = stride << 1;
+         return panfrost_get_z_internal_format(zs_surf->format);
+}
+
+static void
+panfrost_mfbd_zs_crc_ext_set_bufs(struct panfrost_batch *batch,
+                                  struct MALI_ZS_CRC_EXTENSION *ext)
+{
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+        unsigned version = dev->gpu_id >> 12;
+
+        /* Checksumming only works with a single render target */
+        if (batch->key.nr_cbufs == 1) {
+                struct pipe_surface *c_surf = batch->key.cbufs[0];
+                struct panfrost_resource *rsrc = pan_resource(c_surf->texture);
+
+                if (rsrc->checksummed) {
+                        unsigned level = c_surf->u.tex.level;
+                        struct panfrost_slice *slice = &rsrc->slices[level];
+
+                        ext->crc_row_stride = slice->checksum_stride;
+                        if (slice->checksum_bo)
+                                ext->crc_base = slice->checksum_bo->ptr.gpu;
+                        else
+                                ext->crc_base = rsrc->bo->ptr.gpu + slice->checksum_offset;
+
+                        if ((batch->clear & PIPE_CLEAR_COLOR0) && version >= 7) {
+                                ext->crc_clear_color = batch->clear_color[0][0] |
+                                                      0xc000000000000000 |
+                                                      ((uint64_t)batch->clear_color[0][0] & 0xffff) << 32;
+                        }
+                }
+        }
+
+        struct pipe_surface *zs_surf = batch->key.zsbuf;
+
+        if (!((batch->clear | batch->draws) & PIPE_CLEAR_DEPTHSTENCIL))
+                zs_surf = NULL;
+
+        if (!zs_surf)
+                return;
+
+        struct panfrost_resource *rsrc = pan_resource(zs_surf->texture);
+        unsigned nr_samples = MAX2(zs_surf->texture->nr_samples, 1);
+        unsigned level = zs_surf->u.tex.level;
+        unsigned first_layer = zs_surf->u.tex.first_layer;
+        assert(zs_surf->u.tex.last_layer == first_layer);
+
+        mali_ptr base = panfrost_get_texture_address(rsrc, level, first_layer, 0);
+
+        ext->zs_msaa = nr_samples > 1 ? MALI_MSAA_LAYERED : MALI_MSAA_SINGLE;
+
+        if (drm_is_afbc(rsrc->modifier)) {
+                unsigned header_size = rsrc->slices[level].header_size;
+                ext->zs_afbc_header = base;
+                ext->zs_afbc_body = base + header_size;
+                ext->zs_afbc_body_size = 0x1000;
+                ext->zs_afbc_chunk_size = 9;
+                ext->zs_afbc_sparse = true;
+
+                if (version >= 7)
+                        ext->zs_block_format_v7 = MALI_BLOCK_FORMAT_V7_AFBC;
+                else
+                        ext->zs_block_format = MALI_BLOCK_FORMAT_AFBC;
         } else {
-                fprintf(stderr, "Invalid render layout (cbuf)");
-                assert(0);
+                assert(rsrc->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED ||
+                       rsrc->modifier == DRM_FORMAT_MOD_LINEAR);
+                /* TODO: Z32F(S8) support, which is always linear */
+
+                int stride = rsrc->slices[level].stride;
+
+                unsigned layer_stride = (nr_samples > 1) ? rsrc->slices[level].size0 : 0;
+
+                ext->zs_writeback_base = base;
+                ext->zs_writeback_row_stride = stride;
+                ext->zs_writeback_surface_stride = layer_stride;
+
+                if (rsrc->modifier == DRM_FORMAT_MOD_LINEAR) {
+                        if (version >= 7)
+                                ext->zs_block_format_v7 = MALI_BLOCK_FORMAT_V7_LINEAR;
+                        else
+                                ext->zs_block_format = MALI_BLOCK_FORMAT_LINEAR;
+                } else {
+                        ext->zs_writeback_row_stride *= 16;
+                        if (version >= 7)
+                                ext->zs_block_format_v7 = MALI_BLOCK_FORMAT_V7_TILED_U_INTERLEAVED;
+                        else
+                                ext->zs_block_format = MALI_BLOCK_FORMAT_TILED_U_INTERLEAVED;
+                }
+        }
+
+        switch (zs_surf->format) {
+        case PIPE_FORMAT_Z16_UNORM:
+                ext->zs_write_format = MALI_ZS_FORMAT_D16;
+                break;
+        case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+                ext->zs_write_format = MALI_ZS_FORMAT_D24S8;
+                break;
+        case PIPE_FORMAT_Z24X8_UNORM:
+                ext->zs_write_format = MALI_ZS_FORMAT_D24X8;
+                break;
+        case PIPE_FORMAT_Z32_FLOAT:
+                ext->zs_write_format = MALI_ZS_FORMAT_D32;
+                break;
+        case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+                /* Midgard/Bifrost support interleaved depth/stencil
+                 * buffers, but we always treat them as multu-planar.
+                 */
+                ext->zs_write_format = MALI_ZS_FORMAT_D32;
+                ext->s_write_format = MALI_S_FORMAT_S8;
+
+                struct panfrost_resource *stencil = rsrc->separate_stencil;
+                struct panfrost_slice stencil_slice = stencil->slices[level];
+                unsigned stencil_layer_stride = (nr_samples > 1) ? stencil_slice.size0 : 0;
+
+                ext->s_writeback_base = panfrost_get_texture_address(stencil, level, first_layer, 0);
+                ext->s_writeback_row_stride = stencil_slice.stride;
+                if (rsrc->modifier != DRM_FORMAT_MOD_LINEAR)
+                        ext->s_writeback_row_stride *= 16;
+                ext->s_writeback_surface_stride = stencil_layer_stride;
+                break;
+        default:
+                unreachable("Unsupported depth/stencil format.");
         }
 }
 
 static void
-panfrost_mfbd_set_zsbuf(
-                struct bifrost_framebuffer *fb,
-                struct bifrost_fb_extra *fbx,
-                struct pipe_surface *surf)
+panfrost_mfbd_emit_zs_crc_ext(struct panfrost_batch *batch, void *extp)
 {
-        struct panfrost_resource *rsrc = pan_resource(surf->texture);
+        pan_pack(extp, ZS_CRC_EXTENSION, ext) {
+                ext.zs_clean_pixel_write_enable = true;
+                panfrost_mfbd_zs_crc_ext_set_bufs(batch, &ext);
+        }
+}
 
-        if (rsrc->bo->layout == PAN_AFBC) {
-                fb->unk3 |= MALI_MFBD_EXTRA;
+/* Measure format as it appears in the tile buffer */
 
-                fbx->flags =
-                        MALI_EXTRA_PRESENT |
-                        MALI_EXTRA_AFBC |
-                        MALI_EXTRA_AFBC_ZS |
-                        MALI_EXTRA_ZS |
-                        0x1; /* unknown */
-
-                fbx->ds_afbc.depth_stencil_afbc_metadata = rsrc->bo->afbc_slab.gpu;
-                fbx->ds_afbc.depth_stencil_afbc_stride = 0;
-
-                fbx->ds_afbc.depth_stencil = rsrc->bo->afbc_slab.gpu + rsrc->bo->afbc_metadata_size;
-
-                fbx->ds_afbc.zero1 = 0x10009;
-                fbx->ds_afbc.padding = 0x1000;
-        } else if (rsrc->bo->layout == PAN_LINEAR) {
-                fb->unk3 |= MALI_MFBD_EXTRA;
-                fbx->flags |= MALI_EXTRA_PRESENT | MALI_EXTRA_ZS | 0x1;
-
-                fbx->ds_linear.depth = rsrc->bo->gpu;
-                fbx->ds_linear.depth_stride = rsrc->bo->slices[0].stride;
+static unsigned
+pan_bytes_per_pixel_tib(enum pipe_format format)
+{
+        if (panfrost_blend_format(format).internal) {
+                /* Blendable formats are always 32-bits in the tile buffer,
+                 * extra bits are used as padding or to dither */
+                return 4;
         } else {
-                assert(0);
+                /* Non-blendable formats are raw, rounded up to the nearest
+                 * power-of-two size */
+                unsigned bytes = util_format_get_blocksize(format);
+                return util_next_power_of_two(bytes);
         }
 }
 
-/* Helper for sequential uploads used for MFBD */
+/* Calculates the internal color buffer size and tile size based on the number
+ * of RT, the format and the number of pixels. If things do not fit in 4KB, we
+ * shrink the tile size to make it fit.
+ */
 
-#define UPLOAD(dest, offset, src, max) { \
-        size_t sz = sizeof(*src); \
-        memcpy(dest.cpu + offset, src, sz); \
-        assert((offset + sz) <= max); \
-        offset += sz; \
-}
-
-static mali_ptr
-panfrost_mfbd_upload(
-                struct panfrost_context *ctx,
-                struct bifrost_framebuffer *fb,
-                struct bifrost_fb_extra *fbx,
-                struct bifrost_render_target *rts,
-                unsigned cbufs)
+static unsigned
+pan_internal_cbuf_size(struct panfrost_batch *batch, unsigned *tile_size)
 {
-        off_t offset = 0;
+        unsigned total_size = 0;
 
-        /* There may be extra data stuck in the middle */
-        bool has_extra = fb->unk3 & MALI_MFBD_EXTRA;
+        *tile_size = 16 * 16;
+        for (int cb = 0; cb < batch->key.nr_cbufs; ++cb) {
+                struct pipe_surface *surf = batch->key.cbufs[cb];
+                assert(surf);
 
-        /* Compute total size for transfer */
-
-        size_t total_sz =
-                sizeof(struct bifrost_framebuffer) +
-                (has_extra ? sizeof(struct bifrost_fb_extra) : 0) +
-                sizeof(struct bifrost_render_target) * cbufs;
-
-        struct panfrost_transfer m_f_trans =
-                panfrost_allocate_transient(ctx, total_sz);
-
-        /* Do the transfer */
-
-        UPLOAD(m_f_trans, offset, fb, total_sz);
-
-        if (has_extra)
-                UPLOAD(m_f_trans, offset, fbx, total_sz);
-
-        for (unsigned c = 0; c < cbufs; ++c) {
-                UPLOAD(m_f_trans, offset, &rts[c], total_sz);
+                unsigned nr_samples = MAX3(surf->nr_samples, surf->texture->nr_samples, 1);
+                total_size += pan_bytes_per_pixel_tib(surf->format) *
+                              nr_samples * (*tile_size);
         }
 
-        /* Return pointer suitable for the fragment section */
-        return m_f_trans.gpu | MALI_MFBD | (has_extra ? 2 : 0);
+        /* We have a 4KB budget, let's reduce the tile size until it fits. */
+        while (total_size > 4096) {
+                total_size >>= 1;
+                *tile_size >>= 1;
+        }
+
+        /* Align on 1k. */
+        total_size = ALIGN_POT(total_size, 1024);
+
+        /* Minimum tile size is 4x4. */
+        assert(*tile_size > 4 * 4);
+        return total_size;
 }
 
-#undef UPLOAD
+static void
+panfrost_mfbd_emit_local_storage(struct panfrost_batch *batch, void *fb)
+{
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, LOCAL_STORAGE, ls) {
+                if (batch->stack_size) {
+                        unsigned shift =
+                                panfrost_get_stack_shift(batch->stack_size);
+                        struct panfrost_bo *bo =
+                                panfrost_batch_get_scratchpad(batch,
+                                                              batch->stack_size,
+                                                              dev->thread_tls_alloc,
+                                                              dev->core_count);
+                        ls.tls_size = shift;
+                        ls.tls_base_pointer = bo->ptr.gpu;
+                }
+
+                ls.wls_instances = MALI_LOCAL_STORAGE_NO_WORKGROUP_MEM;
+        }
+}
+
+static void
+panfrost_mfbd_emit_midgard_tiler(struct panfrost_batch *batch, void *fb,
+                                 unsigned vertex_count)
+{
+        void *t = pan_section_ptr(fb, MULTI_TARGET_FRAMEBUFFER, TILER);
+
+        panfrost_emit_midg_tiler(batch, t, vertex_count);
+
+        /* All weights set to 0, nothing to do here */
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, TILER_WEIGHTS, w);
+}
+
+static void
+panfrost_mfbd_emit_bifrost_parameters(struct panfrost_batch *batch, void *fb)
+{
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, BIFROST_PARAMETERS, params) {
+                params.sample_locations = panfrost_emit_sample_locations(batch);
+        }
+}
+
+static void
+panfrost_mfbd_emit_bifrost_tiler(struct panfrost_batch *batch, void *fb,
+                                 unsigned vertex_count)
+{
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, BIFROST_TILER_POINTER, tiler) {
+                tiler.address = panfrost_batch_get_bifrost_tiler(batch, vertex_count);
+        }
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, BIFROST_PADDING, padding);
+}
+
+void
+panfrost_attach_mfbd(struct panfrost_batch *batch, unsigned vertex_count)
+{
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+        void *fb = batch->framebuffer.cpu;
+
+        panfrost_mfbd_emit_local_storage(batch, fb);
+
+        if (dev->quirks & IS_BIFROST)
+                return;
+
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, PARAMETERS, params) {
+                params.width = batch->key.width;
+                params.height = batch->key.height;
+                params.bound_max_x = batch->key.width - 1;
+                params.bound_max_y = batch->key.height - 1;
+                params.color_buffer_allocation =
+                        pan_internal_cbuf_size(batch, &params.effective_tile_size);
+                params.tie_break_rule = MALI_TIE_BREAK_RULE_MINUS_180_IN_0_OUT;
+                params.render_target_count = MAX2(batch->key.nr_cbufs, 1);
+        }
+
+        panfrost_mfbd_emit_midgard_tiler(batch, fb, vertex_count);
+}
 
 /* Creates an MFBD for the FRAGMENT section of the bound framebuffer */
 
 mali_ptr
-panfrost_mfbd_fragment(struct panfrost_context *ctx, bool flip_y)
+panfrost_mfbd_fragment(struct panfrost_batch *batch, bool has_draws)
 {
-        struct panfrost_job *job = panfrost_get_job_for_fbo(ctx);
+        struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+        unsigned vertex_count = has_draws;
+        struct panfrost_ptr t =
+                panfrost_pool_alloc_aligned(&batch->pool,
+                                            panfrost_mfbd_size(batch), 64);
+        void *fb = t.cpu, *zs_crc_ext, *rts;
 
-        struct bifrost_framebuffer fb = panfrost_emit_mfbd(ctx);
-        struct bifrost_fb_extra fbx = {};
-        struct bifrost_render_target rts[4] = {};
-
-        /* XXX: MRT case */
-        fb.rt_count_2 = 1;
-        fb.unk3 = 0x100;
-
-        /* TODO: MRT clear */
-        panfrost_mfbd_clear(job, &fb, &fbx, &rts[0]);
-
-        for (int cb = 0; cb < ctx->pipe_framebuffer.nr_cbufs; ++cb) {
-                struct pipe_surface *surf = ctx->pipe_framebuffer.cbufs[cb];
-                panfrost_mfbd_set_cbuf(&rts[cb], surf, flip_y);
-        }
-
-        if (ctx->pipe_framebuffer.zsbuf) {
-                panfrost_mfbd_set_zsbuf(&fb, &fbx, ctx->pipe_framebuffer.zsbuf);
-        }
-
-        /* For the special case of a depth-only FBO, we need to attach a dummy render target */
-
-        if (ctx->pipe_framebuffer.nr_cbufs == 0) {
-                struct mali_rt_format null_rt = {
-                        .unk1 = 0x4000000,
-                        .unk4 = 0x8
-                };
-
-                rts[0].format = null_rt;
-                rts[0].framebuffer = 0;
-                rts[0].framebuffer_stride = 0;
+        if (panfrost_mfbd_has_zs_crc_ext(batch)) {
+                zs_crc_ext = fb + MALI_MULTI_TARGET_FRAMEBUFFER_LENGTH;
+                rts = zs_crc_ext + MALI_ZS_CRC_EXTENSION_LENGTH;
+        } else {
+                zs_crc_ext = NULL;
+                rts = fb + MALI_MULTI_TARGET_FRAMEBUFFER_LENGTH;
         }
 
         /* When scanning out, the depth buffer is immediately invalidated, so
          * we don't need to waste bandwidth writing it out. This can improve
-         * performance substantially (Z32_UNORM 1080p @ 60fps is 475 MB/s of
+         * performance substantially (Z24X8_UNORM 1080p @ 60fps is 475 MB/s of
          * memory bandwidth!).
          *
          * The exception is ReadPixels, but this is not supported on GLES so we
          * can safely ignore it. */
 
-        if (panfrost_is_scanout(ctx)) {
-                job->requirements &= ~PAN_REQ_DEPTH_WRITE;
+        if (panfrost_batch_is_scanout(batch))
+                batch->requirements &= ~PAN_REQ_DEPTH_WRITE;
+
+        if (zs_crc_ext) {
+                if (batch->key.zsbuf &&
+                    MAX2(batch->key.zsbuf->nr_samples, batch->key.zsbuf->nr_samples) > 1)
+                        batch->requirements |= PAN_REQ_MSAA;
+
+                panfrost_mfbd_emit_zs_crc_ext(batch, zs_crc_ext);
         }
 
-        /* Actualize the requirements */
+        /* We always upload at least one dummy GL_NONE render target */
 
-        if (job->requirements & PAN_REQ_MSAA) {
-                rts[0].format.flags |= MALI_MFBD_FORMAT_MSAA;
+        unsigned rt_descriptors = MAX2(batch->key.nr_cbufs, 1);
 
-                /* XXX */
-                fb.unk1 |= (1 << 4) | (1 << 1);
-                fb.rt_count_2 = 4;
-        }
+        /* Upload either the render target or a dummy GL_NONE target */
 
-        if (job->requirements & PAN_REQ_DEPTH_WRITE)
-                fb.unk3 |= MALI_MFBD_DEPTH_WRITE;
+        unsigned rt_offset = 0, tib_size;
+        unsigned internal_cbuf_size = pan_internal_cbuf_size(batch, &tib_size);
 
-        if (ctx->pipe_framebuffer.nr_cbufs == 1) {
-                struct panfrost_resource *rsrc = (struct panfrost_resource *) ctx->pipe_framebuffer.cbufs[0]->texture;
+        for (int cb = 0; cb < rt_descriptors; ++cb) {
+                struct pipe_surface *surf = batch->key.cbufs[cb];
+                void *rt = rts + (cb * MALI_RENDER_TARGET_LENGTH);
 
-                if (rsrc->bo->has_checksum) {
-                        fb.unk3 |= MALI_MFBD_EXTRA;
-                        fbx.flags |= MALI_EXTRA_PRESENT;
-                        fbx.checksum_stride = rsrc->bo->checksum_stride;
-                        fbx.checksum = rsrc->bo->gpu + rsrc->bo->slices[0].stride * rsrc->base.height0;
+                if (!((batch->clear | batch->draws) & (PIPE_CLEAR_COLOR0 << cb)))
+                        surf = NULL;
+
+                panfrost_mfbd_emit_rt(batch, rt, surf, rt_offset, cb);
+
+                if (surf) {
+                        if (MAX2(surf->nr_samples, surf->texture->nr_samples) > 1)
+                                batch->requirements |= PAN_REQ_MSAA;
+
+                        rt_offset += pan_bytes_per_pixel_tib(surf->format) * tib_size;
                 }
         }
 
-        /* We always upload at least one (dummy) cbuf */
-        unsigned cbufs = MAX2(ctx->pipe_framebuffer.nr_cbufs, 1);
+        if (dev->quirks & IS_BIFROST)
+                panfrost_mfbd_emit_bifrost_parameters(batch, fb);
+        else
+                panfrost_mfbd_emit_local_storage(batch, fb);
 
-        return panfrost_mfbd_upload(ctx, &fb, &fbx, rts, cbufs);
+        pan_section_pack(fb, MULTI_TARGET_FRAMEBUFFER, PARAMETERS, params) {
+                params.width = batch->key.width;
+                params.height = batch->key.height;
+                params.bound_max_x = batch->key.width - 1;
+                params.bound_max_y = batch->key.height - 1;
+                params.effective_tile_size = tib_size;
+                params.tie_break_rule = MALI_TIE_BREAK_RULE_MINUS_180_IN_0_OUT;
+                params.render_target_count = rt_descriptors;
+                params.z_internal_format = get_z_internal_format(batch);
+
+                if (batch->clear & PIPE_CLEAR_DEPTH)
+                        params.z_clear = batch->clear_depth;
+                if (batch->clear & PIPE_CLEAR_STENCIL)
+                        params.s_clear = batch->clear_stencil & 0xff;
+
+                params.color_buffer_allocation = internal_cbuf_size;
+
+                if (batch->requirements & PAN_REQ_MSAA) {
+                        /* MSAA 4x */
+                        params.sample_count = 4;
+                        params.sample_pattern = MALI_SAMPLE_PATTERN_ROTATED_4X_GRID;
+                }
+
+                if (batch->key.zsbuf &&
+                    ((batch->clear | batch->draws) & PIPE_CLEAR_DEPTHSTENCIL)) {
+                        params.z_write_enable = true;
+                        if (batch->key.zsbuf->format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)
+                                params.s_write_enable = true;
+                }
+
+                params.has_zs_crc_extension = !!zs_crc_ext;
+        }
+
+        if (dev->quirks & IS_BIFROST)
+                panfrost_mfbd_emit_bifrost_tiler(batch, fb, vertex_count);
+        else
+                panfrost_mfbd_emit_midgard_tiler(batch, fb, vertex_count);
+
+        /* Return pointer suitable for the fragment section */
+        unsigned tag =
+                 MALI_FBD_TAG_IS_MFBD |
+                 (zs_crc_ext ? MALI_FBD_TAG_HAS_ZS_RT : 0) |
+                 (MALI_POSITIVE(rt_descriptors) << 2);
+
+        return t.gpu | tag;
 }

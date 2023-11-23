@@ -98,8 +98,8 @@ class ConvertToKwargsOnlyTest(unittest.TestCase):
         self.assertEquals(got, {'a': 1, 'b': 2, 'args': (3,)})
 
 
-class AllowedHostsForMasterJobTest(unittest.TestCase):
-    """Unit tests for _allowed_hosts_for_master_job()."""
+class AllowedHostsForMainJobTest(unittest.TestCase):
+    """Unit tests for _allowed_hosts_for_main_job()."""
 
     # pylint: disable=missing-docstring
 
@@ -109,7 +109,7 @@ class AllowedHostsForMasterJobTest(unittest.TestCase):
             'shard1': [],
             'shard2': [],
         }
-        got = rpc_utils._allowed_hosts_for_master_job([])
+        got = rpc_utils._allowed_hosts_for_main_job([])
         self.assertFalse(got)
 
     @mock.patch.object(rpc_utils, 'bucket_hosts_by_shard', autospec=True)
@@ -117,7 +117,7 @@ class AllowedHostsForMasterJobTest(unittest.TestCase):
         bucket_mock.return_value = {
             'shard1': [1],
         }
-        got = rpc_utils._allowed_hosts_for_master_job([1, 2])
+        got = rpc_utils._allowed_hosts_for_main_job([1, 2])
         self.assertFalse(got)
 
     @mock.patch.object(rpc_utils, 'bucket_hosts_by_shard', autospec=True)
@@ -125,13 +125,13 @@ class AllowedHostsForMasterJobTest(unittest.TestCase):
         bucket_mock.return_value = {
             'shard1': [1, 2],
         }
-        got = rpc_utils._allowed_hosts_for_master_job([1, 2])
+        got = rpc_utils._allowed_hosts_for_main_job([1, 2])
         self.assertTrue(got)
 
     @mock.patch.object(rpc_utils, 'bucket_hosts_by_shard', autospec=True)
     def test_no_shards(self, bucket_mock):
         bucket_mock.return_value = {}
-        got = rpc_utils._allowed_hosts_for_master_job([1, 2])
+        got = rpc_utils._allowed_hosts_for_main_job([1, 2])
         self.assertTrue(got)
 
 

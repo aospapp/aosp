@@ -22,6 +22,7 @@
 #include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_writer.h"
 #include "perfetto/protozero/field.h"
+#include "protos/perfetto/trace/android/gpu_mem_event.pbzero.h"
 #include "protos/perfetto/trace/gpu/gpu_render_stage_event.pbzero.h"
 #include "src/trace_processor/importers/common/args_tracker.h"
 #include "src/trace_processor/importers/proto/proto_incremental_state.h"
@@ -60,7 +61,10 @@ class GpuEventParser {
   explicit GpuEventParser(TraceProcessorContext*);
 
   void ParseGpuCounterEvent(int64_t ts, ConstBytes);
-  void ParseGpuRenderStageEvent(int64_t ts, ConstBytes);
+  void ParseGpuRenderStageEvent(int64_t ts,
+                                PacketSequenceStateGeneration*,
+                                ConstBytes);
+  void ParseGraphicsFrameEvent(int64_t timestamp, ConstBytes);
   void ParseGpuLog(int64_t ts, ConstBytes);
 
   void ParseVulkanMemoryEvent(PacketSequenceStateGeneration*, ConstBytes);
@@ -69,14 +73,19 @@ class GpuEventParser {
 
   void ParseVulkanApiEvent(int64_t, ConstBytes);
 
+  void ParseGpuMemTotalEvent(int64_t, ConstBytes);
+
  private:
   const StringId GetFullStageName(
+      PacketSequenceStateGeneration* sequence_state,
       const protos::pbzero::GpuRenderStageEvent_Decoder& event) const;
   void InsertGpuTrack(
       const protos::pbzero::
           GpuRenderStageEvent_Specifications_Description_Decoder& hw_queue);
   base::Optional<std::string> FindDebugName(int32_t vk_object_type,
                                             uint64_t vk_handle) const;
+  const StringId ParseRenderSubpasses(
+      const protos::pbzero::GpuRenderStageEvent_Decoder& event) const;
 
   TraceProcessorContext* const context_;
   VulkanMemoryTracker vulkan_memory_tracker_;
@@ -114,6 +123,11 @@ class GpuEventParser {
   StringId vk_event_track_id_;
   StringId vk_event_scope_id_;
   StringId vk_queue_submit_id_;
+  // For GpuMemTotalEvent
+  const StringId gpu_mem_total_name_id_;
+  const StringId gpu_mem_total_unit_id_;
+  const StringId gpu_mem_total_global_desc_id_;
+  const StringId gpu_mem_total_proc_desc_id_;
 };
 }  // namespace trace_processor
 }  // namespace perfetto

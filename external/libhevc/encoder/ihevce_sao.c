@@ -779,7 +779,7 @@ void ihevce_sao_analyse(
             distortion =
                 ps_sao_ctxt->ps_cmn_utils_optimised_function_list->pf_ssd_calculator(pu1_src_luma,
                         s_sao_ctxt.pu1_cur_luma_recon_buf, luma_src_stride,
-                        s_sao_ctxt.i4_cur_luma_recon_stride, ctb_wd, ctb_ht);
+                        s_sao_ctxt.i4_cur_luma_recon_stride, ctb_wd, ctb_ht, NULL_PLANE);
             // clang-format on
 
             ps_sao_ctxt->ps_rdopt_entropy_ctxt->i4_curr_buf_idx = curr_buf_idx;
@@ -1145,7 +1145,8 @@ void ihevce_sao_analyse(
                     ps_sao_ctxt->ps_cmn_utils_optimised_function_list->pf_ssd_calculator(pu1_src_luma,
                             s_sao_ctxt.pu1_cur_luma_recon_buf, luma_src_stride,
                             s_sao_ctxt.i4_cur_luma_recon_stride, ctb_wd,
-                            ctb_ht);
+                            ctb_ht,
+                            NULL_PLANE);
             }  // clang-format on
 
             if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_chroma_flag)
@@ -1155,7 +1156,8 @@ void ihevce_sao_analyse(
                             s_sao_ctxt.pu1_cur_chroma_recon_buf,
                             chroma_src_stride,
                             s_sao_ctxt.i4_cur_chroma_recon_stride, ctb_wd,
-                            (ctb_ht >> !u1_is_422));
+                            (ctb_ht >> !u1_is_422),
+                            NULL_PLANE);
             }  // clang-format on
 
             /*chroma distortion is added after correction because of lambda difference*/

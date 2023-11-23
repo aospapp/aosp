@@ -1,5 +1,6 @@
 /*
  * © Copyright 2018 Alyssa Rosenzweig
+ * Copyright (C) 2019-2020 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,77 +25,19 @@
 
 #include <stdio.h>
 #include "pan_blending.h"
+#include "pan_context.h"
+#include "gallium/auxiliary/util/u_blend.h"
+#include "util/format/u_format.h"
 
-/*
- * Implements fixed-function blending on Midgard.
- *
- * Midgard splits blending into a fixed-function fast path and a programmable
- * slow path. The fixed function blending architecture is based on "dominant"
- * blend factors. Blending is encoded separately (but identically) between RGB
- * and alpha functions.
- *
- * Essentially, for a given blending operation, there is a single dominant
- * factor. The following dominant factors are possible:
- *
- * 	- zero
- * 	- source color
- * 	- destination color
- * 	- source alpha
- * 	- destination alpha
- * 	- constant float
- *
- * Further, a dominant factor's arithmetic compliment could be used. For
- * instance, to encode GL_ONE_MINUS_SOURCE_ALPHA, the dominant factor would be
- * MALI_DOMINANT_SRC_ALPHA with the complement_dominant bit set.
- *
- * A single constant float can be passed to the fixed-function hardware,
- * allowing CONSTANT_ALPHA support. Further, if all components of the constant
- * glBlendColor are identical, CONSTANT_COLOR can be implemented with the
- * constant float mode. If the components differ, programmable blending is
- * required.
- *
- * The nondominant factor can be either:
- *
- * 	- the same as the dominant factor (MALI_BLEND_NON_MIRROR)
- * 	- zero (MALI_BLEND_NON_ZERO)
- *
- * Exactly one of the blend operation's source or destination can be used as
- * the dominant factor; this is selected by the
- * MALI_BLEND_DOM_SOURCE/DESTINATION flag.
- *
- * By default, all blending follows the standard OpenGL addition equation:
- *
- * 	out = source_value * source_factor + destination_value * destination_factor
- *
- * By setting the negate_source or negate_dest bits, other blend functions can
- * be created. For instance, for SUBTRACT mode, set the "negate destination"
- * flag, and similarly for REVERSE_SUBTRACT with "negate source".
- *
- * Finally, there is a "clip modifier" controlling the final blending
- * behaviour, allowing for the following modes:
- *
- * 	- normal
- * 	- force source factor to one (MALI_BLEND_MODE_SOURCE_ONE)
- * 	- force destination factor to one (MALI_BLEND_MODE_DEST_ONE)
- *
- * The clipping flags can be used to encode blend modes where the nondominant
- * factor is ONE.
- *
- * As an example putting it all together, to encode the following blend state:
- *
- * 	glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
- * 	glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_ONE);
- *
- * We need the following configuration:
- *
- * 	- negate source (for REVERSE_SUBTRACT)
- * 	- dominant factor "source alpha"
- * 		- compliment dominant
- * 		- source dominant
- * 	- force destination to ONE
- *
- * The following routines implement this fixed function blending encoding
- */
+/* Implements fixed-function blending on Midgard. */
+
+/* Not all formats can be blended by fixed-function hardware */
+
+bool
+panfrost_can_fixed_blend(enum pipe_format format)
+{
+        return panfrost_blend_format(format).internal != 0;
+}
 
 /* Helper to find the uncomplemented Gallium blend factor corresponding to a
  * complemented Gallium blend factor */
@@ -135,72 +78,6 @@ uncomplement_factor(int factor)
         return (complement == -1) ? factor : complement;
 }
 
-
-/* Attempt to find the dominant factor given a particular factor, complementing
- * as necessary */
-
-static bool
-panfrost_make_dominant_factor(unsigned src_factor, enum mali_dominant_factor *factor, bool *invert)
-{
-        switch (src_factor) {
-        case PIPE_BLENDFACTOR_SRC_COLOR:
-        case PIPE_BLENDFACTOR_INV_SRC_COLOR:
-                *factor = MALI_DOMINANT_SRC_COLOR;
-                break;
-
-        case PIPE_BLENDFACTOR_SRC_ALPHA:
-        case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
-                *factor = MALI_DOMINANT_SRC_ALPHA;
-                break;
-
-        case PIPE_BLENDFACTOR_DST_COLOR:
-        case PIPE_BLENDFACTOR_INV_DST_COLOR:
-                *factor = MALI_DOMINANT_DST_COLOR;
-                break;
-
-        case PIPE_BLENDFACTOR_DST_ALPHA:
-        case PIPE_BLENDFACTOR_INV_DST_ALPHA:
-                *factor = MALI_DOMINANT_DST_ALPHA;
-                break;
-
-        case PIPE_BLENDFACTOR_ONE:
-        case PIPE_BLENDFACTOR_ZERO:
-                *factor = MALI_DOMINANT_ZERO;
-                break;
-
-        case PIPE_BLENDFACTOR_CONST_ALPHA:
-        case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
-        case PIPE_BLENDFACTOR_CONST_COLOR:
-        case PIPE_BLENDFACTOR_INV_CONST_COLOR:
-                *factor = MALI_DOMINANT_CONSTANT;
-                break;
-
-        default:
-                /* Fancy blend modes not supported */
-                return false;
-        }
-
-        /* Set invert flags */
-
-        switch (src_factor) {
-        case PIPE_BLENDFACTOR_ONE:
-        case PIPE_BLENDFACTOR_INV_SRC_COLOR:
-        case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
-        case PIPE_BLENDFACTOR_INV_DST_ALPHA:
-        case PIPE_BLENDFACTOR_INV_DST_COLOR:
-        case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
-        case PIPE_BLENDFACTOR_INV_CONST_COLOR:
-        case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
-        case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
-                *invert = true;
-
-        default:
-                break;
-        }
-
-        return true;
-}
-
 /* Check if this is a special edge case blend factor, which may require the use
  * of clip modifiers */
 
@@ -210,133 +87,181 @@ is_edge_blendfactor(unsigned factor)
         return factor == PIPE_BLENDFACTOR_ONE || factor == PIPE_BLENDFACTOR_ZERO;
 }
 
-/* Perform the actual fixed function encoding. Encode the function with negate
- * bits. Check for various cases to work out the dominant/nondominant split and
- * accompanying flags. */
+static bool
+factor_is_supported(unsigned factor)
+{
+        return factor != PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE &&
+               factor != PIPE_BLENDFACTOR_SRC1_COLOR &&
+               factor != PIPE_BLENDFACTOR_SRC1_ALPHA &&
+               factor != PIPE_BLENDFACTOR_INV_SRC1_COLOR &&
+               factor != PIPE_BLENDFACTOR_INV_SRC1_ALPHA;
+}
 
 static bool
-panfrost_make_fixed_blend_part(unsigned func, unsigned src_factor, unsigned dst_factor, unsigned *out)
+can_use_fixed_function_blend(unsigned blend_func,
+                             unsigned src_factor,
+                             unsigned dest_factor)
 {
-        struct mali_blend_mode part = { 0 };
-
-        /* Make sure that the blend function is representible with negate flags */
-
-        if (func == PIPE_BLEND_ADD) {
-                /* Default, no modifiers needed */
-        } else if (func == PIPE_BLEND_SUBTRACT)
-                part.negate_dest = true;
-        else if (func == PIPE_BLEND_REVERSE_SUBTRACT)
-                part.negate_source = true;
-        else
+        if (blend_func != PIPE_BLEND_ADD &&
+            blend_func != PIPE_BLEND_SUBTRACT &&
+            blend_func != PIPE_BLEND_REVERSE_SUBTRACT)
                 return false;
 
-        part.clip_modifier = MALI_BLEND_MOD_NORMAL;
-
-        /* Decide which is dominant, source or destination. If one is an edge
-         * case, use the other as a factor. If they're the same, it doesn't
-         * matter; we just mirror. If they're different non-edge-cases, you
-         * need a blend shader (don't do that). */
-
-        if (is_edge_blendfactor(dst_factor)) {
-                part.dominant = MALI_BLEND_DOM_SOURCE;
-                part.nondominant_mode = MALI_BLEND_NON_ZERO;
-
-                if (dst_factor == PIPE_BLENDFACTOR_ONE)
-                        part.clip_modifier = MALI_BLEND_MOD_DEST_ONE;
-        } else if (is_edge_blendfactor(src_factor)) {
-                part.dominant = MALI_BLEND_DOM_DESTINATION;
-                part.nondominant_mode = MALI_BLEND_NON_ZERO;
-
-                if (src_factor == PIPE_BLENDFACTOR_ONE)
-                        part.clip_modifier = MALI_BLEND_MOD_SOURCE_ONE;
-
-        } else if (src_factor == dst_factor) {
-                part.dominant = MALI_BLEND_DOM_DESTINATION; /* Ought to be an arbitrary choice, but we need to set destination for some reason? Align with the blob until we understand more */
-                part.nondominant_mode = MALI_BLEND_NON_MIRROR;
-        } else if (src_factor == complement_factor(dst_factor)) {
-                /* TODO: How does this work exactly? */
-                part.dominant = MALI_BLEND_DOM_SOURCE;
-                part.nondominant_mode = MALI_BLEND_NON_MIRROR;
-                part.clip_modifier = MALI_BLEND_MOD_DEST_ONE;
-        } else if (dst_factor == complement_factor(src_factor)) {
-                part.dominant = MALI_BLEND_DOM_SOURCE;
-                part.nondominant_mode = MALI_BLEND_NON_MIRROR;
-                part.clip_modifier = /*MALI_BLEND_MOD_SOURCE_ONE*/MALI_BLEND_MOD_DEST_ONE; /* Which modifier should it be? */
-        } else {
-                printf("Failed to find dominant factor?\n");
-                return false;
-        }
-
-        unsigned in_dominant_factor =
-                part.dominant == MALI_BLEND_DOM_SOURCE ? src_factor : dst_factor;
-
-        if (part.clip_modifier == MALI_BLEND_MOD_NORMAL && in_dominant_factor == PIPE_BLENDFACTOR_ONE) {
-                part.clip_modifier = part.dominant == MALI_BLEND_DOM_SOURCE ? MALI_BLEND_MOD_SOURCE_ONE : MALI_BLEND_MOD_DEST_ONE;
-                in_dominant_factor = PIPE_BLENDFACTOR_ZERO;
-        }
-
-        bool invert_dominant = false;
-        enum mali_dominant_factor dominant_factor;
-
-        if (!panfrost_make_dominant_factor(in_dominant_factor, &dominant_factor, &invert_dominant))
+        if (!factor_is_supported(src_factor) ||
+            !factor_is_supported(dest_factor))
                 return false;
 
-        part.dominant_factor = dominant_factor;
-        part.complement_dominant = invert_dominant;
-
-        /* Write out mode */
-        memcpy(out, &part, sizeof(part));
+        if (src_factor != dest_factor &&
+            src_factor != complement_factor(dest_factor) &&
+            complement_factor(src_factor) != dest_factor &&
+            !is_edge_blendfactor(src_factor) &&
+            !is_edge_blendfactor(dest_factor))
+                return false;
 
         return true;
 }
 
-/* We can upload a single constant for all of the factors. So, scan the factors
- * for constants used, and scan the constants for the constants used. If there
- * is a single unique constant, output that. If there are multiple,
- * fixed-function operation breaks down. */
-
-static bool
-panfrost_make_constant(unsigned *factors, unsigned num_factors, const struct pipe_blend_color *blend_color, void *out)
+static void to_c_factor(unsigned factor, struct MALI_BLEND_FUNCTION *function)
 {
-        /* Color components used */
-        bool cc[4] = { false };
+        if (complement_factor(factor) >= 0)
+                function->invert_c = true;
 
-        for (unsigned i = 0; i < num_factors; ++i) {
-                unsigned factor = uncomplement_factor(factors[i]);
+        switch (uncomplement_factor(factor)) {
+        case PIPE_BLENDFACTOR_ONE:
+        case PIPE_BLENDFACTOR_ZERO:
+                function->invert_c = factor == PIPE_BLENDFACTOR_ONE;
+                function->c = MALI_BLEND_OPERAND_C_ZERO;
+                break;
 
-                if (factor == PIPE_BLENDFACTOR_CONST_COLOR)
-                        cc[0] = cc[1] = cc[2] = true;
-                else if (factor == PIPE_BLENDFACTOR_CONST_ALPHA)
-                        cc[3] = true;
+        case PIPE_BLENDFACTOR_SRC_ALPHA:
+                function->c = MALI_BLEND_OPERAND_C_SRC_ALPHA;
+                break;
+
+        case PIPE_BLENDFACTOR_DST_ALPHA:
+                function->c = MALI_BLEND_OPERAND_C_DEST_ALPHA;
+                break;
+
+        case PIPE_BLENDFACTOR_SRC_COLOR:
+                function->c = MALI_BLEND_OPERAND_C_SRC;
+                break;
+
+        case PIPE_BLENDFACTOR_DST_COLOR:
+                function->c = MALI_BLEND_OPERAND_C_DEST;
+                break;
+
+        case PIPE_BLENDFACTOR_CONST_COLOR:
+        case PIPE_BLENDFACTOR_CONST_ALPHA:
+                function->c = MALI_BLEND_OPERAND_C_CONSTANT;
+                break;
+        default:
+                unreachable("Invalid blend factor");
         }
 
-        /* Find the actual constant associated with the components used*/
+}
 
-        float constant = 0.0;
-        bool has_constant = false;
+static bool
+to_panfrost_function(unsigned blend_func,
+                     unsigned src_factor,
+                     unsigned dest_factor,
+                     struct MALI_BLEND_FUNCTION *function)
+{
+        if (!can_use_fixed_function_blend(blend_func, src_factor, dest_factor))
+                return false;
 
-        for (unsigned i = 0; i < 4; ++i) {
-                /* If the component is unused, nothing to do */
-                if (!cc[i]) continue;
+        if (src_factor == PIPE_BLENDFACTOR_ZERO) {
+                function->a = MALI_BLEND_OPERAND_A_ZERO;
+                function->b = MALI_BLEND_OPERAND_B_DEST;
+                if (blend_func == PIPE_BLEND_SUBTRACT)
+                        function->negate_b = true;
+                to_c_factor(dest_factor, function);
+        } else if (src_factor == PIPE_BLENDFACTOR_ONE) {
+                function->a = MALI_BLEND_OPERAND_A_SRC;
+                function->b = MALI_BLEND_OPERAND_B_DEST;
+                if (blend_func == PIPE_BLEND_SUBTRACT)
+                        function->negate_b = true;
+                else if (blend_func == PIPE_BLEND_REVERSE_SUBTRACT)
+                        function->negate_a = true;
+                to_c_factor(dest_factor, function);
+        } else if (dest_factor == PIPE_BLENDFACTOR_ZERO) {
+                function->a = MALI_BLEND_OPERAND_A_ZERO;
+                function->b = MALI_BLEND_OPERAND_B_SRC;
+                if (blend_func == PIPE_BLEND_REVERSE_SUBTRACT)
+                        function->negate_b = true;
+                to_c_factor(src_factor, function);
+        } else if (dest_factor == PIPE_BLENDFACTOR_ONE) {
+                function->a = MALI_BLEND_OPERAND_A_DEST;
+                function->b = MALI_BLEND_OPERAND_B_SRC;
+                if (blend_func == PIPE_BLEND_SUBTRACT)
+                        function->negate_a = true;
+                else if (blend_func == PIPE_BLEND_REVERSE_SUBTRACT)
+                        function->negate_b = true;
+                to_c_factor(src_factor, function);
+        } else if (src_factor == dest_factor) {
+                function->a = MALI_BLEND_OPERAND_A_ZERO;
+                to_c_factor(src_factor, function);
 
-                float value = blend_color->color[i];
+                switch (blend_func) {
+                case PIPE_BLEND_ADD:
+                        function->b = MALI_BLEND_OPERAND_B_SRC_PLUS_DEST;
+                        break;
+                case PIPE_BLEND_REVERSE_SUBTRACT:
+                        function->negate_b = true;
+                        /* fall-through */
+                case PIPE_BLEND_SUBTRACT:
+                        function->b = MALI_BLEND_OPERAND_B_SRC_MINUS_DEST;
+                        break;
+                default:
+                        unreachable("Invalid blend function");
+                }
+        } else {
+                assert(src_factor == complement_factor(dest_factor) ||
+                       complement_factor(src_factor) == dest_factor);
 
-                /* Either there's a second constant, in which case we fail, or
-                 * there's no constant / a first constant, in which case we use
-                 * that constant */
+                function->a = MALI_BLEND_OPERAND_A_DEST;
+                to_c_factor(src_factor, function);
 
-                if (has_constant && constant != value) {
-                        return false;
-                } else {
-                        has_constant = true;
-                        constant = value;
+                switch (blend_func) {
+                case PIPE_BLEND_ADD:
+                        function->b = MALI_BLEND_OPERAND_B_SRC_MINUS_DEST;
+                        break;
+                case PIPE_BLEND_REVERSE_SUBTRACT:
+                        function->b = MALI_BLEND_OPERAND_B_SRC_PLUS_DEST;
+                        function->negate_b = true;
+                        break;
+                case PIPE_BLEND_SUBTRACT:
+                        function->b = MALI_BLEND_OPERAND_B_SRC_PLUS_DEST;
+                        function->negate_a = true;
+                        break;
                 }
         }
 
-        /* We have the constant -- success! */
-
-        memcpy(out, &constant, sizeof(float));
         return true;
+}
+
+/* We can upload a single constant for all of the factors. So, scan
+ * the factors for constants used to create a mask to check later. */
+
+static unsigned
+panfrost_blend_factor_constant_mask(enum pipe_blendfactor factor)
+{
+        unsigned mask = 0;
+
+        factor = uncomplement_factor(factor);
+        if (factor == PIPE_BLENDFACTOR_CONST_COLOR)
+                mask |= 0b0111; /* RGB */
+        else if (factor == PIPE_BLENDFACTOR_CONST_ALPHA)
+                mask |= 0b1000; /* A */
+
+        return mask;
+}
+
+unsigned
+panfrost_blend_constant_mask(const struct pipe_rt_blend_state *blend)
+{
+        return panfrost_blend_factor_constant_mask(blend->rgb_src_factor) |
+               panfrost_blend_factor_constant_mask(blend->rgb_dst_factor) |
+               panfrost_blend_factor_constant_mask(blend->alpha_src_factor) |
+               panfrost_blend_factor_constant_mask(blend->alpha_dst_factor);
 }
 
 /* Create the descriptor for a fixed blend mode given the corresponding Gallium
@@ -345,57 +270,34 @@ panfrost_make_constant(unsigned *factors, unsigned num_factors, const struct pip
  * representating, return false to handle degenerate cases with a blend shader
  */
 
-static const struct pipe_rt_blend_state default_blend = {
-        .blend_enable = 1,
-
-        .rgb_func = PIPE_BLEND_ADD,
-        .rgb_src_factor = PIPE_BLENDFACTOR_ONE,
-        .rgb_dst_factor = PIPE_BLENDFACTOR_ZERO,
-
-        .alpha_func = PIPE_BLEND_ADD,
-        .alpha_src_factor = PIPE_BLENDFACTOR_ONE,
-        .alpha_dst_factor = PIPE_BLENDFACTOR_ZERO,
-
-        .colormask = PIPE_MASK_RGBA
-};
-
 bool
-panfrost_make_fixed_blend_mode(const struct pipe_rt_blend_state *blend, struct mali_blend_equation *out, unsigned colormask, const struct pipe_blend_color *blend_color)
+panfrost_make_fixed_blend_mode(const struct pipe_rt_blend_state blend,
+                               struct MALI_BLEND_EQUATION *equation)
 {
         /* If no blending is enabled, default back on `replace` mode */
 
-        if (!blend->blend_enable)
-                return panfrost_make_fixed_blend_mode(&default_blend, out, colormask, blend_color);
+        if (!blend.blend_enable) {
+                equation->color_mask = blend.colormask;
+                equation->rgb.a = MALI_BLEND_OPERAND_A_SRC;
+                equation->rgb.b = MALI_BLEND_OPERAND_B_SRC;
+                equation->rgb.c = MALI_BLEND_OPERAND_C_ZERO;
+                equation->alpha.a = MALI_BLEND_OPERAND_A_SRC;
+                equation->alpha.b = MALI_BLEND_OPERAND_B_SRC;
+                equation->alpha.c = MALI_BLEND_OPERAND_C_ZERO;
+                return true;
+        }
 
-        /* We have room only for a single float32 constant between the four
-         * components. If we need more, spill to the programmable pipeline. */
-
-        unsigned factors[] = {
-                blend->rgb_src_factor, blend->rgb_dst_factor,
-                blend->alpha_src_factor, blend->alpha_dst_factor,
-        };
-
-        if (!panfrost_make_constant(factors, ARRAY_SIZE(factors), blend_color, &out->constant))
+        /* Try to compile the actual fixed-function blend */
+        if (!to_panfrost_function(blend.rgb_func, blend.rgb_src_factor,
+                                  blend.rgb_dst_factor,
+                                  &equation->rgb))
                 return false;
 
-        unsigned rgb_mode = 0;
-        unsigned alpha_mode = 0;
-
-        if (!panfrost_make_fixed_blend_part(
-                                blend->rgb_func, blend->rgb_src_factor, blend->rgb_dst_factor,
-                                &rgb_mode))
+        if (!to_panfrost_function(blend.alpha_func, blend.alpha_src_factor,
+                                  blend.alpha_dst_factor,
+                                  &equation->alpha))
                 return false;
 
-        if (!panfrost_make_fixed_blend_part(
-                                blend->alpha_func, blend->alpha_src_factor, blend->alpha_dst_factor,
-                                &alpha_mode))
-                return false;
-
-        out->rgb_mode = rgb_mode;
-        out->alpha_mode = alpha_mode;
-
-        /* Gallium and Mali represent colour masks identically. XXX: Static assert for future proof */
-        out->color_mask = colormask;
-
+        equation->color_mask = blend.colormask;
         return true;
 }

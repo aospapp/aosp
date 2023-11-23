@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """
 This module defines the PackageManager class which provides an
 implementation of the packaging system API providing methods to fetch,
@@ -6,11 +7,16 @@ upload and remove packages.
 
 #pylint: disable=missing-docstring
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import fcntl
 import logging
 import os
 import re
 import shutil
+import six
 
 import common
 from autotest_lib.client.bin import os_dep
@@ -92,7 +98,7 @@ def check_diskspace(repo, min_free=None):
         df = repo_run_command(repo,
                               'df -PB %d . | tail -1' % 10 ** 9).stdout.split()
         free_space_gb = int(df[3])
-    except Exception, e:
+    except Exception as e:
         raise error.RepoUnknownError('Unknown Repo Error: %s' % e)
     if free_space_gb < min_free:
         raise error.RepoDiskFullError('Not enough disk space available '
@@ -178,7 +184,7 @@ class HttpFetcher(RepositoryFetcher):
             http_cmd = self.curl_cmd_pattern % (self.url, dest_file_path)
             try:
                 self.run_command(http_cmd, _run_command_dargs={'timeout': 30})
-            except Exception, e:
+            except Exception as e:
                 msg = 'HTTP test failed, unable to contact %s: %s'
                 raise error.PackageFetchError(msg % (self.url, e))
         finally:
@@ -228,7 +234,7 @@ class LocalFilesystemFetcher(RepositoryFetcher):
             self.run_command('cp %s %s' % (local_path, dest_path))
             logging.debug('Successfully fetched %s from %s', filename,
                           local_path)
-        except error.CmdError, e:
+        except error.CmdError as e:
             raise error.PackageFetchError(
                 'Package %s could not be fetched from %s'
                 % (filename, self.url), e)
@@ -300,7 +306,7 @@ class BasePackageManager(object):
 
 
     def add_repository(self, repo):
-        if isinstance(repo, basestring):
+        if isinstance(repo, six.string_types):
             self.repositories.append(self.get_fetcher(repo))
         elif isinstance(repo, RepositoryFetcher):
             self.repositories.append(repo)
@@ -347,7 +353,7 @@ class BasePackageManager(object):
             check_diskspace(repo)
             check_write(repo)
         except (error.RepoWriteError, error.RepoUnknownError,
-                error.RepoDiskFullError), e:
+                error.RepoDiskFullError) as e:
             raise error.RepoError("ERROR: Repo %s: %s" % (repo, e))
 
 
@@ -428,7 +434,7 @@ class BasePackageManager(object):
 
                 self.untar_pkg(fetch_path, install_dir)
 
-            except error.PackageFetchError, why:
+            except error.PackageFetchError as why:
                 raise error.PackageInstallError(
                     'Installation of %s(type:%s) failed : %s'
                     % (name, pkg_type, why))
@@ -494,7 +500,7 @@ class BasePackageManager(object):
         repo_url_list = [repo.url for repo in repositories]
         message = ('%s could not be fetched from any of the repos %s' %
                    (pkg_name, repo_url_list))
-        logging.error(message)
+        logging.debug(message)
         # if we got here then that means the package is not found
         # in any of the repositories.
         raise error.PackageFetchError(message)
@@ -526,7 +532,7 @@ class BasePackageManager(object):
         results = subcommand.parallel(commands, timeout, return_results=True)
         for result in results:
             if result:
-                print str(result)
+                print(str(result))
 
 
     # TODO(aganti): Fix the bug with the current checksum logic where
@@ -589,8 +595,8 @@ class BasePackageManager(object):
                     os.remove(orig_file)
 
                 shutil.copy(file_path, upload_path)
-                os.chmod(orig_file, 0644)
-        except (IOError, os.error), why:
+                os.chmod(orig_file, 0o644)
+        except (IOError, os.error) as why:
             logging.error("Upload of %s to %s failed: %s", file_path,
                           upload_path, why)
 
@@ -620,7 +626,7 @@ class BasePackageManager(object):
                 utils.run("cp %s %s " % (local_path, upload_path))
                 up_path = os.path.join(upload_path, "*")
                 utils.run("chmod 644 %s" % up_path)
-        except (IOError, os.error), why:
+        except (IOError, os.error) as why:
             raise error.PackageUploadError("Upload of %s to %s failed: %s"
                                            % (dir_path, upload_path, why))
 
@@ -665,7 +671,7 @@ class BasePackageManager(object):
                           path))
             else:
                 os.remove(os.path.join(pkg_dir, filename))
-        except (IOError, os.error), why:
+        except (IOError, os.error) as why:
             raise error.PackageRemoveError("Could not remove %s from %s: %s "
                                            % (filename, pkg_dir, why))
 
@@ -742,7 +748,7 @@ class BasePackageManager(object):
         self._checksum_dict = checksum_dict.copy()
         checksum_contents = '\n'.join(checksum + ' ' + pkg_name
                                       for pkg_name, checksum in
-                                      checksum_dict.iteritems())
+                                      six.iteritems(checksum_dict))
         # Write the checksum file back to disk
         self._run_command('echo "%s" > %s' % (checksum_contents,
                                               checksum_path),
@@ -767,7 +773,7 @@ class BasePackageManager(object):
         # the prebuilt. So it is expected to be the same.
         checksum_path = pkg_path + '.checksum'
         if os.path.exists(checksum_path):
-            print ("Checksum %s exists" % checksum_path)
+            print("Checksum %s exists" % checksum_path)
             with open(checksum_path, "r") as f:
                 return f.read().replace('\n', '')
         md5sum_output = self._run_command("md5sum %s " % pkg_path).stdout

@@ -65,9 +65,7 @@ is_phi_src_scalarizable(nir_phi_src *src,
        * are ok too.
        */
       return nir_op_infos[src_alu->op].output_size == 0 ||
-             src_alu->op == nir_op_vec2 ||
-             src_alu->op == nir_op_vec3 ||
-             src_alu->op == nir_op_vec4;
+             nir_op_is_vec(src_alu->op);
    }
 
    case nir_instr_type_phi:
@@ -89,27 +87,30 @@ is_phi_src_scalarizable(nir_phi_src *src,
 
       switch (src_intrin->intrinsic) {
       case nir_intrinsic_load_deref: {
+         /* Don't scalarize if we see a load of a local variable because it
+          * might turn into one of the things we can't scalarize.
+          */
          nir_deref_instr *deref = nir_src_as_deref(src_intrin->src[0]);
-         return deref->mode == nir_var_shader_in ||
-                deref->mode == nir_var_uniform ||
-                deref->mode == nir_var_mem_ubo ||
-                deref->mode == nir_var_mem_ssbo ||
-                deref->mode == nir_var_mem_global;
+         return !nir_deref_mode_may_be(deref, nir_var_function_temp |
+                                              nir_var_shader_temp);
       }
 
       case nir_intrinsic_interp_deref_at_centroid:
       case nir_intrinsic_interp_deref_at_sample:
       case nir_intrinsic_interp_deref_at_offset:
+      case nir_intrinsic_interp_deref_at_vertex:
       case nir_intrinsic_load_uniform:
       case nir_intrinsic_load_ubo:
       case nir_intrinsic_load_ssbo:
       case nir_intrinsic_load_global:
+      case nir_intrinsic_load_global_constant:
       case nir_intrinsic_load_input:
          return true;
       default:
          break;
       }
    }
+   /* fallthrough */
 
    default:
       /* We can't scalarize this type of instruction */
@@ -211,13 +212,7 @@ lower_phis_to_scalar_block(nir_block *block,
        * will be redundant, but copy propagation should clean them up for
        * us.  No need to add the complexity here.
        */
-      nir_op vec_op;
-      switch (phi->dest.ssa.num_components) {
-      case 2: vec_op = nir_op_vec2; break;
-      case 3: vec_op = nir_op_vec3; break;
-      case 4: vec_op = nir_op_vec4; break;
-      default: unreachable("Invalid number of components");
-      }
+      nir_op vec_op = nir_op_vec(phi->dest.ssa.num_components);
 
       nir_alu_instr *vec = nir_alu_instr_create(state->mem_ctx, vec_op);
       nir_ssa_dest_init(&vec->instr, &vec->dest.dest,
@@ -235,7 +230,7 @@ lower_phis_to_scalar_block(nir_block *block,
          nir_foreach_phi_src(src, phi) {
             /* We need to insert a mov to grab the i'th component of src */
             nir_alu_instr *mov = nir_alu_instr_create(state->mem_ctx,
-                                                      nir_op_imov);
+                                                      nir_op_mov);
             nir_ssa_dest_init(&mov->instr, &mov->dest.dest, 1, bit_size, NULL);
             mov->dest.write_mask = 1;
             nir_src_copy(&mov->src[0].src, &src->src, state->mem_ctx);

@@ -24,22 +24,22 @@
 #	error "Unable to identify C++ language version"
 #endif
 
-// The template and dummy function below verifies the compiler is using at least
-// C++14. It will print an error message containing the actual C++ version if
-// the version is < 14.
+// The template and unused function below verifies the compiler is using at least
+// C++17. It will print an error message containing the actual C++ version if
+// the version is < 17.
 
 namespace {
 
 template<int version>
 class cpp
 {
-	static_assert(version >= 2014, "SwiftShader requires at least C++14");
+	static_assert(version >= 2017, "SwiftShader requires at least C++17");
 };
 
 void check_cpp_version()
 {
 	cpp<CPP_VERSION / 100>();
-	(void)&check_cpp_version;  // dummy reference to avoid unreferenced function warning.
+	(void)&check_cpp_version;  // Unused reference to avoid unreferenced function warning.
 }
 
 }  // namespace

@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import re
@@ -9,6 +14,7 @@ import subprocess
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.audio import cmd_utils
+from six.moves import range
 
 
 ACONNECT_PATH = '/usr/bin/aconnect'
@@ -97,6 +103,8 @@ def _get_soundcard_scontrols(card_id):
     @param card_id: Soundcard ID.
     @raise RuntimeError: If failed to get soundcard simple mixer controls.
 
+    # TODO b:169251326 terms below are set outside of this codebase
+    # and should be updated when possible. ("Master" -> "Main")
     Simple mixer controls for a soundcard is retrieved by 'amixer scontrols'
     command.  amixer output format:
 
@@ -131,7 +139,7 @@ def get_first_soundcard_with_control(cname, scname):
 
     cpat = re.compile(r'\b%s\b' % cname, re.IGNORECASE)
     scpat = re.compile(r'\b%s\b' % scname, re.IGNORECASE)
-    for card_id in xrange(get_num_soundcards()):
+    for card_id in range(get_num_soundcards()):
         for pat, func in [(cpat, _get_soundcard_controls),
                           (scpat, _get_soundcard_scontrols)]:
             if any(pat.search(c) for c in func(card_id)):
@@ -216,7 +224,7 @@ def get_default_record_device():
         return None
 
     card_name = get_record_card_name(card_id)
-    if CARD_PREF_RECORD_DEV_IDX.has_key(card_name):
+    if card_name in CARD_PREF_RECORD_DEV_IDX:
         return 'plughw:%d,%d' % (card_id, CARD_PREF_RECORD_DEV_IDX[card_name])
 
     # Get first device id of this card.

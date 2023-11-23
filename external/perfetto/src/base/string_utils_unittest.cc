@@ -134,10 +134,15 @@ TEST(StringUtilsTest, StringToDouble) {
   EXPECT_DOUBLE_EQ(StringToDouble("1").value(), 1l);
   EXPECT_DOUBLE_EQ(StringToDouble("-42").value(), -42l);
   EXPECT_DOUBLE_EQ(StringToDouble("-42.5").value(), -42.5l);
+  EXPECT_DOUBLE_EQ(StringToDouble("0.5").value(), .5l);
+  EXPECT_DOUBLE_EQ(StringToDouble(".5").value(), .5l);
   EXPECT_EQ(StringToDouble(""), nullopt);
   EXPECT_EQ(StringToDouble("!?"), nullopt);
   EXPECT_EQ(StringToDouble("abc"), nullopt);
   EXPECT_EQ(StringToDouble("123 abc"), nullopt);
+  EXPECT_EQ(StringToDouble("124,456"), nullopt);
+  EXPECT_EQ(StringToDouble("4 2"), nullopt);
+  EXPECT_EQ(StringToDouble(" - 42"), nullopt);
 }
 
 TEST(StringUtilsTest, StartsWith) {
@@ -167,11 +172,26 @@ TEST(StringUtilsTest, ToHex) {
   EXPECT_EQ(ToHex("abc123"), "616263313233");
 }
 
-TEST(StringUtilsTest, intToHex) {
+TEST(StringUtilsTest, IntToHex) {
   EXPECT_EQ(IntToHexString(0), "0x00");
   EXPECT_EQ(IntToHexString(1), "0x01");
   EXPECT_EQ(IntToHexString(16), "0x10");
   EXPECT_EQ(IntToHexString(4294967295), "0xffffffff");
+}
+
+TEST(StringUtilsTest, Uint64ToHex) {
+  EXPECT_EQ(Uint64ToHexString(0), "0x0");
+  EXPECT_EQ(Uint64ToHexString(1), "0x1");
+  EXPECT_EQ(Uint64ToHexString(16), "0x10");
+  EXPECT_EQ(Uint64ToHexString(18446744073709551615UL), "0xffffffffffffffff");
+}
+
+TEST(StringUtilsTest, Uint64ToHexNoPrefix) {
+  EXPECT_EQ(Uint64ToHexStringNoPrefix(0), "0");
+  EXPECT_EQ(Uint64ToHexStringNoPrefix(1), "1");
+  EXPECT_EQ(Uint64ToHexStringNoPrefix(16), "10");
+  EXPECT_EQ(Uint64ToHexStringNoPrefix(18446744073709551615UL),
+            "ffffffffffffffff");
 }
 
 TEST(StringUtilsTest, CaseInsensitiveEqual) {
@@ -246,6 +266,49 @@ TEST(StringUtilsTest, Find) {
   EXPECT_EQ(Find("abcd", "abc"), std::string::npos);
   EXPECT_EQ(Find("a", ""), std::string::npos);
   EXPECT_EQ(Find("abc", ""), std::string::npos);
+}
+
+TEST(StringUtilsTest, ReplaceAll) {
+  EXPECT_EQ(ReplaceAll("", "a", ""), "");
+  EXPECT_EQ(ReplaceAll("", "a", "b"), "");
+  EXPECT_EQ(ReplaceAll("a", "a", "b"), "b");
+  EXPECT_EQ(ReplaceAll("aaaa", "a", "b"), "bbbb");
+  EXPECT_EQ(ReplaceAll("aaaa", "aa", "b"), "bb");
+  EXPECT_EQ(ReplaceAll("aa", "aa", "bb"), "bb");
+  EXPECT_EQ(ReplaceAll("aa", "a", "bb"), "bbbb");
+  EXPECT_EQ(ReplaceAll("abc", "a", "b"), "bbc");
+  EXPECT_EQ(ReplaceAll("abc", "c", "b"), "abb");
+  EXPECT_EQ(ReplaceAll("abc", "c", "bbb"), "abbbb");
+}
+
+TEST(StringUtilsTest, TrimLeading) {
+  EXPECT_EQ(TrimLeading(""), "");
+  EXPECT_EQ(TrimLeading("a"), "a");
+  EXPECT_EQ(TrimLeading(" aaaa"), "aaaa");
+  EXPECT_EQ(TrimLeading(" aaaaa     "), "aaaaa     ");
+}
+
+TEST(StringUtilsTest, Base64Encode) {
+  auto base64_encode = [](const std::string& str) {
+    return Base64Encode(str.c_str(), str.size());
+  };
+
+  EXPECT_EQ(base64_encode(""), "");
+  EXPECT_EQ(base64_encode("f"), "Zg==");
+  EXPECT_EQ(base64_encode("fo"), "Zm8=");
+  EXPECT_EQ(base64_encode("foo"), "Zm9v");
+  EXPECT_EQ(base64_encode("foob"), "Zm9vYg==");
+  EXPECT_EQ(base64_encode("fooba"), "Zm9vYmE=");
+  EXPECT_EQ(base64_encode("foobar"), "Zm9vYmFy");
+
+  EXPECT_EQ(Base64Encode("foo\0bar", 7), "Zm9vAGJhcg==");
+
+  std::vector<uint8_t> buffer = {0x04, 0x53, 0x42, 0x35,
+                                 0x32, 0xFF, 0x00, 0xFE};
+  EXPECT_EQ(Base64Encode(buffer.data(), buffer.size()), "BFNCNTL/AP4=");
+
+  buffer = {0xfb, 0xf0, 0x3e, 0x07, 0xfc};
+  EXPECT_EQ(Base64Encode(buffer.data(), buffer.size()), "+/A+B/w=");
 }
 
 }  // namespace

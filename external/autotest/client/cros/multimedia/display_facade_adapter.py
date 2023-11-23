@@ -1,8 +1,13 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """An adapter to access the local display facade."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import tempfile
@@ -13,6 +18,7 @@ from autotest_lib.client.cros.multimedia import display_facade_native
 from autotest_lib.client.cros.multimedia import facade_resource
 from autotest_lib.client.cros.multimedia.display_info import DisplayInfo
 from autotest_lib.client.cros.power import sys_power
+from six.moves import map
 
 
 class DisplayFacadeLocalAdapter(object):
@@ -304,7 +310,7 @@ class DisplayFacadeLocalAdapter(object):
 
         @return: list of object DisplayInfo for display informtion
         """
-        return map(DisplayInfo, self._display_component.get_display_info())
+        return list(map(DisplayInfo, self._display_component.get_display_info()))
 
 
     def get_display_modes(self, display_id):

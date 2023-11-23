@@ -1,7 +1,6 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Android SDK version codes.
 
 http://developer.android.com/reference/android/os/Build.VERSION_CODES.html
@@ -20,3 +19,5 @@ NOUGAT_MR1 = 25
 OREO = 26
 OREO_MR1 = 27
 PIE = 28
+Q = 29
+R = 30

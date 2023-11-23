@@ -30,6 +30,7 @@ cycles        - Number of times to repeat each test. Each cycle takes about 6
 """
 
 from autotest_lib.server import utils
+from six.moves import range
 
 # Buffer sizes should not be less than 131072, as this will cause netpipe
 # to hang. 
@@ -43,7 +44,7 @@ upper_bound = 1048576
 variance = 17
 
 def run(pair):
-    for x in xrange(cycles):
+    for x in range(cycles):
         for b in buffer_sizes:
             tag = 'netpipe' + buffer_sizes[b] + str(x)
             job.run_test('netpipe', tag=tag, pair=pair, buffer=b,
@@ -51,9 +52,9 @@ def run(pair):
 
 
 # grab the pairs (and failures)
-print "Machines = %s" % machines
+print("Machines = %s" % machines)
 (pairs, failures) = utils.form_ntuples_from_machines(machines, 2)
-print "pairs = %s" % pairs
+print("pairs = %s" % pairs)
 
 # log the failures
 for failure in failures:

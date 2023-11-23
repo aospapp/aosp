@@ -23,6 +23,8 @@
 #ifndef VIRGL_PROTOCOL_H
 #define VIRGL_PROTOCOL_H
 
+#include <stdint.h>
+
 #define VIRGL_QUERY_STATE_NEW 0
 #define VIRGL_QUERY_STATE_DONE 1
 #define VIRGL_QUERY_STATE_WAIT_HOST 2
@@ -31,6 +33,16 @@ struct virgl_host_query_state {
    uint32_t query_state;
    uint32_t result_size;
    uint64_t result;
+};
+
+struct virgl_memory_info
+{
+   uint32_t total_device_memory; /**< size of device memory, e.g. VRAM */
+   uint32_t avail_device_memory; /**< free device memory at the moment */
+   uint32_t total_staging_memory; /**< size of staging memory, e.g. GART */
+   uint32_t avail_staging_memory; /**< free staging memory at the moment */
+   uint32_t device_memory_evicted; /**< size of memory evicted (monotonic counter) */
+   uint32_t nr_device_memory_evictions; /**< # of evictions (monotonic counter) */
 };
 
 enum virgl_object_type {
@@ -91,6 +103,18 @@ enum virgl_context_cmd {
    VIRGL_CCMD_LAUNCH_GRID,
    VIRGL_CCMD_SET_FRAMEBUFFER_STATE_NO_ATTACH,
    VIRGL_CCMD_TEXTURE_BARRIER,
+   VIRGL_CCMD_SET_ATOMIC_BUFFERS,
+   VIRGL_CCMD_SET_DEBUG_FLAGS,
+   VIRGL_CCMD_GET_QUERY_RESULT_QBO,
+   VIRGL_CCMD_TRANSFER3D,
+   VIRGL_CCMD_END_TRANSFERS,
+   VIRGL_CCMD_COPY_TRANSFER3D,
+   VIRGL_CCMD_SET_TWEAKS,
+   VIRGL_CCMD_CLEAR_TEXTURE,
+   VIRGL_CCMD_PIPE_RESOURCE_CREATE,
+   VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE,
+   VIRGL_CCMD_GET_MEMORY_INFO,
+   VIRGL_MAX_COMMANDS
 };
 
 /*
@@ -100,6 +124,7 @@ enum virgl_context_cmd {
 */
 
 #define VIRGL_CMD0(cmd, obj, len) ((cmd) | ((obj) << 8) | ((len) << 16))
+#define VIRGL_CMD0_MAX_DWORDS (((1ULL << 16) - 1) / 4) * 4
 
 /* hw specification */
 #define VIRGL_MAX_COLOR_BUFS 8
@@ -221,7 +246,7 @@ enum virgl_context_cmd {
 #define VIRGL_OBJ_SHADER_OFFSET_VAL(x) (((x) & 0x7fffffff) << 0)
 /* start contains full length in VAL - also implies continuations */
 /* continuation contains offset in VAL */
-#define VIRGL_OBJ_SHADER_OFFSET_CONT (0x1 << 31)
+#define VIRGL_OBJ_SHADER_OFFSET_CONT (0x1u << 31)
 #define VIRGL_OBJ_SHADER_NUM_TOKENS 4
 #define VIRGL_OBJ_SHADER_SO_NUM_OUTPUTS 5
 #define VIRGL_OBJ_SHADER_SO_STRIDE(x) (6 + (x))
@@ -446,6 +471,7 @@ enum virgl_context_cmd {
 
 #define VIRGL_QUERY_END_HANDLE 1
 
+#define VIRGL_QUERY_RESULT_SIZE 2
 #define VIRGL_QUERY_RESULT_HANDLE 1
 #define VIRGL_QUERY_RESULT_WAIT 2
 
@@ -543,5 +569,96 @@ enum virgl_context_cmd {
 /* texture barrier */
 #define VIRGL_TEXTURE_BARRIER_SIZE 1
 #define VIRGL_TEXTURE_BARRIER_FLAGS 1
+
+/* hw atomics */
+#define VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE 3
+#define VIRGL_SET_ATOMIC_BUFFER_SIZE(x) (VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE * (x)) + 1
+#define VIRGL_SET_ATOMIC_BUFFER_START_SLOT 1
+#define VIRGL_SET_ATOMIC_BUFFER_OFFSET(x) ((x) * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 2)
+#define VIRGL_SET_ATOMIC_BUFFER_LENGTH(x) ((x) * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 3)
+#define VIRGL_SET_ATOMIC_BUFFER_RES_HANDLE(x) ((x) * VIRGL_SET_ATOMIC_BUFFER_ELEMENT_SIZE + 4)
+
+/* set debug flags */
+#define VIRGL_SET_DEBUG_FLAGS_MIN_SIZE 2
+#define VIRGL_SET_DEBUG_FLAGSTRING_OFFSET 1
+
+/* query buffer object */
+#define VIRGL_QUERY_RESULT_QBO_SIZE 6
+#define VIRGL_QUERY_RESULT_QBO_HANDLE 1
+#define VIRGL_QUERY_RESULT_QBO_QBO_HANDLE 2
+#define VIRGL_QUERY_RESULT_QBO_WAIT 3
+#define VIRGL_QUERY_RESULT_QBO_RESULT_TYPE 4
+#define VIRGL_QUERY_RESULT_QBO_OFFSET 5
+#define VIRGL_QUERY_RESULT_QBO_INDEX 6
+
+#define VIRGL_TRANSFER_TO_HOST   1
+#define VIRGL_TRANSFER_FROM_HOST 2
+
+/* Transfer */
+#define VIRGL_TRANSFER3D_SIZE 13
+/* The first 11 dwords are the same as VIRGL_RESOURCE_IW_*  */
+#define VIRGL_TRANSFER3D_DATA_OFFSET 12
+#define VIRGL_TRANSFER3D_DIRECTION 13
+
+/* Copy transfer */
+#define VIRGL_COPY_TRANSFER3D_SIZE 14
+/* The first 11 dwords are the same as VIRGL_RESOURCE_IW_*  */
+#define VIRGL_COPY_TRANSFER3D_SRC_RES_HANDLE 12
+#define VIRGL_COPY_TRANSFER3D_SRC_RES_OFFSET 13
+#define VIRGL_COPY_TRANSFER3D_SYNCHRONIZED 14
+
+/* set tweak flags */
+#define VIRGL_SET_TWEAKS_SIZE 2
+#define VIRGL_SET_TWEAKS_ID 1
+#define VIRGL_SET_TWEAKS_VALUE 2
+
+enum vrend_tweak_type {
+   virgl_tweak_gles_brga_emulate,
+   virgl_tweak_gles_brga_apply_dest_swizzle,
+   virgl_tweak_gles_tf3_samples_passes_multiplier,
+   virgl_tweak_undefined
+};
+
+/* Clear texture */
+#define VIRGL_CLEAR_TEXTURE_SIZE 12
+#define VIRGL_TEXTURE_HANDLE 1
+#define VIRGL_TEXTURE_LEVEL 2
+#define VIRGL_TEXTURE_SRC_X 3
+#define VIRGL_TEXTURE_SRC_Y 4
+#define VIRGL_TEXTURE_SRC_Z 5
+#define VIRGL_TEXTURE_SRC_W 6
+#define VIRGL_TEXTURE_SRC_H 7
+#define VIRGL_TEXTURE_SRC_D 8
+#define VIRGL_TEXTURE_ARRAY_A 9
+#define VIRGL_TEXTURE_ARRAY_B 10
+#define VIRGL_TEXTURE_ARRAY_C 11
+#define VIRGL_TEXTURE_ARRAY_D 12
+
+/* virgl create */
+#define VIRGL_PIPE_RES_CREATE_SIZE 11
+#define VIRGL_PIPE_RES_CREATE_TARGET 1
+#define VIRGL_PIPE_RES_CREATE_FORMAT 2
+#define VIRGL_PIPE_RES_CREATE_BIND 3
+#define VIRGL_PIPE_RES_CREATE_WIDTH 4
+#define VIRGL_PIPE_RES_CREATE_HEIGHT 5
+#define VIRGL_PIPE_RES_CREATE_DEPTH 6
+#define VIRGL_PIPE_RES_CREATE_ARRAY_SIZE 7
+#define VIRGL_PIPE_RES_CREATE_LAST_LEVEL 8
+#define VIRGL_PIPE_RES_CREATE_NR_SAMPLES 9
+#define VIRGL_PIPE_RES_CREATE_FLAGS 10
+#define VIRGL_PIPE_RES_CREATE_BLOB_ID 11
+
+/* VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE */
+#define VIRGL_PIPE_RES_SET_TYPE_SIZE(nplanes) (8 + (nplanes) * 2)
+#define VIRGL_PIPE_RES_SET_TYPE_RES_HANDLE 1
+#define VIRGL_PIPE_RES_SET_TYPE_FORMAT 2
+#define VIRGL_PIPE_RES_SET_TYPE_BIND 3
+#define VIRGL_PIPE_RES_SET_TYPE_WIDTH 4
+#define VIRGL_PIPE_RES_SET_TYPE_HEIGHT 5
+#define VIRGL_PIPE_RES_SET_TYPE_USAGE 6
+#define VIRGL_PIPE_RES_SET_TYPE_MODIFIER_LO 7
+#define VIRGL_PIPE_RES_SET_TYPE_MODIFIER_HI 8
+#define VIRGL_PIPE_RES_SET_TYPE_PLANE_STRIDE(plane) (9 + (plane) * 2)
+#define VIRGL_PIPE_RES_SET_TYPE_PLANE_OFFSET(plane) (10 + (plane) * 2)
 
 #endif

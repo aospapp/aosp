@@ -13,6 +13,7 @@ import java.util.TreeSet;
 import org.unicode.cldr.draft.FileUtilities;
 import org.unicode.cldr.tool.SubdivisionNode.SubDivisionExtractor;
 import org.unicode.cldr.tool.SubdivisionNode.SubdivisionSet;
+import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.StandardCodes.LstrType;
 import org.unicode.cldr.util.SupplementalDataInfo;
@@ -25,20 +26,20 @@ import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row.R2;
 
 public class GenerateSubdivisions {
-    private static final String ISO_COUNTRY_CODES = CLDRPaths.CLDR_PRIVATE_DIRECTORY + "iso/";
+    private static final String ISO_COUNTRY_CODES = CLDRPaths.CLDR_PRIVATE_DIRECTORY + "iso_country_codes/";
     static final String ISO_SUBDIVISION_CODES = ISO_COUNTRY_CODES + "iso_country_codes.xml";
 
 
     // TODO: consider whether to use the last archive directory to generate
-    // There are pros and cons. 
+    // There are pros and cons.
     // Pros are that we don't introduce "fake" deprecated elements that are introduced and deprecated during the 6 month CLDR cycle
     // Cons are that we may have to repeat work
 
 
     static final class SubdivisionInfo {
-        static final SupplementalDataInfo SDI = SupplementalDataInfo.getInstance(CLDRPaths.LAST_RELEASE_DIRECTORY + "common/supplemental/");
+        static final SupplementalDataInfo SDI_LAST = SupplementalDataInfo.getInstance(CLDRPaths.LAST_RELEASE_DIRECTORY + "common/supplemental/");
 
-        static final Map<String, R2<List<String>, String>> SUBDIVISION_ALIASES_FORMER = SDI.getLocaleAliasInfo().get("subdivision");
+        static final Map<String, R2<List<String>, String>> SUBDIVISION_ALIASES_FORMER = SDI_LAST.getLocaleAliasInfo().get("subdivision");
 
         static final SubdivisionNames SUBDIVISION_NAMES_ENGLISH_FORMER = new SubdivisionNames("en", "main", "subdivisions");
 
@@ -71,6 +72,7 @@ public class GenerateSubdivisions {
     }
 
     public static void main(String[] args) throws IOException {
+        CLDRConfig.getInstance().getSupplementalDataInfo();
         // TODO Restructure so that this call is done first to process the iso data
         // then the extraction uses that data.
         // also restructure the SubdivisionInfo to not be static
@@ -84,7 +86,8 @@ public class GenerateSubdivisions {
                 "2017-09-15_iso_country_code_ALL_xml",
                 "2018-02-20_iso_country_code_ALL_xml",
                 "2018-09-02_iso_country_code_ALL_xml",
-                "2019-02-26_iso_country_code_ALL_xml"
+                "2019-02-26_iso_country_code_ALL_xml",
+                "2020-03-05_iso_country_code_ALL_xml"
                 )) {
                 SubdivisionSet sdset1 = new SubdivisionSet(CLDRPaths.CLDR_PRIVATE_DIRECTORY + source + "/iso_country_codes.xml");
                 try (PrintWriter pw = FileUtilities.openUTF8Writer(CLDRPaths.GEN_DIRECTORY, "subdivision/" + source + ".txt")) {
@@ -96,8 +99,8 @@ public class GenerateSubdivisions {
 
         SubdivisionSet sdset1 = new SubdivisionSet(GenerateSubdivisions.ISO_SUBDIVISION_CODES);
         SubDivisionExtractor sdset = new SubDivisionExtractor(sdset1,
-            SubdivisionInfo.VALIDITY_FORMER, 
-            SubdivisionInfo.SUBDIVISION_ALIASES_FORMER, 
+            SubdivisionInfo.VALIDITY_FORMER,
+            SubdivisionInfo.SUBDIVISION_ALIASES_FORMER,
             SubdivisionInfo.formerRegionToSubdivisions);
 
         try (PrintWriter pw = FileUtilities.openUTF8Writer(CLDRPaths.GEN_DIRECTORY, "subdivision/subdivisions.xml")) {

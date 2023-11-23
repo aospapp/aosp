@@ -33,9 +33,9 @@
 	<imagedata fileref="images/x-architecture.png" format="PNG" />
       </imageobject>
       <textobject>
-        <phrase>
-          X architecture diagram
-        </phrase>
+	<phrase>
+	  X architecture diagram
+	</phrase>
       </textobject>
     </mediaobject>
     <para>
@@ -96,9 +96,9 @@
 	<imagedata fileref="images/wayland-architecture.png" format="PNG" />
       </imageobject>
       <textobject>
-        <phrase>
-          Wayland architecture diagram
-        </phrase>
+	<phrase>
+	  Wayland architecture diagram
+	</phrase>
       </textobject>
     </mediaobject>
     <para>

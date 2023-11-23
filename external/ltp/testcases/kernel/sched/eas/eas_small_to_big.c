@@ -36,7 +36,7 @@ static void *task_fn(void *arg LTP_ATTRIBUTE_UNUSED)
 	burn(BURN_SEC * USEC_PER_SEC, 1);
 
 	printf("Changing to big task...\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "trace_marker", "CPU HOG");
+	tracefs_write("trace_marker", "CPU HOG");
 	burn(BURN_SEC * USEC_PER_SEC, 0);
 
 	return NULL;
@@ -146,17 +146,17 @@ static void run(void)
 		MAX_UPMIGRATE_LATENCY_US);
 
 	/* configure and enable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
-	SAFE_FILE_PRINTF(TRACING_DIR "buffer_size_kb", "16384");
-	SAFE_FILE_PRINTF(TRACING_DIR "set_event", TRACE_EVENTS);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
+	tracefs_write("tracing_on", "0");
+	tracefs_write("buffer_size_kb", "16384");
+	tracefs_write("set_event", TRACE_EVENTS);
+	tracefs_write("trace", "\n");
+	tracefs_write("tracing_on", "1");
 
 	SAFE_PTHREAD_CREATE(&task_thread, NULL, task_fn, NULL);
 	SAFE_PTHREAD_JOIN(task_thread, NULL);
 
 	/* disable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
+	tracefs_write("tracing_on", "0");
 	LOAD_TRACE();
 
 	if (parse_results())
@@ -169,5 +169,6 @@ static void run(void)
 
 static struct tst_test test = {
 	.test_all = run,
+	.setup = trace_setup,
 	.cleanup = trace_cleanup,
 };

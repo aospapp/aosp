@@ -6,7 +6,7 @@
 """Text templates used by various parts of results_report."""
 from __future__ import print_function
 
-import cgi
+import html
 from string import Template
 
 _TabMenuTemplate = Template("""
@@ -19,7 +19,7 @@ _TabMenuTemplate = Template("""
 
 def _GetTabMenuHTML(table_name):
   # N.B. cgi.escape does some very basic HTML escaping. Nothing more.
-  escaped = cgi.escape(table_name, quote=True)
+  escaped = html.escape(table_name)
   return _TabMenuTemplate.substitute(table_name=escaped)
 
 
@@ -35,7 +35,7 @@ _ExperimentFileHTML = """
 def _GetExperimentFileHTML(experiment_file_text):
   if not experiment_file_text:
     return ''
-  return _ExperimentFileHTML % (cgi.escape(experiment_file_text),)
+  return _ExperimentFileHTML % (html.escape(experiment_file_text, quote=False),)
 
 
 _ResultsSectionHTML = Template("""

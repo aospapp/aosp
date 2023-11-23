@@ -23,8 +23,19 @@
  */
 
 #include <unistd.h>
+#include <sys/stat.h>
 #include "test.h"
 #include "safe_macros.h"
+
+static int file_exist(const char *path)
+{
+	struct stat st;
+
+	if (!access(path, R_OK) && !stat(path, &st))
+		return 1;
+
+	return 0;
+}
 
 static int is_kvm(void)
 {
@@ -44,12 +55,16 @@ static int is_kvm(void)
 	}
 
 	SAFE_FCLOSE(NULL, cpuinfo);
+
+	if (file_exist("/dev/vda") || file_exist("/dev/block/vda"))
+		found = 1;
+
 	return found;
 }
 
 static int is_xen(void)
 {
-	char hypervisor_type[3];
+	char hypervisor_type[4];
 
 	if (access("/proc/xen", F_OK) == 0)
 		return 1;
@@ -90,30 +105,41 @@ static int try_systemd_detect_virt(void)
 	 * systemd-detect-virt not found by shell or no virtualization detected
 	 * (systemd-detect-virt returns non-zero)
          */
+	if (ret < 0 || (WIFEXITED(ret) && WEXITSTATUS(ret) == 127))
+		return -1;
+
 	if (ret)
 		return 0;
 
-	if (strncmp("kvm", virt_type, 3))
+	if (!strncmp("kvm", virt_type, 3))
 		return VIRT_KVM;
 
-	if (strncmp("xen", virt_type, 3))
+	if (!strncmp("xen", virt_type, 3))
 		return VIRT_XEN;
 
-	return 0;
+	return VIRT_OTHER;
 }
 
 int tst_is_virt(int virt_type)
 {
 	int ret = try_systemd_detect_virt();
 
-	if (ret)
-		return ret == virt_type;
+	if (ret >= 0) {
+		if (virt_type == VIRT_ANY)
+			return ret != 0;
+		else
+			return ret == virt_type;
+	}
 
 	switch (virt_type) {
+	case VIRT_ANY:
+		return is_xen() || is_kvm();
 	case VIRT_XEN:
 		return is_xen();
 	case VIRT_KVM:
 		return is_kvm();
+	case VIRT_OTHER:
+		return 0;
 	}
 
 	tst_brkm(TBROK, NULL, "invalid virt_type flag: %d", virt_type);

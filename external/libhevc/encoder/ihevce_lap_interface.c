@@ -1710,7 +1710,7 @@ void ihevce_pre_rel_lapout_update(lap_struct_t *ps_lap_struct, ihevce_lap_enc_bu
     }
 
     ps_lap_struct->pv_prev_inp_buf = (void *)ps_lap_out_buf;
-    ps_lap_out_buf->s_lap_out.i4_is_prev_pic_in_Tid0_same_scene = 0;
+    ps_lap_out_buf->s_lap_out.i4_is_prev_pic_in_Tid0_same_scene = 1;
 
     /*with force idr below check is not valid*/
 #if(!FORCE_IDR_TEST)
@@ -2076,6 +2076,10 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
                 ps_lap_interface->ihevce_dyn_bitrate_cb(
                     (void *)ps_hle_ctxt, (void *)&as_dyn_br[bitrt_ctr]);
             }
+
+            /* release async ctrl buffer*/
+            ihevce_q_rel_buf(
+                ps_hle_ctxt->apv_enc_hdl[0], IHEVCE_INPUT_ASYNCH_CTRL_Q, ps_ctrl_buf->i4_buf_id);
         }
 
         {

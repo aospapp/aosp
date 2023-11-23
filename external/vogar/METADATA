@@ -13,5 +13,6 @@ third_party {
     value: "http://vogar.googlecode.com/svn/trunk"
   }
   version: ""
+  license_type: NOTICE
   last_upgrade_date { year: 2017 month: 11 day: 17 }
 }

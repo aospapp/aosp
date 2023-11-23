@@ -13,7 +13,7 @@ class autoupdate_DataPreserved(update_engine_test.UpdateEngineTest):
 
 
     def cleanup(self):
-        self._save_extra_update_engine_logs()
+        self._save_extra_update_engine_logs(number_of_logs=2)
         super(autoupdate_DataPreserved, self).cleanup()
 
 
@@ -29,13 +29,12 @@ class autoupdate_DataPreserved(update_engine_test.UpdateEngineTest):
                              when run in the lab.
 
         """
-        self._job_repo_url = job_repo_url
-        payload = self._get_payload_url(full_payload=full_payload)
-        image_url, _ = self._stage_payload_by_uri(payload)
+        payload_url = self.get_payload_for_nebraska(job_repo_url,
+                                                    full_payload=full_payload)
 
         # Change input method and timezone, create a file, then start update.
         self._run_client_test_and_check_result(self._USER_DATA_TEST,
-                                               image_url=image_url,
+                                               payload_url=payload_url,
                                                tag='before_update')
         self._host.reboot()
 

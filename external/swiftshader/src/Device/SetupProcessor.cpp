@@ -14,7 +14,6 @@
 
 #include "SetupProcessor.hpp"
 
-#include "Context.hpp"
 #include "Polygon.hpp"
 #include "Primitive.hpp"
 #include "Renderer.hpp"
@@ -22,6 +21,7 @@
 #include "Pipeline/SetupRoutine.hpp"
 #include "Pipeline/SpirvShader.hpp"
 #include "System/Debug.hpp"
+#include "Vulkan/VkImageView.hpp"
 
 #include <cstring>
 
@@ -47,50 +47,45 @@ bool SetupProcessor::State::operator==(const State &state) const
 		return false;
 	}
 
-	static_assert(is_memcmparable<State>::value, "Cannot memcmp States");
-	return memcmp(static_cast<const States *>(this), static_cast<const States *>(&state), sizeof(States)) == 0;
+	return *static_cast<const States *>(this) == static_cast<const States &>(state);
 }
 
 SetupProcessor::SetupProcessor()
 {
-	routineCache = nullptr;
 	setRoutineCacheSize(1024);
 }
 
-SetupProcessor::~SetupProcessor()
-{
-	delete routineCache;
-	routineCache = nullptr;
-}
-
-SetupProcessor::State SetupProcessor::update(const sw::Context *context) const
+SetupProcessor::State SetupProcessor::update(const vk::GraphicsState &pipelineState, const sw::SpirvShader *fragmentShader, const sw::SpirvShader *vertexShader, const vk::Attachments &attachments) const
 {
 	State state;
 
-	bool vPosZW = (context->pixelShader && context->pixelShader->hasBuiltinInput(spv::BuiltInFragCoord));
+	bool vPosZW = (fragmentShader && fragmentShader->hasBuiltinInput(spv::BuiltInFragCoord));
 
-	state.isDrawPoint = context->isDrawPoint(true);
-	state.isDrawLine = context->isDrawLine(true);
-	state.isDrawTriangle = context->isDrawTriangle(true);
-	state.applySlopeDepthBias = context->isDrawTriangle(false) && (context->slopeDepthBias != 0.0f);
-	state.interpolateZ = context->depthBufferActive() || vPosZW;
-	state.interpolateW = context->pixelShader != nullptr;
-	state.frontFace = context->frontFace;
-	state.cullMode = context->cullMode;
+	state.isDrawPoint = pipelineState.isDrawPoint(true);
+	state.isDrawLine = pipelineState.isDrawLine(true);
+	state.isDrawTriangle = pipelineState.isDrawTriangle(true);
+	state.fixedPointDepthBuffer = attachments.depthBuffer && !attachments.depthBuffer->getFormat(VK_IMAGE_ASPECT_DEPTH_BIT).isFloatFormat();
+	state.applyConstantDepthBias = pipelineState.isDrawTriangle(false) && (pipelineState.getConstantDepthBias() != 0.0f);
+	state.applySlopeDepthBias = pipelineState.isDrawTriangle(false) && (pipelineState.getSlopeDepthBias() != 0.0f);
+	state.applyDepthBiasClamp = pipelineState.isDrawTriangle(false) && (pipelineState.getDepthBiasClamp() != 0.0f);
+	state.interpolateZ = pipelineState.depthBufferActive(attachments) || vPosZW;
+	state.interpolateW = fragmentShader != nullptr;
+	state.frontFace = pipelineState.getFrontFace();
+	state.cullMode = pipelineState.getCullMode();
 
-	state.multiSampleCount = context->sampleCount;
+	state.multiSampleCount = pipelineState.getSampleCount();
 	state.enableMultiSampling = (state.multiSampleCount > 1) &&
-	                            !(context->isDrawLine(true) && (context->lineRasterizationMode == VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT));
-	state.rasterizerDiscard = context->rasterizerDiscard;
+	                            !(pipelineState.isDrawLine(true) && (pipelineState.getLineRasterizationMode() == VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT));
+	state.rasterizerDiscard = pipelineState.hasRasterizerDiscard();
 
-	state.numClipDistances = context->vertexShader->getNumOutputClipDistances();
-	state.numCullDistances = context->vertexShader->getNumOutputCullDistances();
+	state.numClipDistances = vertexShader->getNumOutputClipDistances();
+	state.numCullDistances = vertexShader->getNumOutputCullDistances();
 
-	if(context->pixelShader)
+	if(fragmentShader)
 	{
 		for(int interpolant = 0; interpolant < MAX_INTERFACE_COMPONENTS; interpolant++)
 		{
-			state.gradient[interpolant] = context->pixelShader->inputs[interpolant];
+			state.gradient[interpolant] = fragmentShader->inputs[interpolant];
 		}
 	}
 
@@ -101,7 +96,7 @@ SetupProcessor::State SetupProcessor::update(const sw::Context *context) const
 
 SetupProcessor::RoutineType SetupProcessor::routine(const State &state)
 {
-	auto routine = routineCache->query(state);
+	auto routine = routineCache->lookup(state);
 
 	if(!routine)
 	{
@@ -118,8 +113,7 @@ SetupProcessor::RoutineType SetupProcessor::routine(const State &state)
 
 void SetupProcessor::setRoutineCacheSize(int cacheSize)
 {
-	delete routineCache;
-	routineCache = new RoutineCacheType(clamp(cacheSize, 1, 65536));
+	routineCache = std::make_unique<RoutineCacheType>(clamp(cacheSize, 1, 65536));
 }
 
 }  // namespace sw

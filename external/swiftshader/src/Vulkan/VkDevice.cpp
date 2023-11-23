@@ -14,10 +14,12 @@
 
 #include "VkDevice.hpp"
 
-#include "VkConfig.h"
+#include "VkConfig.hpp"
 #include "VkDescriptorSetLayout.hpp"
 #include "VkFence.hpp"
 #include "VkQueue.hpp"
+#include "VkSemaphore.hpp"
+#include "VkTimelineSemaphore.hpp"
 #include "Debug/Context.hpp"
 #include "Debug/Server.hpp"
 #include "Device/Blitter.hpp"
@@ -29,34 +31,78 @@
 
 namespace {
 
-std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> now()
+using time_point = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
+
+time_point now()
 {
 	return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now());
+}
+
+const time_point getEndTimePoint(uint64_t timeout, bool &infiniteTimeout)
+{
+	const time_point start = now();
+	const uint64_t max_timeout = (LLONG_MAX - start.time_since_epoch().count());
+	infiniteTimeout = (timeout > max_timeout);
+	return start + std::chrono::nanoseconds(std::min(max_timeout, timeout));
 }
 
 }  // anonymous namespace
 
 namespace vk {
 
-std::shared_ptr<rr::Routine> Device::SamplingRoutineCache::query(const vk::Device::SamplingRoutineCache::Key &key) const
+void Device::SamplingRoutineCache::updateSnapshot()
 {
-	return cache.query(key);
+	marl::lock lock(mutex);
+
+	if(snapshotNeedsUpdate)
+	{
+		snapshot.clear();
+
+		for(auto it : cache)
+		{
+			snapshot[it.key()] = it.data();
+		}
+
+		snapshotNeedsUpdate = false;
+	}
 }
 
-void Device::SamplingRoutineCache::add(const vk::Device::SamplingRoutineCache::Key &key, const std::shared_ptr<rr::Routine> &routine)
+Device::SamplerIndexer::~SamplerIndexer()
 {
-	ASSERT(routine);
-	cache.add(key, routine);
+	ASSERT(map.empty());
 }
 
-rr::Routine *Device::SamplingRoutineCache::queryConst(const vk::Device::SamplingRoutineCache::Key &key) const
+uint32_t Device::SamplerIndexer::index(const SamplerState &samplerState)
 {
-	return cache.queryConstCache(key).get();
+	marl::lock lock(mutex);
+
+	auto it = map.find(samplerState);
+
+	if(it != map.end())
+	{
+		it->second.count++;
+		return it->second.id;
+	}
+
+	nextID++;
+
+	map.emplace(samplerState, Identifier{ nextID, 1 });
+
+	return nextID;
 }
 
-void Device::SamplingRoutineCache::updateConstCache()
+void Device::SamplerIndexer::remove(const SamplerState &samplerState)
 {
-	cache.updateConstCache();
+	marl::lock lock(mutex);
+
+	auto it = map.find(samplerState);
+	ASSERT(it != map.end());
+
+	auto count = --it->second.count;
+	if(count == 0)
+	{
+		map.erase(it);
+	}
 }
 
 Device::Device(const VkDeviceCreateInfo *pCreateInfo, void *mem, PhysicalDevice *physicalDevice, const VkPhysicalDeviceFeatures *enabledFeatures, const std::shared_ptr<marl::Scheduler> &scheduler)
@@ -99,6 +145,7 @@ Device::Device(const VkDeviceCreateInfo *pCreateInfo, void *mem, PhysicalDevice 
 	// FIXME (b/119409619): use an allocator here so we can control all memory allocations
 	blitter.reset(new sw::Blitter());
 	samplingRoutineCache.reset(new SamplingRoutineCache());
+	samplerIndexer.reset(new SamplerIndexer());
 
 #ifdef ENABLE_VK_DEBUGGER
 	static auto port = getenv("VK_DEBUGGER_PORT");
@@ -111,6 +158,22 @@ Device::Device(const VkDeviceCreateInfo *pCreateInfo, void *mem, PhysicalDevice 
 		debugger.server = vk::dbg::Server::create(debugger.context, atoi(port));
 	}
 #endif  // ENABLE_VK_DEBUGGER
+
+#ifdef SWIFTSHADER_DEVICE_MEMORY_REPORT
+	const VkBaseInStructure *extensionCreateInfo = reinterpret_cast<const VkBaseInStructure *>(pCreateInfo->pNext);
+	while(extensionCreateInfo)
+	{
+		if(extensionCreateInfo->sType == VK_STRUCTURE_TYPE_DEVICE_DEVICE_MEMORY_REPORT_CREATE_INFO_EXT)
+		{
+			auto deviceMemoryReportCreateInfo = reinterpret_cast<const VkDeviceDeviceMemoryReportCreateInfoEXT *>(pCreateInfo->pNext);
+			if(deviceMemoryReportCreateInfo->pfnUserCallback != nullptr)
+			{
+				deviceMemoryReportCallbacks.emplace_back(deviceMemoryReportCreateInfo->pfnUserCallback, deviceMemoryReportCreateInfo->pUserData);
+			}
+		}
+		extensionCreateInfo = extensionCreateInfo->pNext;
+	}
+#endif  // SWIFTSHADER_DEVICE_MEMORY_REPORT
 }
 
 void Device::destroy(const VkAllocationCallbacks *pAllocator)
@@ -155,11 +218,8 @@ VkQueue Device::getQueue(uint32_t queueFamilyIndex, uint32_t queueIndex) const
 
 VkResult Device::waitForFences(uint32_t fenceCount, const VkFence *pFences, VkBool32 waitAll, uint64_t timeout)
 {
-	using time_point = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-	const time_point start = now();
-	const uint64_t max_timeout = (LLONG_MAX - start.time_since_epoch().count());
-	bool infiniteTimeout = (timeout > max_timeout);
-	const time_point end_ns = start + std::chrono::nanoseconds(std::min(max_timeout, timeout));
+	bool infiniteTimeout = false;
+	const time_point end_ns = getEndTimePoint(timeout, infiniteTimeout);
 
 	if(waitAll != VK_FALSE)  // All fences must be signaled
 	{
@@ -195,7 +255,7 @@ VkResult Device::waitForFences(uint32_t fenceCount, const VkFence *pFences, VkBo
 		marl::containers::vector<marl::Event, 8> events;
 		for(uint32_t i = 0; i < fenceCount; i++)
 		{
-			events.push_back(Cast(pFences[i])->getEvent());
+			events.push_back(Cast(pFences[i])->getCountedEvent()->event());
 		}
 
 		auto any = marl::Event::any(events.begin(), events.end());
@@ -213,6 +273,63 @@ VkResult Device::waitForFences(uint32_t fenceCount, const VkFence *pFences, VkBo
 		{
 			return any.wait_until(end_ns) ? VK_SUCCESS : VK_TIMEOUT;
 		}
+	}
+}
+
+VkResult Device::waitForSemaphores(const VkSemaphoreWaitInfo *pWaitInfo, uint64_t timeout)
+{
+	bool infiniteTimeout = false;
+	const time_point end_ns = getEndTimePoint(timeout, infiniteTimeout);
+
+	if(pWaitInfo->flags & VK_SEMAPHORE_WAIT_ANY_BIT)
+	{
+		TimelineSemaphore any = TimelineSemaphore();
+
+		for(uint32_t i = 0; i < pWaitInfo->semaphoreCount; i++)
+		{
+			TimelineSemaphore *semaphore = DynamicCast<TimelineSemaphore>(pWaitInfo->pSemaphores[i]);
+			uint64_t waitValue = pWaitInfo->pValues[i];
+
+			if(semaphore->getCounterValue() == waitValue)
+			{
+				return VK_SUCCESS;
+			}
+
+			semaphore->addDependent(any, waitValue);
+		}
+
+		if(infiniteTimeout)
+		{
+			any.wait(1ull);
+			return VK_SUCCESS;
+		}
+		else
+		{
+			if(any.wait(1, end_ns) == VK_SUCCESS)
+			{
+				return VK_SUCCESS;
+			}
+		}
+
+		return VK_TIMEOUT;
+	}
+	else
+	{
+		ASSERT(pWaitInfo->flags == 0);
+		for(uint32_t i = 0; i < pWaitInfo->semaphoreCount; i++)
+		{
+			TimelineSemaphore *semaphore = DynamicCast<TimelineSemaphore>(pWaitInfo->pSemaphores[i]);
+			uint64_t value = pWaitInfo->pValues[i];
+			if(infiniteTimeout)
+			{
+				semaphore->wait(value);
+			}
+			else if(semaphore->wait(pWaitInfo->pValues[i], end_ns) != VK_SUCCESS)
+			{
+				return VK_TIMEOUT;
+			}
+		}
+		return VK_SUCCESS;
 	}
 }
 
@@ -263,20 +380,104 @@ Device::SamplingRoutineCache *Device::getSamplingRoutineCache() const
 	return samplingRoutineCache.get();
 }
 
-rr::Routine *Device::findInConstCache(const SamplingRoutineCache::Key &key) const
+void Device::updateSamplingRoutineSnapshotCache()
 {
-	return samplingRoutineCache->queryConst(key);
+	samplingRoutineCache->updateSnapshot();
 }
 
-void Device::updateSamplingRoutineConstCache()
+uint32_t Device::indexSampler(const SamplerState &samplerState)
 {
-	std::unique_lock<std::mutex> lock(samplingRoutineCacheMutex);
-	samplingRoutineCache->updateConstCache();
+	return samplerIndexer->index(samplerState);
 }
 
-std::mutex &Device::getSamplingRoutineCacheMutex()
+void Device::removeSampler(const SamplerState &samplerState)
 {
-	return samplingRoutineCacheMutex;
+	samplerIndexer->remove(samplerState);
 }
+
+VkResult Device::setDebugUtilsObjectName(const VkDebugUtilsObjectNameInfoEXT *pNameInfo)
+{
+	// Optionally maps user-friendly name to an object
+	return VK_SUCCESS;
+}
+
+VkResult Device::setDebugUtilsObjectTag(const VkDebugUtilsObjectTagInfoEXT *pTagInfo)
+{
+	// Optionally attach arbitrary data to an object
+	return VK_SUCCESS;
+}
+
+void Device::registerImageView(ImageView *imageView)
+{
+	if(imageView != nullptr)
+	{
+		marl::lock lock(imageViewSetMutex);
+		imageViewSet.insert(imageView);
+	}
+}
+
+void Device::unregisterImageView(ImageView *imageView)
+{
+	if(imageView != nullptr)
+	{
+		marl::lock lock(imageViewSetMutex);
+		auto it = imageViewSet.find(imageView);
+		if(it != imageViewSet.end())
+		{
+			imageViewSet.erase(it);
+		}
+	}
+}
+
+void Device::prepareForSampling(ImageView *imageView)
+{
+	if(imageView != nullptr)
+	{
+		marl::lock lock(imageViewSetMutex);
+
+		auto it = imageViewSet.find(imageView);
+		if(it != imageViewSet.end())
+		{
+			imageView->prepareForSampling();
+		}
+	}
+}
+
+void Device::contentsChanged(ImageView *imageView)
+{
+	if(imageView != nullptr)
+	{
+		marl::lock lock(imageViewSetMutex);
+
+		auto it = imageViewSet.find(imageView);
+		if(it != imageViewSet.end())
+		{
+			imageView->contentsChanged();
+		}
+	}
+}
+
+#ifdef SWIFTSHADER_DEVICE_MEMORY_REPORT
+void Device::emitDeviceMemoryReport(VkDeviceMemoryReportEventTypeEXT type, uint64_t memoryObjectId, VkDeviceSize size, VkObjectType objectType, uint64_t objectHandle, uint32_t heapIndex)
+{
+	if(deviceMemoryReportCallbacks.empty()) return;
+
+	const VkDeviceMemoryReportCallbackDataEXT callbackData = {
+		VK_STRUCTURE_TYPE_DEVICE_MEMORY_REPORT_CALLBACK_DATA_EXT,  // sType
+		nullptr,                                                   // pNext
+		0,                                                         // flags
+		type,                                                      // type
+		memoryObjectId,                                            // memoryObjectId
+		size,                                                      // size
+		objectType,                                                // objectType
+		objectHandle,                                              // objectHandle
+		heapIndex,                                                 // heapIndex
+	};
+	for(const auto &callback : deviceMemoryReportCallbacks)
+	{
+		callback.first(&callbackData, callback.second);
+	}
+}
+#endif  // SWIFTSHADER_DEVICE_MEMORY_REPORT
 
 }  // namespace vk

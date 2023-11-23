@@ -10,6 +10,17 @@
 #include <lib/utils_def.h>
 
 /*******************************************************************************
+ * Platform BL31 specific defines.
+ ******************************************************************************/
+#define BL31_SIZE			U(0x40000)
+
+/*******************************************************************************
+ * Chip specific cluster and cpu numbers
+ ******************************************************************************/
+#define PLATFORM_CLUSTER_COUNT		U(4)
+#define PLATFORM_MAX_CPUS_PER_CLUSTER	U(2)
+
+/*******************************************************************************
  * Chip specific page table and MMU setup constants
  ******************************************************************************/
 #define PLAT_PHY_ADDR_SPACE_SIZE	(ULL(1) << 40)
@@ -41,6 +52,12 @@
 #define TEGRA194_AON_WDT_IRQ		U(50)
 
 #define TEGRA194_SEC_IRQ_TARGET_MASK	U(0xFF) /* 8 Carmel */
+
+/*******************************************************************************
+ * Clock identifier for the SE device
+ ******************************************************************************/
+#define TEGRA194_CLK_SE			U(124)
+#define TEGRA_CLK_SE			TEGRA194_CLK_SE
 
 /*******************************************************************************
  * Tegra Miscellanous register constants
@@ -93,6 +110,8 @@
 #define MC_VIDEO_PROTECT_BASE_HI	U(0x978)
 #define MC_VIDEO_PROTECT_BASE_LO	U(0x648)
 #define MC_VIDEO_PROTECT_SIZE_MB	U(0x64c)
+#define MC_VIDEO_PROTECT_REG_CTRL	U(0x650)
+#define MC_VIDEO_PROTECT_WRITE_ACCESS_ENABLED	U(3)
 
 /*
  * Carveout (MC_SECURITY_CARVEOUT24) registers used to clear the
@@ -197,6 +216,16 @@
  * Tegra scratch registers constants
  ******************************************************************************/
 #define TEGRA_SCRATCH_BASE		U(0x0C390000)
+#define  SECURE_SCRATCH_RSV68_LO	U(0x284)
+#define  SECURE_SCRATCH_RSV68_HI	U(0x288)
+#define  SECURE_SCRATCH_RSV69_LO	U(0x28C)
+#define  SECURE_SCRATCH_RSV69_HI	U(0x290)
+#define  SECURE_SCRATCH_RSV70_LO	U(0x294)
+#define  SECURE_SCRATCH_RSV70_HI	U(0x298)
+#define  SECURE_SCRATCH_RSV71_LO	U(0x29C)
+#define  SECURE_SCRATCH_RSV71_HI	U(0x2A0)
+#define  SECURE_SCRATCH_RSV72_LO	U(0x2A4)
+#define  SECURE_SCRATCH_RSV72_HI	U(0x2A8)
 #define  SECURE_SCRATCH_RSV75   	U(0x2BC)
 #define  SECURE_SCRATCH_RSV81_LO	U(0x2EC)
 #define  SECURE_SCRATCH_RSV81_HI	U(0x2F0)
@@ -215,8 +244,8 @@
 #define  SCRATCH_BL31_PLAT_PARAMS_HI_ADDR_SHIFT U(16)
 #define SCRATCH_BL31_PLAT_PARAMS_LO_ADDR SECURE_SCRATCH_RSV81_HI
 #define SCRATCH_SECURE_BOOTP_FCFG	SECURE_SCRATCH_RSV97
-#define SCRATCH_SMMU_TABLE_ADDR_LO	SECURE_SCRATCH_RSV99_LO
-#define SCRATCH_SMMU_TABLE_ADDR_HI	SECURE_SCRATCH_RSV99_HI
+#define SCRATCH_MC_TABLE_ADDR_LO	SECURE_SCRATCH_RSV99_LO
+#define SCRATCH_MC_TABLE_ADDR_HI	SECURE_SCRATCH_RSV99_HI
 #define SCRATCH_RESET_VECTOR_LO		SECURE_SCRATCH_RSV109_LO
 #define SCRATCH_RESET_VECTOR_HI		SECURE_SCRATCH_RSV109_HI
 
@@ -257,6 +286,12 @@
 #define TEGRA_GPCDMA_RST_CLR_REG_OFFSET	U(0x6A0008)
 
 /*******************************************************************************
+ * Tegra DRAM memory base address
+ ******************************************************************************/
+#define TEGRA_DRAM_BASE			ULL(0x80000000)
+#define TEGRA_DRAM_END			ULL(0xFFFFFFFFF)
+
+/*******************************************************************************
  * XUSB STREAMIDs
  ******************************************************************************/
 #define TEGRA_SID_XUSB_HOST			U(0x1b)
@@ -265,5 +300,27 @@
 #define TEGRA_SID_XUSB_VF1			U(0x5e)
 #define TEGRA_SID_XUSB_VF2			U(0x5f)
 #define TEGRA_SID_XUSB_VF3			U(0x60)
+
+/*******************************************************************************
+ * SCR addresses and expected settings
+ ******************************************************************************/
+#define SCRATCH_RSV68_SCR			U(0x0C398110)
+#define SCRATCH_RSV68_SCR_VAL			U(0x38000101)
+#define SCRATCH_RSV71_SCR			U(0x0C39811C)
+#define SCRATCH_RSV71_SCR_VAL			U(0x38000101)
+#define SCRATCH_RSV72_SCR			U(0x0C398120)
+#define SCRATCH_RSV72_SCR_VAL			U(0x38000101)
+#define SCRATCH_RSV75_SCR			U(0x0C39812C)
+#define SCRATCH_RSV75_SCR_VAL			U(0x3A000005)
+#define SCRATCH_RSV81_SCR			U(0x0C398144)
+#define SCRATCH_RSV81_SCR_VAL			U(0x3A000105)
+#define SCRATCH_RSV97_SCR			U(0x0C398184)
+#define SCRATCH_RSV97_SCR_VAL			U(0x38000101)
+#define SCRATCH_RSV99_SCR			U(0x0C39818C)
+#define SCRATCH_RSV99_SCR_VAL			U(0x38000101)
+#define SCRATCH_RSV109_SCR			U(0x0C3981B4)
+#define SCRATCH_RSV109_SCR_VAL			U(0x38000101)
+#define MISCREG_SCR_SCRTZWELCK			U(0x00109000)
+#define MISCREG_SCR_SCRTZWELCK_VAL		U(0x30000100)
 
 #endif /* TEGRA_DEF_H */

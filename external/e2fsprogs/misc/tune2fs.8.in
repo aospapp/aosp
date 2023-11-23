@@ -229,21 +229,18 @@ is not specified, utf8 is used. The encoding cannot be altered if casefold
 was previously enabled.
 .TP
 .BI encoding_flags= encoding-flags
-Override the flags for filename encoding.  This option may only be specified
-when
-.I encoding-name
-is also specified and when the file system doesn't already have the
-.I casefold
-feature enabled.  Currently the only recognized flag is
+Define parameters for file name character encoding operations.  If a
+flag is not changed using this parameter, its default value is used.
+.I encoding-flags
+should be a comma-separated lists of flags to be enabled.  The flags cannot be
+altered if casefold was previously enabled.
+
+The only flag that can be set right now is
 .I strict
-which means that invalid filenames are rejected by the file system.  By default,
+which means that invalid strings should be rejected by the file system.
+In the default configuration, the
 .I strict
-is not enabled.
-Flags may be prefixed with "no" to explicitly leave them disabled, e.g.
-.I nostrict
-to explicitly leave the
-.I strict
-flag disabled.
+flag is disabled.
 .TP
 .BI mount_opts= mount_option_string
 Set a set of default mount options which will be used when the file

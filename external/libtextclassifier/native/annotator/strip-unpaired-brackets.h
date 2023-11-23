@@ -23,14 +23,21 @@
 #include "utils/utf8/unilib.h"
 
 namespace libtextclassifier3 {
+
 // If the first or the last codepoint of the given span is a bracket, the
 // bracket is stripped if the span does not contain its corresponding paired
 // version.
-CodepointSpan StripUnpairedBrackets(const std::string& context,
+CodepointSpan StripUnpairedBrackets(
+    const UnicodeText::const_iterator& span_begin,
+    const UnicodeText::const_iterator& span_end, CodepointSpan span,
+    const UniLib& unilib);
+
+// Same as above but takes a UnicodeText instance for the span.
+CodepointSpan StripUnpairedBrackets(const UnicodeText& context,
                                     CodepointSpan span, const UniLib& unilib);
 
-// Same as above but takes UnicodeText instance directly.
-CodepointSpan StripUnpairedBrackets(const UnicodeText& context_unicode,
+// Same as above but takes a string instance.
+CodepointSpan StripUnpairedBrackets(const std::string& context,
                                     CodepointSpan span, const UniLib& unilib);
 
 }  // namespace libtextclassifier3

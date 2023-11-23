@@ -4,6 +4,8 @@
 
 """Utilities for PyAuto."""
 
+from __future__ import print_function
+
 import httplib
 import logging
 import os
@@ -121,7 +123,7 @@ def UnzipFilenameToDir(filename, dir):
       out.write(zf.read(name))
       out.close()
     # Set permissions. Permission info in external_attr is shifted 16 bits.
-    os.chmod(name, info.external_attr >> 16L)
+    os.chmod(name, info.external_attr >> 16)
   os.chdir(pushd)
 
 
@@ -159,9 +161,9 @@ def PrintPerfResult(graph_name, series_name, data_point, units,
                        this test on the waterfall page, not the stdio page).
   """
   waterfall_indicator = ['', '*'][show_on_waterfall]
-  print '%sRESULT %s: %s= %s %s' % (
+  print('%sRESULT %s: %s= %s %s' % (
       waterfall_indicator, graph_name, series_name,
-      str(data_point).replace(' ', ''), units)
+      str(data_point).replace(' ', ''), units))
   sys.stdout.flush()
 
 

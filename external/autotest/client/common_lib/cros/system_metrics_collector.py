@@ -233,24 +233,20 @@ def create_default_metric_set(system_facade):
     mem = MemUsageMetric(system_facade)
     file_handles = AllocatedFileHandlesMetric(system_facade)
     storage_written_amount = StorageWrittenAmountMetric(system_facade)
-    storage_written_count = StorageWrittenCountMetric(system_facade)
     temperature = TemperatureMetric(system_facade)
     peak_cpu = PeakMetric.from_metric(cpu)
     peak_mem = PeakMetric.from_metric(mem)
     peak_temperature = PeakMetric.from_metric(temperature)
     sum_storage_written_amount = SumMetric.from_metric(storage_written_amount)
-    sum_storage_written_count = SumMetric.from_metric(storage_written_count)
     return [cpu,
             mem,
             file_handles,
             storage_written_amount,
-            storage_written_count,
             temperature,
             peak_cpu,
             peak_mem,
             peak_temperature,
-            sum_storage_written_amount,
-            sum_storage_written_count]
+            sum_storage_written_amount]
 
 class SystemMetricsCollector(object):
     """

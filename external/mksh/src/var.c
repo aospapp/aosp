@@ -2,7 +2,8 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018,
+ *		 2019
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -28,7 +29,7 @@
 #include <sys/sysctl.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/var.c,v 1.226 2018/07/15 17:21:24 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/var.c,v 1.236 2020/04/13 16:29:34 tg Exp $");
 
 /*-
  * Variables
@@ -49,7 +50,7 @@ static void c_typeset_vardump(struct tbl *, uint32_t, int, int, bool, bool);
 static void c_typeset_vardump_recursive(struct block *, uint32_t, int, bool,
     bool);
 static char *formatstr(struct tbl *, const char *);
-static void exportprep(struct tbl *, const char *);
+static void exportprep(struct tbl *, const char *, size_t);
 static int special(const char *);
 static void unspecial(const char *);
 static void getspec(struct tbl *);
@@ -57,6 +58,7 @@ static void setspec(struct tbl *);
 static void unsetspec(struct tbl *, bool);
 static int getint(struct tbl *, mksh_ari_u *, bool);
 static const char *array_index_calc(const char *, bool *, uint32_t *);
+static struct tbl *vtypeset(int *, const char *, uint32_t, uint32_t, int, int);
 
 /*
  * create a new block for function calls and simple commands
@@ -196,7 +198,7 @@ array_index_calc(const char *n, bool *arrayp, uint32_t *valp)
 			char *cp;
 
 			/* gotcha! */
-			cp = shf_smprintf(Tf_ss, str_val(vp), p);
+			strdup2x(cp, str_val(vp), p);
 			afree(ap, ATEMP);
 			n = ap = cp;
 			goto redo_from_ref;
@@ -207,16 +209,21 @@ array_index_calc(const char *n, bool *arrayp, uint32_t *valp)
 	if (p != n && ord(*p) == ORD('[') && (len = array_ref_len(p))) {
 		char *sub, *tmp;
 		mksh_ari_t rval;
+		size_t tmplen = p - n;
 
 		/* calculate the value of the subscript */
 		*arrayp = true;
-		strndupx(tmp, p + 1, len - 2, ATEMP);
+		len -= 2;
+		tmp = alloc((len > tmplen ? len : tmplen) + 1, ATEMP);
+		memcpy(tmp, p + 1, len);
+		tmp[len] = '\0';
 		sub = substitute(tmp, 0);
-		afree(tmp, ATEMP);
-		strndupx(n, n, p - n, ATEMP);
 		evaluate(sub, &rval, KSH_UNWIND_ERROR, true);
 		*valp = (uint32_t)rval;
 		afree(sub, ATEMP);
+		memcpy(tmp, n, tmplen);
+		tmp[tmplen] = '\0';
+		n = tmp;
 	}
 	return (n);
 }
@@ -273,7 +280,7 @@ isglobal(const char *n, bool docreate)
 		vp->name[0] = c;
 		vp->name[1] = '\0';
 		vp->flag |= RDONLY;
-		if (vn[1] != '\0')
+		if (!c || vn[1] != '\0')
 			goto out;
 		vp->flag |= ISSET|INTEGER;
 		switch (c) {
@@ -450,7 +457,6 @@ str_val(struct tbl *vp)
 int
 setstr(struct tbl *vq, const char *s, int error_ok)
 {
-	char *salloc = NULL;
 	bool no_ro_check = tobool(error_ok & 0x4);
 
 	error_ok &= ~0x4;
@@ -462,28 +468,33 @@ setstr(struct tbl *vq, const char *s, int error_ok)
 	}
 	if (!(vq->flag&INTEGER)) {
 		/* string dest */
+		char *salloc = NULL;
+		size_t cursz;
 		if ((vq->flag&ALLOC)) {
+			cursz = strlen(vq->val.s) + 1;
 #ifndef MKSH_SMALL
 			/* debugging */
-			if (s >= vq->val.s &&
-			    s <= strnul(vq->val.s)) {
+			if (s >= vq->val.s && s < (vq->val.s + cursz)) {
 				internal_errorf(
 				    "setstr: %s=%s: assigning to self",
 				    vq->name, s);
 			}
 #endif
-			afree(vq->val.s, vq->areap);
-		}
-		vq->flag &= ~(ISSET|ALLOC);
-		vq->type = 0;
+		} else
+			cursz = 0;
 		if (s && (vq->flag & (UCASEV_AL|LCASEV|LJUST|RJUST)))
 			s = salloc = formatstr(vq, s);
 		if ((vq->flag&EXPORT))
-			exportprep(vq, s);
+			exportprep(vq, s, cursz);
 		else {
-			strdupx(vq->val.s, s, vq->areap);
+			size_t n = strlen(s) + 1;
+			vq->val.s = aresizeif(cursz, (vq->flag & ALLOC) ?
+			    vq->val.s : NULL, n, vq->areap);
+			memcpy(vq->val.s, s, n);
 			vq->flag |= ALLOC;
+			vq->type = 0;
 		}
+		afree(salloc, ATEMP);
 	} else {
 		/* integer dest */
 		if (!v_evaluate(vq, s, error_ok, true))
@@ -492,7 +503,6 @@ setstr(struct tbl *vq, const char *s, int error_ok)
 	vq->flag |= ISSET;
 	if ((vq->flag&SPECIAL))
 		setspec(vq);
-	afree(salloc, ATEMP);
 	return (1);
 }
 
@@ -728,25 +738,19 @@ formatstr(struct tbl *vp, const char *s)
  * make vp->val.s be "name=value" for quick exporting.
  */
 static void
-exportprep(struct tbl *vp, const char *val)
+exportprep(struct tbl *vp, const char *val, size_t cursz)
 {
-	char *xp;
-	char *op = (vp->flag&ALLOC) ? vp->val.s : NULL;
-	size_t namelen, vallen;
-
-	namelen = strlen(vp->name);
-	vallen = strlen(val) + 1;
+	char *cp = (vp->flag & ALLOC) ? vp->val.s : NULL;
+	size_t namelen = strlen(vp->name);
+	size_t vallen = strlen(val) + 1;
 
 	vp->flag |= ALLOC;
+	vp->type = namelen + 1;
 	/* since name+val are both in memory this can go unchecked */
-	xp = alloc(namelen + 1 + vallen, vp->areap);
-	memcpy(vp->val.s = xp, vp->name, namelen);
-	xp += namelen;
-	*xp++ = '=';
-	/* offset to value */
-	vp->type = xp - vp->val.s;
-	memcpy(xp, val, vallen);
-	afree(op, vp->areap);
+	vp->val.s = aresizeif(cursz, cp, vp->type + vallen, vp->areap);
+	memmove(vp->val.s + vp->type, val == cp ? vp->val.s : val, vallen);
+	memcpy(vp->val.s, vp->name, namelen);
+	vp->val.s[namelen] = '=';
 }
 
 /*
@@ -757,13 +761,22 @@ exportprep(struct tbl *vp, const char *val)
 struct tbl *
 typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 {
+	return (vtypeset(NULL, var, set, clr, field, base));
+}
+static struct tbl *
+vtypeset(int *ep, const char *var, uint32_t set, uint32_t clr,
+    int field, int base)
+{
 	struct tbl *vp;
 	struct tbl *vpbase, *t;
-	char *tvar;
+	char *tvar, tvarbuf[32];
 	const char *val;
 	size_t len;
 	bool vappend = false;
 	enum namerefflag new_refflag = SRF_NOP;
+
+	if (ep)
+		*ep = 0;
 
 	if ((set & (ARRAY | ASSOC)) == ASSOC) {
 		new_refflag = SRF_ENABLE;
@@ -782,8 +795,8 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 	}
 	if (ord(*val) == ORD('[')) {
 		if (new_refflag != SRF_NOP)
-			errorf(Tf_sD_s, var,
-			    "reference variable can't be an array");
+			return (maybe_errorf(ep, 1, Tf_sD_s, var,
+			    "reference variable can't be an array"), NULL);
 		len = array_ref_len(val);
 		if (len == 0)
 			return (NULL);
@@ -804,13 +817,19 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 		val += len;
 	}
 	if (ord(val[0]) == ORD('=')) {
-		strndupx(tvar, var, val - var, ATEMP);
+		len = val - var;
+		tvar = len < sizeof(tvarbuf) ? tvarbuf : alloc(len + 1, ATEMP);
+		memcpy(tvar, var, len);
+		tvar[len] = '\0';
 		++val;
 	} else if (set & IMPORT) {
 		/* environment invalid variable name or no assignment */
 		return (NULL);
 	} else if (ord(val[0]) == ORD('+') && ord(val[1]) == ORD('=')) {
-		strndupx(tvar, var, val - var, ATEMP);
+		len = val - var;
+		tvar = len < sizeof(tvarbuf) ? tvarbuf : alloc(len + 1, ATEMP);
+		memcpy(tvar, var, len);
+		tvar[len] = '\0';
 		val += 2;
 		vappend = true;
 	} else if (val[0] != '\0') {
@@ -818,10 +837,12 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 		return (NULL);
 	} else {
 		/* just varname with no value part nor equals sign */
-		strdupx(tvar, var, ATEMP);
+		len = strlen(var);
+		tvar = len < sizeof(tvarbuf) ? tvarbuf : alloc(len + 1, ATEMP);
+		memcpy(tvar, var, len);
+		tvar[len] = '\0';
 		val = NULL;
 		/* handle foo[*] => foo (whole array) mapping for R39b */
-		len = strlen(tvar);
 		if (len > 3 && ord(tvar[len - 3]) == ORD('[') &&
 		    ord(tvar[len - 2]) == ORD('*') &&
 		    ord(tvar[len - 1]) == ORD(']'))
@@ -833,7 +854,8 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 
 		/* bail out on 'nameref foo+=bar' */
 		if (vappend)
-			errorf("appending not allowed for nameref");
+			return (maybe_errorf(ep, 1,
+			    "appending not allowed for nameref"), NULL);
 		/* find value if variable already exists */
 		if ((qval = val) == NULL) {
 			varsearch(e->loc, &vp, tvar, hash(tvar));
@@ -859,7 +881,8 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 				goto nameref_rhs_checked;
 			}
  nameref_empty:
-			errorf(Tf_sD_s, var, "empty nameref target");
+			return (maybe_errorf(ep, 1, Tf_sD_s, var,
+			    "empty nameref target"), NULL);
 		}
 		len = (ord(*ccp) == ORD('[')) ? array_ref_len(ccp) : 0;
 		if (ccp[len]) {
@@ -868,15 +891,15 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 			 * junk after it" and "invalid array"; in the
 			 * latter case, len is also 0 and points to '['
 			 */
-			errorf(Tf_sD_s, qval,
-			    "nameref target not a valid parameter name");
+			return (maybe_errorf(ep, 1, Tf_sD_s, qval,
+			    "nameref target not a valid parameter name"), NULL);
 		}
  nameref_rhs_checked:
 		/* prevent nameref loops */
 		while (qval) {
 			if (!strcmp(qval, tvar))
-				errorf(Tf_sD_s, qval,
-				    "expression recurses on parameter");
+				return (maybe_errorf(ep, 1, Tf_sD_s, qval,
+				    "expression recurses on parameter"), NULL);
 			varsearch(e->loc, &vp, qval, hash(qval));
 			qval = NULL;
 			if (vp && ((vp->flag & (ARRAY | ASSOC)) == ASSOC))
@@ -886,8 +909,9 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 
 	/* prevent typeset from creating a local PATH/ENV/SHELL */
 	if (Flag(FRESTRICTED) && (strcmp(tvar, TPATH) == 0 ||
-	    strcmp(tvar, "ENV") == 0 || strcmp(tvar, TSHELL) == 0))
-		errorf(Tf_sD_s, tvar, "restricted");
+	    strcmp(tvar, TENV) == 0 || strcmp(tvar, TSHELL) == 0))
+		return (maybe_errorf(ep, 1, Tf_sD_s,
+		    tvar, "restricted"), NULL);
 
 	innermost_refflag = new_refflag;
 	vp = (set & LOCAL) ? local(tvar, tobool(set & LOCAL_COPY)) :
@@ -923,9 +947,9 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 	 */
 	if ((vpbase->flag & RDONLY) &&
 	    (val || clr || (set & ~(EXPORT | RDONLY))))
-		/* XXX check calls - is error here ok by POSIX? */
-		errorfx(2, Tf_ro, tvar);
-	afree(tvar, ATEMP);
+		return (maybe_errorf(ep, 2, Tf_ro, tvar), NULL);
+	if (tvar != tvarbuf)
+		afree(tvar, ATEMP);
 
 	/* most calls are with set/clr == 0 */
 	if (set | clr) {
@@ -990,18 +1014,24 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 			}
 		}
 		if (!ok)
-			errorfz();
+			return (maybe_errorf(ep, 1, NULL), NULL);
 	}
 
-	if (val != NULL) {
-		char *tval;
-
-		if (vappend) {
-			tval = shf_smprintf(Tf_ss, str_val(vp), val);
-			val = tval;
-		} else
-			tval = NULL;
-
+	if (vappend) {
+		size_t tlen;
+		if ((vp->flag & (ISSET|ALLOC|SPECIAL|INTEGER|UCASEV_AL|LCASEV|LJUST|RJUST)) != (ISSET|ALLOC)) {
+			/* cannot special-case this */
+			strdup2x(tvar, str_val(vp), val);
+			val = tvar;
+			goto vassign;
+		}
+		/* trivial string appending */
+		len = strlen(vp->val.s);
+		tlen = strlen(val) + 1;
+		vp->val.s = aresize(vp->val.s, len + tlen, vp->areap);
+		memcpy(vp->val.s + len, val, tlen);
+	} else if (val != NULL) {
+ vassign:
 		if (vp->flag&INTEGER) {
 			/* do not zero base before assignment */
 			setstr(vp, val, KSH_UNWIND_ERROR | 0x4);
@@ -1012,13 +1042,16 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 			/* setstr can't fail (readonly check already done) */
 			setstr(vp, val, KSH_RETURN_ERROR | 0x4);
 
-		afree(tval, ATEMP);
+		/* came here from vappend? need to free temp val */
+		if (vappend)
+			afree(tvar, ATEMP);
 	}
 
 	/* only x[0] is ever exported, so use vpbase */
-	if ((vpbase->flag&EXPORT) && !(vpbase->flag&INTEGER) &&
+	if ((vpbase->flag & (EXPORT|INTEGER)) == EXPORT &&
 	    vpbase->type == 0)
-		exportprep(vpbase, (vpbase->flag&ISSET) ? vpbase->val.s : null);
+		exportprep(vpbase, (vpbase->flag & ISSET) ?
+		    vpbase->val.s : null, 0);
 
 	return (vp);
 }
@@ -1829,7 +1862,7 @@ record_match(const char *istr)
 	setstr(vp, istr, 0x4);
 }
 
-/* typeset, global(deprecated), export, and readonly */
+/* typeset, export and readonly */
 int
 c_typeset(const char **wp)
 {
@@ -2026,7 +2059,7 @@ c_typeset(const char **wp)
 	if (wp[builtin_opt.optind] &&
 	    /* not "typeset -p varname" */
 	    !(!func && pflag && !(fset | fclr))) {
-		int rv = 0;
+		int rv = 0, x;
 		struct tbl *f;
 
 		if (localv && !func)
@@ -2049,7 +2082,10 @@ c_typeset(const char **wp)
 					    wp[i], f->val.t);
 					shf_putc('\n', shl_stdout);
 				}
-			} else if (!typeset(wp[i], fset, fclr, field, base)) {
+			} else if (!vtypeset(&x, wp[i], fset, fclr,
+			    field, base)) {
+				if (x)
+					return (x);
 				bi_errorf(Tf_sD_s, wp[i], Tnot_ident);
 				return (1);
 			}

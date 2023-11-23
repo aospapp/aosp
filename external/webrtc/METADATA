@@ -9,10 +9,11 @@ third_party {
     type: GIT
     value: "https://webrtc.googlesource.com/src/"
   }
-  version: "04cb763955aadf29324ec124b55aa399a7645d51"
+  version: "cc57b935cdd19bc78352ab7e3091b2b3ad653074"
+  license_type: NOTICE
   last_upgrade_date {
-    year: 2016
-    month: 1
-    day: 14
+    year: 2020
+    month: 6
+    day: 26
   }
 }

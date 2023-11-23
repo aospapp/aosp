@@ -13,13 +13,16 @@
 #include "common/angleutils.h"
 #include "libANGLE/Error.h"
 #include "libANGLE/Framebuffer.h"
+#include "libANGLE/State.h"
 
 namespace gl
 {
-class State;
+class Buffer;
 class Framebuffer;
 class FramebufferAttachment;
+struct PixelPackState;
 struct Rectangle;
+class State;
 }  // namespace gl
 
 namespace rx
@@ -69,6 +72,8 @@ class FramebufferImpl : angle::NonCopyable
                                      const gl::Rectangle &area,
                                      GLenum format,
                                      GLenum type,
+                                     const gl::PixelPackState &pack,
+                                     gl::Buffer *packBuffer,
                                      void *pixels) = 0;
 
     virtual angle::Result blit(const gl::Context *context,
@@ -77,11 +82,12 @@ class FramebufferImpl : angle::NonCopyable
                                GLbitfield mask,
                                GLenum filter) = 0;
 
-    virtual bool checkStatus(const gl::Context *context) const = 0;
+    virtual gl::FramebufferStatus checkStatus(const gl::Context *context) const = 0;
 
     virtual angle::Result syncState(const gl::Context *context,
                                     GLenum binding,
-                                    const gl::Framebuffer::DirtyBits &dirtyBits) = 0;
+                                    const gl::Framebuffer::DirtyBits &dirtyBits,
+                                    gl::Command command) = 0;
 
     virtual angle::Result getSamplePosition(const gl::Context *context,
                                             size_t index,

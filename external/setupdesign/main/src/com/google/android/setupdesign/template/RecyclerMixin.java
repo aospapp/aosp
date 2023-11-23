@@ -21,15 +21,17 @@ import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.Adapter;
 import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 import android.util.AttributeSet;
 import android.view.View;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.google.android.setupcompat.internal.TemplateLayout;
+import com.google.android.setupcompat.partnerconfig.PartnerConfig;
+import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
 import com.google.android.setupcompat.template.Mixin;
 import com.google.android.setupdesign.DividerItemDecoration;
 import com.google.android.setupdesign.GlifLayout;
@@ -38,6 +40,7 @@ import com.google.android.setupdesign.items.ItemHierarchy;
 import com.google.android.setupdesign.items.ItemInflater;
 import com.google.android.setupdesign.items.RecyclerItemAdapter;
 import com.google.android.setupdesign.util.DrawableLayoutDirectionHelper;
+import com.google.android.setupdesign.util.PartnerStyleHelper;
 import com.google.android.setupdesign.view.HeaderRecyclerView;
 import com.google.android.setupdesign.view.HeaderRecyclerView.HeaderAdapter;
 
@@ -64,6 +67,7 @@ public class RecyclerMixin implements Mixin {
 
   private int dividerInsetStart;
   private int dividerInsetEnd;
+  private boolean isDividerDisplay = true;
 
   /**
    * Creates the RecyclerMixin. Unlike typical mixins which are created in the constructor, this
@@ -86,7 +90,22 @@ public class RecyclerMixin implements Mixin {
       header = ((HeaderRecyclerView) recyclerView).getHeader();
     }
 
-    this.recyclerView.addItemDecoration(dividerDecoration);
+    isDividerDisplay = isShowItemsDivider();
+    if (isDividerDisplay) {
+      this.recyclerView.addItemDecoration(dividerDecoration);
+    }
+  }
+
+  private boolean isShowItemsDivider() {
+    // Skips to add item decoration if config flag is false.
+    if (PartnerStyleHelper.shouldApplyPartnerResource(templateLayout)) {
+      if (PartnerConfigHelper.get(recyclerView.getContext())
+          .isPartnerConfigAvailable(PartnerConfig.CONFIG_ITEMS_DIVIDER_SHOWN)) {
+        return PartnerConfigHelper.get(recyclerView.getContext())
+            .getBoolean(recyclerView.getContext(), PartnerConfig.CONFIG_ITEMS_DIVIDER_SHOWN, true);
+      }
+    }
+    return true;
   }
 
   /**
@@ -108,16 +127,24 @@ public class RecyclerMixin implements Mixin {
       final ItemHierarchy inflated = new ItemInflater(context).inflate(entries);
 
       boolean applyPartnerHeavyThemeResource = false;
+      boolean useFullDynamicColor = false;
       if (templateLayout instanceof GlifLayout) {
         applyPartnerHeavyThemeResource =
             ((GlifLayout) templateLayout).shouldApplyPartnerHeavyThemeResource();
+        useFullDynamicColor = ((GlifLayout) templateLayout).useFullDynamicColor();
       }
 
       final RecyclerItemAdapter adapter =
-          new RecyclerItemAdapter(inflated, applyPartnerHeavyThemeResource);
+          new RecyclerItemAdapter(inflated, applyPartnerHeavyThemeResource, useFullDynamicColor);
       adapter.setHasStableIds(a.getBoolean(R.styleable.SudRecyclerMixin_sudHasStableIds, false));
       setAdapter(adapter);
     }
+
+    if (!isDividerDisplay) {
+      a.recycle();
+      return;
+    }
+
     int dividerInset = a.getDimensionPixelSize(R.styleable.SudRecyclerMixin_sudDividerInset, -1);
     if (dividerInset != -1) {
       setDividerInset(dividerInset);
@@ -126,6 +153,23 @@ public class RecyclerMixin implements Mixin {
           a.getDimensionPixelSize(R.styleable.SudRecyclerMixin_sudDividerInsetStart, 0);
       int dividerInsetEnd =
           a.getDimensionPixelSize(R.styleable.SudRecyclerMixin_sudDividerInsetEnd, 0);
+
+      if (PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(templateLayout)) {
+        if (PartnerConfigHelper.get(context)
+            .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
+          dividerInsetStart =
+              (int)
+                  PartnerConfigHelper.get(context)
+                      .getDimension(context, PartnerConfig.CONFIG_LAYOUT_MARGIN_START);
+        }
+        if (PartnerConfigHelper.get(context)
+            .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_END)) {
+          dividerInsetEnd =
+              (int)
+                  PartnerConfigHelper.get(context)
+                      .getDimension(context, PartnerConfig.CONFIG_LAYOUT_MARGIN_END);
+        }
+      }
       setDividerInsets(dividerInsetStart, dividerInsetEnd);
     }
 
@@ -172,7 +216,7 @@ public class RecyclerMixin implements Mixin {
    * @return The adapter, or {@code null} if the recycler view has no adapter.
    */
   public Adapter<? extends ViewHolder> getAdapter() {
-    @SuppressWarnings("unchecked") // RecyclerView.getAdapter returns raw type :(
+    // RecyclerView.getAdapter returns raw type :(
     final RecyclerView.Adapter<? extends ViewHolder> adapter = recyclerView.getAdapter();
     if (adapter instanceof HeaderAdapter) {
       return ((HeaderAdapter<? extends ViewHolder>) adapter).getWrappedAdapter();

@@ -62,12 +62,16 @@
 #define USE_ARP(...)
 #define CFG_ASCII 0
 #define USE_ASCII(...)
+#define CFG_BASE32 0
+#define USE_BASE32(...)
 #define CFG_BASE64 1
 #define USE_BASE64(...) __VA_ARGS__
 #define CFG_BASENAME 1
 #define USE_BASENAME(...) __VA_ARGS__
 #define CFG_BC 0
 #define USE_BC(...)
+#define CFG_BLKDISCARD 1
+#define USE_BLKDISCARD(...) __VA_ARGS__
 #define CFG_BLKID 1
 #define USE_BLKID(...) __VA_ARGS__
 #define CFG_BLOCKDEV 1
@@ -104,6 +108,8 @@
 #define USE_CHROOT(...) __VA_ARGS__
 #define CFG_CHRT 1
 #define USE_CHRT(...) __VA_ARGS__
+#define CFG_CHSH 0
+#define USE_CHSH(...)
 #define CFG_CHVT 0
 #define USE_CHVT(...)
 #define CFG_CKSUM 1
@@ -466,6 +472,8 @@
 #define USE_PWDX(...) __VA_ARGS__
 #define CFG_PWD 1
 #define USE_PWD(...) __VA_ARGS__
+#define CFG_PWGEN 0
+#define USE_PWGEN(...)
 #define CFG_READAHEAD 0
 #define USE_READAHEAD(...)
 #define CFG_READELF 1
@@ -494,6 +502,8 @@
 #define USE_RM(...) __VA_ARGS__
 #define CFG_ROUTE 0
 #define USE_ROUTE(...)
+#define CFG_RTCWAKE 1
+#define USE_RTCWAKE(...) __VA_ARGS__
 #define CFG_RUNCON 1
 #define USE_RUNCON(...) __VA_ARGS__
 #define CFG_SED 1
@@ -514,6 +524,8 @@
 #define USE_SHA224SUM(...) __VA_ARGS__
 #define CFG_SHA256SUM 1
 #define USE_SHA256SUM(...) __VA_ARGS__
+#define CFG_SHA3SUM 0
+#define USE_SHA3SUM(...)
 #define CFG_SHA384SUM 1
 #define USE_SHA384SUM(...) __VA_ARGS__
 #define CFG_SHA512SUM 1
@@ -584,6 +596,8 @@
 #define USE_TELNET(...)
 #define CFG_TEST 1
 #define USE_TEST(...) __VA_ARGS__
+#define CFG_TEST_GLUE 1
+#define USE_TEST_GLUE(...) __VA_ARGS__
 #define CFG_TFTPD 0
 #define USE_TFTPD(...)
 #define CFG_TFTP 0
@@ -616,6 +630,8 @@
 #define USE_UMOUNT(...) __VA_ARGS__
 #define CFG_UNAME 1
 #define USE_UNAME(...) __VA_ARGS__
+#define CFG_UNICODE 0
+#define USE_UNICODE(...)
 #define CFG_UNIQ 1
 #define USE_UNIQ(...) __VA_ARGS__
 #define CFG_UNIX2DOS 1
@@ -646,6 +662,8 @@
 #define USE_VMSTAT(...) __VA_ARGS__
 #define CFG_WATCH 1
 #define USE_WATCH(...) __VA_ARGS__
+#define CFG_WATCHDOG 0
+#define USE_WATCHDOG(...)
 #define CFG_WC 1
 #define USE_WC(...) __VA_ARGS__
 #define CFG_WGET 0

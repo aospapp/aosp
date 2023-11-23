@@ -17,8 +17,12 @@ extern "C" {
 struct ucm_section {
 	/* Section name. */
 	const char *name;
+	/* Value of PlaybackPCM or CapturePCM. */
+	const char *pcm_name;
 	/* Device PCM index. */
 	int dev_idx;
+	/* Device PCM index to associate this section to. */
+	int dependent_dev_idx;
 	/* Output or Input. */
 	enum CRAS_STREAM_DIRECTION dir;
 	/* Associated jack's name. */
@@ -27,7 +31,7 @@ struct ucm_section {
 	const char *jack_type;
 	/* Switch number for jack from linux/input.h, or -1. */
 	int jack_switch;
-	/* MixerName value. */
+	/* (Playback/Capture)MixerElem value. */
 	const char *mixer_name;
 	/* CoupledMixers value. */
 	struct mixer_name *coupled;
@@ -38,7 +42,10 @@ struct ucm_section {
  *
  * Args:
  *    name - Section name (must not be NULL).
+ *    pcm_name - PCM name used for snd_pcm_open.
  *    dev_idx - Section's device index (PCM number).
+ *    dependent_dev_idx - Another ALSA device index (PCM number) under which
+ *        we want to make this section a node.
  *    dir - Device direction: INPUT or OUTPUT.
  *    jack_name - Name of an associated jack (or NULL).
  *    jack_type - Type of the associated jack (or NULL).
@@ -46,7 +53,8 @@ struct ucm_section {
  * Returns:
  *    A valid pointer on success, NULL for memory allocation error.
  */
-struct ucm_section *ucm_section_create(const char *name, int dev_idx,
+struct ucm_section *ucm_section_create(const char *name, const char *pcm_name,
+				       int dev_idx, int dependent_dev_idx,
 				       enum CRAS_STREAM_DIRECTION dir,
 				       const char *jack_name,
 				       const char *jack_type);

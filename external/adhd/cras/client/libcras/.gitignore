@@ -1,3 +1,2 @@
-target/
-.rustfmt.toml
-.*.rustfmt.toml
+Cargo.lock
+target

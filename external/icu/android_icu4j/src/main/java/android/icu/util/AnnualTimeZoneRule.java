@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2007-2010, International Business Machines Corporation and    *
@@ -20,7 +20,6 @@ import android.icu.impl.Grego;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.IntraCoreApi
 public class AnnualTimeZoneRule extends TimeZoneRule {
 
     private static final long serialVersionUID = -8870666707791230688L;
@@ -28,7 +27,6 @@ public class AnnualTimeZoneRule extends TimeZoneRule {
     /**
      * The constant representing the maximum year used for designating a rule is permanent.
      */
-    @libcore.api.IntraCoreApi
     public static final int MAX_YEAR = Integer.MAX_VALUE;
 
     private final DateTimeRule dateTimeRule;
@@ -64,7 +62,6 @@ public class AnnualTimeZoneRule extends TimeZoneRule {
      * @return  An <code>AnnualDateTimeRule</code> which represents the start date/time
      *          rule used by this time zone rule.
      */
-    @libcore.api.IntraCoreApi
     public DateTimeRule getRule() {
         return dateTimeRule;
     }
@@ -85,7 +82,6 @@ public class AnnualTimeZoneRule extends TimeZoneRule {
      * @return  The end year of this rule (inclusive). The year is in Gregorian calendar
      *          with 0 == 1 BCE, -1 == 2 BCE, etc.
      */
-    @libcore.api.IntraCoreApi
     public int getEndYear() {
         return endYear;
     }

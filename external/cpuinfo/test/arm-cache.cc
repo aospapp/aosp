@@ -766,7 +766,7 @@ TEST(QUALCOMM, snapdragon_845) {
 	struct cpuinfo_cache little_l2 = { 0 };
 	struct cpuinfo_cache little_l3 = { 0 };
 	cpuinfo_arm_decode_cache(
-		cpuinfo_uarch_cortex_a55, 4, UINT32_C(0x518F803C),
+		cpuinfo_uarch_cortex_a55r0, 4, UINT32_C(0x518F803C),
 		&chipset, 1, 8,
 		&little_l1i, &little_l1d, &little_l2, &little_l3);
 
@@ -829,7 +829,7 @@ TEST(SAMSUNG, exynos_8890) {
 	struct cpuinfo_cache big_l2 = { 0 };
 	struct cpuinfo_cache big_l3 = { 0 };
 	cpuinfo_arm_decode_cache(
-		cpuinfo_uarch_mongoose_m1, 4, UINT32_C(0x531F0011),
+		cpuinfo_uarch_exynos_m1, 4, UINT32_C(0x531F0011),
 		&chipset, 0, 8,
 		&big_l1i, &big_l1d, &big_l2, &big_l3);
 
@@ -865,7 +865,7 @@ TEST(SAMSUNG, exynos_8895) {
 	struct cpuinfo_cache big_l2 = { 0 };
 	struct cpuinfo_cache big_l3 = { 0 };
 	cpuinfo_arm_decode_cache(
-		cpuinfo_uarch_mongoose_m2, 4, UINT32_C(0x534F0010),
+		cpuinfo_uarch_exynos_m2, 4, UINT32_C(0x534F0010),
 		&chipset, 0, 8,
 		&big_l1i, &big_l1d, &big_l2, &big_l3);
 
@@ -901,7 +901,7 @@ TEST(SAMSUNG, exynos_9810) {
 	struct cpuinfo_cache big_l2 = { 0 };
 	struct cpuinfo_cache big_l3 = { 0 };
 	cpuinfo_arm_decode_cache(
-		cpuinfo_uarch_meerkat_m3, 4, UINT32_C(0x531F0020),
+		cpuinfo_uarch_exynos_m3, 4, UINT32_C(0x531F0020),
 		&chipset, 0, 8,
 		&big_l1i, &big_l1d, &big_l2, &big_l3);
 
@@ -910,7 +910,7 @@ TEST(SAMSUNG, exynos_9810) {
 	struct cpuinfo_cache little_l2 = { 0 };
 	struct cpuinfo_cache little_l3 = { 0 };
 	cpuinfo_arm_decode_cache(
-		cpuinfo_uarch_cortex_a55, 4, UINT32_C(0x410FD051),
+		cpuinfo_uarch_cortex_a55r0, 4, UINT32_C(0x410FD051),
 		&chipset, 1, 8,
 		&little_l1i, &little_l1d, &little_l2, &little_l3);
 
@@ -1663,4 +1663,92 @@ TEST(ROCKCHIP, rk3368) {
 	EXPECT_EQ(32 * 1024, little_l1d.size);
 	EXPECT_EQ(256 * 1024, little_l2.size);
 	EXPECT_EQ(0, little_l3.size);
+}
+
+TEST(BROADCOM, bcm2835) {
+	const struct cpuinfo_arm_chipset chipset = {
+		.vendor = cpuinfo_arm_chipset_vendor_broadcom,
+		.series = cpuinfo_arm_chipset_series_broadcom_bcm,
+		.model = 2835,
+	};
+
+	struct cpuinfo_cache l1i = { 0 };
+	struct cpuinfo_cache l1d = { 0 };
+	struct cpuinfo_cache l2 = { 0 };
+	struct cpuinfo_cache l3 = { 0 };
+	cpuinfo_arm_decode_cache(
+		cpuinfo_uarch_arm11, 4, UINT32_C(0x410FB767),
+		&chipset, 0, 4,
+		&l1i, &l1d, &l2, &l3);
+
+	EXPECT_EQ(16 * 1024, l1i.size);
+	EXPECT_EQ(16 * 1024, l1d.size);
+	EXPECT_EQ(0, l2.size);
+	EXPECT_EQ(0, big_l3.size);
+}
+
+TEST(BROADCOM, bcm2836) {
+	const struct cpuinfo_arm_chipset chipset = {
+		.vendor = cpuinfo_arm_chipset_vendor_broadcom,
+		.series = cpuinfo_arm_chipset_series_broadcom_bcm,
+		.model = 2836,
+	};
+
+	struct cpuinfo_cache l1i = { 0 };
+	struct cpuinfo_cache l1d = { 0 };
+	struct cpuinfo_cache l2 = { 0 };
+	struct cpuinfo_cache l3 = { 0 };
+	cpuinfo_arm_decode_cache(
+		cpuinfo_uarch_cortex_a7, 4, UINT32_C(0x410FC075),
+		&chipset, 0, 4,
+		&l1i, &l1d, &l2, &l3);
+
+	EXPECT_EQ(32 * 1024, l1i.size);
+	EXPECT_EQ(32 * 1024, l1d.size);
+	EXPECT_EQ(512 * 1024, l2.size);
+	EXPECT_EQ(0, big_l3.size);
+}
+
+TEST(BROADCOM, bcm2837) {
+	const struct cpuinfo_arm_chipset chipset = {
+		.vendor = cpuinfo_arm_chipset_vendor_broadcom,
+		.series = cpuinfo_arm_chipset_series_broadcom_bcm,
+		.model = 2837,
+	};
+
+	struct cpuinfo_cache l1i = { 0 };
+	struct cpuinfo_cache l1d = { 0 };
+	struct cpuinfo_cache l2 = { 0 };
+	struct cpuinfo_cache l3 = { 0 };
+	cpuinfo_arm_decode_cache(
+		cpuinfo_uarch_cortex_a53, 4, UINT32_C(0x410FD034),
+		&chipset, 0, 4,
+		&l1i, &l1d, &l2, &l3);
+
+	EXPECT_EQ(16 * 1024, l1i.size);
+	EXPECT_EQ(16 * 1024, l1d.size);
+	EXPECT_EQ(512 * 1024, l2.size);
+	EXPECT_EQ(0, big_l3.size);
+}
+
+TEST(BROADCOM, bcm2711) {
+	const struct cpuinfo_arm_chipset chipset = {
+		.vendor = cpuinfo_arm_chipset_vendor_broadcom,
+		.series = cpuinfo_arm_chipset_series_broadcom_bcm,
+		.model = 2711,
+	};
+
+	struct cpuinfo_cache l1i = { 0 };
+	struct cpuinfo_cache l1d = { 0 };
+	struct cpuinfo_cache l2 = { 0 };
+	struct cpuinfo_cache l3 = { 0 };
+	cpuinfo_arm_decode_cache(
+		cpuinfo_uarch_cortex_a72, 4, UINT32_C(0x410FD083),
+		&chipset, 0, 4,
+		&l1i, &l1d, &l2, &l3);
+
+	EXPECT_EQ(48 * 1024, l1i.size);
+	EXPECT_EQ(32 * 1024, l1d.size);
+	EXPECT_EQ(1024 * 1024, l2.size);
+	EXPECT_EQ(0, big_l3.size);
 }

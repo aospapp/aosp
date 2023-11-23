@@ -377,7 +377,7 @@ static void parse_ia_na(uint8_t *data, int data_length)
             if(!getaddrinfo(TT.req_ip, NULL, NULL,&res)) {
               dbg("Requesting IP: %s\n", TT.req_ip);
               memcpy (&TT.input_socket6, res->ai_addr, res->ai_addrlen);
-              memcpy(t+4, TT.input_socket6.sin6_addr.__in6_u.__u6_addr8, 16);
+              memcpy(t+4, TT.input_socket6.sin6_addr.s6_addr, 16);
             } else xprintf("Invalid IP: %s\n",TT.req_ip);
             freeaddrinfo(res);
           }
@@ -619,7 +619,7 @@ void dhcp6_main(void)
         if (TT.state == DHCP6SOLICIT) {
           if (mymsg->dhcp6.msgtype == DHCP6ADVERTISE ) {
             if (!validate_ids()) {
-              dbg("Invalid id recieved, solicit.\n");
+              dbg("Invalid id received, solicit.\n");
               TT.state = DHCP6SOLICIT;
               continue;
             }
@@ -640,7 +640,7 @@ void dhcp6_main(void)
         } else if (TT.state == DHCP6REQUEST || TT.state == DHCP6RENEW ) {
           if (mymsg->dhcp6.msgtype == DHCP6REPLY) {
             if (!validate_ids()) {
-              dbg("Invalid id recieved, %d.\n", TT.state);
+              dbg("Invalid id received, %d.\n", TT.state);
               TT.state = DHCP6REQUEST;
               continue;
             }

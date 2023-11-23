@@ -14,6 +14,13 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-EPL
+    default_applicable_licenses: ["external_icu_license"],
 }
 
 // build the android_icu4j srcgen jar

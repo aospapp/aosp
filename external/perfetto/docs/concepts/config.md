@@ -36,11 +36,14 @@ data_sources {
 And is used as follows:
 
 ```bash
-perfetto --txt -c config.pbtx -o trace_file.pftrace
+perfetto --txt -c config.pbtx -o trace_file.perfetto-trace
 ```
 
 TIP: Some more complete examples of trace configs can be found in the repo in
 [`/test/configs/`](/test/configs/).
+
+NOTE: If you are tracing on Android using adb and experiencing problems, see
+      [the Android section](#android) below.
 
 ## TraceConfig
 
@@ -196,7 +199,7 @@ When using this mode pass the `--txt` flag to `perfetto` to indicate the config
 should be interpreted as a PBTX file:
 
 ```bash
-perfetto -c /path/to/config.pbtx --txt -o trace_file.pftrace
+perfetto -c /path/to/config.pbtx --txt -o trace_file.perfetto-trace
 ```
 
 NOTE: The `--txt` option has been introduced only in Android 10 (Q). Older
@@ -226,7 +229,7 @@ protoc --encode=perfetto.protos.TraceConfig \
 and then passing it to perfetto as follows, without the `--txt` argument:
 
 ```bash
-perfetto -c config.bin -o trace_file.pftrace
+perfetto -c config.bin -o trace_file.perfetto-trace
 ```
 
 ## {#long-traces} Streaming long traces
@@ -359,11 +362,10 @@ buffers {
 data_sources {
   config {
     name: "track_event"
-
-    # Enable the data source only on Chrome and Chrome canary.
-    producer_name_filter: "com.android.chrome"
-    producer_name_filter: "com.google.chrome.canary"
   }
+  # Enable the data source only on Chrome and Chrome canary.
+  producer_name_filter: "com.android.chrome"
+  producer_name_filter: "com.google.chrome.canary"
 }
 ```
 
@@ -416,16 +418,18 @@ There are two types of triggers:
 Start triggers allow activating a tracing session only after some significant
 event has happened. Passing a trace config that has `START_TRACING` trigger
 causes the tracing session to stay idle (i.e. not recording any data) until either
-the trigger is hit or the `duration_ms` timeout is hit.
+the trigger is hit or the `trigger_timeout_ms` timeout is hit.
+
+`trace_duration_ms` and triggered traces can not be used at the same time.
 
 Example config:
 ```protobuf
-// If no trigger is hit, the trace will end without having recorded any data
-// after 30s.
-duration_ms: 30000
+# If no trigger is hit, the trace will end without having recorded any data
+# after 30s.
+trigger_timeout_ms: 30000
 
-// If the "myapp_is_slow" is hit, the trace starts recording data and will be
-// stopped after 5s.
+# If the "myapp_is_slow" is hit, the trace starts recording data and will be
+# stopped after 5s.
 trigger_config {
   trigger_mode: START_TRACING
   triggers {
@@ -434,7 +438,7 @@ trigger_config {
   }
 }
 
-// The rest of the config is as usual.
+# The rest of the config is as usual.
 buffers { ... }
 data_sources { ... }
 ```
@@ -454,10 +458,10 @@ detected. This is key for events where the root cause is in the recent past
 
 Example config:
 ```protobuf
-// If no trigger is hit, the trace will end after 30s.
-duration_ms: 30000
+# If no trigger is hit, the trace will end after 30s.
+trigger_timeout_ms: 30000
 
-// If the "missed_frame" is hit, the trace is stopped after 1s.
+# If the "missed_frame" is hit, the trace is stopped after 1s.
 trigger_config {
   trigger_mode: STOP_TRACING
   triggers {
@@ -466,10 +470,28 @@ trigger_config {
   }
 }
 
-// The rest of the config is as usual.
+# The rest of the config is as usual.
 buffers { ... }
 data_sources { ... }
 ```
+
+## Android
+
+On Android, there are some caveats around using `adb shell`
+
+* Ctrl+C, which normally causes a graceful termination of the trace, is not
+  propagated by ADB when using `adb shell perfetto` but only when using an
+  interactive PTY-based session via `adb shell`.
+* On non-rooted devices before Android 12, the config can only be passed as
+  `cat config | adb shell perfetto -c -` (-: stdin) because of over-restrictive
+  SELinux rules. Since Android 12 `/data/misc/perfetto-configs` can be used for
+  storing configs.
+* On devices before Android 10, adb cannot directly pull
+  `/data/misc/perfetto-traces`. Use
+  `adb shell cat /data/misc/perfetto-traces/trace > trace` to work around.
+* When capturing longer traces, e.g. in the context of benchmarks or CI, use
+  `PID=$(perfetto --background)` and then `kill $PID` to stop.
+
 
 ## Other resources
 

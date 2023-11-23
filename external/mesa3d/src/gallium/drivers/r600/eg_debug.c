@@ -256,7 +256,7 @@ static uint32_t *ac_parse_packet3(FILE *f, uint32_t *ib, int *num_dw,
 					COLOR_RESET "\n");
 			break;
 		}
-		/* fall through, print all dwords */
+		/* fallthrough *//* print all dwords */
 	default:
 		for (i = 0; i < count+1; i++) {
 			print_spaces(f, INDENT_PKT);
@@ -334,8 +334,8 @@ static void eg_dump_last_ib(struct r600_context *rctx, FILE *f)
 		 */
 		uint32_t *map = rctx->b.ws->buffer_map(rctx->last_trace_buf->buf,
 						       NULL,
-						       PIPE_TRANSFER_UNSYNCHRONIZED |
-						       PIPE_TRANSFER_READ);
+						       PIPE_MAP_UNSYNCHRONIZED |
+						       PIPE_MAP_READ);
 		if (map)
 			last_trace_id = *map;
 	}

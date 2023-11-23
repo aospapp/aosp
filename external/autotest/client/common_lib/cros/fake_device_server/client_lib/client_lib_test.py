@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -22,7 +22,7 @@ Then re-run the test with that auth code like so:
 import argparse
 import logging
 import sys
-import urllib2
+from six.moves import urllib
 
 import commands
 import devices
@@ -55,7 +55,7 @@ def main(args):
 
     parsed_args = parse_args(args)
     if parsed_args.auth_code == 'URL':
-        print oauth_helpers.get_oauth2_auth_url(CLIENT_ID)
+        print(oauth_helpers.get_oauth2_auth_url(CLIENT_ID))
         return 0
     elif parsed_args.auth_code:
         server_url, api_key = SERVER_URL, API_KEY
@@ -68,10 +68,10 @@ def main(args):
     # Device should support base.reboot command.
     base_reboot_command = {'reboot': {}}
     finalized_ticket = r_client.register_device(
-            'test_device', 'vendor', 'xmpp', oauth_client_id=CLIENT_ID,
+            'test_device', 'xmpp', oauth_client_id=CLIENT_ID,
             base=base_reboot_command)
     new_device_id = finalized_ticket['deviceDraft']['id']
-    print 'Registered new device', finalized_ticket
+    print('Registered new device', finalized_ticket)
 
     # TODO(sosa): Do better. Change this to use fake auth server when it exists.
     if not parsed_args.auth_code:
@@ -84,13 +84,13 @@ def main(args):
     d_client = devices.DevicesClient(server_url=server_url,
                                      api_key=api_key, access_token=robot_token)
     if not d_client.get_device(new_device_id):
-        print 'Device not found in database'
+        print('Device not found in database')
         return 1
 
     device_list = d_client.list_devices()['devices']
     device_ids = [device['id'] for device in device_list]
     if not new_device_id in device_ids:
-        print 'Device found but not listed correctly'
+        print('Device found but not listed correctly')
         return 1
 
 
@@ -101,13 +101,13 @@ def main(args):
     command_dict = {'base': {'reboot': {}}}
     new_command = c_client.create_command(device['id'], command_dict)
     if not c_client.get_command(new_command['id']):
-        print 'Command not found'
+        print('Command not found')
         return 1
 
     command_list = c_client.list_commands(device['id'])['commands']
     command_ids = [c['id'] for c in command_list]
     if not new_command['id'] in command_ids:
-        print 'Command found but not listed correctly'
+        print('Command found but not listed correctly')
         return 1
 
     new_command = c_client.update_command(new_command['id'],
@@ -123,11 +123,11 @@ if __name__ == '__main__':
     try:
         error_code = main(sys.argv[1:])
         if error_code != 0:
-            print 'Test Failed'
+            print('Test Failed')
 
         sys.exit(error_code)
-    except urllib2.HTTPError as e:
-        print 'Received an HTTPError exception!!!'
-        print e
-        print e.read()
+    except urllib.error.HTTPError as e:
+        print('Received an HTTPError exception!!!')
+        print(e)
+        print(e.read())
         sys.exit(1)

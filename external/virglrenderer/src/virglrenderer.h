@@ -29,6 +29,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 struct virgl_box;
 struct iovec;
@@ -44,7 +45,11 @@ struct virgl_renderer_gl_ctx_param {
    int minor_ver;
 };
 
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+#define VIRGL_RENDERER_CALLBACKS_VERSION 3
+#else
 #define VIRGL_RENDERER_CALLBACKS_VERSION 2
+#endif
 
 struct virgl_renderer_callbacks {
    int version;
@@ -56,6 +61,10 @@ struct virgl_renderer_callbacks {
    int (*make_current)(void *cookie, int scanout_idx, virgl_renderer_gl_context ctx);
 
    int (*get_drm_fd)(void *cookie); /* v2, used with flags & VIRGL_RENDERER_USE_EGL */
+
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+   void (*write_context_fence)(void *cookie, uint32_t ctx_id, uint64_t queue_id, void *fence_cookie);
+#endif
 };
 
 /* virtio-gpu compatible interface */
@@ -68,6 +77,20 @@ struct virgl_renderer_callbacks {
 #define VIRGL_RENDERER_USE_GLX (1 << 2)
 #define VIRGL_RENDERER_USE_SURFACELESS (1 << 3)
 #define VIRGL_RENDERER_USE_GLES (1 << 4)
+
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+/*
+ * Blob resources used with the 3D driver must be able to be represented as file descriptors.
+ * The typical use case is the virtual machine manager (or vtest) is running in a multiprocess
+ * mode. In a standard Linux setup, that means the KVM process is different from the process that
+ * instantiated virglrenderer. For zero-copy capability to work, file descriptors must be used.
+ *
+ * VMMs that advertise support for the virtio-gpu feature VIRTIO_GPU_F_RESOURCE_BLOB and run in
+ * a multi-process mode *must* specify this flag.
+ */
+#define VIRGL_RENDERER_USE_EXTERNAL_BLOB (1 << 5)
+
+#endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 VIRGL_EXPORT int virgl_renderer_init(void *cookie, int flags, struct virgl_renderer_callbacks *cb);
 VIRGL_EXPORT void virgl_renderer_poll(void); /* force fences */
@@ -94,6 +117,14 @@ VIRGL_EXPORT int virgl_renderer_get_fd_for_texture2(uint32_t tex_id, int *fd, in
 #define VIRGL_RES_BIND_STREAM_OUTPUT (1 << 11)
 #define VIRGL_RES_BIND_CURSOR        (1 << 16)
 #define VIRGL_RES_BIND_CUSTOM        (1 << 17)
+#define VIRGL_RES_BIND_SCANOUT       (1 << 18)
+#define VIRGL_RES_BIND_SHARED        (1 << 20)
+
+enum virgl_renderer_structure_type_v0 {
+   VIRGL_RENDERER_STRUCTURE_TYPE_NONE = 0,
+   VIRGL_RENDERER_STRUCTURE_TYPE_EXPORT_QUERY = (1 << 0),
+   VIRGL_RENDERER_STRUCTURE_TYPE_SUPPORTED_STRUCTURES = (1 << 1),
+};
 
 struct virgl_renderer_resource_create_args {
    uint32_t handle;
@@ -109,11 +140,54 @@ struct virgl_renderer_resource_create_args {
    uint32_t flags;
 };
 
+struct virgl_renderer_hdr {
+   uint32_t stype;
+   uint32_t stype_version;
+   uint32_t size;
+};
+
+/*
+ * "out_num_fds" represents the number of distinct kernel buffers backing an
+ * allocation. If this number or 'out_fourcc' is zero, the resource is not
+ * exportable. The "out_fds" field will be populated with "out_num_fds" file
+ * descriptors if "in_export_fds" is non-zero.
+ */
+struct virgl_renderer_export_query {
+   struct virgl_renderer_hdr hdr;
+   uint32_t in_resource_id;
+
+   uint32_t out_num_fds;
+   uint32_t in_export_fds;
+   uint32_t out_fourcc;
+   uint32_t pad;
+
+   int32_t out_fds[4];
+   uint32_t out_strides[4];
+   uint32_t out_offsets[4];
+   uint64_t out_modifier;
+};
+
+/*
+ * "out_supported_structures_mask" is a bitmask representing the structures that
+ * virglrenderer knows how to handle for a given "in_stype_version".
+ */
+
+struct virgl_renderer_supported_structures {
+   struct virgl_renderer_hdr hdr;
+   uint32_t in_stype_version;
+   uint32_t out_supported_structures_mask;
+};
+
 /* new API */
+/* This typedef must be kept in sync with vrend_debug.h */
+typedef void (*virgl_debug_callback_type)(const char *fmt, va_list ap);
 
 VIRGL_EXPORT int virgl_renderer_resource_create(struct virgl_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs);
 VIRGL_EXPORT int virgl_renderer_resource_import_eglimage(struct virgl_renderer_resource_create_args *args, void *image);
 VIRGL_EXPORT void virgl_renderer_resource_unref(uint32_t res_handle);
+
+VIRGL_EXPORT void virgl_renderer_resource_set_priv(uint32_t res_handle, void *priv);
+VIRGL_EXPORT void *virgl_renderer_resource_get_priv(uint32_t res_handle);
 
 VIRGL_EXPORT int virgl_renderer_context_create(uint32_t handle, uint32_t nlen, const char *name);
 VIRGL_EXPORT void virgl_renderer_context_destroy(uint32_t handle);
@@ -156,6 +230,8 @@ VIRGL_EXPORT void virgl_renderer_force_ctx_0(void);
 VIRGL_EXPORT void virgl_renderer_ctx_attach_resource(int ctx_id, int res_handle);
 VIRGL_EXPORT void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle);
 
+VIRGL_EXPORT virgl_debug_callback_type virgl_set_debug_callback(virgl_debug_callback_type cb);
+
 /* return information about a resource */
 
 struct virgl_renderer_resource_info {
@@ -179,5 +255,74 @@ VIRGL_EXPORT void virgl_renderer_cleanup(void *cookie);
 VIRGL_EXPORT void virgl_renderer_reset(void);
 
 VIRGL_EXPORT int virgl_renderer_get_poll_fd(void);
+
+VIRGL_EXPORT int virgl_renderer_execute(void *execute_args, uint32_t execute_size);
+
+/*
+ * These are unstable APIs for development only. Use these for development/testing purposes
+ * only, not in production
+ */
+#ifdef VIRGL_RENDERER_UNSTABLE_APIS
+
+#define VIRGL_RENDERER_CONTEXT_FLAG_CAPSET_ID_MASK 0xff
+
+VIRGL_EXPORT int virgl_renderer_context_create_with_flags(uint32_t ctx_id,
+                                                          uint32_t ctx_flags,
+                                                          uint32_t nlen,
+                                                          const char *name);
+
+#define VIRGL_RENDERER_BLOB_MEM_GUEST             0x0001
+#define VIRGL_RENDERER_BLOB_MEM_HOST3D            0x0002
+#define VIRGL_RENDERER_BLOB_MEM_HOST3D_GUEST      0x0003
+
+#define VIRGL_RENDERER_BLOB_FLAG_USE_MAPPABLE     0x0001
+#define VIRGL_RENDERER_BLOB_FLAG_USE_SHAREABLE    0x0002
+#define VIRGL_RENDERER_BLOB_FLAG_USE_CROSS_DEVICE 0x0004
+
+struct virgl_renderer_resource_create_blob_args
+{
+   uint32_t res_handle;
+   uint32_t ctx_id;
+   uint32_t blob_mem;
+   uint32_t blob_flags;
+   uint64_t blob_id;
+   uint64_t size;
+   const struct iovec *iovecs;
+   uint32_t num_iovs;
+};
+
+VIRGL_EXPORT int
+virgl_renderer_resource_create_blob(const struct virgl_renderer_resource_create_blob_args *args);
+
+VIRGL_EXPORT int virgl_renderer_resource_map(uint32_t res_handle, void **map, uint64_t *out_size);
+
+VIRGL_EXPORT int virgl_renderer_resource_unmap(uint32_t res_handle);
+
+#define VIRGL_RENDERER_MAP_CACHE_MASK      0x0f
+#define VIRGL_RENDERER_MAP_CACHE_NONE      0x00
+#define VIRGL_RENDERER_MAP_CACHE_CACHED    0x01
+#define VIRGL_RENDERER_MAP_CACHE_UNCACHED  0x02
+#define VIRGL_RENDERER_MAP_CACHE_WC        0x03
+
+VIRGL_EXPORT int virgl_renderer_resource_get_map_info(uint32_t res_handle, uint32_t *map_info);
+
+#define VIRGL_RENDERER_BLOB_FD_TYPE_DMABUF        0x0001
+#define VIRGL_RENDERER_BLOB_FD_TYPE_OPAQUE        0x0002
+
+VIRGL_EXPORT int
+virgl_renderer_resource_export_blob(uint32_t res_id, uint32_t *fd_type, int *fd);
+
+VIRGL_EXPORT int
+virgl_renderer_export_fence(uint32_t client_fence_id, int *fd);
+
+#define VIRGL_RENDERER_FENCE_FLAG_MERGEABLE      (1 << 0)
+VIRGL_EXPORT int virgl_renderer_context_create_fence(uint32_t ctx_id,
+                                                     uint32_t flags,
+                                                     uint64_t queue_id,
+                                                     void *fence_cookie);
+VIRGL_EXPORT void virgl_renderer_context_poll(uint32_t ctx_id); /* force fences */
+VIRGL_EXPORT int virgl_renderer_context_get_poll_fd(uint32_t ctx_id);
+
+#endif /* VIRGL_RENDERER_UNSTABLE_APIS */
 
 #endif

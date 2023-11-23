@@ -1,10 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Feedback client implementation for interacting with a human tester."""
 
-import xmlrpclib
+import six.moves.xmlrpc_client
 
 import common
 from autotest_lib.client.common_lib import error
@@ -60,10 +61,10 @@ class Client(client.Client):
         @param test: An object representing the test case.
         @param host: An object representing the DUT.
         """
-        self._rpc_proxy = xmlrpclib.ServerProxy('http://%s' % self._remote_addr)
+        self._rpc_proxy = six.moves.xmlrpc_client.ServerProxy('http://%s' % self._remote_addr)
         try:
             self._rpc_proxy.new_client(self._client_id)
-        except xmlrpclib.Error as e:
+        except six.moves.xmlrpc_client.Error as e:
             raise error.TestError('Feedback client registration error: %s' % e)
         self.tmp_dir = test.tmpdir
         self.dut_tmp_dir = host.get_tmp_dir()
@@ -87,7 +88,7 @@ class Client(client.Client):
         self._query_num += 1
         try:
             self._rpc_proxy.new_query(self._client_id, query_id, self._query_num)
-        except xmlrpclib.Error as e:
+        except six.moves.xmlrpc_client.Error as e:
             raise error.TestError('Feedback query registration error: %s' % e)
         return query_cls(self, self._query_num)
 
@@ -96,7 +97,7 @@ class Client(client.Client):
         """Finalizes the feedback object."""
         try:
             self._rpc_proxy.delete_client(self._client_id)
-        except xmlrpclib.Error as e:
+        except six.moves.xmlrpc_client.Error as e:
             raise error.TestError(
                     'Feedback client deregistration error: %s' % e)
 
@@ -114,7 +115,7 @@ class _Query(object):
         try:
             ret, desc = self.client._make_query_call(self.query_num,
                                                      query_method, **kwargs)
-        except xmlrpclib.Error as e:
+        except six.moves.xmlrpc_client.Error as e:
             ret, desc = QUERY_RET_ERROR, str(e)
 
         if ret == QUERY_RET_SUCCESS:

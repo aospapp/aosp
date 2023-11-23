@@ -301,6 +301,7 @@ struct fuse_file_lock {
 #define FUSE_CACHE_SYMLINKS	(1 << 23)
 #define FUSE_NO_OPENDIR_SUPPORT (1 << 24)
 #define FUSE_EXPLICIT_INVAL_DATA (1 << 25)
+#define FUSE_PASSTHROUGH	(1 << 31)
 
 /**
  * CUSE INIT request/reply flags
@@ -547,7 +548,7 @@ struct fuse_create_in {
 struct fuse_open_out {
 	uint64_t	fh;
 	uint32_t	open_flags;
-	uint32_t	padding;
+	uint32_t	passthrough_fh;
 };
 
 struct fuse_release_in {
@@ -572,6 +573,13 @@ struct fuse_read_in {
 	uint64_t	lock_owner;
 	uint32_t	flags;
 	uint32_t	padding;
+};
+
+struct fuse_passthrough_out_v0 {
+	uint32_t	fd;
+	/* For future implementation */
+	uint32_t	len;
+	void *		vec;
 };
 
 #define FUSE_COMPAT_WRITE_IN_SIZE 24
@@ -825,7 +833,10 @@ struct fuse_notify_retrieve_in {
 };
 
 /* Device ioctls: */
-#define FUSE_DEV_IOC_CLONE	_IOR(229, 0, uint32_t)
+#define FUSE_DEV_IOC_CLONE	      _IOR(229, 0, uint32_t)
+#define FUSE_DEV_IOC_PASSTHROUGH_OPEN_V0 _IOW(229, 1, struct fuse_passthrough_out_v0)
+#define FUSE_DEV_IOC_PASSTHROUGH_OPEN_V1 _IOW(229, 127, struct fuse_passthrough_out_v0)
+#define FUSE_DEV_IOC_PASSTHROUGH_OPEN_V2 _IOW(229, 126, uint32_t)
 
 struct fuse_lseek_in {
 	uint64_t	fh;

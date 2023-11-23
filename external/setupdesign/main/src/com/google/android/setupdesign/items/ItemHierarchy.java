@@ -71,7 +71,7 @@ public interface ItemHierarchy {
   /**
    * Get the item at position.
    *
-   * @param position An integer from 0 to {@link #getCount()}}, which indicates the position in this
+   * @param position An integer from 0 to {@link #getCount()}, which indicates the position in this
    *     item hierarchy to get the child item.
    * @return A representation of the item at {@code position}. Must not be {@code null}.
    */

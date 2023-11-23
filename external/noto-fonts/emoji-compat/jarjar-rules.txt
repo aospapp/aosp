@@ -1,1 +1,0 @@
-rule com.google.flatbuffers.** androidx.text.emoji.flatbuffer.@1

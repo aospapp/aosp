@@ -12,6 +12,8 @@ namespace android {
 // Defines the names of all supported components.
 struct V4L2ComponentName {
     static const std::string kH264Encoder;
+    static const std::string kVP8Encoder;
+    static const std::string kVP9Encoder;
 
     static const std::string kH264Decoder;
     static const std::string kVP8Decoder;

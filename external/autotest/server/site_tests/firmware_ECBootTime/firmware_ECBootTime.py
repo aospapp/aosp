@@ -36,7 +36,8 @@ class firmware_ECBootTime(FirmwareTest):
         # platforms. http://crosbug.com/p/21628 has been opened to track this
         # issue.
         if self._x86:
-            boot_anchors = ["\[([0-9\.]+) PB", "\[([0-9\.]+) .*(HC 0x|Port 80|ACPI query)"]
+            boot_anchors = ["\[([0-9\.]+) PB",
+                            "\[([0-9\.]+) [^\r\n]*(HC 0x|Port 80|ACPI query)"]
         elif self._arm_legacy:
             boot_anchors = ["\[([0-9\.]+) AP running ...",
                             "\[([0-9\.]+) XPSHOLD seen"]
@@ -91,6 +92,15 @@ class firmware_ECBootTime(FirmwareTest):
         # Wait until the ap enter the G3
         time.sleep(self.faft_config.ec_reboot_to_g3_delay)
 
+        # Enable printing host commands. Some boards have it disabled by default
+        # After reboot it will be restored to default
+        self.ec.send_command("hcdebug normal")
+
+        # Enable port80 output for x86 devices so there is an early signal from
+        # the host that it is booting, instead of relying on an EC transaction.
+        if self._x86:
+            self.ec.send_command("port80 intprint")
+
         # Switch on the AP
         power_press = self.ec.send_command_get_output(
             power_cmd, boot_anchors)
@@ -115,9 +125,9 @@ class firmware_ECBootTime(FirmwareTest):
         EC and AP come out of reset.
         """
 
-        arm_legacy = ('Snow', 'Spring', 'Pit', 'Pi', 'Big', 'Blaze', 'Kitty')
+        arm_legacy = ('snow', 'spring', 'pit', 'pi', 'big', 'blaze', 'kitty')
         output = self.faft_client.system.get_platform_name()
-        return output in arm_legacy
+        return output.lower() in arm_legacy
 
     def run_once(self):
         """Execute the main body of the test.

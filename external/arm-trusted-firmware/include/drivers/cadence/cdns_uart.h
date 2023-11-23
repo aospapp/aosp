@@ -21,20 +21,14 @@
 #define R_UART_SR		0x2C
 #define UART_SR_INTR_REMPTY_BIT	1
 #define UART_SR_INTR_TFUL_BIT	4
+#define UART_SR_INTR_TEMPTY_BIT	3
 
 #define R_UART_TX	0x30
 #define R_UART_RX	0x30
 
-#define CONSOLE_T_CDNS_BASE	CONSOLE_T_DRVDATA
-
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
-
-typedef struct {
-	console_t console;
-	uintptr_t base;
-} console_cdns_t;
 
 /*
  * Initialize a new Cadence console instance and register it with the console
@@ -43,7 +37,7 @@ typedef struct {
  * Its contents will be reinitialized from scratch.
  */
 int console_cdns_register(uintptr_t baseaddr, uint32_t clock, uint32_t baud,
-			  console_cdns_t *console);
+			  console_t *console);
 
 #endif /*__ASSEMBLER__*/
 

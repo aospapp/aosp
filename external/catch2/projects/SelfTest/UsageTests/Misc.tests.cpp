@@ -18,6 +18,7 @@
 #include <cerrno>
 #include <limits>
 #include <sstream>
+#include <array>
 
 namespace { namespace MiscTests {
 
@@ -57,15 +58,21 @@ struct AutoTestReg {
         REGISTER_TEST_CASE( manuallyRegisteredTestFunction, "ManuallyRegistered" );
     }
 };
+
+CATCH_INTERNAL_START_WARNINGS_SUPPRESSION
 CATCH_INTERNAL_SUPPRESS_GLOBALS_WARNINGS
 static AutoTestReg autoTestReg;
-CATCH_INTERNAL_UNSUPPRESS_GLOBALS_WARNINGS
+CATCH_INTERNAL_STOP_WARNINGS_SUPPRESSION
 
 template<typename T>
 struct Foo {
     size_t size() { return 0; }
 };
 
+template<typename T, size_t S>
+struct Bar {
+    size_t size() { return S; }
+};
 #endif
 
 TEST_CASE( "random SECTION tests", "[.][sections][failing]" ) {
@@ -306,13 +313,89 @@ TEMPLATE_TEST_CASE( "TemplateTest: vectors can be sized and resized", "[vector][
     }
 }
 
+TEMPLATE_TEST_CASE_SIG("TemplateTestSig: vectors can be sized and resized", "[vector][template][nttp]", ((typename TestType, int V), TestType, V), (int,5), (float,4), (std::string,15), ((std::tuple<int, float>), 6)) {
+
+    std::vector<TestType> v(V);
+
+    REQUIRE(v.size() == V);
+    REQUIRE(v.capacity() >= V);
+
+    SECTION("resizing bigger changes size and capacity") {
+        v.resize(2 * V);
+
+        REQUIRE(v.size() == 2 * V);
+        REQUIRE(v.capacity() >= 2 * V);
+    }
+    SECTION("resizing smaller changes size but not capacity") {
+        v.resize(0);
+
+        REQUIRE(v.size() == 0);
+        REQUIRE(v.capacity() >= V);
+
+        SECTION("We can use the 'swap trick' to reset the capacity") {
+            std::vector<TestType> empty;
+            empty.swap(v);
+
+            REQUIRE(v.capacity() == 0);
+        }
+    }
+    SECTION("reserving bigger changes capacity but not size") {
+        v.reserve(2 * V);
+
+        REQUIRE(v.size() == V);
+        REQUIRE(v.capacity() >= 2 * V);
+    }
+    SECTION("reserving smaller does not change size or capacity") {
+        v.reserve(0);
+
+        REQUIRE(v.size() == V);
+        REQUIRE(v.capacity() >= V);
+    }
+}
+
 TEMPLATE_PRODUCT_TEST_CASE("A Template product test case", "[template][product]", (std::vector, Foo), (int, float)) {
     TestType x;
     REQUIRE(x.size() == 0);
 }
 
+TEMPLATE_PRODUCT_TEST_CASE_SIG("A Template product test case with array signature", "[template][product][nttp]", ((typename T, size_t S), T, S), (std::array, Bar), ((int, 9), (float, 42))) {
+    TestType x;
+    REQUIRE(x.size() > 0);
+}
+
 TEMPLATE_PRODUCT_TEST_CASE("Product with differing arities", "[template][product]", std::tuple, (int, (int, double), (int, double, float))) {
     REQUIRE(std::tuple_size<TestType>::value >= 1);
+}
+
+using MyTypes = std::tuple<int, char, float>;
+TEMPLATE_LIST_TEST_CASE("Template test case with test types specified inside std::tuple", "[template][list]", MyTypes)
+{
+    REQUIRE(sizeof(TestType) > 0);
+}
+
+struct NonDefaultConstructibleType {
+    NonDefaultConstructibleType() = delete;
+};
+
+using MyNonDefaultConstructibleTypes = std::tuple<NonDefaultConstructibleType, float>;
+TEMPLATE_LIST_TEST_CASE("Template test case with test types specified inside non-default-constructible std::tuple", "[template][list]", MyNonDefaultConstructibleTypes)
+{
+    REQUIRE(sizeof(TestType) > 0);
+}
+
+struct NonCopyableAndNonMovableType {
+    NonCopyableAndNonMovableType() = default;
+
+    NonCopyableAndNonMovableType(NonCopyableAndNonMovableType const &) = delete;
+    NonCopyableAndNonMovableType(NonCopyableAndNonMovableType &&) = delete;
+    auto operator=(NonCopyableAndNonMovableType const &) -> NonCopyableAndNonMovableType & = delete;
+    auto operator=(NonCopyableAndNonMovableType &&) -> NonCopyableAndNonMovableType & = delete;
+};
+
+using NonCopyableAndNonMovableTypes = std::tuple<NonCopyableAndNonMovableType, float>;
+TEMPLATE_LIST_TEST_CASE("Template test case with test types specified inside non-copyable and non-movable std::tuple", "[template][list]", NonCopyableAndNonMovableTypes)
+{
+    REQUIRE(sizeof(TestType) > 0);
 }
 
 // https://github.com/philsquared/Catch/issues/166
@@ -373,12 +456,6 @@ TEST_CASE( "long long" ) {
 
     REQUIRE( l == std::numeric_limits<long long>::max() );
 }
-
-//TEST_CASE( "Divide by Zero signal handler", "[.][sig]" ) {
-//    int i = 0;
-//    int x = 10/i; // This should cause the signal to fire
-//    CHECK( x == 0 );
-//}
 
 TEST_CASE( "This test 'should' fail but doesn't", "[.][failing][!shouldfail]" ) {
     SUCCEED( "oops!" );

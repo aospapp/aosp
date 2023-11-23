@@ -26,7 +26,7 @@
 #include "wpa_supplicant_i.h"
 #include "driver_i.h"
 #include "notify.h"
-#include "blacklist.h"
+#include "bssid_ignore.h"
 #include "bss.h"
 #include "scan.h"
 #include "ap.h"
@@ -94,14 +94,14 @@ int wpas_wps_eapol_cb(struct wpa_supplicant *wpa_s)
 		wpa_printf(MSG_DEBUG, "WPS: PIN registration with " MACSTR
 			   " did not succeed - continue trying to find "
 			   "suitable AP", MAC2STR(bssid));
-		wpa_blacklist_add(wpa_s, bssid);
+		wpa_bssid_ignore_add(wpa_s, bssid);
 
 		wpa_supplicant_deauthenticate(wpa_s,
 					      WLAN_REASON_DEAUTH_LEAVING);
 		wpa_s->reassociate = 1;
 		wpa_supplicant_req_scan(wpa_s,
-					wpa_s->blacklist_cleared ? 5 : 0, 0);
-		wpa_s->blacklist_cleared = 0;
+					wpa_s->bssid_ignore_cleared ? 5 : 0, 0);
+		wpa_s->bssid_ignore_cleared = false;
 		return 1;
 	}
 
@@ -188,6 +188,7 @@ static void wpas_wps_security_workaround(struct wpa_supplicant *wpa_s,
 	const u8 *ie;
 	struct wpa_ie_data adv;
 	int wpa2 = 0, ccmp = 0;
+	enum wpa_driver_if_type iftype;
 
 	/*
 	 * Many existing WPS APs do not know how to negotiate WPA2 or CCMP in
@@ -239,9 +240,12 @@ static void wpas_wps_security_workaround(struct wpa_supplicant *wpa_s,
 		return;
 	}
 
+	iftype = ssid->p2p_group ? WPA_IF_P2P_CLIENT : WPA_IF_STATION;
+
 	if (ccmp && !(ssid->pairwise_cipher & WPA_CIPHER_CCMP) &&
 	    (ssid->pairwise_cipher & WPA_CIPHER_TKIP) &&
-	    (capa.key_mgmt & WPA_DRIVER_CAPA_KEY_MGMT_WPA2_PSK)) {
+	    (capa.key_mgmt_iftype[iftype] &
+	     WPA_DRIVER_CAPA_KEY_MGMT_WPA2_PSK)) {
 		wpa_printf(MSG_DEBUG, "WPS: Add CCMP into the credential "
 			   "based on scan results");
 		if (wpa_s->conf->ap_scan == 1)
@@ -716,7 +720,7 @@ static void wpa_supplicant_wps_event_success(struct wpa_supplicant *wpa_s)
 	wpas_notify_wps_event_success(wpa_s);
 	if (wpa_s->current_ssid)
 		wpas_clear_temp_disabled(wpa_s, wpa_s->current_ssid, 1);
-	wpa_s->extra_blacklist_count = 0;
+	wpa_s->consecutive_conn_failures = 0;
 
 	/*
 	 * Enable the networks disabled during wpas_wps_reassoc after 10
@@ -1135,7 +1139,7 @@ static void wpas_wps_reassoc(struct wpa_supplicant *wpa_s,
 	wpa_s->scan_runs = 0;
 	wpa_s->normal_scans = 0;
 	wpa_s->wps_success = 0;
-	wpa_s->blacklist_cleared = 0;
+	wpa_s->bssid_ignore_cleared = false;
 
 	wpa_supplicant_cancel_sched_scan(wpa_s);
 	wpa_supplicant_req_scan(wpa_s, 0, 0);
@@ -2879,10 +2883,11 @@ static void wpas_wps_dump_ap_info(struct wpa_supplicant *wpa_s)
 
 	for (i = 0; i < wpa_s->num_wps_ap; i++) {
 		struct wps_ap_info *ap = &wpa_s->wps_ap[i];
-		struct wpa_blacklist *e = wpa_blacklist_get(wpa_s, ap->bssid);
+		struct wpa_bssid_ignore *e = wpa_bssid_ignore_get(wpa_s,
+								  ap->bssid);
 
 		wpa_printf(MSG_DEBUG, "WPS: AP[%d] " MACSTR " type=%d "
-			   "tries=%d last_attempt=%d sec ago blacklist=%d",
+			   "tries=%d last_attempt=%d sec ago bssid_ignore=%d",
 			   (int) i, MAC2STR(ap->bssid), ap->type, ap->tries,
 			   ap->last_attempt.sec > 0 ?
 			   (int) now.sec - (int) ap->last_attempt.sec : -1,
@@ -2944,7 +2949,7 @@ static void wpas_wps_update_ap_info_bss(struct wpa_supplicant *wpa_s,
 				   MAC2STR(res->bssid), ap->type, type);
 			ap->type = type;
 			if (type != WPS_AP_NOT_SEL_REG)
-				wpa_blacklist_del(wpa_s, ap->bssid);
+				wpa_bssid_ignore_del(wpa_s, ap->bssid);
 		}
 		ap->pbc_active = pbc_active;
 		if (uuid)

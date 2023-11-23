@@ -9,7 +9,8 @@ class Config(object):
     # RPC server that runs on the DUT.
     rpc_port = 9990
     rpc_command = '/usr/local/autotest/cros/faft/rpc_server.py'
-    rpc_command_short = 'rpc_server'
-    rpc_ready_call = 'system.is_available'
-    rpc_timeout = 20
+    rpc_command_short = 'rpc_server.py'
+    rpc_ready_call = 'ready'
+    rpc_quit_call = 'quit'
+    rpc_timeout = 120
     rpc_logfile = '/var/log/faft_xmlrpc_server.log'

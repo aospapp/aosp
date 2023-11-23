@@ -56,7 +56,7 @@ cc_library {
         misc_undefined: ["bounds"],
         // Enable CFI if this becomes a shared library.
         // cfi: true,
-        blacklist: "libvpx_blacklist.txt",
+        blocklist: "libvpx_blocklist.txt",
     },
 }
 

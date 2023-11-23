@@ -52,24 +52,30 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
    /* Replacement SSA value */
    nir_ssa_def *rep = NULL;
    switch (alu->op) {
+   case nir_op_mov:
    case nir_op_vec2:
    case nir_op_vec3:
    case nir_op_vec4:
+   case nir_op_vec8:
+   case nir_op_vec16:
+      if (alu->dest.dest.ssa.bit_size != 1)
+         return false;
       /* These we expect to have booleans but the opcode doesn't change */
       break;
 
-   case nir_op_b2f32: alu->op = nir_op_fmov; break;
-   case nir_op_b2i32: alu->op = nir_op_fmov; break;
+   case nir_op_b2f32: alu->op = nir_op_mov; break;
+   case nir_op_b2i32: alu->op = nir_op_mov; break;
    case nir_op_f2b1:
    case nir_op_i2b1:
       rep = nir_sne(b, nir_ssa_for_alu_src(b, alu, 0),
                        nir_imm_float(b, 0));
       break;
+   case nir_op_b2b1: alu->op = nir_op_mov; break;
 
    case nir_op_flt: alu->op = nir_op_slt; break;
    case nir_op_fge: alu->op = nir_op_sge; break;
    case nir_op_feq: alu->op = nir_op_seq; break;
-   case nir_op_fne: alu->op = nir_op_sne; break;
+   case nir_op_fneu: alu->op = nir_op_sne; break;
    case nir_op_ilt: alu->op = nir_op_slt; break;
    case nir_op_ige: alu->op = nir_op_sge; break;
    case nir_op_ieq: alu->op = nir_op_seq; break;
@@ -92,7 +98,6 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
 
    case nir_op_bcsel: alu->op = nir_op_fcsel; break;
 
-   case nir_op_imov: alu->op = nir_op_fmov; break;
    case nir_op_iand: alu->op = nir_op_fmul; break;
    case nir_op_ixor: alu->op = nir_op_sne; break;
    case nir_op_ior: alu->op = nir_op_fmax; break;

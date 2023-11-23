@@ -14,8 +14,6 @@ static const size_t MAX_IONODES = 20; /* Max ionodes to print out. */
 enum CTL_CRAS_MIXER_CONTROLS {
 	CTL_CRAS_MIXER_PLAYBACK_SWITCH,
 	CTL_CRAS_MIXER_PLAYBACK_VOLUME,
-	CTL_CRAS_MIXER_CAPTURE_SWITCH,
-	CTL_CRAS_MIXER_CAPTURE_VOLUME,
 	NUM_CTL_CRAS_MIXER_ELEMS
 };
 
@@ -32,10 +30,6 @@ static const struct cras_mixer_control cras_elems[NUM_CTL_CRAS_MIXER_ELEMS] = {
 	{ "Master Playback Switch", SND_CTL_ELEM_TYPE_BOOLEAN,
 	  SND_CTL_EXT_ACCESS_READWRITE, 1 },
 	{ "Master Playback Volume", SND_CTL_ELEM_TYPE_INTEGER,
-	  SND_CTL_EXT_ACCESS_READWRITE, 1 },
-	{ "Capture Switch", SND_CTL_ELEM_TYPE_BOOLEAN,
-	  SND_CTL_EXT_ACCESS_READWRITE, 1 },
-	{ "Capture Volume", SND_CTL_ELEM_TYPE_INTEGER,
 	  SND_CTL_EXT_ACCESS_READWRITE, 1 },
 };
 
@@ -119,46 +113,6 @@ static int ctl_cras_get_integer_info(snd_ctl_ext_t *ext_ctl,
 	return 0;
 }
 
-static long capture_index_to_gain(struct cras_client *client, long index)
-{
-	long min;
-	long max;
-	long dB_step;
-
-	min = cras_client_get_system_min_capture_gain(client);
-	max = cras_client_get_system_max_capture_gain(client);
-	if (min >= max)
-		return min;
-
-	dB_step = (max - min) / 100;
-
-	if (index <= 0)
-		return min;
-	if (index >= 100)
-		return max;
-	return index * dB_step + min;
-}
-
-static long capture_gain_to_index(struct cras_client *client, long gain)
-{
-	long min;
-	long max;
-	long dB_step;
-
-	min = cras_client_get_system_min_capture_gain(client);
-	max = cras_client_get_system_max_capture_gain(client);
-	if (min >= max)
-		return 0;
-
-	dB_step = (max - min) / 100;
-
-	if (gain <= min)
-		return 0;
-	if (gain >= max)
-		return 100;
-	return (gain - min) / dB_step;
-}
-
 static int get_nodes(struct cras_client *client, enum CRAS_STREAM_DIRECTION dir,
 		     struct cras_ionode_info *nodes, size_t num_nodes)
 {
@@ -199,20 +153,6 @@ static int ctl_cras_read_integer(snd_ctl_ext_t *ext_ctl, snd_ctl_ext_key_t key,
 			break;
 		}
 		break;
-	case CTL_CRAS_MIXER_CAPTURE_SWITCH:
-		*value = !cras_client_get_system_capture_muted(cras->client);
-		break;
-	case CTL_CRAS_MIXER_CAPTURE_VOLUME:
-		num_nodes = get_nodes(cras->client, CRAS_STREAM_INPUT, nodes,
-				      MAX_IONODES);
-		for (i = 0; i < num_nodes; i++) {
-			if (!nodes[i].active)
-				continue;
-			*value = capture_gain_to_index(cras->client,
-						       nodes[i].capture_gain);
-			break;
-		}
-		break;
 	default:
 		return -EINVAL;
 	}
@@ -227,7 +167,6 @@ static int ctl_cras_write_integer(snd_ctl_ext_t *ext_ctl, snd_ctl_ext_key_t key,
 	struct ctl_cras *cras = (struct ctl_cras *)ext_ctl->private_data;
 	struct cras_ionode_info nodes[MAX_IONODES];
 	int num_nodes, i;
-	long gain;
 
 	switch (key) {
 	case CTL_CRAS_MIXER_PLAYBACK_SWITCH:
@@ -244,23 +183,6 @@ static int ctl_cras_write_integer(snd_ctl_ext_t *ext_ctl, snd_ctl_ext_key_t key,
 				cras_make_node_id(nodes[i].iodev_idx,
 						  nodes[i].ionode_idx),
 				*value);
-		}
-		break;
-	case CTL_CRAS_MIXER_CAPTURE_SWITCH:
-		cras_client_set_system_capture_mute(cras->client, !(*value));
-		break;
-	case CTL_CRAS_MIXER_CAPTURE_VOLUME:
-		gain = capture_index_to_gain(cras->client, *value);
-		num_nodes = get_nodes(cras->client, CRAS_STREAM_INPUT, nodes,
-				      MAX_IONODES);
-		for (i = 0; i < num_nodes; i++) {
-			if (!nodes[i].active)
-				continue;
-			cras_client_set_node_capture_gain(
-				cras->client,
-				cras_make_node_id(nodes[i].iodev_idx,
-						  nodes[i].ionode_idx),
-				gain);
 		}
 		break;
 	default:

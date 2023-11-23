@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -21,6 +21,7 @@ AddMagickCoder(XC)
 #else
 AddMagickCoder(AAI)
 AddMagickCoder(ART)
+AddMagickCoder(ASHLAR)
 AddMagickCoder(AVS)
 AddMagickCoder(BGR)
 AddMagickCoder(BMP)
@@ -60,8 +61,10 @@ AddMagickCoder(DPX)
 #if defined(MAGICKCORE_OPENEXR_DELEGATE)
   AddMagickCoder(EXR)
 #endif
+AddMagickCoder(FARBFELD)
 AddMagickCoder(FAX)
 AddMagickCoder(FITS)
+AddMagickCoder(FL32)
 #if defined(MAGICKCORE_FLIF_DELEGATE)
   AddMagickCoder(FLIF)
 #endif
@@ -108,12 +111,12 @@ AddMagickCoder(META)
 AddMagickCoder(MIFF)
 AddMagickCoder(MONO)
 AddMagickCoder(MPC)
-AddMagickCoder(MPEG)
 AddMagickCoder(MPR)
 AddMagickCoder(MSL)
 AddMagickCoder(MTV)
 AddMagickCoder(MVG)
 AddMagickCoder(NULL)
+AddMagickCoder(ORA)
 AddMagickCoder(OTB)
 AddMagickCoder(PALM)
 AddMagickCoder(PANGO)
@@ -168,6 +171,7 @@ AddMagickCoder(URL)
 AddMagickCoder(UYVY)
 AddMagickCoder(VICAR)
 AddMagickCoder(VID)
+AddMagickCoder(VIDEO)
 AddMagickCoder(VIFF)
 AddMagickCoder(VIPS)
 AddMagickCoder(WBMP)
@@ -190,6 +194,7 @@ AddMagickCoder(XTRN)
 #if defined(MAGICKCORE_X11_DELEGATE)
   AddMagickCoder(XWD)
 #endif
+AddMagickCoder(YAML)
 AddMagickCoder(YCBCR)
 AddMagickCoder(YUV)
 #endif

@@ -18,7 +18,7 @@
 %                              September 1993                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -512,7 +512,7 @@ static void XDrawMatteText(Display *display,const XWindowInfo *window_info,
     x,
     y;
 
-  register int
+  int
     i;
 
   unsigned int
@@ -1138,11 +1138,11 @@ static void XEditText(Display *display,XWidgetInfo *text_info,
     }
     default:
     {
-      register char
+      char
         *p,
         *q;
 
-      register int
+      int
         i;
 
       if (state & ControlState)
@@ -1625,7 +1625,7 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
     x,
     y;
 
-  register int
+  int
     i;
 
   static char
@@ -1859,10 +1859,11 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
           slider_info.bevel_width+2;
         slider_info.height=scroll_info.height-((slider_info.min_y-
           scroll_info.y+1) << 1)+4;
-        visible_colors=scroll_info.height/(height+(height >> 3));
+        visible_colors=(unsigned int) (scroll_info.height*
+          PerceptibleReciprocal((double) height+(height >> 3)));
         if (colors > visible_colors)
-          slider_info.height=(unsigned int)
-            ((visible_colors*slider_info.height)/colors);
+          slider_info.height=(unsigned int) ((visible_colors*
+            slider_info.height)/colors);
         slider_info.max_y=south_info.y-south_info.bevel_width-
           slider_info.bevel_width-2;
         slider_info.x=scroll_info.x+slider_info.bevel_width+1;
@@ -1978,11 +1979,11 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
         /*
           Sort color list in ascending order.
         */
-        slider_info.height=
-          scroll_info.height-((slider_info.min_y-scroll_info.y+1) << 1)+1;
+        slider_info.height=scroll_info.height-((slider_info.min_y-
+          scroll_info.y+1) << 1)+1;
         if (colors > visible_colors)
-          slider_info.height=(unsigned int)
-            ((visible_colors*slider_info.height)/colors);
+          slider_info.height=(unsigned int) ((visible_colors*
+            slider_info.height)/colors);
         slider_info.max_y=south_info.y-south_info.bevel_width-
           slider_info.bevel_width-2;
         slider_info.id=0;
@@ -2036,7 +2037,7 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
           slider_info.id=0;
         slider_info.y=slider_info.min_y;
         if (colors != 0)
-          slider_info.y+=(int) (slider_info.id*(slider_info.max_y-
+          slider_info.y+=((ssize_t) slider_info.id*(slider_info.max_y-
             slider_info.min_y+1)/colors);
         if (slider_info.id != selection_info.id)
           {
@@ -2895,7 +2896,7 @@ MagickPrivate int XCommandWidget(Display *display,XWindows *windows,
     id,
     y;
 
-  register int
+  int
     i;
 
   static unsigned int
@@ -3643,7 +3644,7 @@ MagickPrivate int XDialogWidget(Display *display,XWindows *windows,
   int
     x;
 
-  register int
+  int
     i;
 
   static MagickBooleanType
@@ -4230,7 +4231,7 @@ MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
     x,
     y;
 
-  register ssize_t
+  ssize_t
     i;
 
   static char
@@ -4410,7 +4411,7 @@ MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
         special_info.y=action_info.y;
         if (anomaly == MagickFalse)
           {
-            register char
+            char
               *p;
 
             special_info.text=(char *) FormatButtonText;
@@ -4469,7 +4470,8 @@ MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
           slider_info.bevel_width+2;
         slider_info.height=scroll_info.height-((slider_info.min_y-
           scroll_info.y+1) << 1)+4;
-        visible_files=scroll_info.height/(height+(height >> 3));
+        visible_files=(unsigned int) (scroll_info.height*
+          PerceptibleReciprocal((double) height+(height >> 3)));
         if (files > visible_files)
           slider_info.height=(unsigned int)
             ((visible_files*slider_info.height)/files);
@@ -4646,7 +4648,7 @@ MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
           slider_info.id=0;
         slider_info.y=slider_info.min_y;
         if (files > 0)
-          slider_info.y+=(int) (slider_info.id*(slider_info.max_y-
+          slider_info.y+=((ssize_t) slider_info.id*(slider_info.max_y-
             slider_info.min_y+1)/files);
         if (slider_info.id != selection_info.id)
           {
@@ -4787,7 +4789,7 @@ MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
             XDrawMatteText(display,&windows->widget,&reply_info);
             if (id == list_info.id)
               {
-                register char
+                char
                   *p;
 
                 p=reply_info.text+strlen(reply_info.text)-1;
@@ -5450,7 +5452,7 @@ extern "C" {
 
 static int FontCompare(const void *x,const void *y)
 {
-  register char
+  char
     *p,
     *q;
 
@@ -5490,7 +5492,7 @@ MagickPrivate void XFontBrowserWidget(Display *display,XWindows *windows,
     x,
     y;
 
-  register int
+  int
     i;
 
   static char
@@ -5732,7 +5734,8 @@ MagickPrivate void XFontBrowserWidget(Display *display,XWindows *windows,
           slider_info.bevel_width+2;
         slider_info.height=scroll_info.height-((slider_info.min_y-
           scroll_info.y+1) << 1)+4;
-        visible_fonts=scroll_info.height/(height+(height >> 3));
+        visible_fonts=(unsigned int) (scroll_info.height*
+          PerceptibleReciprocal((double) height+(height >> 3)));
         if (fonts > (int) visible_fonts)
           slider_info.height=(visible_fonts*slider_info.height)/fonts;
         slider_info.max_y=south_info.y-south_info.bevel_width-
@@ -6759,7 +6762,7 @@ MagickPrivate void XListBrowserWidget(Display *display,XWindows *windows,
   int
     x;
 
-  register int
+  int
     i;
 
   static MagickStatusType
@@ -6945,7 +6948,8 @@ MagickPrivate void XListBrowserWidget(Display *display,XWindows *windows,
           slider_info.bevel_width+2;
         slider_info.height=scroll_info.height-((slider_info.min_y-
           scroll_info.y+1) << 1)+4;
-        visible_entries=scroll_info.height/(height+(height >> 3));
+        visible_entries=(unsigned int) (scroll_info.height*
+          PerceptibleReciprocal((double) height+(height >> 3)));
         if (entries > visible_entries)
           slider_info.height=(visible_entries*slider_info.height)/entries;
         slider_info.max_y=south_info.y-south_info.bevel_width-
@@ -8446,7 +8450,7 @@ MagickPrivate MagickBooleanType XPreferencesWidget(Display *display,
     x,
     y;
 
-  register int
+  int
     i;
 
   Status
@@ -8966,7 +8970,7 @@ MagickPrivate void XTextViewWidget(Display *display,
   char
     primary_selection[MagickPathExtent];
 
-  register int
+  int
     i;
 
   static MagickStatusType
@@ -9136,8 +9140,9 @@ MagickPrivate void XTextViewWidget(Display *display,
           slider_info.bevel_width+2;
         slider_info.height=scroll_info.height-((slider_info.min_y-
           scroll_info.y+1) << 1)+4;
-        visible_lines=scroll_info.height/(text_info->ascent+text_info->descent+
-          ((text_info->ascent+text_info->descent) >> 3));
+        visible_lines=(unsigned int) (scroll_info.height*PerceptibleReciprocal(
+          (double) text_info->ascent+text_info->descent+((text_info->ascent+
+          text_info->descent) >> 3)));
         if (lines > visible_lines)
           slider_info.height=(unsigned int) (visible_lines*slider_info.height)/
             lines;

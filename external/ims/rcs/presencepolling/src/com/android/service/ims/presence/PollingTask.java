@@ -201,7 +201,7 @@ public class PollingTask {
             intent.putExtra("pollingTaskId", mId);
 
             mRetryAlarmIntent = PendingIntent.getBroadcast(mContext, 0, intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT);
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
             AlarmManager alarmManager = (AlarmManager)
                     mContext.getSystemService(Context.ALARM_SERVICE);
@@ -254,4 +254,3 @@ public class PollingTask {
         return sb.toString();
     }
 }
-

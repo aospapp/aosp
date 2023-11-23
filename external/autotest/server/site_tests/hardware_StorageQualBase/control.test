@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "gwendal"
-NAME = "StorageQualBase.test"
+NAME = "hardware_StorageQualBase.test"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "suite"

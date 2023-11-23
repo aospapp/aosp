@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -51,7 +51,7 @@ unsigned int plat_is_my_cpu_primary(void);
 void sp_min_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 				  u_register_t arg2, u_register_t arg3)
 {
-	static console_16550_t console;
+	static console_t console;
 	struct rockchip_bl31_params *arg_from_bl2 = (struct rockchip_bl31_params *) arg0;
 
 	params_early_setup(arg1);

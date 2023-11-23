@@ -18,13 +18,14 @@ package com.google.turbine.binder;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.turbine.binder.bound.AnnotationValue;
+import com.google.common.collect.MultimapBuilder;
+import com.google.turbine.binder.bound.AnnotationMetadata;
 import com.google.turbine.binder.bound.SourceTypeBoundClass;
+import com.google.turbine.binder.bound.TurbineAnnotationValue;
 import com.google.turbine.binder.bound.TypeBoundClass;
 import com.google.turbine.binder.bound.TypeBoundClass.FieldInfo;
 import com.google.turbine.binder.bound.TypeBoundClass.MethodInfo;
@@ -44,7 +45,6 @@ import com.google.turbine.type.Type.PrimTy;
 import com.google.turbine.type.Type.TyVar;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Disambiguate annotations on field, parameter, and method return types that could be declaration
@@ -139,7 +139,7 @@ public class DisambiguateTypeAnnotations {
             base.type(),
             base.annotations(),
             declarationAnnotations);
-    return new ParamInfo(type, base.name(), declarationAnnotations.build(), base.access());
+    return new ParamInfo(base.sym(), type, declarationAnnotations.build(), base.access());
   }
 
   /**
@@ -151,13 +151,13 @@ public class DisambiguateTypeAnnotations {
       TurbineElementType declarationTarget,
       Type type,
       ImmutableList<AnnoInfo> annotations,
-      Builder<AnnoInfo> declarationAnnotations) {
+      ImmutableList.Builder<AnnoInfo> declarationAnnotations) {
     // desugar @Repeatable annotations before disambiguating: annotation containers may target
     // a subset of the types targeted by their element annotation
     annotations = groupRepeated(env, annotations);
     ImmutableList.Builder<AnnoInfo> typeAnnotations = ImmutableList.builder();
     for (AnnoInfo anno : annotations) {
-      Set<TurbineElementType> target = env.get(anno.sym()).annotationMetadata().target();
+      ImmutableSet<TurbineElementType> target = getTarget(env, anno);
       if (target.contains(TurbineElementType.TYPE_USE)) {
         typeAnnotations.add(anno);
       }
@@ -166,6 +166,23 @@ public class DisambiguateTypeAnnotations {
       }
     }
     return addAnnotationsToType(type, typeAnnotations.build());
+  }
+
+  private static ImmutableSet<TurbineElementType> getTarget(
+      Env<ClassSymbol, TypeBoundClass> env, AnnoInfo anno) {
+    ClassSymbol sym = anno.sym();
+    if (sym == null) {
+      return AnnotationMetadata.DEFAULT_TARGETS;
+    }
+    TypeBoundClass info = env.get(sym);
+    if (info == null) {
+      return AnnotationMetadata.DEFAULT_TARGETS;
+    }
+    AnnotationMetadata metadata = info.annotationMetadata();
+    if (metadata == null) {
+      return AnnotationMetadata.DEFAULT_TARGETS;
+    }
+    return metadata.target();
   }
 
   private static ImmutableList<FieldInfo> bindFields(
@@ -218,6 +235,7 @@ public class DisambiguateTypeAnnotations {
         TyVar tyVar = (TyVar) type;
         return Type.TyVar.create(tyVar.sym(), appendAnnotations(tyVar.annos(), extra));
       case VOID_TY:
+      case ERROR_TY:
         return type;
       case WILD_TY:
         throw new AssertionError("unexpected wildcard type outside type argument context");
@@ -242,21 +260,33 @@ public class DisambiguateTypeAnnotations {
    */
   public static ImmutableList<AnnoInfo> groupRepeated(
       Env<ClassSymbol, TypeBoundClass> env, ImmutableList<AnnoInfo> annotations) {
-    Multimap<ClassSymbol, AnnoInfo> repeated = ArrayListMultimap.create();
+    Multimap<ClassSymbol, AnnoInfo> repeated =
+        MultimapBuilder.linkedHashKeys().arrayListValues().build();
+    ImmutableList.Builder<AnnoInfo> result = ImmutableList.builder();
     for (AnnoInfo anno : annotations) {
+      if (anno.sym() == null) {
+        result.add(anno);
+        continue;
+      }
       repeated.put(anno.sym(), anno);
     }
-    Builder<AnnoInfo> result = ImmutableList.builder();
     for (Map.Entry<ClassSymbol, Collection<AnnoInfo>> entry : repeated.asMap().entrySet()) {
       ClassSymbol symbol = entry.getKey();
       Collection<AnnoInfo> infos = entry.getValue();
       if (infos.size() > 1) {
-        Builder<Const> elements = ImmutableList.builder();
+        ImmutableList.Builder<Const> elements = ImmutableList.builder();
         for (AnnoInfo element : infos) {
-          elements.add(new AnnotationValue(element.sym(), element.values()));
+          elements.add(new TurbineAnnotationValue(element));
         }
-        ClassSymbol container = env.get(symbol).annotationMetadata().repeatable();
+        TypeBoundClass info = env.get(symbol);
+        if (info == null || info.annotationMetadata() == null) {
+          continue;
+        }
+        ClassSymbol container = info.annotationMetadata().repeatable();
         if (container == null) {
+          if (isKotlinRepeatable(info)) {
+            continue;
+          }
           AnnoInfo anno = infos.iterator().next();
           throw TurbineError.format(
               anno.source(), anno.position(), ErrorKind.NONREPEATABLE_ANNOTATION, symbol);
@@ -272,5 +302,19 @@ public class DisambiguateTypeAnnotations {
       }
     }
     return result.build();
+  }
+
+  // Work-around for https://youtrack.jetbrains.net/issue/KT-34189.
+  // Kotlin stubs include repeated annotations that are valid in Kotlin (i.e. meta-annotated with
+  // @kotlin.annotation.Repeatable), even though they are invalid Java.
+  // TODO(b/142002426): kill this with fire
+  static boolean isKotlinRepeatable(TypeBoundClass info) {
+    for (AnnoInfo metaAnno : info.annotations()) {
+      if (metaAnno.sym() != null
+          && metaAnno.sym().binaryName().equals("kotlin/annotation/Repeatable")) {
+        return true;
+      }
+    }
+    return false;
   }
 }

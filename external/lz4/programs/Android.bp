@@ -1,4 +1,19 @@
-// Copyright (C) 2016 The Android Open Source Project
+package {
+    default_applicable_licenses: ["external_lz4_programs_license"],
+}
+
+license {
+    name: "external_lz4_programs_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-LGPL",
+    ],
+    license_text: [
+        "COPYING",
+    ],
+}
 
 cc_binary_host {
     name: "lz4",

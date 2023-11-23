@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -26,8 +26,8 @@
 /*
  * BL1 SMC version
  */
-#define BL1_SMC_MAJOR_VER		0x0
-#define BL1_SMC_MINOR_VER		0x1
+#define BL1_SMC_MAJOR_VER		UL(0x0)
+#define BL1_SMC_MINOR_VER		UL(0x1)
 
 /*
  * Defines for FWU SMC function ids.
@@ -67,16 +67,16 @@
 
 struct entry_point_info;
 
-register_t bl1_smc_wrapper(uint32_t smc_fid,
+u_register_t bl1_smc_wrapper(uint32_t smc_fid,
 	void *cookie,
 	void *handle,
 	unsigned int flags);
 
-register_t bl1_smc_handler(unsigned int smc_fid,
-	register_t x1,
-	register_t x2,
-	register_t x3,
-	register_t x4,
+u_register_t bl1_smc_handler(unsigned int smc_fid,
+	u_register_t x1,
+	u_register_t x2,
+	u_register_t x3,
+	u_register_t x4,
 	void *cookie,
 	void *handle,
 	unsigned int flags);

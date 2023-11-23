@@ -1,12 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.number;
 
 import java.math.BigDecimal;
 import java.text.AttributedCharacterIterator;
-import java.text.FieldPosition;
-import java.util.Arrays;
 
 import android.icu.impl.FormattedStringBuilder;
 import android.icu.impl.FormattedValueStringBuilderImpl;
@@ -15,6 +13,7 @@ import android.icu.impl.number.DecimalQuantity;
 import android.icu.text.ConstrainedFieldPosition;
 import android.icu.text.FormattedValue;
 import android.icu.text.PluralRules.IFixedDecimal;
+import android.icu.util.MeasureUnit;
 
 /**
  * The result of a number formatting operation. This class allows the result to be exported in several
@@ -27,10 +26,12 @@ import android.icu.text.PluralRules.IFixedDecimal;
 public class FormattedNumber implements FormattedValue {
     final FormattedStringBuilder string;
     final DecimalQuantity fq;
+    final MeasureUnit outputUnit;
 
-    FormattedNumber(FormattedStringBuilder nsb, DecimalQuantity fq) {
+    FormattedNumber(FormattedStringBuilder nsb, DecimalQuantity fq, MeasureUnit outputUnit) {
         this.string = nsb;
         this.fq = fq;
+        this.outputUnit = outputUnit;
     }
 
     /**
@@ -43,8 +44,6 @@ public class FormattedNumber implements FormattedValue {
 
     /**
      * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public int length() {
@@ -53,8 +52,6 @@ public class FormattedNumber implements FormattedValue {
 
     /**
      * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public char charAt(int index) {
@@ -63,8 +60,6 @@ public class FormattedNumber implements FormattedValue {
 
     /**
      * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public CharSequence subSequence(int start, int end) {
@@ -73,8 +68,6 @@ public class FormattedNumber implements FormattedValue {
 
     /**
      * {@inheritDoc}
-     *
-     * @hide unsupported on Android
      */
     @Override
     public <A extends Appendable> A appendTo(A appendable) {
@@ -83,8 +76,6 @@ public class FormattedNumber implements FormattedValue {
 
     /**
      * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public boolean nextPosition(ConstrainedFieldPosition cfpos) {
@@ -100,43 +91,6 @@ public class FormattedNumber implements FormattedValue {
     }
 
     /**
-     * Determines the start (inclusive) and end (exclusive) indices of the next occurrence of the
-     * given <em>field</em> in the output string. This allows you to determine the locations of,
-     * for example, the integer part, fraction part, or symbols.
-     * <p>
-     * This is a simpler but less powerful alternative to {@link #nextPosition}.
-     * <p>
-     * If a field occurs just once, calling this method will find that occurrence and return it. If a
-     * field occurs multiple times, this method may be called repeatedly with the following pattern:
-     *
-     * <pre>
-     * FieldPosition fpos = new FieldPosition(NumberFormat.Field.GROUPING_SEPARATOR);
-     * while (formattedNumber.nextFieldPosition(fpos, status)) {
-     *     // do something with fpos.
-     * }
-     * </pre>
-     * <p>
-     * This method is useful if you know which field to query. If you want all available field position
-     * information, use {@link #nextPosition} or {@link #toCharacterIterator()}.
-     *
-     * @param fieldPosition
-     *            Input+output variable. On input, the "field" property determines which field to look
-     *            up, and the "beginIndex" and "endIndex" properties determine where to begin the search.
-     *            On output, the "beginIndex" is set to the beginning of the first occurrence of the
-     *            field with either begin or end indices after the input indices, "endIndex" is set to
-     *            the end of that occurrence of the field (exclusive index). If a field position is not
-     *            found, the method returns FALSE and the FieldPosition may or may not be changed.
-     * @return true if a new occurrence of the field was found; false otherwise.
-     * @see android.icu.text.NumberFormat.Field
-     * @see NumberFormatter
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    public boolean nextFieldPosition(FieldPosition fieldPosition) {
-        fq.populateUFieldPosition(fieldPosition);
-        return FormattedValueStringBuilderImpl.nextFieldPosition(string, fieldPosition);
-    }
-
-    /**
      * Export the formatted number as a BigDecimal. This endpoint is useful for obtaining the exact
      * number being printed after scaling and rounding have been applied by the number formatting
      * pipeline.
@@ -149,46 +103,26 @@ public class FormattedNumber implements FormattedValue {
     }
 
     /**
+     * Gets the resolved output unit.
+     * <p>
+     * The output unit is dependent upon the localized preferences for the usage
+     * specified via NumberFormatterSettings.usage(), and may be a unit with
+     * MeasureUnit.Complexity.MIXED unit complexity (MeasureUnit.getComplexity()), such
+     * as "foot-and-inch" or "hour-and-minute-and-second".
+     *
+     * @return `MeasureUnit`.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public MeasureUnit getOutputUnit() {
+        return this.outputUnit;
+    }
+
+    /**
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
     public IFixedDecimal getFixedDecimal() {
         return fq;
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Override
-    public int hashCode() {
-        // FormattedStringBuilder and BigDecimal are mutable, so we can't call
-        // #equals() or #hashCode() on them directly.
-        return Arrays.hashCode(string.toCharArray())
-                ^ Arrays.hashCode(string.toFieldArray())
-                ^ fq.toBigDecimal().hashCode();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Override
-    public boolean equals(Object other) {
-        if (this == other)
-            return true;
-        if (other == null)
-            return false;
-        if (!(other instanceof FormattedNumber))
-            return false;
-        // FormattedStringBuilder and BigDecimal are mutable, so we can't call
-        // #equals() or #hashCode() on them directly.
-        FormattedNumber _other = (FormattedNumber) other;
-        return Arrays.equals(string.toCharArray(), _other.string.toCharArray())
-                && Arrays.equals(string.toFieldArray(), _other.string.toFieldArray())
-                && fq.toBigDecimal().equals(_other.fq.toBigDecimal());
     }
 }

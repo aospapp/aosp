@@ -20,12 +20,6 @@ public class X9ECPoint
     private ECPoint p;
 
     public X9ECPoint(
-        ECPoint p)
-    {
-        this(p, false);
-    }
-
-    public X9ECPoint(
         ECPoint p,
         boolean compressed)
     {

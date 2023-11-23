@@ -2,7 +2,7 @@
 
 # ULP error check script.
 #
-# Copyright (c) 2019, Arm Limited.
+# Copyright (c) 2019-2020, Arm Limited.
 # SPDX-License-Identifier: MIT
 
 #set -x
@@ -72,6 +72,16 @@ t pow  0x1.ffffffffffff0p-1  0x1.0000000000008p0 x 0x1p60 0x1p68 50000
 t pow  0x1.ffffffffff000p-1  0x1p0 x 0x1p50 0x1p52 50000
 t pow -0x1.ffffffffff000p-1 -0x1p0 x 0x1p50 0x1p52 50000
 
+L=1.0
+Ldir=0.9
+t erf  0 0xffff000000000000 10000
+t erf  0x1p-1022  0x1p-26   40000
+t erf  -0x1p-1022 -0x1p-26  40000
+t erf  0x1p-26    0x1p3     40000
+t erf  -0x1p-26  -0x1p3     40000
+t erf  0         inf        40000
+Ldir=0.5
+
 L=0.01
 t expf  0    0xffff0000    10000
 t expf  0x1p-14   0x1p8    50000
@@ -119,6 +129,17 @@ t powf  0x1p-70 0x1p70  x  0x1p-1 0x1p1   50000
 t powf  0x1p-70 0x1p70  x  -0x1p-1 -0x1p1 50000
 t powf  0x1.ep-1 0x1.1p0 x  0x1p8 0x1p14  50000
 t powf  0x1.ep-1 0x1.1p0 x -0x1p8 -0x1p14 50000
+
+L=0.6
+Ldir=0.9
+t erff  0      0xffff0000 10000
+t erff  0x1p-127  0x1p-26 40000
+t erff -0x1p-127 -0x1p-26 40000
+t erff  0x1p-26   0x1p3   40000
+t erff -0x1p-26  -0x1p3   40000
+t erff  0         inf     40000
+Ldir=0.5
+
 done
 
 # vector functions

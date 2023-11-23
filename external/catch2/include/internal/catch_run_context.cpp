@@ -230,12 +230,21 @@ namespace Catch {
 
         m_unfinishedSections.push_back(endInfo);
     }
+
+#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
+    void RunContext::benchmarkPreparing(std::string const& name) {
+		m_reporter->benchmarkPreparing(name);
+	}
     void RunContext::benchmarkStarting( BenchmarkInfo const& info ) {
         m_reporter->benchmarkStarting( info );
     }
-    void RunContext::benchmarkEnded( BenchmarkStats const& stats ) {
+    void RunContext::benchmarkEnded( BenchmarkStats<> const& stats ) {
         m_reporter->benchmarkEnded( stats );
     }
+	void RunContext::benchmarkFailed(std::string const & error) {
+		m_reporter->benchmarkFailed(error);
+	}
+#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
 
     void RunContext::pushScopedMessage(MessageInfo const & message) {
         m_messages.push_back(message);
@@ -270,7 +279,7 @@ namespace Catch {
         // Don't rebuild the result -- the stringification itself can cause more fatal errors
         // Instead, fake a result data.
         AssertionResultData tempResult( ResultWas::FatalErrorCondition, { false } );
-        tempResult.message = message;
+        tempResult.message = static_cast<std::string>(message);
         AssertionResult result(m_lastAssertionInfo, tempResult);
 
         assertionEnded(result);
@@ -433,7 +442,7 @@ namespace Catch {
         m_lastAssertionInfo = info;
 
         AssertionResultData data( resultType, LazyExpression( false ) );
-        data.message = message;
+        data.message = static_cast<std::string>(message);
         AssertionResult assertionResult{ m_lastAssertionInfo, data };
         assertionEnded( assertionResult );
         if( !assertionResult.isOk() )
@@ -497,4 +506,16 @@ namespace Catch {
         else
             CATCH_INTERNAL_ERROR("No result capture instance");
     }
+
+    void seedRng(IConfig const& config) {
+        if (config.rngSeed() != 0) {
+            std::srand(config.rngSeed());
+            rng().seed(config.rngSeed());
+        }
+    }
+
+    unsigned int rngSeed() {
+        return getCurrentContext().getConfig()->rngSeed();
+    }
+
 }

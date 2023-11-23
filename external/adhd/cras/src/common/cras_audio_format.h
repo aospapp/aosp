@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -105,15 +106,16 @@ static inline void pack_cras_audio_format(struct cras_audio_format_packed *dest,
 	       sizeof(src->channel_layout));
 }
 
-static inline void
-unpack_cras_audio_format(struct cras_audio_format *dest,
-			 const struct cras_audio_format_packed *src)
+static inline struct cras_audio_format
+unpack_cras_audio_format(const struct cras_audio_format_packed *src)
 {
-	dest->format = (snd_pcm_format_t)src->format;
-	dest->frame_rate = src->frame_rate;
-	dest->num_channels = src->num_channels;
-	memcpy(dest->channel_layout, src->channel_layout,
+	struct cras_audio_format dest;
+	dest.format = (snd_pcm_format_t)src->format;
+	dest.frame_rate = src->frame_rate;
+	dest.num_channels = src->num_channels;
+	memcpy(dest.channel_layout, src->channel_layout,
 	       sizeof(src->channel_layout));
+	return dest;
 }
 
 /* Returns the number of bytes per sample.
@@ -142,6 +144,9 @@ struct cras_audio_format *cras_audio_format_create(snd_pcm_format_t format,
 
 /* Destroy an audio format struct created with cras_audio_format_crate. */
 void cras_audio_format_destroy(struct cras_audio_format *fmt);
+
+/* Returns true if the audio format is valid */
+bool cras_audio_format_valid(const struct cras_audio_format *fmt);
 
 /* Sets the channel layout for given format.
  *    format - The format structure to carry channel layout info

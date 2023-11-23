@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "chromeos-perf"
-NAME = "Telemetry Scrolling Action Test"
+NAME = "telemetry_ScrollingActionTests"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "server"

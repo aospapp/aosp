@@ -26,6 +26,12 @@ Common build options
    ``aarch64`` or ``aarch32`` as values. By default, it is defined to
    ``aarch64``.
 
+-  ``ARM_ARCH_FEATURE``: Optional Arm Architecture build option which specifies
+   one or more feature modifiers. This option has the form ``[no]feature+...``
+   and defaults to ``none``. It translates into compiler option
+   ``-march=armvX[.Y]-a+[no]feature+...``. See compiler's documentation for the
+   list of supported feature modifiers.
+
 -  ``ARM_ARCH_MAJOR``: The major version of Arm Architecture to target when
    compiling TF-A. Its value must be numeric, and defaults to 8 . See also,
    *Armv8 Architecture Extensions* and *Armv7 Architecture Extensions* in
@@ -88,6 +94,7 @@ Common build options
 -  1: Enables all types of branch protection features
 -  2: Return address signing to its standard level
 -  3: Extend the signing to include leaf functions
+-  4: Turn on branch target identification mechanism
 
    The table below summarizes ``BRANCH_PROTECTION`` values, GCC compilation options
    and resulting PAuth/BTI features.
@@ -103,6 +110,8 @@ Common build options
    +-------+--------------+-------+-----+
    |   3   | pac-ret+leaf |   Y   |  N  |
    +-------+--------------+-------+-----+
+   |   4   |     bti      |   N   |  Y  |
+   +-------+--------------+-------+-----+
 
    This option defaults to 0 and this is an experimental feature.
    Note that Pointer Authentication is enabled for Non-secure world
@@ -115,6 +124,8 @@ Common build options
 
 -  ``BUILD_STRING``: Input string for VERSION_STRING, which allows the TF-A
    build to be uniquely identified. Defaults to the current git commit id.
+
+-  ``BUILD_BASE``: Output directory for the build. Defaults to ``./build``
 
 -  ``CFLAGS``: Extra user options appended on the compiler's command line in
    addition to the options set by the build system.
@@ -146,9 +157,19 @@ Common build options
    is on hardware that does not implement AArch32, or at least not at EL1 and
    higher ELs). Default value is 1.
 
+-  ``CTX_INCLUDE_EL2_REGS`` : This boolean option provides context save/restore
+   operations when entering/exiting an EL2 execution context. This is of primary
+   interest when Armv8.4-SecEL2 extension is implemented. Default is 0 (disabled).
+   This option must be equal to 1 (enabled) when ``SPD=spmd`` and
+   ``SPMD_SPM_AT_SEL2`` is set.
+
 -  ``CTX_INCLUDE_FPREGS``: Boolean option that, when set to 1, will cause the FP
    registers to be included when saving and restoring the CPU context. Default
    is 0.
+
+-  ``CTX_INCLUDE_NEVE_REGS``: Boolean option that, when set to 1, will cause the
+   Armv8.4-NV registers to be saved/restored when entering/exiting an EL2
+   execution context. Default value is 0.
 
 -  ``CTX_INCLUDE_PAUTH_REGS``: Boolean option that, when set to 1, enables
    Pointer Authentication for Secure world. This will cause the ARMv8.3-PAuth
@@ -160,9 +181,20 @@ Common build options
 -  ``DEBUG``: Chooses between a debug and release build. It can take either 0
    (release) or 1 (debug) as values. 0 is the default.
 
+-  ``DECRYPTION_SUPPORT``: This build flag enables the user to select the
+   authenticated decryption algorithm to be used to decrypt firmware/s during
+   boot. It accepts 2 values: ``aes_gcm`` and ``none``. The default value of
+   this flag is ``none`` to disable firmware decryption which is an optional
+   feature as per TBBR. Also, it is an experimental feature.
+
 -  ``DISABLE_BIN_GENERATION``: Boolean option to disable the generation
    of the binary image. If set to 1, then only the ELF image is built.
    0 is the default.
+
+-  ``DISABLE_MTPMU``: Boolean option to disable FEAT_MTPMU if implemented
+   (Armv8.6 onwards). Its default value is 0 to keep consistency with platforms
+   that do not implement FEAT_MTPMU. For more information on FEAT_MTPMU,
+   check the latest Arm ARM.
 
 -  ``DYN_DISABLE_AUTH``: Provides the capability to dynamically disable Trusted
    Board Boot authentication at runtime. This option is meant to be enabled only
@@ -189,7 +221,7 @@ Common build options
    that is only required for the assertion and does not fit in the assertion
    itself.
 
--  ``ENABLE_BACKTRACE``: This option controls whether to enables backtrace
+-  ``ENABLE_BACKTRACE``: This option controls whether to enable backtrace
    dumps or not. It is supported in both AArch64 and AArch32. However, in
    AArch32 the format of the frame records are not defined in the AAPCS and they
    are defined by the implementation. This implementation of backtrace only
@@ -257,6 +289,22 @@ Common build options
    platform hook needs to be implemented. The value is passed as the last
    component of the option ``-fstack-protector-$ENABLE_STACK_PROTECTOR``.
 
+-  ``ENCRYPT_BL31``: Binary flag to enable encryption of BL31 firmware. This
+   flag depends on ``DECRYPTION_SUPPORT`` build flag which is marked as
+   experimental.
+
+-  ``ENCRYPT_BL32``: Binary flag to enable encryption of Secure BL32 payload.
+   This flag depends on ``DECRYPTION_SUPPORT`` build flag which is marked as
+   experimental.
+
+-  ``ENC_KEY``: A 32-byte (256-bit) symmetric key in hex string format. It could
+   either be SSK or BSSK depending on ``FW_ENC_STATUS`` flag. This value depends
+   on ``DECRYPTION_SUPPORT`` build flag which is marked as experimental.
+
+-  ``ENC_NONCE``: A 12-byte (96-bit) encryption nonce or Initialization Vector
+   (IV) in hex string format. This value depends on ``DECRYPTION_SUPPORT``
+   build flag which is marked as experimental.
+
 -  ``ERROR_DEPRECATED``: This option decides whether to treat the usage of
    deprecated platform APIs, helper functions or drivers within Trusted
    Firmware as error. It can take the value 1 (flag the use of deprecated
@@ -266,6 +314,10 @@ Common build options
    targeted at EL3. When set ``0`` (default), no exceptions are expected or
    handled at EL3, and a panic will result. This is supported only for AArch64
    builds.
+
+-  ``EVENT_LOG_LEVEL``: Chooses the log level to use for Measured Boot when
+   ``MEASURED_BOOT`` is enabled. For a list of valid values, see ``LOG_LEVEL``.
+   Default value is 40 (LOG_LEVEL_INFO).
 
 -  ``FAULT_INJECTION_SUPPORT``: ARMv8.4 extensions introduced support for fault
    injection from lower ELs, and this build option enables lower ELs to use
@@ -280,6 +332,18 @@ Common build options
 
 -  ``FWU_FIP_NAME``: This is an optional build option which specifies the FWU
    FIP filename for the ``fwu_fip`` target. Default is ``fwu_fip.bin``.
+
+-  ``FW_ENC_STATUS``: Top level firmware's encryption numeric flag, values:
+
+   ::
+
+     0: Encryption is done with Secret Symmetric Key (SSK) which is common
+        for a class of devices.
+     1: Encryption is done with Binding Secret Symmetric Key (BSSK) which is
+        unique per device.
+
+   This flag depends on ``DECRYPTION_SUPPORT`` build flag which is marked as
+   experimental.
 
 -  ``GENERATE_COT``: Boolean flag used to build and execute the ``cert_create``
    tool to create certificates as per the Chain of Trust described in
@@ -303,15 +367,13 @@ Common build options
 -  ``GICV2_G0_FOR_EL3``: Unlike GICv3, the GICv2 architecture doesn't have
    inherent support for specific EL3 type interrupts. Setting this build option
    to ``1`` assumes GICv2 *Group 0* interrupts are expected to target EL3, both
-   by `platform abstraction layer`__ and `Interrupt Management Framework`__.
+   by :ref:`platform abstraction layer<platform Interrupt Controller API>` and
+   :ref:`Interrupt Management Framework<Interrupt Management Framework>`.
    This allows GICv2 platforms to enable features requiring EL3 interrupt type.
    This also means that all GICv2 Group 0 interrupts are delivered to EL3, and
    the Secure Payload interrupts needs to be synchronously handed over to Secure
    EL1 for handling. The default value of this option is ``0``, which means the
    Group 0 interrupts are assumed to be handled by Secure EL1.
-
-   .. __: `platform-interrupt-controller-API.rst`
-   .. __: `interrupt-framework-design.rst`
 
 -  ``HANDLE_EA_EL3_FIRST``: When set to ``1``, External Aborts and SError
    Interrupts will be always trapped in EL3 i.e. in BL31 at runtime. When set to
@@ -339,6 +401,11 @@ Common build options
    Note that, when ``HW_ASSISTED_COHERENCY`` is enabled, version 2 of
    translation library (xlat tables v2) must be used; version 1 of translation
    library is not supported.
+
+-  ``INVERTED_MEMMAP``: memmap tool print by default lower addresses at the
+   bottom, higher addresses at the top. This build flag can be set to '1' to
+   invert this behavior. Lower addresses will be printed at the top and higher
+   addresses at the bottom.
 
 -  ``JUNO_AARCH32_EL3_RUNTIME``: This build flag enables you to execute EL3
    runtime software in AArch32 mode, which is required to run AArch32 on Juno.
@@ -468,7 +535,8 @@ Common build options
    entrypoint) or 1 (CPU reset to SP_MIN entrypoint). The default value is 0.
 
 -  ``ROT_KEY``: This option is used when ``GENERATE_COT=1``. It specifies the
-   file that contains the ROT private key in PEM format. If ``SAVE_KEYS=1``, this
+   file that contains the ROT private key in PEM format and enforces public key
+   hash generation. If ``SAVE_KEYS=1``, this
    file name will be used to save the key.
 
 -  ``SAVE_KEYS``: This option is used when ``GENERATE_COT=1``. It tells the
@@ -496,13 +564,13 @@ Common build options
 -  ``SEPARATE_CODE_AND_RODATA``: Whether code and read-only data should be
    isolated on separate memory pages. This is a trade-off between security and
    memory usage. See "Isolating code and read-only data on separate memory
-   pages" section in :ref:`Firmware Design`. This flag is disabled by default and
-   affects all BL images.
+   pages" section in :ref:`Firmware Design`. This flag is disabled by default
+   and affects all BL images.
 
 -  ``SEPARATE_NOBITS_REGION``: Setting this option to ``1`` allows the NOBITS
    sections of BL31 (.bss, stacks, page tables, and coherent memory) to be
    allocated in RAM discontiguous from the loaded firmware image. When set, the
-   platform is expected to provide definitons for ``BL31_NOBITS_BASE`` and
+   platform is expected to provide definitions for ``BL31_NOBITS_BASE`` and
    ``BL31_NOBITS_LIMIT``. When the option is ``0`` (the default), NOBITS
    sections are placed in RAM immediately following the loaded firmware image.
 
@@ -510,7 +578,9 @@ Common build options
    This build option is only valid if ``ARCH=aarch64``. The value should be
    the path to the directory containing the SPD source, relative to
    ``services/spd/``; the directory is expected to contain a makefile called
-   ``<spd-value>.mk``.
+   ``<spd-value>.mk``. The SPM Dispatcher standard service is located in
+   services/std_svc/spmd and enabled by ``SPD=spmd``. The SPM Dispatcher
+   cannot be enabled when the ``SPM_MM`` option is enabled.
 
 -  ``SPIN_ON_BL1_EXIT``: This option introduces an infinite loop in BL1. It can
    take either 0 (no loop) or 1 (add a loop). 0 is the default. This loop stops
@@ -518,8 +588,23 @@ Common build options
    firmware images have been loaded in memory, and the MMU and caches are
    turned off. Refer to the "Debugging options" section for more details.
 
+-  ``SPMD_SPM_AT_SEL2`` : this boolean option is used jointly with the SPM
+   Dispatcher option (``SPD=spmd``). When enabled (1) it indicates the SPMC
+   component runs at the S-EL2 execution state provided by the Armv8.4-SecEL2
+   extension. This is the default when enabling the SPM Dispatcher. When
+   disabled (0) it indicates the SPMC component runs at the S-EL1 execution
+   state. This latter configuration supports pre-Armv8.4 platforms (aka not
+   implementing the Armv8.4-SecEL2 extension).
+
 -  ``SPM_MM`` : Boolean option to enable the Management Mode (MM)-based Secure
-   Partition Manager (SPM) implementation. The default value is ``0``.
+   Partition Manager (SPM) implementation. The default value is ``0``
+   (disabled). This option cannot be enabled (``1``) when SPM Dispatcher is
+   enabled (``SPD=spmd``).
+
+-  ``SP_LAYOUT_FILE``: Platform provided path to JSON file containing the
+   description of secure partitions. The build system will parse this file and
+   package all secure partition blobs into the FIP. This file is not
+   necessarily part of TF-A tree. Only available when ``SPD=spmd``.
 
 -  ``SP_MIN_WITH_SECURE_FIQ``: Boolean flag to indicate the SP_MIN handles
    secure interrupts (caught through the FIQ line). Platforms can enable
@@ -577,6 +662,30 @@ Common build options
    exposing a virtual filesystem interface through BL31 as a SiP SMC function.
    Default is 0.
 
+-  ``ARM_IO_IN_DTB``: This flag determines whether to use IO based on the
+   firmware configuration framework. This will move the io_policies into a
+   configuration device tree, instead of static structure in the code base.
+   This is currently an experimental feature.
+
+-  ``COT_DESC_IN_DTB``: This flag determines whether to create COT descriptors
+   at runtime using fconf. If this flag is enabled, COT descriptors are
+   statically captured in tb_fw_config file in the form of device tree nodes
+   and properties. Currently, COT descriptors used by BL2 are moved to the
+   device tree and COT descriptors used by BL1 are retained in the code
+   base statically. This is currently an experimental feature.
+
+-  ``SDEI_IN_FCONF``: This flag determines whether to configure SDEI setup in
+   runtime using firmware configuration framework. The platform specific SDEI
+   shared and private events configuration is retrieved from device tree rather
+   than static C structures at compile time. This is currently an experimental
+   feature and is only supported if SDEI_SUPPORT build flag is enabled.
+
+-  ``SEC_INT_DESC_IN_FCONF``: This flag determines whether to configure Group 0
+   and Group1 secure interrupts using the firmware configuration framework. The
+   platform specific secure interrupt property descriptor is retrieved from
+   device tree in runtime rather than depending on static C structure at compile
+   time. This is currently an experimental feature.
+
 -  ``USE_ROMLIB``: This flag determines whether library at ROM will be used.
    This feature creates a library of functions to be placed in ROM and thus
    reduces SRAM usage. Refer to :ref:`Library at ROM` for further details. Default
@@ -598,6 +707,83 @@ Common build options
    require interconnect programming to enable cache coherency (eg: single
    cluster platforms). If this option is enabled, then warm boot path
    enables D-caches immediately after enabling MMU. This option defaults to 0.
+
+-  ``SUPPORT_STACK_MEMTAG``: This flag determines whether to enable memory
+   tagging for stack or not. It accepts 2 values: ``yes`` and ``no``. The
+   default value of this flag is ``no``. Note this option must be enabled only
+   for ARM architecture greater than Armv8.5-A.
+
+-  ``ERRATA_SPECULATIVE_AT``: This flag determines whether to enable ``AT``
+   speculative errata workaround or not. It accepts 2 values: ``1`` and ``0``.
+   The default value of this flag is ``0``.
+
+   ``AT`` speculative errata workaround disables stage1 page table walk for
+   lower ELs (EL1 and EL0) in EL3 so that ``AT`` speculative fetch at any point
+   produces either the correct result or failure without TLB allocation.
+
+   This boolean option enables errata for all below CPUs.
+
+   +---------+--------------+-------------------------+
+   | Errata  |      CPU     |     Workaround Define   |
+   +=========+==============+=========================+
+   | 1165522 |  Cortex-A76  |  ``ERRATA_A76_1165522`` |
+   +---------+--------------+-------------------------+
+   | 1319367 |  Cortex-A72  |  ``ERRATA_A72_1319367`` |
+   +---------+--------------+-------------------------+
+   | 1319537 |  Cortex-A57  |  ``ERRATA_A57_1319537`` |
+   +---------+--------------+-------------------------+
+   | 1530923 |  Cortex-A55  |  ``ERRATA_A55_1530923`` |
+   +---------+--------------+-------------------------+
+   | 1530924 |  Cortex-A53  |  ``ERRATA_A53_1530924`` |
+   +---------+--------------+-------------------------+
+
+   .. note::
+      This option is enabled by build only if platform sets any of above defines
+      mentioned in ’Workaround Define' column in the table.
+      If this option is enabled for the EL3 software then EL2 software also must
+      implement this workaround due to the behaviour of the errata mentioned
+      in new SDEN document which will get published soon.
+
+- ``RAS_TRAP_LOWER_EL_ERR_ACCESS``: This flag enables/disables the SCR_EL3.TERR
+  bit, to trap access to the RAS ERR and RAS ERX registers from lower ELs.
+  This flag is disabled by default.
+
+- ``OPENSSL_DIR``: This flag is used to provide the installed openssl directory
+  path on the host machine which is used to build certificate generation and
+  firmware encryption tool.
+
+- ``USE_SP804_TIMER``: Use the SP804 timer instead of the Generic Timer for
+  functions that wait for an arbitrary time length (udelay and mdelay). The
+  default value is 0.
+
+GICv3 driver options
+--------------------
+
+GICv3 driver files are included using directive:
+
+``include drivers/arm/gic/v3/gicv3.mk``
+
+The driver can be configured with the following options set in the platform
+makefile:
+
+-  ``GICV3_SUPPORT_GIC600``: Add support for the GIC-600 variants of GICv3.
+   Enabling this option will add runtime detection support for the
+   GIC-600, so is safe to select even for a GIC500 implementation.
+   This option defaults to 0.
+
+-  ``GICV3_IMPL_GIC600_MULTICHIP``: Selects GIC-600 variant with multichip
+   functionality. This option defaults to 0
+
+-  ``GICV3_OVERRIDE_DISTIF_PWR_OPS``: Allows override of default implementation
+   of ``arm_gicv3_distif_pre_save`` and ``arm_gicv3_distif_post_restore``
+   functions. This is required for FVP platform which need to simulate GIC save
+   and restore during SYSTEM_SUSPEND without powering down GIC. Default is 0.
+
+-  ``GIC_ENABLE_V4_EXTN`` : Enables GICv4 related changes in GICv3 driver.
+   This option defaults to 0.
+
+-  ``GIC_EXT_INTID``: When set to ``1``, GICv3 driver will support extended
+   PPI (1056-1119) and SPI (4096-5119) range. This option defaults to 0.
 
 Debugging options
 -----------------
@@ -657,4 +843,4 @@ commands can be used:
 
 --------------
 
-*Copyright (c) 2019, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*

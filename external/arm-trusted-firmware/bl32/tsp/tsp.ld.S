@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <common/bl_common.ld.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
-#include <platform_def.h>
 
 OUTPUT_FORMAT(PLATFORM_LINKER_FORMAT)
 OUTPUT_ARCH(PLATFORM_LINKER_ARCH)
@@ -37,15 +37,7 @@ SECTIONS
         __RODATA_START__ = .;
         *(.rodata*)
 
-        /*
-         * Keep the .got section in the RO section as it is patched
-         * prior to enabling the MMU and having the .got in RO is better for
-         * security. GOT is a table of addresses so ensure 8-byte alignment.
-         */
-        . = ALIGN(8);
-        __GOT_START__ = .;
-        *(.got)
-        __GOT_END__ = .;
+	RODATA_COMMON
 
         . = ALIGN(PAGE_SIZE);
         __RODATA_END__ = .;
@@ -57,15 +49,7 @@ SECTIONS
         *(.text*)
         *(.rodata*)
 
-        /*
-         * Keep the .got section in the RO section as it is patched
-         * prior to enabling the MMU and having the .got in RO is better for
-         * security. GOT is a table of addresses so ensure 8-byte alignment.
-         */
-        . = ALIGN(8);
-        __GOT_START__ = .;
-        *(.got)
-        __GOT_END__ = .;
+	RODATA_COMMON
 
         *(.vectors)
 
@@ -86,54 +70,16 @@ SECTIONS
      */
     __RW_START__ = . ;
 
-    .data . : {
-        __DATA_START__ = .;
-        *(.data*)
-        __DATA_END__ = .;
-    } >RAM
-
-    /*
-     * .rela.dyn needs to come after .data for the read-elf utility to parse
-     * this section correctly. Ensure 8-byte alignment so that the fields of
-     * RELA data structure are aligned.
-     */
-    . = ALIGN(8);
-    __RELA_START__ = .;
-    .rela.dyn . : {
-    } >RAM
-    __RELA_END__ = .;
+    DATA_SECTION >RAM
+    RELA_SECTION >RAM
 
 #ifdef TSP_PROGBITS_LIMIT
     ASSERT(. <= TSP_PROGBITS_LIMIT, "TSP progbits has exceeded its limit.")
 #endif
 
-    stacks (NOLOAD) : {
-        __STACKS_START__ = .;
-        *(tzfw_normal_stacks)
-        __STACKS_END__ = .;
-    } >RAM
-
-    /*
-     * The .bss section gets initialised to 0 at runtime.
-     * Its base address should be 16-byte aligned for better performance of the
-     * zero-initialization code.
-     */
-    .bss : ALIGN(16) {
-        __BSS_START__ = .;
-        *(SORT_BY_ALIGNMENT(.bss*))
-        *(COMMON)
-        __BSS_END__ = .;
-    } >RAM
-
-    /*
-     * The xlat_table section is for full, aligned page tables (4K).
-     * Removing them from .bss avoids forcing 4K alignment on
-     * the .bss section. The tables are initialized to zero by the translation
-     * tables library.
-     */
-    xlat_table (NOLOAD) : {
-        *(xlat_table)
-    } >RAM
+    STACK_SECTION >RAM
+    BSS_SECTION >RAM
+    XLAT_TABLE_SECTION >RAM
 
 #if USE_COHERENT_MEM
     /*

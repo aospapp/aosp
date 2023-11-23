@@ -6,7 +6,8 @@ AUTHOR = 'timkovich'
 TIME = 'SHORT'
 NAME = 'policy_GlobalNetworkSettingsServer.AllowOnlyPolicyNetworksToConnect'
 TEST_TYPE = 'Server'
-ATTRIBUTES = 'suite:ent-wificell'
+# Disable this test until it can be fixed: http://b/170942348
+# ATTRIBUTES = 'suite:ent-wificell'
 DEPENDENCIES = 'wificell'
 
 DOC = """

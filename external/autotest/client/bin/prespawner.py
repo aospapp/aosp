@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +8,7 @@
 A library to prespawn autotest processes to minimize startup overhead.
 '''
 
-import cPickle as pickle, os, sys
+import six.moves.cPickle as pickle, os, sys
 from setproctitle import setproctitle
 
 
@@ -20,6 +21,7 @@ if len(sys.argv) == 2 and sys.argv[1] == '--prespawn_autotest':
     # pylint: disable=W0611
     import common
     import autotest_lib.client.bin.job
+    from autotest_lib.client.common_lib import seven
 
     if os.environ.get('CROS_DISABLE_SITE_SYSINFO'):
         from autotest_lib.client.bin import sysinfo, base_sysinfo
@@ -35,12 +37,12 @@ if len(sys.argv) == 2 and sys.argv[1] == '--prespawn_autotest':
         if proc_title:
             setproctitle(proc_title)
 
-        execfile('autotest')
+        seven.exec_file('autotest', {}, {})
     sys.exit(0)
 
 
 import logging, subprocess, threading
-from Queue import Queue
+from six.moves.queue import Queue
 
 
 NUM_PRESPAWNED_PROCESSES = 1

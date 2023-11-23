@@ -19,6 +19,7 @@ class firmware_LegacyRecovery(FirmwareTest):
     and sets recovery_request=1 and do a reboot. A failure is expected.
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     def initialize(self, host, cmdline_args):
         super(firmware_LegacyRecovery, self).initialize(host, cmdline_args)

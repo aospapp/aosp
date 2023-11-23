@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2016-2020, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -161,13 +161,14 @@ int dt_set_pinctrl_config(int node)
 	const fdt32_t *cuint;
 	int lenp = 0;
 	uint32_t i;
-	uint8_t status = fdt_get_status(node);
+	uint8_t status;
 	void *fdt;
 
 	if (fdt_get_address(&fdt) == 0) {
 		return -FDT_ERR_NOTFOUND;
 	}
 
+	status = fdt_get_status(node);
 	if (status == DT_DISABLED) {
 		return -FDT_ERR_NOTFOUND;
 	}
@@ -254,6 +255,15 @@ void set_gpio(uint32_t bank, uint32_t pin, uint32_t mode, uint32_t speed,
 		mmio_read_32(base + GPIO_AFRH_OFFSET));
 
 	stm32mp_clk_disable(clock);
+
+	if (status == DT_SECURE) {
+		stm32mp_register_secure_gpio(bank, pin);
+		set_gpio_secure_cfg(bank, pin, true);
+
+	} else {
+		stm32mp_register_non_secure_gpio(bank, pin);
+		set_gpio_secure_cfg(bank, pin, false);
+	}
 }
 
 void set_gpio_secure_cfg(uint32_t bank, uint32_t pin, bool secure)

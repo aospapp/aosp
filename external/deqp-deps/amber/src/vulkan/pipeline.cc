@@ -25,6 +25,8 @@
 #include "src/vulkan/compute_pipeline.h"
 #include "src/vulkan/device.h"
 #include "src/vulkan/graphics_pipeline.h"
+#include "src/vulkan/image_descriptor.h"
+#include "src/vulkan/sampler_descriptor.h"
 
 namespace amber {
 namespace vulkan {
@@ -89,11 +91,11 @@ Result Pipeline::CreateDescriptorSetLayouts() {
     // If there are no descriptors for this descriptor set we only
     // need to create its layout and there will be no bindings.
     std::vector<VkDescriptorSetLayoutBinding> bindings;
-    for (auto& desc : info.buffer_descriptors) {
+    for (auto& desc : info.descriptors) {
       bindings.emplace_back();
       bindings.back().binding = desc->GetBinding();
       bindings.back().descriptorType = desc->GetVkDescriptorType();
-      bindings.back().descriptorCount = 1;
+      bindings.back().descriptorCount = desc->GetDescriptorCount();
       bindings.back().stageFlags = VK_SHADER_STAGE_ALL;
     }
     desc_info.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -115,20 +117,20 @@ Result Pipeline::CreateDescriptorPools() {
       continue;
 
     std::vector<VkDescriptorPoolSize> pool_sizes;
-    for (auto& desc : info.buffer_descriptors) {
+    for (auto& desc : info.descriptors) {
       VkDescriptorType type = desc->GetVkDescriptorType();
       auto it = find_if(pool_sizes.begin(), pool_sizes.end(),
                         [&type](const VkDescriptorPoolSize& size) {
                           return size.type == type;
                         });
       if (it != pool_sizes.end()) {
-        it->descriptorCount += 1;
+        it->descriptorCount += desc->GetDescriptorCount();
         continue;
       }
 
       pool_sizes.emplace_back();
       pool_sizes.back().type = type;
-      pool_sizes.back().descriptorCount = 1;
+      pool_sizes.back().descriptorCount = desc->GetDescriptorCount();
     }
 
     VkDescriptorPoolCreateInfo pool_info = VkDescriptorPoolCreateInfo();
@@ -223,7 +225,7 @@ Result Pipeline::CreateVkDescriptorRelatedObjectsIfNeeded() {
 
 void Pipeline::UpdateDescriptorSetsIfNeeded() {
   for (auto& info : descriptor_set_info_) {
-    for (auto& desc : info.buffer_descriptors)
+    for (auto& desc : info.descriptors)
       desc->UpdateDescriptorSetIfNeeded(info.vk_desc_set);
   }
 }
@@ -239,15 +241,11 @@ Result Pipeline::AddPushConstantBuffer(const Buffer* buf, uint32_t offset) {
   return push_constant_->AddBuffer(buf, offset);
 }
 
-Result Pipeline::AddDescriptor(const BufferCommand* cmd) {
-  if (cmd == nullptr)
-    return Result("Pipeline::AddDescriptor BufferCommand is nullptr");
-  if (cmd->IsPushConstant())
-    return AddPushConstantBuffer(cmd->GetBuffer(), cmd->GetOffset());
-  if (!cmd->IsSSBO() && !cmd->IsUniform())
-    return Result("Pipeline::AddDescriptor not supported buffer type");
+Result Pipeline::GetDescriptorSlot(uint32_t desc_set,
+                                   uint32_t binding,
+                                   Descriptor** desc) {
+  *desc = nullptr;
 
-  const uint32_t desc_set = cmd->GetDescriptorSet();
   if (desc_set >= descriptor_set_info_.size()) {
     for (size_t i = descriptor_set_info_.size();
          i <= static_cast<size_t>(desc_set); ++i) {
@@ -266,45 +264,131 @@ Result Pipeline::AddDescriptor(const BufferCommand* cmd) {
   }
   descriptor_set_info_[desc_set].empty = false;
 
-  auto& descriptors = descriptor_set_info_[desc_set].buffer_descriptors;
-  BufferDescriptor* desc = nullptr;
+  auto& descriptors = descriptor_set_info_[desc_set].descriptors;
   for (auto& descriptor : descriptors) {
-    if (descriptor->GetBinding() == cmd->GetBinding())
-      desc = descriptor.get();
+    if (descriptor->GetBinding() == binding)
+      *desc = descriptor.get();
+  }
+
+  return {};
+}
+
+Result Pipeline::AddBufferDescriptor(const BufferCommand* cmd) {
+  if (cmd == nullptr)
+    return Result("Pipeline::AddBufferDescriptor BufferCommand is nullptr");
+  if (!cmd->IsSSBO() && !cmd->IsUniform() && !cmd->IsStorageImage() &&
+      !cmd->IsSampledImage() && !cmd->IsCombinedImageSampler() &&
+      !cmd->IsUniformTexelBuffer() && !cmd->IsStorageTexelBuffer() &&
+      !cmd->IsUniformDynamic() && !cmd->IsSSBODynamic()) {
+    return Result("Pipeline::AddBufferDescriptor not supported buffer type");
+  }
+
+  Descriptor* desc;
+  Result r =
+      GetDescriptorSlot(cmd->GetDescriptorSet(), cmd->GetBinding(), &desc);
+  if (!r.IsSuccess())
+    return r;
+
+  auto& descriptors = descriptor_set_info_[cmd->GetDescriptorSet()].descriptors;
+
+  bool is_image = false;
+  DescriptorType desc_type = DescriptorType::kUniformBuffer;
+
+  if (cmd->IsStorageImage()) {
+    desc_type = DescriptorType::kStorageImage;
+    is_image = true;
+  } else if (cmd->IsSampledImage()) {
+    desc_type = DescriptorType::kSampledImage;
+    is_image = true;
+  } else if (cmd->IsCombinedImageSampler()) {
+    desc_type = DescriptorType::kCombinedImageSampler;
+    is_image = true;
+  } else if (cmd->IsUniformTexelBuffer()) {
+    desc_type = DescriptorType::kUniformTexelBuffer;
+  } else if (cmd->IsStorageTexelBuffer()) {
+    desc_type = DescriptorType::kStorageTexelBuffer;
+  } else if (cmd->IsSSBO()) {
+    desc_type = DescriptorType::kStorageBuffer;
+  } else if (cmd->IsUniformDynamic()) {
+    desc_type = DescriptorType::kUniformBufferDynamic;
+  } else if (cmd->IsSSBODynamic()) {
+    desc_type = DescriptorType::kStorageBufferDynamic;
   }
 
   if (desc == nullptr) {
-    auto desc_type = cmd->IsSSBO() ? DescriptorType::kStorageBuffer
-                                   : DescriptorType::kUniformBuffer;
-    auto buffer_desc = MakeUnique<BufferDescriptor>(
-        cmd->GetBuffer(), desc_type, device_, cmd->GetDescriptorSet(),
-        cmd->GetBinding());
-    descriptors.push_back(std::move(buffer_desc));
-
+    if (is_image) {
+      auto image_desc = MakeUnique<ImageDescriptor>(
+          cmd->GetBuffer(), desc_type, device_, cmd->GetBaseMipLevel(),
+          cmd->GetDescriptorSet(), cmd->GetBinding());
+      if (cmd->IsCombinedImageSampler())
+        image_desc->SetAmberSampler(cmd->GetSampler());
+      descriptors.push_back(std::move(image_desc));
+    } else {
+      auto buffer_desc = MakeUnique<BufferDescriptor>(
+          cmd->GetBuffer(), desc_type, device_, cmd->GetDescriptorSet(),
+          cmd->GetBinding());
+      descriptors.push_back(std::move(buffer_desc));
+    }
     desc = descriptors.back().get();
+  } else {
+    if (desc->GetDescriptorType() != desc_type) {
+      return Result(
+          "Descriptors bound to the same binding needs to have matching "
+          "descriptor types");
+    }
+    // Check that the buffer is not added already.
+    const auto& buffers = desc->AsBufferBackedDescriptor()->GetAmberBuffers();
+    if (std::find(buffers.begin(), buffers.end(), cmd->GetBuffer()) !=
+        buffers.end()) {
+      return Result("Buffer has been added already");
+    }
+    desc->AsBufferBackedDescriptor()->AddAmberBuffer(cmd->GetBuffer());
   }
+
+  if (cmd->IsUniformDynamic() || cmd->IsSSBODynamic())
+    desc->AsBufferDescriptor()->AddDynamicOffset(cmd->GetDynamicOffset());
 
   if (cmd->IsSSBO() && !desc->IsStorageBuffer()) {
     return Result(
-        "Vulkan::AddDescriptor BufferCommand for SSBO uses wrong descriptor "
+        "Vulkan::AddBufferDescriptor BufferCommand for SSBO uses wrong "
+        "descriptor "
         "set and binding");
   }
 
   if (cmd->IsUniform() && !desc->IsUniformBuffer()) {
     return Result(
-        "Vulkan::AddDescriptor BufferCommand for UBO uses wrong descriptor set "
+        "Vulkan::AddBufferDescriptor BufferCommand for UBO uses wrong "
+        "descriptor set "
         "and binding");
   }
 
-  auto* buf_desc = static_cast<BufferDescriptor*>(desc);
-  if (cmd->GetValues().empty()) {
-    Result r = buf_desc->SetSizeInElements(cmd->GetBuffer()->ElementCount());
-    if (!r.IsSuccess())
-      return r;
+  return {};
+}
+
+Result Pipeline::AddSamplerDescriptor(const SamplerCommand* cmd) {
+  if (cmd == nullptr)
+    return Result("Pipeline::AddSamplerDescriptor SamplerCommand is nullptr");
+
+  Descriptor* desc;
+  Result r =
+      GetDescriptorSlot(cmd->GetDescriptorSet(), cmd->GetBinding(), &desc);
+  if (!r.IsSuccess())
+    return r;
+
+  auto& descriptors = descriptor_set_info_[cmd->GetDescriptorSet()].descriptors;
+
+  if (desc == nullptr) {
+    auto sampler_desc = MakeUnique<SamplerDescriptor>(
+        cmd->GetSampler(), DescriptorType::kSampler, device_,
+        cmd->GetDescriptorSet(), cmd->GetBinding());
+    descriptors.push_back(std::move(sampler_desc));
   } else {
-    Result r = buf_desc->AddToBuffer(cmd->GetValues(), cmd->GetOffset());
-    if (!r.IsSuccess())
-      return r;
+    if (desc->GetDescriptorType() != DescriptorType::kSampler) {
+      return Result(
+          "Descriptors bound to the same binding needs to have matching "
+          "descriptor types");
+    }
+    desc->AsSamplerDescriptor()->AddAmberSampler(cmd->GetSampler());
   }
 
   return {};
@@ -317,7 +401,7 @@ Result Pipeline::SendDescriptorDataToDeviceIfNeeded() {
       return guard.GetResult();
 
     for (auto& info : descriptor_set_info_) {
-      for (auto& desc : info.buffer_descriptors) {
+      for (auto& desc : info.descriptors) {
         Result r = desc->CreateResourceIfNeeded();
         if (!r.IsSuccess())
           return r;
@@ -340,8 +424,11 @@ Result Pipeline::SendDescriptorDataToDeviceIfNeeded() {
     return guard.GetResult();
 
   for (auto& info : descriptor_set_info_) {
-    for (auto& desc : info.buffer_descriptors)
-      desc->RecordCopyDataToResourceIfNeeded(command_.get());
+    for (auto& desc : info.descriptors) {
+      Result r = desc->RecordCopyDataToResourceIfNeeded(command_.get());
+      if (!r.IsSuccess())
+        return r;
+    }
   }
   return guard.Submit(GetFenceTimeout());
 }
@@ -351,12 +438,35 @@ void Pipeline::BindVkDescriptorSets(const VkPipelineLayout& pipeline_layout) {
     if (descriptor_set_info_[i].empty)
       continue;
 
+    // Sort descriptors by binding number to get correct order of dynamic
+    // offsets.
+    typedef std::pair<uint32_t, std::vector<uint32_t>> binding_offsets_pair;
+    std::vector<binding_offsets_pair> binding_offsets;
+    for (const auto& desc : descriptor_set_info_[i].descriptors) {
+      binding_offsets.push_back(
+          {desc->GetBinding(), desc->GetDynamicOffsets()});
+    }
+
+    std::sort(std::begin(binding_offsets), std::end(binding_offsets),
+              [](const binding_offsets_pair& a, const binding_offsets_pair& b) {
+                return a.first < b.first;
+              });
+
+    // Add the sorted dynamic offsets.
+    std::vector<uint32_t> dynamic_offsets;
+    for (const auto& binding_offset : binding_offsets) {
+      for (auto offset : binding_offset.second) {
+        dynamic_offsets.push_back(offset);
+      }
+    }
+
     device_->GetPtrs()->vkCmdBindDescriptorSets(
         command_->GetVkCommandBuffer(),
         IsGraphics() ? VK_PIPELINE_BIND_POINT_GRAPHICS
                      : VK_PIPELINE_BIND_POINT_COMPUTE,
         pipeline_layout, static_cast<uint32_t>(i), 1,
-        &descriptor_set_info_[i].vk_desc_set, 0, nullptr);
+        &descriptor_set_info_[i].vk_desc_set,
+        static_cast<uint32_t>(dynamic_offsets.size()), dynamic_offsets.data());
   }
 }
 
@@ -367,7 +477,7 @@ Result Pipeline::ReadbackDescriptorsToHostDataQueue() {
       return guard.GetResult();
 
     for (auto& desc_set : descriptor_set_info_) {
-      for (auto& desc : desc_set.buffer_descriptors)
+      for (auto& desc : desc_set.descriptors)
         desc->RecordCopyDataToHost(command_.get());
     }
 
@@ -377,7 +487,7 @@ Result Pipeline::ReadbackDescriptorsToHostDataQueue() {
   }
 
   for (auto& desc_set : descriptor_set_info_) {
-    for (auto& desc : desc_set.buffer_descriptors) {
+    for (auto& desc : desc_set.descriptors) {
       Result r = desc->MoveResourceToBufferOutput();
       if (!r.IsSuccess())
         return r;

@@ -20,7 +20,9 @@
 #define LIBTEXTCLASSIFIER_LANG_ID_LANG_ID_JNI_H_
 
 #include <jni.h>
+
 #include <string>
+
 #include "utils/java/jni-base.h"
 
 #ifndef TC3_LANG_ID_CLASS_NAME
@@ -39,14 +41,17 @@ TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNew)
 TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNewFromPath)
 (JNIEnv* env, jobject clazz, jstring path);
 
+TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNewWithOffset)
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
+
 TC3_JNI_METHOD(jobjectArray, TC3_LANG_ID_CLASS_NAME, nativeDetectLanguages)
-(JNIEnv* env, jobject clazz, jlong ptr, jstring text);
+(JNIEnv* env, jobject thiz, jlong ptr, jstring text);
 
 TC3_JNI_METHOD(void, TC3_LANG_ID_CLASS_NAME, nativeClose)
-(JNIEnv* env, jobject clazz, jlong ptr);
+(JNIEnv* env, jobject thiz, jlong ptr);
 
 TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetVersion)
-(JNIEnv* env, jobject clazz, jlong ptr);
+(JNIEnv* env, jobject thiz, jlong ptr);
 
 TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetVersionFromFd)
 (JNIEnv* env, jobject clazz, jint fd);
@@ -59,6 +64,9 @@ TC3_JNI_METHOD(jfloat, TC3_LANG_ID_CLASS_NAME, nativeGetLangIdNoiseThreshold)
 
 TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetMinTextSizeInBytes)
 (JNIEnv* env, jobject thizz, jlong ptr);
+
+TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetVersionWithOffset)
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
 
 #ifdef __cplusplus
 }

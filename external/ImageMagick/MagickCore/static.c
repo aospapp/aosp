@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -223,7 +223,7 @@ MagickExport MagickBooleanType RegisterStaticModule(const char *module,
   PolicyRights
     rights;
 
-  register const CoderInfo
+  const CoderInfo
     *p;
 
   size_t

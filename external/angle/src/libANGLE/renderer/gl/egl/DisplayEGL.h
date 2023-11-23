@@ -11,6 +11,7 @@
 
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "libANGLE/renderer/gl/DisplayGL.h"
@@ -35,8 +36,6 @@ class DisplayEGL : public DisplayGL
                            const egl::AttributeMap &attribs) override;
 
     EGLSyncImpl *createSync(const egl::AttributeMap &attribs) override;
-
-    std::string getVendorString() const override;
 
     void setBlobCacheFuncs(EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get) override;
 
@@ -75,12 +74,11 @@ class DisplayEGL : public DisplayGL
 
     bool isValidNativeWindow(EGLNativeWindowType window) const override;
 
-    DeviceImpl *createDevice() override;
-
     egl::Error waitClient(const gl::Context *context) override;
     egl::Error waitNative(const gl::Context *context, EGLint engine) override;
 
-    egl::Error makeCurrent(egl::Surface *drawSurface,
+    egl::Error makeCurrent(egl::Display *display,
+                           egl::Surface *drawSurface,
                            egl::Surface *readSurface,
                            gl::Context *context) override;
 
@@ -89,6 +87,18 @@ class DisplayEGL : public DisplayGL
     void initializeFrontendFeatures(angle::FrontendFeatures *features) const override;
 
     void populateFeatureList(angle::FeatureList *features) override;
+
+    RendererGL *getRenderer() const override;
+
+    egl::Error validateImageClientBuffer(const gl::Context *context,
+                                         EGLenum target,
+                                         EGLClientBuffer clientBuffer,
+                                         const egl::AttributeMap &attribs) const override;
+
+    ExternalImageSiblingImpl *createExternalImageSibling(const gl::Context *context,
+                                                         EGLenum target,
+                                                         EGLClientBuffer buffer,
+                                                         const egl::AttributeMap &attribs) override;
 
   protected:
     egl::Error initializeContext(EGLContext shareContext,
@@ -101,6 +111,8 @@ class DisplayEGL : public DisplayGL
     egl::Error createRenderer(EGLContext shareContext, std::shared_ptr<RendererEGL> *outRenderer);
 
     egl::Error makeCurrentSurfaceless(gl::Context *context) override;
+
+    virtual EGLint fixSurfaceType(EGLint surfaceType) const;
 
     template <typename T>
     void getConfigAttrib(EGLConfig config, EGLint attribute, T *value) const;
@@ -118,10 +130,23 @@ class DisplayEGL : public DisplayGL
     egl::AttributeMap mDisplayAttributes;
     std::vector<EGLint> mConfigAttribList;
 
+    struct CurrentNativeContext
+    {
+        EGLSurface surface = EGL_NO_SURFACE;
+        EGLContext context = EGL_NO_CONTEXT;
+        // True if the current context is an external context. and both surface and context will be
+        // unset when an external context is current.
+        bool isExternalContext = false;
+    };
+    angle::HashMap<std::thread::id, CurrentNativeContext> mCurrentNativeContexts;
+
   private:
     void generateCaps(egl::Caps *outCaps) const override;
 
     std::map<EGLint, EGLint> mConfigIds;
+
+    bool mHasEXTCreateContextRobustness;
+    bool mHasNVRobustnessVideoMemoryPurge;
 };
 
 }  // namespace rx

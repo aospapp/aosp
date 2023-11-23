@@ -23,7 +23,7 @@
 %                                 August 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -120,10 +120,7 @@ WandExport MagickWand *CloneMagickWand(const MagickWand *wand)
   assert(wand->signature == MagickWandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  clone_wand=(MagickWand *) AcquireMagickMemory(sizeof(*clone_wand));
-  if (clone_wand == (MagickWand *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      wand->name);
+  clone_wand=(MagickWand *) AcquireCriticalMemory(sizeof(*clone_wand));
   (void) memset(clone_wand,0,sizeof(*clone_wand));
   clone_wand->id=AcquireWandId();
   (void) FormatLocaleString(clone_wand->name,MagickPathExtent,"%s-%.20g",
@@ -419,8 +416,8 @@ WandExport char *MagickQueryConfigureOption(const char *option)
   value=(char *) NULL;
   if (number_options != 0)
     value=AcquireString(configure_info[0]->value);
-  configure_info=(const ConfigureInfo **)
-    RelinquishMagickMemory((void *) configure_info);
+  configure_info=(const ConfigureInfo **) RelinquishMagickMemory((void *)
+    configure_info);
   return(value);
 }
 
@@ -449,7 +446,6 @@ WandExport char *MagickQueryConfigureOption(const char *option)
 %    o pattern: Specifies a pointer to a text string containing a pattern.
 %
 %    o number_options:  Returns the number of configure options in the list.
-%
 %
 */
 WandExport char **MagickQueryConfigureOptions(const char *pattern,
@@ -703,7 +699,6 @@ WandExport double *MagickQueryMultilineFontMetrics(MagickWand *wand,
 %
 %    o number_fonts:  Returns the number of fonts in the list.
 %
-%
 */
 WandExport char **MagickQueryFonts(const char *pattern,
   size_t *number_fonts)
@@ -850,7 +845,7 @@ WandExport void MagickResetIterator(MagickWand *wand)
 %  MagickReadImage() will be prepended before any image in the wand.
 %
 %  Also the current image has been set to the first image (if any) in the
-%  Magick Wand.  Using MagickNextImage() will then set teh current image
+%  Magick Wand.  Using MagickNextImage() will then set the current image
 %  to the second image in the list (if present).
 %
 %  This operation is similar to MagickResetIterator() but differs in how
@@ -1017,7 +1012,7 @@ WandExport void MagickWandGenesis(void)
 %
 %  MagickWandTerminus() terminates the MagickWand environment.
 %
-%  The format of the MaickWandTerminus method is:
+%  The format of the MagickWandTerminus method is:
 %
 %      void MagickWandTerminus(void)
 %

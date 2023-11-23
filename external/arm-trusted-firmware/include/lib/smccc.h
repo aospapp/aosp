@@ -78,8 +78,8 @@
 #define SMC_64				U(1)
 #define SMC_32				U(0)
 
-#define SMC_TYPE_FAST			ULL(1)
-#define SMC_TYPE_YIELD			ULL(0)
+#define SMC_TYPE_FAST			UL(1)
+#define SMC_TYPE_YIELD			UL(0)
 
 #define SMC_OK				ULL(0)
 #define SMC_UNK				-1
@@ -112,7 +112,8 @@
 
 /* The macro below is used to identify a valid Fast SMC call */
 #define is_valid_fast_smc(_fid)		((!(((_fid) >> 16) & U(0xff))) && \
-					   (GET_SMC_TYPE(_fid) == SMC_TYPE_FAST))
+					   (GET_SMC_TYPE(_fid)		\
+					    == (uint32_t)SMC_TYPE_FAST))
 
 /*
  * Macro to define UUID for services. Apart from defining and initializing a
@@ -122,18 +123,19 @@
  */
 #define DEFINE_SVC_UUID2(_name, _tl, _tm, _th, _cl, _ch,		\
 		_n0, _n1, _n2, _n3, _n4, _n5)				\
-	CASSERT((uint32_t)(_tl) != (uint32_t) SMC_UNK, invalid_svc_uuid);\
+	CASSERT((uint32_t)(_tl) != (uint32_t)SMC_UNK,			\
+		invalid_svc_uuid_##_name);				\
 	static const uuid_t _name = {					\
-		{(_tl >> 24) & 0xFF,					\
-		 (_tl >> 16) & 0xFF,					\
-		 (_tl >> 8)  & 0xFF,					\
-		 (_tl & 0xFF)},						\
-		{(_tm >> 8) & 0xFF,					\
-		 (_tm  & 0xFF)},					\
-		{(_th >> 8) & 0xFF,					\
-		 (_th & 0xFF)},						\
-		_cl, _ch,						\
-		{ _n0, _n1, _n2, _n3, _n4, _n5 }			\
+		{((_tl) >> 24) & 0xFF,					\
+		 ((_tl) >> 16) & 0xFF,					\
+		 ((_tl) >> 8)  & 0xFF,					\
+		 ((_tl) & 0xFF)},					\
+		{((_tm) >> 8) & 0xFF,					\
+		 ((_tm)  & 0xFF)},					\
+		{((_th) >> 8) & 0xFF,					\
+		 ((_th) & 0xFF)},					\
+		(_cl), (_ch),						\
+		{ (_n0), (_n1), (_n2), (_n3), (_n4), (_n5) }		\
 	}
 
 /*

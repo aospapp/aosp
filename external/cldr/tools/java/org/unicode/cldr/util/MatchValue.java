@@ -1,23 +1,28 @@
 package org.unicode.cldr.util;
 
 import java.text.ParseException;
-import java.util.ArrayList;
+import java.util.Date;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.IntFunction;
 import java.util.regex.Pattern;
 
 import org.unicode.cldr.util.StandardCodes.LstrType;
+import org.unicode.cldr.util.Validity.Status;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R2;
@@ -28,10 +33,16 @@ import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.VersionInfo;
 
 public abstract class MatchValue implements Predicate<String> {
+    public static final String DEFAULT_SAMPLE = "❓";
+
     @Override
     public abstract boolean is(String item);
     public abstract String getName();
-    
+
+    public String getSample() {
+        return DEFAULT_SAMPLE;
+    }
+
     @Override
     public String toString() {
         return getName();
@@ -54,13 +65,13 @@ public abstract class MatchValue implements Predicate<String> {
             case "set":
                 result =  SetMatchValue.of(subargument);
                 break;
-            case "validity": 
+            case "validity":
                 result =  ValidityMatchValue.of(subargument);
                 break;
-            case "bcp47": 
+            case "bcp47":
                 result =  Bcp47MatchValue.of(subargument);
                 break;
-            case "range": 
+            case "range":
                 result =  RangeMatchValue.of(subargument);
                 break;
             case "literal":
@@ -84,7 +95,7 @@ public abstract class MatchValue implements Predicate<String> {
             case "unicodeset":
                 result =  UnicodeSpanMatchValue.of(subargument);
                 break;
-            default: 
+            default:
                 throw new IllegalArgumentException("Illegal/Unimplemented match type: " + originalArg);
             }
             if (!originalArg.equals(result.getName())) {
@@ -119,16 +130,21 @@ public abstract class MatchValue implements Predicate<String> {
                 return false;
             }
             return lang.is(ltp.getLanguage())
-                && (ltp.getScript().isEmpty() 
+                && (ltp.getScript().isEmpty()
                     || script.is(ltp.getScript()))
-                && (ltp.getRegion().isEmpty() 
+                && (ltp.getRegion().isEmpty()
                     || region.is(ltp.getRegion()))
-                && (ltp.getVariants().isEmpty() 
+                && (ltp.getVariants().isEmpty()
                     || and(variant,ltp.getVariants()))
                 && ltp.getExtensions().isEmpty()
                 && ltp.getLocaleExtensions().isEmpty()
                 ;
-        }        
+        }
+
+        @Override
+        public String getSample() {
+            return "de";
+        }
     }
 
     // TODO remove these if possible — ticket/10120
@@ -155,47 +171,150 @@ public abstract class MatchValue implements Predicate<String> {
         return false;
     }
 
+    public static class EnumParser<T extends Enum> {
+        private final Class<T> aClass;
+        private final Set<T> all;
+
+        private EnumParser(Class<T> aClass) {
+            this.aClass = aClass;
+            all = ImmutableSet.copyOf(EnumSet.allOf(aClass));
+        }
+
+        public static <T> EnumParser of(Class<T> aClass) {
+            return new EnumParser(aClass);
+        }
+
+        public Set<T> parse(String text) {
+            Set<T> statuses = EnumSet.noneOf(aClass);
+            boolean negative = text.startsWith("!");
+            if (negative) {
+                text = text.substring(1);
+            }
+            for (String item : SPLIT_SPACE_OR_COMMA.split(text)) {
+                statuses.add(getItem(item));
+            }
+            if (negative) {
+                TreeSet<T> temp = new TreeSet<>(all);
+                temp.removeAll(statuses);
+                statuses = temp;
+            }
+            return ImmutableSet.copyOf(statuses);
+        }
+        private T getItem(String text) {
+            try {
+                return (T) aClass.getMethod("valueOf", String.class).invoke(null, text);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
+
+        public String format(Set<?> set) {
+            if (set.size() > all.size()/2) {
+                TreeSet<T> temp = new TreeSet<>(all);
+                temp.removeAll(set);
+                return "!" + Joiner.on(' ').join(temp);
+            } else {
+                return Joiner.on(' ').join(set);
+            }
+        }
+
+        public boolean isAll(Set<Status> statuses) {
+            return statuses.equals(all);
+        }
+    }
+
     static public class ValidityMatchValue extends MatchValue {
         private final LstrType type;
+        private final boolean shortId;
+        private final Set<Status> statuses;
+        private static Map<String, Status> shortCodeToStatus;
+        private static final EnumParser<Status> enumParser = EnumParser.of(Status.class);
 
         @Override
         public String getName() {
-            return "validity/" + type.toString();
+            return "validity/"
+                + (shortId ? "short-" : "") + type.toString()
+                + (enumParser.isAll(statuses) ? "" : "/" + enumParser.format(statuses));
         }
 
         private ValidityMatchValue(LstrType type) {
+            this(type, null, false);
+        }
+
+        private ValidityMatchValue(LstrType type, Set<Status> statuses, boolean shortId) {
             this.type = type;
+            if (type != LstrType.unit && shortId) {
+                throw new IllegalArgumentException("short- not supported except for units");
+            }
+            this.shortId = shortId;
+            this.statuses = statuses == null ? EnumSet.allOf(Status.class) : ImmutableSet.copyOf(statuses);
         }
 
         public static MatchValue of(String typeName) {
             if (typeName.equals("locale")) {
                 return new LocaleMatchValue();
             }
-            LstrType type = LstrType.valueOf(typeName);
-            return new ValidityMatchValue(type);
+            int slashPos = typeName.indexOf('/');
+            Set<Status> statuses = null;
+            if (slashPos > 0) {
+                statuses = enumParser.parse(typeName.substring(slashPos+1));
+                typeName = typeName.substring(0, slashPos);
+            }
+            boolean shortId = typeName.startsWith("short-");
+            if (shortId) {
+                typeName = typeName.substring(6);
+            }
+            LstrType type = LstrType.fromString(typeName);
+            return new ValidityMatchValue(type, statuses, shortId);
         }
 
         @Override
         public boolean is(String item) {
             // TODO handle deprecated
             switch(type) {
-            case script: 
+            case script:
                 if (SCRIPT_HACK.contains(item)) {
-                    return true; 
+                    return true;
                 }
                 break;
-            case variant: 
+            case variant:
                 if (VARIANT_HACK.contains(item)) {
-                    return true; 
+                    return true;
                 }
-                item = item.toLowerCase(Locale.ROOT); 
+                item = item.toLowerCase(Locale.ROOT);
                 break;
-            case language: 
-                item = item.equals("root") ? "und" : item; 
+            case language:
+                item = item.equals("root") ? "und" : item;
                 break;
+            case unit:
+                if (shortId) {
+                    if (shortCodeToStatus == null) { // lazy evaluation to avoid circular dependencies
+                        Map<String, Status> _shortCodeToStatus = new TreeMap<>();
+                        for (Entry<String, Status> entry : Validity.getInstance().getCodeToStatus(LstrType.unit).entrySet()) {
+                            String key = entry.getKey();
+                            Status status = entry.getValue();
+                            final String shortKey = key.substring(key.indexOf('-')+1);
+                            Status old = _shortCodeToStatus.get(shortKey);
+                            if (old == null) {
+                                _shortCodeToStatus.put(shortKey, status);
+//                            } else {
+//                                System.out.println("Skipping duplicate status: " + key + " old: " + old + " new: " + status);
+                            }
+                        }
+                        shortCodeToStatus = ImmutableMap.copyOf(_shortCodeToStatus);
+                    }
+                    final Status status = shortCodeToStatus.get(item);
+                    return status != null && statuses.contains(status);
+                }
             default: break;
             }
-            return Validity.getInstance().getCodeToStatus(type).get(item) != null;
+            final Status status = Validity.getInstance().getCodeToStatus(type).get(item);
+            return status != null && statuses.contains(status);
+        }
+
+        @Override
+        public String getSample() {
+            return Validity.getInstance().getCodeToStatus(type).keySet().iterator().next();
         }
     }
 
@@ -295,6 +414,12 @@ public abstract class MatchValue implements Predicate<String> {
                 valid.addAll(aliases);
             }
         }
+        @Override
+        public String getSample() {
+            is("X"); // force load data
+            return valid == null ? "XX"
+                : valid.iterator().next();
+        }
     }
 
     static final Splitter RANGE = Splitter.on('~').trimResults();
@@ -337,16 +462,21 @@ public abstract class MatchValue implements Predicate<String> {
             }
             return start <= value && value <= end;
         }
+        @Override
+        public String getSample() {
+            return String.valueOf((int)(start + end)/2);
+        }
     }
 
     static final Splitter LIST = Splitter.on(", ").trimResults();
+    static final Splitter SPLIT_SPACE_OR_COMMA = Splitter.on(Pattern.compile("[, ]")).omitEmptyStrings().trimResults();
 
     static public class LiteralMatchValue extends MatchValue {
         private final Set<String> items;
 
         @Override
         public String getName() {
-            return "literal/" + CollectionUtilities.join(items, ", ");
+            return "literal/" + Joiner.on(", ").join(items);
         }
 
         private LiteralMatchValue(String key) {
@@ -360,6 +490,11 @@ public abstract class MatchValue implements Predicate<String> {
         @Override
         public boolean is(String item) {
             return items.contains(item);
+        }
+
+        @Override
+        public String getSample() {
+            return items.iterator().next();
         }
     }
 
@@ -441,7 +576,7 @@ public abstract class MatchValue implements Predicate<String> {
 
     static public class AnyMatchValue extends MatchValue {
         final String key;
-        
+
         public AnyMatchValue(String key) {
             this.key = key;
         }
@@ -483,6 +618,11 @@ public abstract class MatchValue implements Predicate<String> {
         public  boolean is(String items) {
             return and(subtest,SPACE_SPLITTER.split(items));
         }
+
+        @Override
+        public String getSample() {
+            return subtest.getSample();
+        }
     }
 
     static final Splitter BARS_SPLITTER = Splitter.on("||").omitEmptyStrings();
@@ -491,12 +631,12 @@ public abstract class MatchValue implements Predicate<String> {
         final List<MatchValue> subtests;
 
         private OrMatchValue(Iterator<MatchValue> iterator) {
-            this.subtests = ImmutableList.copyOf(CollectionUtilities.addAll(iterator, new ArrayList<>()));
+            this.subtests = ImmutableList.copyOf(iterator);
         }
 
         @Override
         public String getName() {
-            return "or/"+ CollectionUtilities.join(subtests, "||");
+            return "or/"+ Joiner.on("||").join(subtests);
         }
 
         public static OrMatchValue of(String key) {
@@ -516,13 +656,25 @@ public abstract class MatchValue implements Predicate<String> {
             }
             return false;
         }
+        @Override
+        public String getSample() {
+            for (MatchValue subtest : subtests) {
+                String result = subtest.getSample();
+                if (!result.equals(DEFAULT_SAMPLE)) {
+                    return result;
+                }
+            }
+            return DEFAULT_SAMPLE;
+        }
     }
 
     static public class TimeMatchValue extends MatchValue {
+        final String sample;
         final SimpleDateFormat formatter;
 
         public TimeMatchValue(String key) {
             formatter = new SimpleDateFormat(key,ULocale.ROOT);
+            sample = formatter.format(new Date());
         }
 
         @Override
@@ -543,13 +695,19 @@ public abstract class MatchValue implements Predicate<String> {
                 return false;
             }
         }
+        @Override
+        public String getSample() {
+            return sample;
+        }
     }
-    
+
     static public class UnicodeSpanMatchValue extends MatchValue {
+        final String sample;
         final UnicodeSet uset;
 
         public UnicodeSpanMatchValue(String key) {
             uset = new UnicodeSet(key);
+            sample = new StringBuilder().appendCodePoint(uset.getRangeStart(0)).toString();
         }
 
         @Override
@@ -564,6 +722,11 @@ public abstract class MatchValue implements Predicate<String> {
         @Override
         public  boolean is(String item) {
             return uset.span(item, SpanCondition.CONTAINED) == item.length();
+        }
+
+        @Override
+        public String getSample() {
+            return sample;
         }
     }
 

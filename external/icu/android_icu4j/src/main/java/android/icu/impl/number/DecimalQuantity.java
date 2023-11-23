@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.impl.number;
 
 import java.math.BigDecimal;
@@ -8,6 +8,7 @@ import java.math.MathContext;
 import java.text.FieldPosition;
 
 import android.icu.impl.StandardPlural;
+import android.icu.impl.number.Modifier.Signum;
 import android.icu.text.PluralRules;
 import android.icu.text.UFieldPosition;
 
@@ -124,6 +125,26 @@ public interface DecimalQuantity extends PluralRules.IFixedDecimal {
     public int getMagnitude() throws ArithmeticException;
 
     /**
+     * @return The value of the (suppressed) exponent after the number has been
+     * put into a notation with exponents (ex: compact, scientific).  Ex: given
+     * the number 1000 as "1K" / "1E3", the return value will be 3 (positive).
+     */
+    public int getExponent();
+
+    /**
+     * Adjusts the value for the (suppressed) exponent stored when using
+     * notation with exponents (ex: compact, scientific).
+     *
+     * <p>Adjusting the exponent is decoupled from {@link #adjustMagnitude} in
+     * order to allow flexibility for {@link StandardPlural} to be selected in
+     * formatting (ex: for compact notation) either with or without the exponent
+     * applied in the value of the number.
+     * @param delta
+     *             The value to adjust the exponent by.
+     */
+    public void adjustExponent(int delta);
+
+    /**
      * @return Whether the value represented by this {@link DecimalQuantity} is
      * zero, infinity, or NaN.
      */
@@ -132,8 +153,8 @@ public interface DecimalQuantity extends PluralRules.IFixedDecimal {
     /** @return Whether the value represented by this {@link DecimalQuantity} is less than zero. */
     public boolean isNegative();
 
-    /** @return -1 if the value is negative; 1 if positive; or 0 if zero. */
-    public int signum();
+    /** @return The appropriate value from the Signum enum. */
+    public Signum signum();
 
     /** @return Whether the value represented by this {@link DecimalQuantity} is infinite. */
     @Override

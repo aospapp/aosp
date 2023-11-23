@@ -15,6 +15,7 @@
  */
 
 #include "src/trace_processor/importers/ninja/ninja_log_parser.h"
+
 #include "perfetto/ext/base/string_splitter.h"
 #include "perfetto/ext/base/string_utils.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
@@ -170,7 +171,8 @@ void NinjaLogParser::NotifyEndOfFile() {
       snprintf(name, sizeof(name), "Worker %zu", workers.size() + 1);
       StringId name_id = ctx_->storage->InternString(name);
       auto utid = ctx_->process_tracker->UpdateThread(worker_id, job.build_id);
-      ctx_->process_tracker->SetThreadNameIfUnset(utid, name_id);
+      ctx_->process_tracker->UpdateThreadNameByUtid(utid, name_id,
+                                                    ThreadNamePriority::kOther);
       TrackId track_id = ctx_->track_tracker->InternThreadTrack(utid);
       workers.emplace_back(Worker{/*busy_until=*/job.end_ms, track_id});
       worker = &workers.back();

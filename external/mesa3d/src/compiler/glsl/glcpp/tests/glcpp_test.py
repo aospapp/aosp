@@ -24,11 +24,19 @@
 from __future__ import print_function
 import argparse
 import difflib
+import errno
 import io
 import os
 import subprocess
 import sys
 import tempfile
+
+# The meson version handles windows paths better, but if it's not available
+# fall back to shlex
+try:
+    from meson.mesonlib import split_args
+except ImportError:
+    from shlex import split as split_args
 
 
 def arg_parser():
@@ -61,15 +69,23 @@ def test_output(glcpp, filename, expfile, nl_format='\n'):
 
     with open(filename, 'rb') as f:
         proc = subprocess.Popen(
-            [glcpp] + extra_args,
+            glcpp + extra_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             stdin=subprocess.PIPE)
         actual, _ = proc.communicate(f.read())
         actual = actual.decode('utf-8')
 
+        if proc.returncode == 255:
+            print("Test returned general error, possibly missing linker")
+            sys.exit(77)
+
     with open(expfile, 'r') as f:
         expected = f.read()
+
+    # Bison 3.6 changed '$end' to 'end of file' in its error messages
+    # See: https://gitlab.freedesktop.org/mesa/mesa/-/issues/3181
+    actual = actual.replace('$end', 'end of file')
 
     if actual == expected:
         return (True, [])
@@ -85,7 +101,7 @@ def _valgrind(glcpp, filename):
         os.close(fd)
         with open(filename, 'rb') as f:
             proc = subprocess.Popen(
-                ['valgrind', '--error-exitcode=31', '--log-file', tmpfile, glcpp] + extra_args,
+                ['valgrind', '--error-exitcode=31', '--log-file', tmpfile] + glcpp + extra_args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.PIPE)
@@ -216,17 +232,30 @@ def test_valgrind(args):
 def main():
     args = arg_parser()
 
+    wrapper = os.environ.get('MESON_EXE_WRAPPER')
+    if wrapper is not None:
+        args.glcpp = split_args(wrapper) + [args.glcpp]
+    else:
+        args.glcpp = [args.glcpp]
+
     success = True
-    if args.unix:
-        success = success and test_unix(args)
-    if args.windows:
-        success = success and test_windows(args)
-    if args.oldmac:
-        success = success and test_oldmac(args)
-    if args.bizarro:
-        success = success and test_bizarro(args)
-    if args.valgrind:
-        success = success and test_valgrind(args)
+    try:
+        if args.unix:
+            success = success and test_unix(args)
+        if args.windows:
+            success = success and test_windows(args)
+        if args.oldmac:
+            success = success and test_oldmac(args)
+        if args.bizarro:
+            success = success and test_bizarro(args)
+        if args.valgrind:
+            success = success and test_valgrind(args)
+    except OSError as e:
+        if e.errno == errno.ENOEXEC:
+            print('Skipping due to inability to run host binaries.',
+                  file=sys.stderr)
+            sys.exit(77)
+        raise
 
     exit(0 if success else 1)
 

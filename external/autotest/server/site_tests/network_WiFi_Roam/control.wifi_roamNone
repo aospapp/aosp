@@ -6,7 +6,7 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_Roam.wifi_roamNone'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc')
+ATTRIBUTES = ('suite:wifi_matfunc, suite:wificell-cq')
 DEPENDENCIES = 'wificell'
 
 DOC = """

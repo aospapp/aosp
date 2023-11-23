@@ -16,6 +16,33 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    default_applicable_licenses: ["external_apache-xml_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_apache-xml_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-W3C",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
 }
 
 // The set of files that contribute to APIs.
@@ -31,10 +58,12 @@ java_library {
     name: "apache-xml",
     visibility: [
         "//art/build/apex",
+        "//art/build/sdk",
         "//libcore",
+        "//packages/modules/ArtPrebuilt",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     srcs: ["src/main/java/**/*.java"],
@@ -48,22 +77,5 @@ java_library {
 
     sdk_version: "none",
     system_modules: "core-all-system-modules",
-}
-
-// A guaranteed unstripped version of apache-xml for use on device.
-// The build system may or may not strip the apache-xml jar, but this one will
-// not be stripped. See b/24535627.
-java_library {
-    name: "apache-xml-testdex",
-    visibility: [
-        "//art:__subpackages__",
-    ],
-    static_libs: ["apache-xml"],
-
-    installable: true,
-    dex_preopt: {
-        enabled: false,
-    },
-
-    sdk_version: "core_platform",
+    min_sdk_version: "31",
 }

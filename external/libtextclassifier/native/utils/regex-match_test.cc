@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include "utils/jvm-test-utils.h"
 #include "utils/utf8/unicodetext.h"
 #include "utils/utf8/unilib.h"
 #include "gmock/gmock.h"
@@ -28,11 +29,10 @@ namespace {
 
 class RegexMatchTest : public testing::Test {
  protected:
-  RegexMatchTest() : INIT_UNILIB_FOR_TESTING(unilib_) {}
-  UniLib unilib_;
+  RegexMatchTest() : unilib_(libtextclassifier3::CreateUniLibForTesting()) {}
+  std::unique_ptr<UniLib> unilib_;
 };
 
-#ifdef TC3_UNILIB_ICU
 #ifndef TC3_DISABLE_LUA
 TEST_F(RegexMatchTest, HandlesSimpleVerification) {
   EXPECT_TRUE(VerifyMatch(/*context=*/"", /*matcher=*/nullptr, "return true;"));
@@ -65,7 +65,7 @@ end
 return luhn(match[1].text);
   )";
   const std::unique_ptr<UniLib::RegexPattern> regex_pattern =
-      unilib_.CreateRegexPattern(pattern);
+      unilib_->CreateRegexPattern(pattern);
   ASSERT_TRUE(regex_pattern != nullptr);
   const std::unique_ptr<UniLib::RegexMatcher> matcher =
       regex_pattern->Matcher(message);
@@ -83,7 +83,7 @@ TEST_F(RegexMatchTest, RetrievesMatchGroupTest) {
       UTF8ToUnicodeText("never gonna (?:give (you) up|let (you) down)",
                         /*do_copy=*/true);
   const std::unique_ptr<UniLib::RegexPattern> regex_pattern =
-      unilib_.CreateRegexPattern(pattern);
+      unilib_->CreateRegexPattern(pattern);
   ASSERT_TRUE(regex_pattern != nullptr);
   UnicodeText message =
       UTF8ToUnicodeText("never gonna give you up - never gonna let you down");
@@ -108,7 +108,6 @@ TEST_F(RegexMatchTest, RetrievesMatchGroupTest) {
   EXPECT_THAT(GetCapturingGroupText(matcher.get(), 2).value(),
               testing::Eq("you"));
 }
-#endif
 
 }  // namespace
 }  // namespace libtextclassifier3

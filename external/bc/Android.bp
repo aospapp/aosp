@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_bc_license"],
+}
+
+license {
+    name: "external_bc_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+    ],
+    license_text: [
+        "LICENSE.md",
+        "NOTICE.md",
+    ],
+}
+
 cc_defaults {
   name: "bc-defaults",
 
@@ -7,6 +24,7 @@ cc_defaults {
     "-DDC_ENABLED=0",
     "-DBC_ENABLE_EXTRA_MATH=0",
     "-DBC_ENABLE_HISTORY=0",
+    "-DBC_ENABLE_LONG_OPTIONS=1",
     "-DBC_ENABLE_NLS=0",
     "-DBC_ENABLE_SIGNALS=1",
     "-Os",
@@ -27,7 +45,7 @@ genrule {
   srcs: ["gen/lib.bc"],
   out: ["gen/lib.c"],
   tool_files: ["gen/strgen.sh"],
-  cmd: "$(location gen/strgen.sh) $(in) $(out) bc_lib bc.h bc_lib_name BC_ENABLED",
+  cmd: "$(location gen/strgen.sh) $(in) $(out) bc_lib bc_lib_name BC_ENABLED",
 }
 
 genrule {
@@ -35,7 +53,7 @@ genrule {
   srcs: ["gen/bc_help.txt"],
   out: ["gen/bc_help.c"],
   tool_files: ["gen/strgen.sh"],
-  cmd: "$(location gen/strgen.sh) $(in) $(out) bc_help bc.h '' BC_ENABLED",
+  cmd: "$(location gen/strgen.sh) $(in) $(out) bc_help '' BC_ENABLED",
 }
 
 genrule {
@@ -69,7 +87,6 @@ sh_test {
   test_suites: ["general-tests"],
   host_supported: true,
   device_supported: false,
-  test_config: "bc-tests.xml",
   data: [
     "functions.sh",
     "tests/**/*",

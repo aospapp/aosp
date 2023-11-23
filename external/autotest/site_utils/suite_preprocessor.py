@@ -8,6 +8,9 @@
 Deprecated tool for preprocessing tests to determine their DEPENDENCIES.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import optparse, os, sys
 import common
 
@@ -42,7 +45,7 @@ def main():
         with open(options.output_file, 'w') as file_obj:
             file_obj.write('%r' % test_deps)
     else:
-        print '%r' % test_deps
+        print('%r' % test_deps)
 
 
 if __name__ == "__main__":

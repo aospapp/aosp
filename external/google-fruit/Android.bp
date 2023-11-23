@@ -14,11 +14,39 @@
 
 // Simply '#include <fruit/fruit.h>' to get started.
 // See https://github.com/google/fruit/wiki for more details.
+package {
+    default_applicable_licenses: ["external_google-fruit_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_google-fruit_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "COPYING",
+        "LICENSE",
+    ],
+}
+
 cc_library {
     name: "libfruit",
     host_supported: true,
+    vendor_available: true,
     export_include_dirs: ["include", "configuration/android"],
     srcs: ["src/**/*.cpp", ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 // TODO: tests written in python+pytest that calls back into compiler. unclear how to best proceed.

@@ -29,6 +29,8 @@
 #	error "C++ is required"
 #endif
 
+#include <type_traits>
+
 namespace de
 {
 
@@ -61,6 +63,40 @@ template<typename T> inline T		leftSetMask		(T n)		{ const T tlen = T(sizeof(T) 
 
 //! Return T with high n bits reset
 template<typename T> inline T		leftZeroMask	(T n)		{ return T(~leftSetMask(n)); }
+
+//! Round x up to a multiple of y.
+template<typename T> inline T		roundUp			(T x, T y)	{ DE_ASSERT(y != T(0)); const T mod = x % y; return x + ((mod == T(0)) ? T(0) : (y - mod)); }
+
+//! Round x down to a multiple of y.
+template<typename T> inline T		roundDown		(T x, T y)	{ DE_ASSERT(y != T(0)); return (x / y) * y; }
+
+//! Find the greatest common divisor of x and y.
+template<typename T>
+T gcd (T x, T y)
+{
+	DE_ASSERT(std::is_integral<T>::value && std::is_unsigned<T>::value);
+
+	// Euclidean algorithm.
+	while (y != T{0})
+	{
+		T mod = x % y;
+		x = y;
+		y = mod;
+	}
+
+	return x;
+}
+
+//! Find the least common multiple of x and y.
+template<typename T>
+T lcm (T x, T y)
+{
+	DE_ASSERT(std::is_integral<T>::value && std::is_unsigned<T>::value);
+
+	T prod = x * y;
+	DE_ASSERT(x == 0 || prod / x == y);	// Check overflow just in case.
+	return (prod) / gcd(x, y);
+}
 
 //! Helper for DE_CHECK() macros.
 void throwRuntimeError (const char* message, const char* expr, const char* file, int line);

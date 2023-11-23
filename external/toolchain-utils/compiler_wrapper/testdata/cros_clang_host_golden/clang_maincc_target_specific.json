@@ -15,20 +15,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -50,20 +53,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -85,20 +91,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -120,20 +129,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -155,20 +167,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -190,20 +205,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -225,20 +243,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -260,20 +281,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }
@@ -295,20 +319,23 @@
           "path": "/tmp/stable/clang",
           "args": [
             "-Qunused-arguments",
-            "-grecord-gcc-switches",
             "-fno-addrsig",
+            "-fcommon",
             "-fuse-ld=lld",
             "-Wno-unused-local-typedefs",
             "-Wno-deprecated-declarations",
             "-Wno-tautological-constant-compare",
             "-Wno-tautological-unsigned-enum-zero-compare",
-            "-Wno-reorder-init-list",
             "-Wno-final-dtor-non-final-class",
-            "-Wno-return-stack-address",
             "-Werror=poison-system-directories",
             "-Wno-unknown-warning-option",
+            "-fexperimental-new-pass-manager",
+            "-Wno-compound-token-split-by-macro",
+            "-fcrash-diagnostics-dir=/tmp/stable/clang_crash_diagnostics",
             "main.cc",
-            "-Wno-implicit-int-float-conversion"
+            "-Wno-implicit-int-float-conversion",
+            "-Wno-compound-token-split-by-space",
+            "-Wno-string-concatenation"
           ]
         }
       }

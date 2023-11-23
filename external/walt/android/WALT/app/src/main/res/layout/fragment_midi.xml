@@ -21,7 +21,8 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
                 android:tint="@color/button_tint"
-                android:src="@drawable/ic_input_black_24dp" />
+                walt:srcCompat="@drawable/ic_input_black_24dp"
+                android:contentDescription="@string/start_midi_in" />
 
             <ImageButton
                 android:id="@+id/button_start_midi_out"
@@ -29,7 +30,8 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
                 android:tint="@color/button_tint"
-                android:src="@drawable/ic_output_black_24dp" />
+                walt:srcCompat="@drawable/ic_output_black_24dp"
+                android:contentDescription="@string/start_midi_out" />
         </RelativeLayout>
 
         <org.chromium.latency.walt.HistogramChart

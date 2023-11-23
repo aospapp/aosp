@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "utils/base/logging.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/flatbuffers.h"
 #include "utils/utf8/unicodetext.h"
 
 namespace libtextclassifier3 {
@@ -48,7 +48,7 @@ std::unique_ptr<UniLib::RegexPattern> UncompressMakeRegexPattern(
     }
     unicode_regex_pattern =
         UTF8ToUnicodeText(uncompressed_pattern->c_str(),
-                          uncompressed_pattern->Length(), /*do_copy=*/false);
+                          uncompressed_pattern->size(), /*do_copy=*/false);
   }
 
   if (result_pattern_text != nullptr) {

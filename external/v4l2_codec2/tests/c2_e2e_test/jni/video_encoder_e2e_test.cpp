@@ -15,9 +15,10 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "common.h"
+#include "e2e_test_jni.h"
 #include "mediacodec_encoder.h"
 
 namespace android {
@@ -52,11 +53,13 @@ struct CmdlineArgs {
     std::string test_stream_data;
     bool run_at_fps = false;
     size_t num_encoded_frames = 0;
+    bool use_sw_encoder = false;
 };
 
 class C2VideoEncoderTestEnvironment : public testing::Environment {
 public:
-    explicit C2VideoEncoderTestEnvironment(const CmdlineArgs& args) : args_(args) {}
+    explicit C2VideoEncoderTestEnvironment(const CmdlineArgs& args, ConfigureCallback* cb)
+          : args_(args), configure_cb_(cb) {}
 
     void SetUp() override { ParseTestStreamData(); }
 
@@ -68,7 +71,6 @@ public:
     //   (see http://www.fourcc.org/yuv.php#IYUV).
     // - |width| and |height| are in pixels.
     // - |profile| to encode into (values of VideoCodecProfile).
-    //   NOTE: Only H264PROFILE_MAIN(1) is supported. Now we ignore this value.
     // - |output_file_path| filename to save the encoded stream to (optional).
     //   The format for H264 is Annex-B byte stream.
     // - |requested_bitrate| requested bitrate in bits per second.
@@ -95,7 +97,21 @@ public:
 
         if (fields.size() >= 4 && !fields[3].empty()) {
             int profile = stoi(fields[3]);
-            if (profile != 1) printf("[WARN] Only H264PROFILE_MAIN(1) is supported.\n");
+            switch (profile) {
+            case VideoCodecProfile::H264PROFILE_MAIN:
+                codec_ = VideoCodecType::H264;
+                break;
+            case VideoCodecProfile::VP8PROFILE_ANY:
+                codec_ = VideoCodecType::VP8;
+                break;
+            case VideoCodecProfile::VP9PROFILE_PROFILE0:
+                codec_ = VideoCodecType::VP9;
+                break;
+            default:
+                printf("[WARN] Only H264PROFILE_MAIN, VP8PROFILE_ANY and VP9PROFILE_PROFILE0 are"
+                       "supported.\n");
+                codec_ = VideoCodecType::H264;
+            }
         }
 
         if (fields.size() >= 5 && !fields[4].empty()) {
@@ -138,6 +154,7 @@ public:
     }
 
     Size visible_size() const { return visible_size_; }
+    VideoCodecType codec() const { return codec_; }
     std::string input_file_path() const { return input_file_path_; }
     std::string output_file_path() const { return output_file_path_; }
     int requested_bitrate() const { return requested_bitrate_; }
@@ -147,11 +164,16 @@ public:
 
     bool run_at_fps() const { return args_.run_at_fps; }
     size_t num_encoded_frames() const { return args_.num_encoded_frames; }
+    bool use_sw_encoder() const { return args_.use_sw_encoder; }
+
+    ConfigureCallback* configure_cb() const { return configure_cb_; }
 
 private:
     const CmdlineArgs args_;
+    ConfigureCallback* configure_cb_;
 
     Size visible_size_;
+    VideoCodecType codec_;
     std::string input_file_path_;
     std::string output_file_path_;
 
@@ -164,12 +186,10 @@ private:
 class C2VideoEncoderE2ETest : public testing::Test {
 public:
     // Callback functions of getting output buffers from encoder.
-    void WriteOutputBufferToFile(const uint8_t* data, const AMediaCodecBufferInfo& info) {
-        if (output_file_.is_open()) {
-            output_file_.write(reinterpret_cast<const char*>(data), info.size);
-            if (output_file_.fail()) {
-                printf("[ERR] Failed to write encoded buffer into file.\n");
-            }
+    void WriteOutputBufferToFile(VideoCodecType type, const uint8_t* data,
+                                 const AMediaCodecBufferInfo& info) {
+        if (output_file_.IsOpen() && !output_file_.WriteFrame(info.size, data)) {
+            printf("[ERR] Failed to write encoded buffer into file.\n");
         }
     }
 
@@ -179,8 +199,11 @@ public:
 
 protected:
     void SetUp() override {
-        encoder_ = MediaCodecEncoder::Create(g_env->input_file_path(), g_env->visible_size());
+        encoder_ = MediaCodecEncoder::Create(g_env->input_file_path(), g_env->codec(),
+                                             g_env->visible_size(), g_env->use_sw_encoder());
         ASSERT_TRUE(encoder_);
+        g_env->configure_cb()->OnCodecReady(encoder_.get());
+
         encoder_->Rewind();
 
         ASSERT_TRUE(encoder_->Configure(static_cast<int32_t>(g_env->requested_bitrate()),
@@ -191,18 +214,22 @@ protected:
     void TearDown() override {
         EXPECT_TRUE(encoder_->Stop());
 
-        output_file_.close();
+        output_file_.Close();
         encoder_.reset();
     }
 
     bool CreateOutputFile() {
         if (g_env->output_file_path().empty()) return false;
 
-        output_file_.open(g_env->output_file_path(), std::ofstream::binary);
-        if (!output_file_.is_open()) {
+        if (!output_file_.Open(g_env->output_file_path(), g_env->codec())) {
             printf("[ERR] Failed to open file: %s\n", g_env->output_file_path().c_str());
             return false;
         }
+        if (!output_file_.WriteHeader(g_env->visible_size(), g_env->requested_framerate(), 0)) {
+            printf("[ERR] Failed to write file header\n");
+            return false;
+        }
+
         return true;
     }
 
@@ -214,7 +241,7 @@ protected:
     std::unique_ptr<MediaCodecEncoder> encoder_;
 
     // The output file to write the encoded video bitstream.
-    std::ofstream output_file_;
+    OutputFile output_file_;
     // Used to accumulate the output buffer size.
     size_t total_output_buffer_size_;
 };
@@ -260,7 +287,7 @@ TEST_F(C2VideoEncoderE2ETest, TestSimpleEncode) {
     // Write the output buffers to file.
     if (CreateOutputFile()) {
         encoder_->SetOutputBufferReadyCb(std::bind(&C2VideoEncoderE2ETest::WriteOutputBufferToFile,
-                                                   this, std::placeholders::_1,
+                                                   this, g_env->codec(), std::placeholders::_1,
                                                    std::placeholders::_2));
     }
     encoder_->set_run_at_fps(g_env->run_at_fps());
@@ -325,6 +352,7 @@ bool GetOption(int argc, char** argv, android::CmdlineArgs* args) {
             {"test_stream_data", required_argument, nullptr, 't'},
             {"run_at_fps", no_argument, nullptr, 'r'},
             {"num_encoded_frames", required_argument, nullptr, 'n'},
+            {"use_sw_encoder", no_argument, nullptr, 's'},
             {nullptr, 0, nullptr, 0},
     };
 
@@ -340,6 +368,9 @@ bool GetOption(int argc, char** argv, android::CmdlineArgs* args) {
         case 'n':
             args->num_encoded_frames = static_cast<size_t>(atoi(optarg));
             break;
+        case 's':
+            args->use_sw_encoder = true;
+            break;
         default:
             printf("[WARN] Unknown option: getopt_long() returned code 0x%x.\n", opt);
             break;
@@ -353,12 +384,13 @@ bool GetOption(int argc, char** argv, android::CmdlineArgs* args) {
     return true;
 }
 
-int RunEncoderTests(char** test_args, int test_args_count) {
+int RunEncoderTests(char** test_args, int test_args_count, android::ConfigureCallback* cb) {
     android::CmdlineArgs args;
     if (!GetOption(test_args_count, test_args, &args)) return EXIT_FAILURE;
 
     android::g_env = reinterpret_cast<android::C2VideoEncoderTestEnvironment*>(
-            testing::AddGlobalTestEnvironment(new android::C2VideoEncoderTestEnvironment(args)));
+            testing::AddGlobalTestEnvironment(
+                    new android::C2VideoEncoderTestEnvironment(args, cb)));
     testing::InitGoogleTest(&test_args_count, test_args);
     return RUN_ALL_TESTS();
 }

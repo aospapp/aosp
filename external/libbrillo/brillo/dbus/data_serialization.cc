@@ -232,6 +232,9 @@ bool PopArrayValueFromReader(dbus::MessageReader* reader,
   else if (signature == "a(uu)")
     return PopTypedArrayFromReader<
         std::tuple<uint32_t, uint32_t>>(reader, value);
+  else if (signature == "a(ubay)")
+    return PopTypedArrayFromReader<
+        std::tuple<uint32_t, bool, std::vector<uint8_t>>>(reader, value);
 
   // When a use case for particular array signature is found, feel free
   // to add handing for it here.
@@ -256,6 +259,9 @@ bool PopStructValueFromReader(dbus::MessageReader* reader,
   else if (signature == "(uu)")
     return PopTypedValueFromReader<std::tuple<uint32_t, uint32_t>>(reader,
                                                                    value);
+  else if (signature == "(ua{sv})")
+    return PopTypedValueFromReader<
+        std::tuple<uint32_t, brillo::VariantDictionary>>(reader, value);
 
   // When a use case for particular struct signature is found, feel free
   // to add handing for it here.
@@ -314,7 +320,6 @@ bool PopValueFromReader(dbus::MessageReader* reader, brillo::Any* value) {
       LOG(FATAL) << "Unknown D-Bus data type: " << variant_reader.GetDataType();
       return false;
   }
-  return true;
 }
 
 }  // namespace dbus_utils

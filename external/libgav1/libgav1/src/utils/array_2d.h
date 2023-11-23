@@ -17,6 +17,7 @@
 #ifndef LIBGAV1_SRC_UTILS_ARRAY_2D_H_
 #define LIBGAV1_SRC_UTILS_ARRAY_2D_H_
 
+#include <cassert>
 #include <cstddef>
 #include <cstring>
 #include <memory>
@@ -55,8 +56,9 @@ class Array2DView {
 
  private:
   const T* GetRow(int row) const {
+    assert(row < rows_);
     const ptrdiff_t offset = static_cast<ptrdiff_t>(row) * columns_;
-    return (row < rows_) ? data_ + offset : nullptr;
+    return data_ + offset;
   }
 
   int rows_ = 0;
@@ -77,10 +79,10 @@ class Array2D {
 
   LIBGAV1_MUST_USE_RESULT bool Reset(int rows, int columns,
                                      bool zero_initialize = true) {
-    const size_t size = rows * columns;
+    size_ = rows * columns;
     // If T is not a trivial type, we should always reallocate the data_
     // buffer, so that the destructors of any existing objects are invoked.
-    if (!std::is_trivial<T>::value || size_ < size) {
+    if (!std::is_trivial<T>::value || allocated_size_ < size_) {
       // Note: This invokes the global operator new if T is a non-class type,
       // such as integer or enum types, or a class type that is not derived
       // from libgav1::Allocable, such as std::unique_ptr. If we enforce a
@@ -88,20 +90,20 @@ class Array2D {
       // consumption, we will need to handle the allocations here that use the
       // global operator new.
       if (zero_initialize) {
-        data_.reset(new (std::nothrow) T[size]());
+        data_.reset(new (std::nothrow) T[size_]());
       } else {
-        data_.reset(new (std::nothrow) T[size]);
+        data_.reset(new (std::nothrow) T[size_]);
       }
       if (data_ == nullptr) {
-        size_ = 0;
+        allocated_size_ = 0;
         return false;
       }
-      size_ = size;
+      allocated_size_ = size_;
     } else if (zero_initialize) {
       // Cast the data_ pointer to void* to avoid the GCC -Wclass-memaccess
       // warning. The memset is safe because T is a trivial type.
       void* dest = data_.get();
-      memset(dest, 0, sizeof(T) * size);
+      memset(dest, 0, sizeof(T) * size_);
     }
     data_view_.Reset(rows, columns, data_.get());
     return true;
@@ -109,14 +111,17 @@ class Array2D {
 
   int rows() const { return data_view_.rows(); }
   int columns() const { return data_view_.columns(); }
+  size_t size() const { return size_; }
   T* data() { return data_.get(); }
+  const T* data() const { return data_.get(); }
 
   T* operator[](int row) { return data_view_[row]; }
 
   const T* operator[](int row) const { return data_view_[row]; }
 
  private:
-  std::unique_ptr<T[]> data_ = nullptr;
+  std::unique_ptr<T[]> data_;
+  size_t allocated_size_ = 0;
   size_t size_ = 0;
   Array2DView<T> data_view_;
 };

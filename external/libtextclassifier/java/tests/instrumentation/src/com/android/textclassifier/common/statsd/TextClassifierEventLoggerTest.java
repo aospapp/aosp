@@ -45,6 +45,8 @@ public class TextClassifierEventLoggerTest {
   /** A statsd config ID, which is arbitrary. */
   private static final long CONFIG_ID = 689777;
 
+  private static final long SHORT_TIMEOUT_MS = 1000;
+
   private TextClassifierEventLogger textClassifierEventLogger;
 
   @Before
@@ -102,7 +104,7 @@ public class TextClassifierEventLoggerTest {
             .setPackageName(PKG_NAME)
             .setLangidModelName("und_v1")
             .build();
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getTextSelectionEvent()).isEqualTo(event);
   }
@@ -119,7 +121,7 @@ public class TextClassifierEventLoggerTest {
 
     textClassifierEventLogger.writeEvent(sessionId, textSelectionEvent);
 
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getTextSelectionEvent().getEventType())
         .isEqualTo(EventType.SMART_SELECTION_SINGLE);
@@ -137,7 +139,7 @@ public class TextClassifierEventLoggerTest {
 
     textClassifierEventLogger.writeEvent(sessionId, textSelectionEvent);
 
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getTextSelectionEvent().getEventType())
         .isEqualTo(EventType.SMART_SELECTION_MULTI);
@@ -155,7 +157,7 @@ public class TextClassifierEventLoggerTest {
 
     textClassifierEventLogger.writeEvent(sessionId, textSelectionEvent);
 
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getTextSelectionEvent().getEventType())
         .isEqualTo(EventType.AUTO_SELECTION);
@@ -189,7 +191,7 @@ public class TextClassifierEventLoggerTest {
             .setPackageName(PKG_NAME)
             .setLangidModelName("und_v1")
             .build();
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getTextLinkifyEvent()).isEqualTo(event);
   }
@@ -223,7 +225,7 @@ public class TextClassifierEventLoggerTest {
             .setAnnotatorModelName("zh_v2")
             .setLangidModelName("und_v3")
             .build();
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getConversationActionsEvent()).isEqualTo(event);
   }
@@ -254,7 +256,7 @@ public class TextClassifierEventLoggerTest {
             .setActionIndex(1)
             .setPackageName(PKG_NAME)
             .build();
-    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID);
+    ImmutableList<Atom> atoms = StatsdTestUtils.getLoggedAtoms(CONFIG_ID, SHORT_TIMEOUT_MS);
     assertThat(atoms).hasSize(1);
     assertThat(atoms.get(0).getLanguageDetectionEvent()).isEqualTo(event);
   }

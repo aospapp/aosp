@@ -31,16 +31,21 @@ import org.junit.runners.Suite.SuiteClasses;
  */
 @RunWith(WycheproofRunner.class)
 @SuiteClasses({
+  AesEaxTest.class,
   AesGcmTest.class,
   BasicTest.class,
   CipherInputStreamTest.class,
   CipherOutputStreamTest.class,
+  DhTest.class,
+  DhiesTest.class,
+  DsaTest.class,
   EcKeyTest.class,
   EcdhTest.class,
   EcdsaTest.class,
+  EciesTest.class,
   RsaEncryptionTest.class,
   RsaKeyTest.class,
-  RsaSignatureTest.class
+  RsaSignatureTest.class,
 })
 @Provider(ProviderType.CONSCRYPT)
 @Fast

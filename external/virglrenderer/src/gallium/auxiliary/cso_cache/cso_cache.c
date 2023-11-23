@@ -54,8 +54,10 @@ static unsigned hash_key(const void *key, unsigned key_size)
 
    /* I'm sure this can be improved on:
     */
-   for (i = 0; i < key_size/4; i++)
+   for (i = 0; i < key_size/4; i++) {
+      hash = (hash << 7) | (hash >> 25);
       hash ^= ikey[i];
+   }
 
    return hash;
 }

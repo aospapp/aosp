@@ -26,8 +26,8 @@ instructions for each option.
 #### Using the wifi testing labs
 
 Our testing lab setups are operated through the skylab infrastructure. If you
-don't have the skylab tool installed on your machine, follow the instrucions
-under *Advanced users: Manual installation* in the [skylab tools guide].
+don't have the skylab tool installed on your machine, follow the instructions
+in the [skylab tools guide].
 
 Once you have the skylab tool, you'll need to run the login command and follow
 its instructions to get started.
@@ -103,7 +103,7 @@ connection process so its not a dealbreaker for this codelab.
 ### Let's get started
 
 [network_WiFi_SimpleConnect] is a very simple test that connects and disconnects
-a DUT from a router, so its ideal for our purposes in this codelab. The test
+a DUT from a router, so it's ideal for our purposes in this codelab. The test
 itself is held at `server/site_tests/network_WiFi_SimpleConnect/` in the
 Autotest repository. Briefly look through this file to get a sense for what it
 is doing.
@@ -120,13 +120,13 @@ at `self.context.capture_host`. Before the testing starts, the test begins
 capturing packets by calling `start_capture()` on the capture device, and after
 the test completes, `stop_capture()` completes the capturing process.
 `stop_capture()` returns a list of filepaths that hold the captured packets, so
-lets store the results of this function in a variable:
+let's store the results of this function in a variable:
 
 ```python3
 capture_results = self.context.capture_host.stop_capture()
 ```
 
-The pcap file is accessible at `capture_results[0].local_pcap_path`, so lets
+The pcap file is accessible at `capture_results[0].local_pcap_path`, so let's
 print out a dump of our captured packets. Add these lines after the call to
 `stop_capture()`:
 
@@ -277,10 +277,10 @@ because they can see the beacon frames they send.
 * Devices respond to beacons with *Probe Requests* which in turn let the
 network know of their existence. The probe request also includes a list of all
 data rates the device supports, which the network can use to check for
-compatability with those supported by the access point.
+compatibility with those supported by the access point.
 * Access points respond with *Probe Responses* which either confirm or deny
-compatability.
-* If the two are compatable, they can engage in the authentication/association
+compatibility.
+* If the two are compatible, they can engage in the authentication/association
 process as explained above with various *Association* and *Authentication*
 frames.
 
@@ -303,10 +303,10 @@ are data frames.
 #### 4. Let's analyze some packets
 
 Now that we have a basic understanding of 802.11 frame classes, we can use our
-captured packets to study the 802.11 connection/disconection protocol in action.
-Near the bottom of this page is a set of [lookup tables] that outline every
-type of frame in the 802.11 protocol, which you can use to determine what kind
-of packets we picked up.
+captured packets to study the 802.11 connection/disconnection protocol in
+action. Near the bottom of this page is a set of [lookup tables] that outline
+every type of frame in the 802.11 protocol, which you can use to determine what
+kind of packets we picked up.
 
 [Solutions and hints] to the questions below can be found after the
 lookup tables at the bottom of this page, but please do your best to answer
@@ -377,7 +377,7 @@ gained any new insight into the 802.11 protocol.
 | 0101          | 0x05         | Probe Response         |
 | 1000          | 0x08         | Beacon                 |
 | 1001          | 0x09         | ATIM                   |
-| 1010          | 0x0a         | Dissossiation          |
+| 1010          | 0x0a         | Disassociation         |
 | 1011          | 0x0b         | Authentication         |
 | 1100          | 0x0c         | Deauthentication       |
 | 1101          | 0x0d         | Action                 |
@@ -446,14 +446,14 @@ sequence is as follows:
 1. Authentication: 0x0b
 1. Assoc Request: 0x00
 1. Assoc Response: 0x01
-1. Deauthenticatuion: 0x0c
+1. Deauthentication: 0x0c
 
 In practice, we have noticed that many of the recorded connection sequences do
 not include an Assoc Request packet, so the script is tolerant of that case.
 
 Finally, the script also verifies that no non-relevant frames were included,
 so any non class 1 frames in the output file will cause failure. (Although,
-only the frames in the sequence above above are strictly required.)
+only the frames in the sequence above are strictly required.)
 
 [chameleon issues]: https://crbug.com/964549
 [lookup tables]: #lookup-tables
@@ -462,7 +462,7 @@ only the frames in the sequence above above are strictly required.)
 [Pyshark documentation]: https://kiminewt.github.io/pyshark/
 [section 4]: #4_let_s-analyze-some-packets
 [skylab portal]: https://chromeos-swarming.appspot.com/botlist?c=id&c=task&c=dut_state&c=label-board&c=label-model&c=label-pool&c=os&c=provisionable-cros-version&c=status&d=asc&f=label-wificell%3ATrue&k=label-wificell&s=id
-[skylab tools guide]: http://doc/1eyvAE5wdI3w-gP0D0TT9Kn5yyqe75076dbU9P50pGYo#heading=h.kvcvpeai9t6z
+[skylab tools guide]: http://go/skylab-cli
 [solutions and hints]: #solutions-and-hints
 [test_that]: ./test-that.md
 [wificell documentation]: ./wificell.md

@@ -131,7 +131,7 @@ void QuadRasterizer::rasterize(Int &yMin, Int &yMax)
 
 				if(state.enableMultiSampling)
 				{
-					y -= *Pointer<Float4>(constants + OFFSET(Constants, Y) + q * sizeof(float4));
+					y += *Pointer<Float4>(constants + OFFSET(Constants, Y) + q * sizeof(float4));
 				}
 
 				Dz[q] = *Pointer<Float4>(primitive + OFFSET(Primitive, z.C), 16) + y * *Pointer<Float4>(primitive + OFFSET(Primitive, z.B), 16);
@@ -231,7 +231,7 @@ void QuadRasterizer::rasterize(Int &yMin, Int &yMax)
 	Until(y >= yMax);
 }
 
-Float4 QuadRasterizer::interpolate(Float4 &x, Float4 &D, Float4 &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective, bool clamp)
+Float4 QuadRasterizer::interpolate(Float4 &x, Float4 &D, Float4 &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective)
 {
 	Float4 interpolant = D;
 
@@ -243,11 +243,6 @@ Float4 QuadRasterizer::interpolate(Float4 &x, Float4 &D, Float4 &rhw, Pointer<By
 		{
 			interpolant *= rhw;
 		}
-	}
-
-	if(clamp)
-	{
-		interpolant = Min(Max(interpolant, Float4(0.0f)), Float4(1.0f));
 	}
 
 	return interpolant;

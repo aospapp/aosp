@@ -2,16 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::mem::size_of;
+use std::io;
+use std::mem::{align_of, size_of};
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 /// Types for which it is safe to initialize from raw data.
 ///
-/// A type `T` is `DataInit` if and only if it can be initialized by reading its contents from a
-/// byte array.  This is generally true for all plain-old-data structs.  It is notably not true for
-/// any type that includes a reference.
 ///
 /// Implementing this trait guarantees that it is safe to instantiate the struct with random data.
+///
+/// # Safety
+/// A type `T` is `DataInit` if it can be initialized by reading its contents from a byte array.
+/// This is generally true for all plain-old-data structs.  It is notably not true for any type
+/// that includes a reference.
+///
+/// It is unsafe for `T` to be `DataInit` if `T` contains implicit padding. (LLVM considers access
+/// to implicit padding to be undefined behavior, which can cause UB when working with `T`.
+/// For details on structure padding in Rust, see
+/// https://doc.rust-lang.org/reference/type-layout.html#the-c-representation
 pub unsafe trait DataInit: Copy + Send + Sync {
     /// Converts a slice of raw data into a reference of `Self`.
     ///
@@ -61,6 +69,25 @@ pub unsafe trait DataInit: Copy + Send + Sync {
         match unsafe { data.align_to_mut::<Self>() } {
             ([], [mid], []) => Some(mid),
             _ => None,
+        }
+    }
+
+    /// Creates an instance of `Self` by copying raw data from an io::Read stream.
+    fn from_reader<R: io::Read>(mut read: R) -> io::Result<Self> {
+        // Allocate a Vec<u8> with enough extra space for the worst-case alignment offset.
+        let mut data = vec![0u8; size_of::<Self>() + align_of::<Self>()];
+
+        // Get a u8 slice within data with sufficient alignment for Self.
+        let align_offset = data.as_ptr().align_offset(align_of::<Self>());
+        let mut aligned_data = &mut data[align_offset..align_offset + size_of::<Self>()];
+
+        read.read_exact(&mut aligned_data)?;
+        match Self::from_slice(&aligned_data) {
+            Some(obj) => Ok(*obj),
+            None => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "from_slice failed",
+            )),
         }
     }
 
@@ -160,3 +187,9 @@ pub use crate::endian::*;
 
 pub mod volatile_memory;
 pub use crate::volatile_memory::*;
+
+mod flexible_array;
+pub use flexible_array::{vec_with_array_field, FlexibleArray, FlexibleArrayWrapper};
+
+mod sys;
+pub use sys::IoBufMut;

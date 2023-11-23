@@ -47,9 +47,9 @@ class FakeEmbeddingExecutor : public EmbeddingExecutor {
   std::vector<float> storage_;
 };
 
-class FeatureProcessorTest : public ::testing::Test {
+class ActionsFeatureProcessorTest : public ::testing::Test {
  protected:
-  FeatureProcessorTest() : INIT_UNILIB_FOR_TESTING(unilib_) {}
+  ActionsFeatureProcessorTest() : INIT_UNILIB_FOR_TESTING(unilib_) {}
 
   flatbuffers::DetachedBuffer PackFeatureProcessorOptions(
       ActionsTokenFeatureProcessorOptionsT* options) const {
@@ -62,7 +62,7 @@ class FeatureProcessorTest : public ::testing::Test {
   UniLib unilib_;
 };
 
-TEST_F(FeatureProcessorTest, TokenEmbeddings) {
+TEST_F(ActionsFeatureProcessorTest, TokenEmbeddings) {
   ActionsTokenFeatureProcessorOptionsT options;
   options.embedding_size = 4;
   options.tokenizer_options.reset(new ActionsTokenizerOptionsT);
@@ -81,7 +81,7 @@ TEST_F(FeatureProcessorTest, TokenEmbeddings) {
   EXPECT_THAT(token_features, SizeIs(4));
 }
 
-TEST_F(FeatureProcessorTest, TokenEmbeddingsCaseFeature) {
+TEST_F(ActionsFeatureProcessorTest, TokenEmbeddingsCaseFeature) {
   ActionsTokenFeatureProcessorOptionsT options;
   options.embedding_size = 4;
   options.extract_case_feature = true;
@@ -102,7 +102,7 @@ TEST_F(FeatureProcessorTest, TokenEmbeddingsCaseFeature) {
   EXPECT_THAT(token_features[4], FloatEq(1.0));
 }
 
-TEST_F(FeatureProcessorTest, MultipleTokenEmbeddingsCaseFeature) {
+TEST_F(ActionsFeatureProcessorTest, MultipleTokenEmbeddingsCaseFeature) {
   ActionsTokenFeatureProcessorOptionsT options;
   options.embedding_size = 4;
   options.extract_case_feature = true;

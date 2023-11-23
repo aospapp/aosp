@@ -23,17 +23,18 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Build.VERSION_CODES;
 import android.os.PersistableBundle;
+import android.util.AttributeSet;
+import android.view.View;
+import android.view.View.OnClickListener;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.StyleRes;
-import android.util.AttributeSet;
-import android.view.View;
-import android.view.View.OnClickListener;
 import com.google.android.setupcompat.R;
 import com.google.android.setupcompat.logging.CustomEvent;
 import java.lang.annotation.Retention;
+import java.util.Locale;
 
 /**
  * Definition of a footer button. Clients can use this class to customize attributes like text,
@@ -53,6 +54,8 @@ public final class FooterButton implements OnClickListener {
   private OnClickListener onClickListenerWhenDisabled;
   private OnButtonEventListener buttonListener;
   private int clickCount = 0;
+  private Locale locale;
+  private int direction;
 
   public FooterButton(Context context, AttributeSet attrs) {
     TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.SucFooterButton);
@@ -78,11 +81,15 @@ public final class FooterButton implements OnClickListener {
       CharSequence text,
       @Nullable OnClickListener listener,
       @ButtonType int buttonType,
-      @StyleRes int theme) {
+      @StyleRes int theme,
+      Locale locale,
+      int direction) {
     this.text = text;
     onClickListener = listener;
     this.buttonType = buttonType;
     this.theme = theme;
+    this.locale = locale;
+    this.direction = direction;
   }
 
   /** Returns the text that this footer button is displaying. */
@@ -142,6 +149,16 @@ public final class FooterButton implements OnClickListener {
     return enabled;
   }
 
+  /** Returns the layout direction for this footer button. */
+  public int getLayoutDirection() {
+    return direction;
+  }
+
+  /** Returns the text locale for this footer button. */
+  public Locale getTextLocale() {
+    return locale;
+  }
+
   /**
    * Sets the visibility state of this footer button.
    *
@@ -169,6 +186,22 @@ public final class FooterButton implements OnClickListener {
     this.text = text;
     if (buttonListener != null) {
       buttonListener.onTextChanged(text);
+    }
+  }
+
+  /** Sets the text locale to be displayed on footer button. */
+  public void setTextLocale(Locale locale) {
+    this.locale = locale;
+    if (buttonListener != null) {
+      buttonListener.onLocaleChanged(locale);
+    }
+  }
+
+  /** Sets the layout direction to be displayed on footer button. */
+  public void setLayoutDirection(int direction) {
+    this.direction = direction;
+    if (buttonListener != null) {
+      buttonListener.onDirectionChanged(direction);
     }
   }
 
@@ -201,6 +234,10 @@ public final class FooterButton implements OnClickListener {
     void onVisibilityChanged(int visibility);
 
     void onTextChanged(CharSequence text);
+
+    void onLocaleChanged(Locale locale);
+
+    void onDirectionChanged(int direction);
   }
 
   /** Maximum valid value of ButtonType */
@@ -308,12 +345,16 @@ public final class FooterButton implements OnClickListener {
    *         .setListener(primaryButton)
    *         .setButtonType(ButtonType.NEXT)
    *         .setTheme(R.style.SuwGlifButton_Primary)
+   *         .setTextLocale(Locale.CANADA)
+   *         .setLayoutDirection(View.LAYOUT_DIRECTION_LTR)
    *         .build();
    * </pre>
    */
   public static class Builder {
     private final Context context;
     private String text = "";
+    private Locale locale = null;
+    private int direction = -1;
     private OnClickListener onClickListener = null;
     @ButtonType private int buttonType = ButtonType.OTHER;
     private int theme = 0;
@@ -331,6 +372,18 @@ public final class FooterButton implements OnClickListener {
     /** Sets the {@code text} of FooterButton by resource. */
     public Builder setText(@StringRes int text) {
       this.text = context.getString(text);
+      return this;
+    }
+
+    /** Sets the {@code locale} of FooterButton. */
+    public Builder setTextLocale(Locale locale) {
+      this.locale = locale;
+      return this;
+    }
+
+    /** Sets the {@code direction} of FooterButton. */
+    public Builder setLayoutDirection(int direction) {
+      this.direction = direction;
       return this;
     }
 
@@ -353,7 +406,7 @@ public final class FooterButton implements OnClickListener {
     }
 
     public FooterButton build() {
-      return new FooterButton(text, onClickListener, buttonType, theme);
+      return new FooterButton(text, onClickListener, buttonType, theme, locale, direction);
     }
   }
 }

@@ -1,6 +1,6 @@
 AC_PREREQ(2.64)
 AC_INIT([kmod],
-	[26],
+	[28],
 	[linux-modules@vger.kernel.org],
 	[kmod],
 	[http://git.kernel.org/?p=utils/kernel/kmod/kmod.git])
@@ -17,7 +17,6 @@ AM_MAINTAINER_MODE([enable])
 AM_INIT_AUTOMAKE([check-news foreign 1.11 silent-rules tar-pax no-dist-gzip dist-xz subdir-objects color-tests parallel-tests])
 AM_SILENT_RULES([yes])
 LT_INIT([disable-static pic-only])
-DOLT
 
 AS_IF([test "x$enable_static" = "xyes"], [AC_MSG_ERROR([--enable-static is not supported by kmod])])
 AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is not supported by kmod])])
@@ -84,6 +83,17 @@ AC_ARG_WITH([rootlibdir],
         [], [with_rootlibdir=$libdir])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
+AC_ARG_WITH([zstd],
+	AS_HELP_STRING([--with-zstd], [handle Zstandard-compressed modules @<:@default=disabled@:>@]),
+	[], [with_zstd=no])
+AS_IF([test "x$with_zstd" != "xno"], [
+	PKG_CHECK_MODULES([libzstd], [libzstd >= 1.4.4])
+	AC_DEFINE([ENABLE_ZSTD], [1], [Enable Zstandard for modules.])
+], [
+	AC_MSG_NOTICE([Zstandard support not requested])
+])
+CC_FEATURE_APPEND([with_features], [with_zstd], [ZSTD])
+
 AC_ARG_WITH([xz],
 	AS_HELP_STRING([--with-xz], [handle Xz-compressed modules @<:@default=disabled@:>@]),
 	[], [with_xz=no])
@@ -110,12 +120,12 @@ AC_ARG_WITH([openssl],
 	AS_HELP_STRING([--with-openssl], [handle PKCS7 signatures @<:@default=disabled@:>@]),
 	[], [with_openssl=no])
 AS_IF([test "x$with_openssl" != "xno"], [
-	PKG_CHECK_MODULES([openssl], [openssl >= 1.1.0])
+	PKG_CHECK_MODULES([libcrypto], [libcrypto >= 1.1.0])
 	AC_DEFINE([ENABLE_OPENSSL], [1], [Enable openssl for modinfo.])
 ], [
 	AC_MSG_NOTICE([openssl support not requested])
 ])
-CC_FEATURE_APPEND([with_features], [with_openssl], [OPENSSL])
+CC_FEATURE_APPEND([with_features], [with_openssl], [LIBCRYPTO])
 
 AC_ARG_WITH([bashcompletiondir],
 	AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
@@ -308,7 +318,7 @@ AC_MSG_RESULT([
 	tools:			${enable_tools}
 	python bindings:	${enable_python}
 	logging:		${enable_logging}
-	compression:		xz=${with_xz}  zlib=${with_zlib}
+	compression:		zstd=${with_zstd}  xz=${with_xz}  zlib=${with_zlib}
 	debug:			${enable_debug}
 	coverage:		${enable_coverage}
 	doc:			${enable_gtk_doc}

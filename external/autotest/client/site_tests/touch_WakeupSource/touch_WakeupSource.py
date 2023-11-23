@@ -7,6 +7,7 @@ import os
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import cros_config
 from autotest_lib.client.cros import touch_playback_test_base
 
 
@@ -20,8 +21,11 @@ class touch_WakeupSource(touch_playback_test_base.touch_playback_test_base):
     # wake.  If you  wish to enable on previous devices, see furquan@ doc
     # go/cros-trackpad-wake and/or consult chromeos-platform-power@ for more
     # details.
-    _NO_TOUCHPAD_WAKE = ['clapper', 'glimmer', 'veyron_minnie', 'caroline',
-                         'eve', 'kevin', 'pyro']
+    _NO_TOUCHPAD_WAKE = [
+            'caroline', 'clapper', 'elm', 'glimmer', 'hana', 'kevin', 'kukui',
+            'pyro', 'veyron_minnie'
+    ]
+    _TOUCHPAD_WAKE_SET_BY_CROS_CONFIG = ['coral', 'nami']
 
     # Devices with Synaptics touchpads that do not report wake source,
     # or reference platforms like Rambi which are broken but do not ship,
@@ -29,6 +33,16 @@ class touch_WakeupSource(touch_playback_test_base.touch_playback_test_base):
     _INVALID_TOUCHPADS = ['x86-alex', 'x86-alex_he', 'x86-zgb', 'x86-zgb_he',
                           'x86-mario', 'stout', 'rambi', 'cyan']
     _INVALID_TOUCHSCREENS = ['cyan', 'nocturne', 'sumo', 'ultima']
+
+    def _touchpad_should_be_wake_source(self):
+        base_platform = self._platform.replace('-kernelnext', '')
+        if base_platform in self._NO_TOUCHPAD_WAKE:
+            return False
+        if (base_platform in self._TOUCHPAD_WAKE_SET_BY_CROS_CONFIG
+                    and cros_config.call_cros_config_get_output(
+                            '/power touchpad-wakeup', utils.run) == '0'):
+            return False
+        return True
 
     def _find_wakeup_file(self, input_type):
         """Return path to wakeup file or None.
@@ -100,25 +114,27 @@ class touch_WakeupSource(touch_playback_test_base.touch_playback_test_base):
         raise error.TestError('Wakeup file for %s said "%s".' %
                               (input_type, result))
 
-    def run_once(self):
+    def run_once(self, source):
         """Entry point of this test."""
+
         # Check that touchpad is a wake source for all but the excepted boards.
-        if (self._has_touchpad and
-            self._platform not in self._INVALID_TOUCHPADS):
-            if self._platform in self._NO_TOUCHPAD_WAKE:
-                if self._is_wake_source('touchpad'):
-                    raise error.TestFail('Touchpad is a wake source!')
-            else:
-                if not self._is_wake_source('touchpad'):
-                    raise error.TestFail('Touchpad is not a wake source!')
+        if source == 'touchpad':
+            if (self._has_touchpad and
+                self._platform not in self._INVALID_TOUCHPADS):
+                if self._touchpad_should_be_wake_source():
+                    if not self._is_wake_source('touchpad'):
+                        raise error.TestFail('Touchpad is not a wake source!')
+                else:
+                    if self._is_wake_source('touchpad'):
+                        raise error.TestFail('Touchpad is a wake source!')
 
         # Check that touchscreen is not a wake source (if present).
         # Devices without a touchpad should have touchscreen as wake source.
-        if (self._has_touchscreen and
-            self._platform not in self._INVALID_TOUCHSCREENS):
-            touchscreen_wake = self._is_wake_source('touchscreen')
-            if self._has_touchpad and touchscreen_wake:
-                raise error.TestFail('Touchscreen is a wake source!')
-            if not self._has_touchpad and not touchscreen_wake:
-                raise error.TestFail('Touchscreen is not a wake source!')
-
+        if source == 'touchscreen':
+            if (self._has_touchscreen and
+                self._platform not in self._INVALID_TOUCHSCREENS):
+                touchscreen_wake = self._is_wake_source('touchscreen')
+                if self._has_touchpad and touchscreen_wake:
+                    raise error.TestFail('Touchscreen is a wake source!')
+                if not self._has_touchpad and not touchscreen_wake:
+                    raise error.TestFail('Touchscreen is not a wake source!')

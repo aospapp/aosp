@@ -2,12 +2,15 @@
 
 .PHONY: gendoc api_ref asciidoc
 
-ASCIIDOCOPTS=-a pygments -a language=c -a icons \
-	     -a toc2 \
-	     -a numbered \
-	     -a imagesdir="./images/" \
-	     -a iconsdir="./images/icons" \
-	     -a stylesdir="${abs_srcdir}/stylesheets/"
+ASCIIDOCOPTS = \
+	-a pygments \
+	-a language=c \
+	-a icons \
+	-a toc2 \
+	-a numbered \
+	-a imagesdir="./images/" \
+	-a iconsdir="./images/icons" \
+	-a stylesdir="$(abs_srcdir)/stylesheets/"
 
 EXTRA_DIST = \
 	core.txt \
@@ -38,14 +41,18 @@ if LINK_DOC
 else
 	@echo "Warning: Linking to API reference is disabled, check configure output"
 endif
-	
+
 
 %.html: %.txt link_doc
+if HAVE_ASCIIDOC
 	./resolve-asciidoc-refs.py $< > asciidoc.tmp
 	asciidoc $(ASCIIDOCOPTS) -o $@ asciidoc.tmp
 if LINK_DOC
 	./doxygen-link.py libnl.dict $@ > asciidoc.tmp
 	mv asciidoc.tmp $@
+endif
+else
+	@echo "Warning: Building of asciidoc files is disabled, check autoconf logs"
 endif
 
 asciidoc: core.html route.html index.html
@@ -70,4 +77,4 @@ else
 endif
 
 clean-local:
-	rm -f api/* libnl.dict *.html;
+	rm -f api/* libnl.dict *.html

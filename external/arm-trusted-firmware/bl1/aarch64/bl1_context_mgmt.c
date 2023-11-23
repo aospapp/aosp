@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -13,12 +13,6 @@
 #include <plat/common/platform.h>
 
 #include "../bl1_private.h"
-
-/*
- * Following array will be used for context management.
- * There are 2 instances, for the Secure and Non-Secure contexts.
- */
-static cpu_context_t bl1_cpu_context[2];
 
 /* Following contains the cpu context pointers. */
 static void *bl1_cpu_context_ptr[2];
@@ -42,8 +36,15 @@ void cm_set_context(void *context, uint32_t security_state)
  ******************************************************************************/
 void bl1_prepare_next_image(unsigned int image_id)
 {
+
+	/*
+	 * Following array will be used for context management.
+	 * There are 2 instances, for the Secure and Non-Secure contexts.
+	 */
+	static cpu_context_t bl1_cpu_context[2];
+
 	unsigned int security_state, mode = MODE_EL1;
-	image_desc_t *image_desc;
+	image_desc_t *desc;
 	entry_point_info_t *next_bl_ep;
 
 #if CTX_INCLUDE_AARCH32_REGS
@@ -59,17 +60,17 @@ void bl1_prepare_next_image(unsigned int image_id)
 #endif
 
 	/* Get the image descriptor. */
-	image_desc = bl1_plat_get_image_desc(image_id);
-	assert(image_desc);
+	desc = bl1_plat_get_image_desc(image_id);
+	assert(desc != NULL);
 
 	/* Get the entry point info. */
-	next_bl_ep = &image_desc->ep_info;
+	next_bl_ep = &desc->ep_info;
 
 	/* Get the image security state. */
 	security_state = GET_SECURITY_STATE(next_bl_ep->h.attr);
 
 	/* Setup the Secure/Non-Secure context if not done already. */
-	if (!cm_get_context(security_state))
+	if (cm_get_context(security_state) == NULL)
 		cm_set_context(&bl1_cpu_context[security_state], security_state);
 
 	/* Prepare the SPSR for the next BL image. */
@@ -77,8 +78,8 @@ void bl1_prepare_next_image(unsigned int image_id)
 		mode = MODE_EL2;
 	}
 
-	next_bl_ep->spsr = SPSR_64(mode, MODE_SP_ELX,
-		DISABLE_ALL_EXCEPTIONS);
+	next_bl_ep->spsr = (uint32_t)SPSR_64((uint64_t) mode,
+		(uint64_t)MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
 
 	/* Allow platform to make change */
 	bl1_plat_set_ep_info(image_id, next_bl_ep);
@@ -88,7 +89,7 @@ void bl1_prepare_next_image(unsigned int image_id)
 	cm_prepare_el3_exit(security_state);
 
 	/* Indicate that image is in execution state. */
-	image_desc->state = IMAGE_STATE_EXECUTED;
+	desc->state = IMAGE_STATE_EXECUTED;
 
 	print_entry_point_info(next_bl_ep);
 }

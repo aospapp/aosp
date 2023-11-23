@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -91,6 +91,7 @@
 
 #if ENABLE_BACKTRACE
 void backtrace(const char *cookie);
+const char *get_el_str(unsigned int el);
 #else
 #define backtrace(x)
 #endif
@@ -100,7 +101,7 @@ void __dead2 do_panic(void);
 #define panic()				\
 	do {				\
 		backtrace(__func__);	\
-		(void)console_flush();	\
+		console_flush();	\
 		do_panic();		\
 	} while (false)
 

@@ -32,7 +32,7 @@
 
 #include "ir2.h"
 #include "fd2_program.h"
-#include "instr-a2xx.h"
+#include "ir2/instr-a2xx.h"
 
 enum ir2_src_type {
 	IR2_SRC_SSA,
@@ -207,7 +207,7 @@ enum {
 
 	IR2_SWIZZLE_ZW = 2 << 0 | 2 << 2,
 
-	IR2_SWIZZLE_XYW = 0 << 0 | 0 << 2 | 1 << 4,
+	IR2_SWIZZLE_YXW = 1 << 0 | 3 << 2 | 1 << 4,
 
 	IR2_SWIZZLE_XXXX = 0 << 0 | 3 << 2 | 2 << 4 | 1 << 6,
 	IR2_SWIZZLE_YYYY = 1 << 0 | 0 << 2 | 3 << 4 | 2 << 6,

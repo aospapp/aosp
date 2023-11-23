@@ -36,12 +36,12 @@ class firmware_UpdaterModes(FirmwareTest):
         finally:
             super(firmware_UpdaterModes, self).cleanup()
 
-    def get_bios_fwids(self, path=None):
+    def get_bios_fwids(self, path):
         """Return the BIOS fwids for the given file"""
-        return self.faft_client.updater.get_all_installed_fwids('bios', path)
+        return self.faft_client.updater.get_image_fwids('bios', path)
 
     def run_case(self, mode, write_protected, written, modify_ro=True,
-                 should_abort=False, writes_gbb=False):
+            should_abort=False, writes_gbb=False):
         """Run chromeos-firmwareupdate with given sub-case
 
         @param mode: factory or recovery or autoupdate
@@ -79,25 +79,30 @@ class firmware_UpdaterModes(FirmwareTest):
 
         logging.info("%s (should write %s)", case_desc,
                      ', '.join(written).upper() or 'nothing')
-        rc = self.faft_client.updater.run_firmwareupdate(mode, append, options)
 
-        if should_abort and rc != 0:
-            logging.debug('updater aborted as expected')
+        errors = []
+        result = self.run_chromeos_firmwareupdate(mode, append, options,
+                                                  ignore_status=True)
+        if result.exit_status == 0:
+            if should_abort:
+                errors.append(
+                        "...updater: with current mode and write-protect value,"
+                        " should abort (rc!=0) and not modify anything")
+        else:
+            if should_abort:
+                logging.debug('updater aborted as expected')
+            else:
+                errors.append('...updater: unexpectedly failed (rc!=0)')
 
         after_fwids = {'bios': self.get_bios_fwids(fake_bios_path)}
         after_gbb = self.faft_client.updater.get_image_gbb_flags(fake_bios_path)
         expected_written = {'bios': written or []}
 
-        errors = self.check_fwids_written(
+        errors += self.check_fwids_written(
                 before_fwids, modded_fwids, after_fwids, expected_written)
 
         if not errors:
             logging.debug('...bios versions correct: %s', after_fwids['bios'])
-
-        if should_abort and rc == 0:
-            msg = ("...updater: with current mode and write-protect value, "
-                   "should abort (rc!=0) and not modify anything")
-            errors.insert(0, msg)
 
         if writes_gbb:
             if after_gbb != image_gbb:
@@ -128,8 +133,6 @@ class firmware_UpdaterModes(FirmwareTest):
     def run_once(self, host):
         """Run test, iterating through combinations of mode and write-protect"""
         errors = []
-
-        # TODO(dgoyette): Add a test that checks EC versions (can't be emulated)
 
         # factory: update A, B, and RO; reset gbb flags.  If WP=1, abort.
         errors += self.run_case('factory', 0, ['ro', 'a', 'b'], writes_gbb=True)

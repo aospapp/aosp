@@ -7,7 +7,7 @@
 """Maps LLVM git SHAs to synthetic revision numbers and back.
 
 Revision numbers are all of the form '(branch_name, r1234)'. As a shorthand,
-r1234 is parsed as '(master, 1234)'.
+r1234 is parsed as '(main, 1234)'.
 """
 
 from __future__ import print_function
@@ -17,6 +17,8 @@ import re
 import subprocess
 import sys
 import typing as t
+
+MAIN_BRANCH = 'main'
 
 # Note that after base_llvm_sha, we reach The Wild West(TM) of commits.
 # So reasonable input that could break us includes:
@@ -52,9 +54,9 @@ class Rev(t.NamedTuple('Rev', (('branch', str), ('number', int)))):
     # pairs.
     #
     # We support r${commits_since_base_commit} as shorthand for
-    # (master, r${commits_since_base_commit}).
+    # (main, r${commits_since_base_commit}).
     if rev.startswith('r'):
-      branch_name = 'master'
+      branch_name = MAIN_BRANCH
       rev_string = rev[1:]
     else:
       match = re.match(r'\((.+), r(\d+)\)', rev)
@@ -67,7 +69,7 @@ class Rev(t.NamedTuple('Rev', (('branch', str), ('number', int)))):
 
   def __str__(self) -> str:
     branch_name, number = self
-    if branch_name == 'master':
+    if branch_name == MAIN_BRANCH:
       return 'r%d' % number
     return '(%s, r%d)' % (branch_name, number)
 
@@ -141,7 +143,7 @@ def translate_sha_to_rev(llvm_config: LLVMConfig, sha_or_ref: str) -> Rev:
         cwd=llvm_config.dir,
     )
     count = int(result.strip())
-    return Rev(branch='master', number=count + base_llvm_revision)
+    return Rev(branch=MAIN_BRANCH, number=count + base_llvm_revision)
 
   # Otherwise, either:
   # - |merge_base| is |sha| (we have a guaranteed llvm-svn number on |sha|)
@@ -150,7 +152,7 @@ def translate_sha_to_rev(llvm_config: LLVMConfig, sha_or_ref: str) -> Rev:
   merge_base_number = translate_prebase_sha_to_rev_number(
       llvm_config, merge_base)
   if merge_base == sha:
-    return Rev(branch='master', number=merge_base_number)
+    return Rev(branch=MAIN_BRANCH, number=merge_base_number)
 
   distance_from_base = check_output(
       [
@@ -270,7 +272,7 @@ def translate_rev_to_sha(llvm_config: LLVMConfig, rev: Rev) -> str:
   """
   branch, number = rev
 
-  if branch == 'master':
+  if branch == MAIN_BRANCH:
     if number < base_llvm_revision:
       return translate_prebase_rev_to_sha(llvm_config, rev)
     base_sha = base_llvm_sha

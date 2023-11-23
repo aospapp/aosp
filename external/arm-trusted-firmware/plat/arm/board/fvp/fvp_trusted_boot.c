@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,10 +9,31 @@
 #include <string.h>
 
 #include <lib/mmio.h>
-
+#include <lib/fconf/fconf.h>
+#include <plat/arm/common/plat_arm.h>
+#include <plat/arm/common/fconf_nv_cntr_getter.h>
 #include <plat/common/platform.h>
 #include <platform_def.h>
 #include <tools_share/tbbr_oid.h>
+
+/*
+ * Return the ROTPK hash in the following ASN.1 structure in DER format:
+ *
+ * AlgorithmIdentifier  ::=  SEQUENCE  {
+ *     algorithm         OBJECT IDENTIFIER,
+ *     parameters        ANY DEFINED BY algorithm OPTIONAL
+ * }
+ *
+ * DigestInfo ::= SEQUENCE {
+ *     digestAlgorithm   AlgorithmIdentifier,
+ *     digest            OCTET STRING
+ * }
+ */
+int plat_get_rotpk_info(void *cookie, void **key_ptr, unsigned int *key_len,
+			unsigned int *flags)
+{
+	return arm_get_rotpk_info(cookie, key_ptr, key_len, flags);
+}
 
 /*
  * Store a new non-volatile counter value.
@@ -31,9 +52,11 @@ int plat_set_nv_ctr(void *cookie, unsigned int nv_ctr)
 
 	oid = (const char *)cookie;
 	if (strcmp(oid, TRUSTED_FW_NVCOUNTER_OID) == 0) {
-		nv_ctr_addr = TFW_NVCTR_BASE;
+		nv_ctr_addr = FCONF_GET_PROPERTY(cot, nv_cntr_addr,
+						TRUSTED_NV_CTR_ID);
 	} else if (strcmp(oid, NON_TRUSTED_FW_NVCOUNTER_OID) == 0) {
-		nv_ctr_addr = NTFW_CTR_BASE;
+		nv_ctr_addr = FCONF_GET_PROPERTY(cot, nv_cntr_addr,
+						NON_TRUSTED_NV_CTR_ID);
 	} else {
 		return 1;
 	}

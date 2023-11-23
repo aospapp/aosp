@@ -14,6 +14,7 @@ import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.site_utils import lxc
+from autotest_lib.site_utils.lxc import base_image
 from autotest_lib.site_utils.lxc import constants
 from autotest_lib.site_utils.lxc import container as container_module
 from autotest_lib.site_utils.lxc import unittest_http
@@ -32,7 +33,7 @@ class ContainerTests(lxc_utils.LXCTests):
 
         # Check if a base container exists on this machine and download one if
         # necessary.
-        image = lxc.BaseImage()
+        image = base_image.BaseImage(lxc.DEFAULT_CONTAINER_PATH, lxc.BASE)
         try:
             cls.base_container = image.get()
             cls.cleanup_base_container = False
@@ -42,15 +43,14 @@ class ContainerTests(lxc_utils.LXCTests):
             cls.cleanup_base_container = True
         assert(cls.base_container is not None)
 
-
     @classmethod
     def tearDownClass(cls):
         cls.base_container = None
         if not unittest_setup.config.skip_cleanup:
             if cls.cleanup_base_container:
-                lxc.BaseImage().cleanup()
+                image = lxc.BaseImage(lxc.DEFAULT_CONTAINER_PATH, lxc.BASE)
+                image.cleanup()
             utils.run('sudo rm -r %s' % cls.test_dir)
-
 
     def testInit(self):
         """Verifies that containers initialize correctly."""
@@ -61,7 +61,6 @@ class ContainerTests(lxc_utils.LXCTests):
         # Calling is_running triggers an lxc-ls call, which should verify that
         # the on-disk container is valid.
         self.assertFalse(container.is_running())
-
 
     def testInitInvalid(self):
         """Verifies that invalid containers can still be instantiated,
@@ -74,7 +73,6 @@ class ContainerTests(lxc_utils.LXCTests):
             with self.assertRaises(error.ContainerError):
                 container.refresh_status()
 
-
     def testInvalidId(self):
         """Verifies that corrupted ID files do not raise exceptions."""
         with self.createContainer() as container:
@@ -86,11 +84,10 @@ class ContainerTests(lxc_utils.LXCTests):
             try:
                 # Verify that container creation doesn't raise exceptions.
                 test_container = lxc.Container.create_from_existing_dir(
-                        self.test_dir, container.name)
+                    self.test_dir, container.name)
                 self.assertIsNone(test_container.id)
             except Exception:
                 self.fail('Unexpected exception:\n%s' % error.format_error())
-
 
     def testDefaultHostname(self):
         """Verifies that the zygote starts up with a default hostname that is
@@ -101,7 +98,6 @@ class ContainerTests(lxc_utils.LXCTests):
             hostname = container.attach_run('hostname').stdout.strip()
             self.assertEqual(test_name, hostname)
 
-
     def testSetHostnameRunning(self):
         """Verifies that the hostname can be set on a running container."""
         with self.createContainer() as container:
@@ -110,7 +106,6 @@ class ContainerTests(lxc_utils.LXCTests):
             container.set_hostname(expected_hostname)
             hostname = container.attach_run('hostname -f').stdout.strip()
             self.assertEqual(expected_hostname, hostname)
-
 
     def testSetHostnameNotRunningRaisesException(self):
         """Verifies that set_hostname on a stopped container raises an error.
@@ -132,7 +127,6 @@ class ContainerTests(lxc_utils.LXCTests):
                     raise RuntimeError('Container should not be running.')
                 container.set_hostname('foobar')
 
-
     def testClone(self):
         """Verifies that cloning a container works as expected."""
         clone = lxc.Container.clone(src=self.base_container,
@@ -144,7 +138,6 @@ class ContainerTests(lxc_utils.LXCTests):
             clone.refresh_status()
         finally:
             clone.destroy()
-
 
     def testCloneWithoutCleanup(self):
         """Verifies that cloning a container to an existing name will fail as
@@ -159,7 +152,6 @@ class ContainerTests(lxc_utils.LXCTests):
                                 new_name="testCloneWithoutCleanup",
                                 new_path=self.test_dir,
                                 snapshot=True)
-
 
     def testCloneWithCleanup(self):
         """Verifies that cloning a container with cleanup works properly."""
@@ -181,13 +173,12 @@ class ContainerTests(lxc_utils.LXCTests):
         with self.assertRaises(error.CmdError):
             clone1.attach_run('test -f %s' % tmpfile)
 
-
     def testInstallSsp(self):
         """Verifies that installing the ssp in the container works."""
         # Hard-coded path to some golden data for this test.
         test_ssp = os.path.join(
-                common.autotest_dir,
-                'site_utils', 'lxc', 'test', 'test_ssp.tar.bz2')
+            common.autotest_dir,
+            'site_utils', 'lxc', 'test', 'test_ssp.tar.bz2')
         # Create a container, install the self-served ssp, then check that it is
         # installed into the container correctly.
         with self.createContainer() as container:
@@ -198,7 +189,10 @@ class ContainerTests(lxc_utils.LXCTests):
             # The test ssp just contains a couple of text files, in known
             # locations.  Verify the location and content of those files in the
             # container.
-            cat = lambda path: container.attach_run('cat %s' % path).stdout
+            def cat(path):
+                """A helper method to run `cat`"""
+                return container.attach_run('cat %s' % path).stdout
+
             test0 = cat(os.path.join(constants.CONTAINER_AUTOTEST_DIR,
                                      'test.0'))
             test1 = cat(os.path.join(constants.CONTAINER_AUTOTEST_DIR,
@@ -207,7 +201,6 @@ class ContainerTests(lxc_utils.LXCTests):
                               test0)
             self.assertEquals('the quick brown fox jumps over the lazy dog',
                               test1)
-
 
     def testInstallControlFile(self):
         """Verifies that installing a control file in the container works."""
@@ -219,7 +212,6 @@ class ContainerTests(lxc_utils.LXCTests):
             container.attach_run(
                 'test -f %s' % os.path.join(lxc.CONTROL_TEMP_PATH,
                                             os.path.basename(tmpfile)))
-
 
     def testCopyFile(self):
         """Verifies that files are correctly copied into the container."""
@@ -236,7 +228,6 @@ class ContainerTests(lxc_utils.LXCTests):
                 # Verify the file content.
                 test_string = container.attach_run('cat %s' % dst).stdout
                 self.assertEquals(control_string, test_string)
-
 
     def testCopyDirectory(self):
         """Verifies that directories are correctly copied into the container."""
@@ -257,7 +248,6 @@ class ContainerTests(lxc_utils.LXCTests):
                 test_string = container.attach_run('cat %s' % test_file).stdout
                 self.assertEquals(control_string, test_string)
 
-
     def testMountDirectory(self):
         """Verifies that read-write mounts work."""
         with lxc_utils.TempDir() as tmpdir, self.createContainer() as container:
@@ -268,7 +258,6 @@ class ContainerTests(lxc_utils.LXCTests):
             # Verify that the mount point is correctly bound, and is read-write.
             self.verifyBindMount(container, dst, tmpdir)
             container.attach_run('test -r %s -a -w %s' % (dst, dst))
-
 
     def testMountDirectoryReadOnly(self):
         """Verifies that read-only mounts work."""
@@ -281,7 +270,6 @@ class ContainerTests(lxc_utils.LXCTests):
             self.verifyBindMount(container, dst, tmpdir)
             container.attach_run('test -r %s -a ! -w %s' % (dst, dst))
 
-
     def testMountDirectoryRelativePath(self):
         """Verifies that relative-path mounts work."""
         with lxc_utils.TempDir() as tmpdir, self.createContainer() as container:
@@ -291,7 +279,6 @@ class ContainerTests(lxc_utils.LXCTests):
 
             # Verify that the mount points is correctly bound..
             self.verifyBindMount(container, dst, tmpdir)
-
 
     def testContainerIdPersistence(self):
         """Verifies that container IDs correctly persist.
@@ -305,10 +292,9 @@ class ContainerTests(lxc_utils.LXCTests):
 
             # Set up another container and verify that its ID matches.
             test_container = lxc.Container.create_from_existing_dir(
-                    container.container_path, container.name)
+                container.container_path, container.name)
 
             self.assertEqual(test_id, test_container.id)
-
 
     def testContainerIdIsNone_newContainer(self):
         """Verifies that newly created/cloned containers have no ID."""
@@ -321,7 +307,6 @@ class ContainerTests(lxc_utils.LXCTests):
                                         snapshot=True)
             self.assertIsNotNone(container.id)
             self.assertIsNone(clone.id)
-
 
     @contextmanager
     def createContainer(self, name=None):
@@ -342,7 +327,6 @@ class ContainerTests(lxc_utils.LXCTests):
         finally:
             if not unittest_setup.config.skip_cleanup:
                 container.destroy()
-
 
     def verifyBindMount(self, container, container_path, host_path):
         """Verifies that a given path in a container is bind-mounted to a given
@@ -365,10 +349,8 @@ class ContainerIdTests(lxc_utils.LXCTests):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
 
-
     def tearDown(self):
         shutil.rmtree(self.test_dir)
-
 
     def testPickle(self):
         """Verifies the ContainerId persistence code."""

@@ -1,11 +1,18 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import collections
 import logging
 import os
 import re
+from six.moves import map
+from six.moves import range
 
 from autotest_lib.client.bin import local_host
 from autotest_lib.client.bin import utils
@@ -81,6 +88,7 @@ DEVICE_NAME_LOOKUP = {
     # 0x02f0 is for Quasar on CML, 0x4070 and 0x0074 is for HrP2
     DeviceInfo('0x8086', '0x02f0', subsystem='0x4070'): NAME_INTEL_22560,
     DeviceInfo('0x8086', '0x02f0', subsystem='0x0074'): NAME_INTEL_22560,
+    DeviceInfo('0x8086', '0x4df0', subsystem='0x0074'): NAME_INTEL_22560,
     # With the same Quasar, subsystem_id 0x0034 is JfP2
     DeviceInfo('0x8086', '0x02f0', subsystem='0x0034'): NAME_INTEL_9000,
     DeviceInfo('0x02d0', '0x4354'): NAME_BROADCOM_BCM4354_SDIO,
@@ -502,7 +510,7 @@ class Interface:
             if match is not None:
                 signal_levels = cleaned[cleaned.find('[') + 1 :
                                     cleaned.find(']')].split(',')
-                return map(int, signal_levels)
+                return list(map(int, signal_levels))
         return None
 
 
@@ -523,7 +531,7 @@ class Interface:
         try:
             result = self._run('ip addr show %s 2> /dev/null' % self._name)
             address_info = result.stdout
-        except error.CmdError, e:
+        except error.CmdError as e:
             # The "ip" command will return non-zero if the interface does
             # not exist.
             return None
@@ -637,4 +645,3 @@ def get_prioritized_default_route(host=None, interface_name_regex=None):
     # Sort and return the route with the lowest metric value.
     defaults.sort(key=lambda x: x.metric)
     return defaults[0]
-

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 use super::xhci_transfer::XhciTransfer;
+use crate::usb::host_backend::error::Result;
 
 /// Address of this usb device, as in Set Address standard usb device request.
 pub type UsbDeviceAddress = u32;
@@ -18,18 +19,14 @@ pub enum BackendType {
 pub trait XhciBackendDevice: Send {
     /// Returns the type of USB device provided by this device.
     fn get_backend_type(&self) -> BackendType;
-    /// Returns host bus number of this device.
-    fn host_bus(&self) -> u8;
-    /// Returns host address of this device.
-    fn host_address(&self) -> u8;
     /// Get vendor id of this device.
     fn get_vid(&self) -> u16;
     /// Get product id of this device.
     fn get_pid(&self) -> u16;
     /// Submit a xhci transfer to backend.
-    fn submit_transfer(&mut self, transfer: XhciTransfer) -> std::result::Result<(), ()>;
+    fn submit_transfer(&mut self, transfer: XhciTransfer) -> Result<()>;
     /// Set address of this backend.
     fn set_address(&mut self, address: UsbDeviceAddress);
     /// Reset the backend device.
-    fn reset(&mut self) -> std::result::Result<(), ()>;
+    fn reset(&mut self) -> Result<()>;
 }

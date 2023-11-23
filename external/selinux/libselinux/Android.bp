@@ -1,3 +1,34 @@
+package {
+    default_applicable_licenses: ["external_selinux_libselinux_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'filegroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// http://go/android-license-faq
+license {
+    name: "external_selinux_libselinux_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-GPL-2.0",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 common_CFLAGS = [
     // Persistently stored patterns (pcre2) are architecture dependent.
     // In particular paterns built on amd64 can not run on devices with armv7
@@ -80,6 +111,8 @@ cc_defaults {
                 "liblog",
             ],
 
+            header_libs: ["libcutils_headers"],
+
             local_include_dirs: [ "src" ],
 
             // 1003 corresponds to auditd, from system/core/logd/event.logtags
@@ -100,6 +133,12 @@ cc_library {
     name: "libselinux",
     defaults: ["libselinux_defaults"],
 
+    llndk: {
+        symbol_file: "exported.map.txt",
+    },
+
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
     recovery_available: true,
 
     host_supported: true,
@@ -179,7 +218,7 @@ cc_library {
                 shared_libs: ["libpackagelistparser"],
             },
 
-            version_script: "exported.map",
+            version_script: "exported.map.txt",
         },
 
         vendor: {
@@ -204,15 +243,9 @@ cc_library {
     },
 
     stubs: {
-        symbol_file: "exported.map",
+        symbol_file: "exported.map.txt",
         versions: ["30"],
     },
-}
-
-llndk_library {
-    name: "libselinux",
-    export_include_dirs: ["include"],
-    symbol_file: "exported.map",
 }
 
 cc_binary_host {
@@ -226,4 +259,74 @@ cc_binary_host {
         "libsepol",
     ],
     whole_static_libs: ["libpcre2"],
+}
+
+rust_bindgen {
+    name: "libselinux_bindgen",
+    wrapper_src: "rust/selinux.h",
+    crate_name: "selinux_bindgen",
+    source_stem: "bindings",
+    local_include_dirs: ["include"],
+
+    // Generate bindings only for the symbols that are actually exported (see exported.map.txt).
+    // This makes the generated bindings much more concise and improves compilation
+    // time.
+    bindgen_flags: [
+        "--allowlist-function=fgetfilecon",
+        "--allowlist-function=fgetfilecon_raw",
+        "--allowlist-function=freecon",
+        "--allowlist-function=fsetfilecon",
+        "--allowlist-function=getcon",
+        "--allowlist-function=getfilecon",
+        "--allowlist-function=getpeercon",
+        "--allowlist-function=getpidcon",
+        "--allowlist-function=is_selinux_enabled",
+        "--allowlist-function=lgetfilecon",
+        "--allowlist-function=lsetfilecon",
+        "--allowlist-function=security_compute_create",
+        "--allowlist-function=security_get_initial_context",
+        "--allowlist-function=security_getenforce",
+        "--allowlist-function=security_load_policy",
+        "--allowlist-function=security_policyvers",
+        "--allowlist-function=security_setenforce",
+        "--allowlist-function=selabel_close",
+        "--allowlist-function=selabel_lookup",
+        "--allowlist-function=selabel_lookup_best_match",
+        "--allowlist-function=selabel_open",
+        "--allowlist-function=selinux_android_file_context_handle",
+        "--allowlist-function=selinux_android_hw_service_context_handle",
+        "--allowlist-function=selinux_android_load_policy",
+        "--allowlist-function=selinux_android_load_policy_from_fd",
+        "--allowlist-function=selinux_android_restorecon",
+        "--allowlist-function=selinux_android_restorecon_pkgdir",
+        "--allowlist-function=selinux_android_seapp_context_init",
+        "--allowlist-function=selinux_android_service_context_handle",
+        "--allowlist-function=selinux_android_set_sehandle",
+        "--allowlist-function=selinux_android_setcon",
+        "--allowlist-function=selinux_android_setcontext",
+        "--allowlist-function=selinux_android_vendor_service_context_handle",
+        "--allowlist-function=selinux_check_access",
+        "--allowlist-function=selinux_log_callback",
+        "--allowlist-function=selinux_set_callback",
+        "--allowlist-function=selinux_status_open",
+        "--allowlist-function=selinux_status_updated",
+        "--allowlist-function=selinux_vendor_log_callback",
+        "--allowlist-function=set_selinuxmnt",
+        "--allowlist-function=setcon",
+        "--allowlist-function=setexeccon",
+        "--allowlist-function=setfilecon",
+        "--allowlist-function=setfscreatecon",
+        "--allowlist-function=setsockcreatecon",
+        "--allowlist-function=setsockcreatecon_raw",
+        "--allowlist-function=string_to_security_class",
+        "--allowlist-function=selinux_android_context_with_level",
+        "--allowlist-function=selinux_android_keystore2_key_context_handle",
+
+        // We also need some constants in addition to the functions.
+        "--allowlist-var=SELABEL_.*",
+        "--allowlist-var=SELINUX_.*",
+    ],
+
+    // This is mainly to run layout tests for generated bindings on the host.
+    host_supported: true,
 }

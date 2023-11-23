@@ -134,6 +134,21 @@ public class RcsSettingUtils {
         return isProvisioned;
     }
 
+    public static boolean isPublishEnabled(Context context, int subId) {
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            logger.debug("isPublishEnabled: no valid subscriptions!");
+            return false;
+        }
+        CarrierConfigManager configManager = (CarrierConfigManager)
+                context.getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        if (configManager != null) {
+            PersistableBundle config = configManager.getConfigForSubId(subId);
+            return (config != null) && config.getBoolean(
+                    CarrierConfigManager.Ims.KEY_ENABLE_PRESENCE_PUBLISH_BOOL, false);
+        }
+        return false;
+    }
+
     public static boolean hasUserEnabledContactDiscovery(Context context, int subId) {
         if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
             logger.debug("hasUserEnabledContactDiscovery: no valid subscriptions!");

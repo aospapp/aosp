@@ -60,7 +60,7 @@ struct fd5_emit {
 	bool no_lrz_write;
 
 	/* cached to avoid repeated lookups of same variants: */
-	const struct ir3_shader_variant *vp, *fp;
+	const struct ir3_shader_variant *vs, *fs;
 	/* TODO: other shader stages.. */
 
 	unsigned streamout_mask;
@@ -76,29 +76,29 @@ static inline enum a5xx_color_fmt fd5_emit_format(struct pipe_surface *surf)
 static inline const struct ir3_shader_variant *
 fd5_emit_get_vp(struct fd5_emit *emit)
 {
-	if (!emit->vp) {
-		struct ir3_shader *shader = emit->prog->vp;
-		emit->vp = ir3_shader_variant(shader, emit->key,
+	if (!emit->vs) {
+		struct ir3_shader *shader = emit->prog->vs;
+		emit->vs = ir3_shader_variant(shader, emit->key,
 				emit->binning_pass, emit->debug);
 	}
-	return emit->vp;
+	return emit->vs;
 }
 
 static inline const struct ir3_shader_variant *
 fd5_emit_get_fp(struct fd5_emit *emit)
 {
-	if (!emit->fp) {
+	if (!emit->fs) {
 		if (emit->binning_pass) {
 			/* use dummy stateobj to simplify binning vs non-binning: */
-			static const struct ir3_shader_variant binning_fp = {};
-			emit->fp = &binning_fp;
+			static const struct ir3_shader_variant binning_fs = {};
+			emit->fs = &binning_fs;
 		} else {
-			struct ir3_shader *shader = emit->prog->fp;
-			emit->fp = ir3_shader_variant(shader, emit->key,
+			struct ir3_shader *shader = emit->prog->fs;
+			emit->fs = ir3_shader_variant(shader, emit->key,
 					false, emit->debug);
 		}
 	}
-	return emit->fp;
+	return emit->fs;
 }
 
 static inline void
@@ -139,7 +139,7 @@ fd5_emit_blit(struct fd_context *ctx, struct fd_ringbuffer *ring)
 
 	OUT_PKT7(ring, CP_EVENT_WRITE, 4);
 	OUT_RING(ring, CP_EVENT_WRITE_0_EVENT(BLIT));
-	OUT_RELOCW(ring, fd5_ctx->blit_mem, 0, 0, 0);  /* ADDR_LO/HI */
+	OUT_RELOC(ring, fd5_ctx->blit_mem, 0, 0, 0);  /* ADDR_LO/HI */
 	OUT_RING(ring, 0x00000000);
 
 	emit_marker5(ring, 7);
@@ -195,9 +195,26 @@ void fd5_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 
 void fd5_emit_cs_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		struct ir3_shader_variant *cp);
+void fd5_emit_cs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
+		struct fd_context *ctx, const struct pipe_grid_info *info);
 
 void fd5_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring);
 
+void fd5_emit_init_screen(struct pipe_screen *pscreen);
 void fd5_emit_init(struct pipe_context *pctx);
+
+static inline void
+fd5_emit_ib(struct fd_ringbuffer *ring, struct fd_ringbuffer *target)
+{
+	/* for debug after a lock up, write a unique counter value
+	 * to scratch6 for each IB, to make it easier to match up
+	 * register dumps to cmdstream.  The combination of IB and
+	 * DRAW (scratch7) is enough to "triangulate" the particular
+	 * draw that caused lockup.
+	 */
+	emit_marker5(ring, 6);
+	__OUT_IB5(ring, target);
+	emit_marker5(ring, 6);
+}
 
 #endif /* FD5_EMIT_H */

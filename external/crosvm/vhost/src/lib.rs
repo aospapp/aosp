@@ -13,12 +13,12 @@ use std::alloc::Layout;
 use std::fmt::{self, Display};
 use std::io::Error as IoError;
 use std::mem;
-use std::os::unix::io::AsRawFd;
 use std::ptr::null;
 
 use assertions::const_assert;
-use sys_util::{ioctl, ioctl_with_mut_ref, ioctl_with_ptr, ioctl_with_ref};
-use sys_util::{EventFd, GuestAddress, GuestMemory, GuestMemoryError, LayoutAllocation};
+use base::{ioctl, ioctl_with_mut_ref, ioctl_with_ptr, ioctl_with_ref};
+use base::{AsRawDescriptor, Event, LayoutAllocation};
+use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 
 #[derive(Debug)]
 pub enum Error {
@@ -63,7 +63,7 @@ fn ioctl_result<T>() -> Result<T> {
 /// from regular virtio devices because the host kernel takes care of handling all the data
 /// transfer.  The device itself only needs to deal with setting up the kernel driver and
 /// managing the control channel.
-pub trait Vhost: AsRawFd + std::marker::Sized {
+pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// Get the guest memory mapping.
     fn mem(&self) -> &GuestMemory;
 
@@ -132,7 +132,7 @@ pub trait Vhost: AsRawFd + std::marker::Sized {
 
         let _ = self
             .mem()
-            .with_regions::<_, ()>(|index, guest_addr, size, host_addr, _| {
+            .with_regions::<_, ()>(|index, guest_addr, size, host_addr, _, _| {
                 vhost_regions[index] = virtio_sys::vhost_memory_region {
                     guest_phys_addr: guest_addr.offset() as u64,
                     memory_size: size as u64,
@@ -293,15 +293,15 @@ pub trait Vhost: AsRawFd + std::marker::Sized {
         Ok(())
     }
 
-    /// Set the eventfd to trigger when buffers have been used by the host.
+    /// Set the event to trigger when buffers have been used by the host.
     ///
     /// # Arguments
     /// * `queue_index` - Index of the queue to modify.
-    /// * `fd` - EventFd to trigger.
-    fn set_vring_call(&self, queue_index: usize, fd: &EventFd) -> Result<()> {
+    /// * `event` - Event to trigger.
+    fn set_vring_call(&self, queue_index: usize, event: &Event) -> Result<()> {
         let vring_file = virtio_sys::vhost_vring_file {
             index: queue_index as u32,
-            fd: fd.as_raw_fd(),
+            event: event.as_raw_descriptor(),
         };
 
         // This ioctl is called on a valid vhost_net fd and has its
@@ -313,16 +313,16 @@ pub trait Vhost: AsRawFd + std::marker::Sized {
         Ok(())
     }
 
-    /// Set the eventfd that will be signaled by the guest when buffers are
+    /// Set the event that will be signaled by the guest when buffers are
     /// available for the host to process.
     ///
     /// # Arguments
     /// * `queue_index` - Index of the queue to modify.
-    /// * `fd` - EventFd that will be signaled from guest.
-    fn set_vring_kick(&self, queue_index: usize, fd: &EventFd) -> Result<()> {
+    /// * `fd` - Event that will be signaled from guest.
+    fn set_vring_kick(&self, queue_index: usize, event: &Event) -> Result<()> {
         let vring_file = virtio_sys::vhost_vring_file {
             index: queue_index as u32,
-            fd: fd.as_raw_fd(),
+            event: event.as_raw_descriptor(),
         };
 
         // This ioctl is called on a valid vhost_net fd and has its
@@ -341,8 +341,8 @@ mod tests {
 
     use crate::net::fakes::FakeNet;
     use net_util::fakes::FakeTap;
-    use std::result;
-    use sys_util::{GuestAddress, GuestMemory, GuestMemoryError};
+    use std::{path::PathBuf, result};
+    use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 
     fn create_guest_memory() -> result::Result<GuestMemory, GuestMemoryError> {
         let start_addr1 = GuestAddress(0x0);
@@ -361,7 +361,7 @@ mod tests {
 
     fn create_fake_vhost_net() -> FakeNet<FakeTap> {
         let gm = create_guest_memory().unwrap();
-        FakeNet::<FakeTap>::new(&gm).unwrap()
+        FakeNet::<FakeTap>::new(&PathBuf::from(""), &gm).unwrap()
     }
 
     #[test]
@@ -430,14 +430,14 @@ mod tests {
     #[test]
     fn set_vring_call() {
         let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_vring_call(0, &EventFd::new().unwrap());
+        let res = vhost_net.set_vring_call(0, &Event::new().unwrap());
         assert_ok_or_known_failure(res);
     }
 
     #[test]
     fn set_vring_kick() {
         let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_vring_kick(0, &EventFd::new().unwrap());
+        let res = vhost_net.set_vring_kick(0, &Event::new().unwrap());
         assert_ok_or_known_failure(res);
     }
 }

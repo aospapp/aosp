@@ -12,7 +12,6 @@
 #include "cras_iodev.h"
 #include "cras_system_state.h"
 #include "cras_util.h"
-#include "sfh.h"
 #include "utlist.h"
 #include "cras_bt_device.h"
 
@@ -33,6 +32,15 @@ struct hfp_alsa_io {
 	struct cras_iodev *aio;
 };
 
+static int hfp_alsa_get_valid_frames(struct cras_iodev *iodev,
+				     struct timespec *hw_tstamp)
+{
+	struct hfp_alsa_io *hfp_alsa_io = (struct hfp_alsa_io *)iodev;
+	struct cras_iodev *aio = hfp_alsa_io->aio;
+
+	return aio->get_valid_frames(aio, hw_tstamp);
+}
+
 static int hfp_alsa_open_dev(struct cras_iodev *iodev)
 {
 	struct hfp_alsa_io *hfp_alsa_io = (struct hfp_alsa_io *)iodev;
@@ -43,41 +51,7 @@ static int hfp_alsa_open_dev(struct cras_iodev *iodev)
 
 static int hfp_alsa_update_supported_formats(struct cras_iodev *iodev)
 {
-	struct hfp_alsa_io *hfp_alsa_io = (struct hfp_alsa_io *)iodev;
-	struct cras_iodev *aio = hfp_alsa_io->aio;
-	int rc, i;
-
 	/* 16 bit, mono, 8kHz (narrow band speech); */
-	rc = aio->update_supported_formats(aio);
-	if (rc)
-		return rc;
-
-	for (i = 0; aio->supported_rates[i]; ++i)
-		if (aio->supported_rates[i] == 8000)
-			break;
-	if (aio->supported_rates[i] != 8000)
-		return -EINVAL;
-
-	for (i = 0; aio->supported_channel_counts[i]; ++i)
-		if (aio->supported_channel_counts[i] == 1)
-			break;
-	if (aio->supported_channel_counts[i] != 1)
-		return -EINVAL;
-
-	for (i = 0; aio->supported_formats[i]; ++i)
-		if (aio->supported_formats[i] == SND_PCM_FORMAT_S16_LE)
-			break;
-	if (aio->supported_formats[i] != SND_PCM_FORMAT_S16_LE)
-		return -EINVAL;
-
-	free(aio->format);
-	aio->format = malloc(sizeof(struct cras_audio_format));
-	if (!aio->format)
-		return -ENOMEM;
-	aio->format->format = SND_PCM_FORMAT_S16_LE;
-	aio->format->frame_rate = 8000;
-	aio->format->num_channels = 1;
-
 	free(iodev->supported_rates);
 	iodev->supported_rates = malloc(2 * sizeof(*iodev->supported_rates));
 	if (!iodev->supported_rates)
@@ -110,6 +84,15 @@ static int hfp_alsa_configure_dev(struct cras_iodev *iodev)
 	struct cras_iodev *aio = hfp_alsa_io->aio;
 	int rc;
 
+	/* Fill back the format iodev is using. */
+	if (aio->format == NULL) {
+		aio->format = (struct cras_audio_format *)malloc(
+			sizeof(*aio->format));
+		if (!aio->format)
+			return -ENOMEM;
+		*aio->format = *iodev->format;
+	}
+
 	rc = aio->configure_dev(aio);
 	if (rc) {
 		syslog(LOG_ERR, "Failed to configure aio: %d\n", rc);
@@ -135,6 +118,7 @@ static int hfp_alsa_close_dev(struct cras_iodev *iodev)
 	struct hfp_alsa_io *hfp_alsa_io = (struct hfp_alsa_io *)iodev;
 	struct cras_iodev *aio = hfp_alsa_io->aio;
 
+	hfp_set_call_status(hfp_alsa_io->slc, 0);
 	cras_bt_device_put_sco(hfp_alsa_io->device);
 	cras_iodev_free_format(iodev);
 	return aio->close_dev(aio);
@@ -234,6 +218,21 @@ static int hfp_alsa_is_free_running(const struct cras_iodev *iodev)
 	return aio->is_free_running(aio);
 }
 
+static int hfp_alsa_output_underrun(struct cras_iodev *iodev)
+{
+	struct hfp_alsa_io *hfp_alsa_io = (struct hfp_alsa_io *)iodev;
+	struct cras_iodev *aio = hfp_alsa_io->aio;
+
+	/*
+	 * Copy iodev->min_cb_level and iodev->max_cb_level from the parent
+	 * (i.e. hfp_alsa_iodev).  output_underrun() of alsa_io will use them.
+	 */
+	aio->min_cb_level = iodev->min_cb_level;
+	aio->max_cb_level = iodev->max_cb_level;
+
+	return aio->output_underrun(aio);
+}
+
 struct cras_iodev *hfp_alsa_iodev_create(struct cras_iodev *aio,
 					 struct cras_bt_device *device,
 					 struct hfp_slc_handle *slc,
@@ -259,13 +258,9 @@ struct cras_iodev *hfp_alsa_iodev_create(struct cras_iodev *aio,
 	name = cras_bt_device_name(device);
 	if (!name)
 		name = cras_bt_device_object_path(device);
-	snprintf(iodev->info.name, sizeof(iodev->info.name), "%s.HFP_PCM",
-		 name);
+	snprintf(iodev->info.name, sizeof(iodev->info.name), "%s", name);
 	iodev->info.name[ARRAY_SIZE(iodev->info.name) - 1] = 0;
-	iodev->info.stable_id =
-		SuperFastHash(cras_bt_device_object_path(device),
-			      strlen(cras_bt_device_object_path(device)),
-			      strlen(cras_bt_device_object_path(device)));
+	iodev->info.stable_id = cras_bt_device_get_stable_id(device);
 
 	iodev->open_dev = hfp_alsa_open_dev;
 	iodev->update_supported_formats = hfp_alsa_update_supported_formats;
@@ -281,8 +276,10 @@ struct cras_iodev *hfp_alsa_iodev_create(struct cras_iodev *aio,
 	iodev->update_active_node = hfp_alsa_update_active_node;
 	iodev->start = hfp_alsa_start;
 	iodev->set_volume = hfp_alsa_set_volume;
+	iodev->get_valid_frames = hfp_alsa_get_valid_frames;
 	iodev->no_stream = hfp_alsa_no_stream;
 	iodev->is_free_running = hfp_alsa_is_free_running;
+	iodev->output_underrun = hfp_alsa_output_underrun;
 
 	iodev->min_buffer_level = aio->min_buffer_level;
 
@@ -291,13 +288,28 @@ struct cras_iodev *hfp_alsa_iodev_create(struct cras_iodev *aio,
 	strcpy(node->name, iodev->info.name);
 
 	node->plugged = 1;
+	/* If headset mic uses legacy narrow band, i.e CVSD codec, report a
+	 * different node type so UI can set different plug priority. */
 	node->type = CRAS_NODE_TYPE_BLUETOOTH;
+	if ((hfp_slc_get_selected_codec(hfp_alsa_io->slc) ==
+	     HFP_CODEC_ID_CVSD) &&
+	    (iodev->direction == CRAS_STREAM_INPUT))
+		node->type = CRAS_NODE_TYPE_BLUETOOTH_NB_MIC;
 	node->volume = 100;
 	gettimeofday(&node->plugged_time, NULL);
 
-	cras_bt_device_append_iodev(device, iodev, profile);
+	/* Prepare active node before append, so bt_io can extract correct
+	 * info from hfp_alsa iodev and node. */
 	cras_iodev_add_node(iodev, node);
 	cras_iodev_set_active_node(iodev, node);
+	cras_bt_device_append_iodev(device, iodev, profile);
+
+	/* Record max supported channels into cras_iodev_info. */
+	iodev->info.max_supported_channels = 1;
+
+	/* Specifically disable EWMA calculation on this and the child iodev. */
+	ewma_power_disable(&iodev->ewma);
+	ewma_power_disable(&aio->ewma);
 
 	return iodev;
 }

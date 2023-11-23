@@ -22,6 +22,7 @@ import argparse
 import datetime
 import os
 import re
+import shutil
 import sys
 import time
 
@@ -37,6 +38,7 @@ CROSTC_ROOT = '/usr/local/google/crostc'
 NIGHTLY_TESTS_DIR = os.path.join(CROSTC_ROOT, 'nightly-tests')
 ROLE_ACCOUNT = 'mobiletc-prebuild'
 TOOLCHAIN_DIR = os.path.dirname(os.path.realpath(__file__))
+TMP_TOOLCHAIN_TEST = '/tmp/toolchain-tests'
 MAIL_PROGRAM = '~/var/bin/mail-sheriff'
 PENDING_ARCHIVES_DIR = os.path.join(CROSTC_ROOT, 'pending_archives')
 NIGHTLY_TESTS_RESULTS = os.path.join(CROSTC_ROOT, 'nightly_test_reports')
@@ -45,7 +47,6 @@ IMAGE_DIR = '{board}-{image_type}'
 IMAGE_VERSION_STR = r'{chrome_version}-{tip}\.{branch}\.{branch_branch}'
 IMAGE_FS = IMAGE_DIR + '/' + IMAGE_VERSION_STR
 TRYBOT_IMAGE_FS = IMAGE_FS + '-{build_id}'
-PFQ_IMAGE_FS = IMAGE_FS + '-rc1'
 IMAGE_RE_GROUPS = {
     'board': r'(?P<board>\S+)',
     'image_type': r'(?P<image_type>\S+)',
@@ -57,7 +58,20 @@ IMAGE_RE_GROUPS = {
 }
 TRYBOT_IMAGE_RE = TRYBOT_IMAGE_FS.format(**IMAGE_RE_GROUPS)
 
-TELEMETRY_AQUARIUM_UNSUPPORTED = ['bob', 'elm', 'veyron_minnie']
+RECIPE_IMAGE_FS = IMAGE_FS + '-{build_id}-{buildbucket_id}'
+RECIPE_IMAGE_RE_GROUPS = {
+    'board': r'(?P<board>\S+)',
+    'image_type': r'(?P<image_type>\S+)',
+    'chrome_version': r'(?P<chrome_version>R\d+)',
+    'tip': r'(?P<tip>\d+)',
+    'branch': r'(?P<branch>\d+)',
+    'branch_branch': r'(?P<branch_branch>\d+)',
+    'build_id': r'(?P<build_id>\d+)',
+    'buildbucket_id': r'(?P<buildbucket_id>\d+)'
+}
+RECIPE_IMAGE_RE = RECIPE_IMAGE_FS.format(**RECIPE_IMAGE_RE_GROUPS)
+
+TELEMETRY_AQUARIUM_UNSUPPORTED = ['bob', 'elm', 'veyron_tiger']
 
 
 class ToolchainComparator(object):
@@ -69,6 +83,8 @@ class ToolchainComparator(object):
                chromeos_root,
                weekday,
                patches,
+               recipe=False,
+               test=False,
                noschedv2=False):
     self._board = board
     self._remotes = remotes
@@ -79,16 +95,18 @@ class ToolchainComparator(object):
     self._build = '%s-release-tryjob' % board
     self._patches = patches.split(',') if patches else []
     self._patches_string = '_'.join(str(p) for p in self._patches)
+    self._recipe = recipe
+    self._test = test
     self._noschedv2 = noschedv2
 
     if not weekday:
       self._weekday = time.strftime('%a')
     else:
       self._weekday = weekday
-    timestamp = datetime.datetime.strftime(datetime.datetime.now(),
-                                           '%Y-%m-%d_%H:%M:%S')
+    self._date = datetime.date.today().strftime('%Y/%m/%d')
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     self._reports_dir = os.path.join(
-        NIGHTLY_TESTS_RESULTS,
+        TMP_TOOLCHAIN_TEST if self._test else NIGHTLY_TESTS_RESULTS,
         '%s.%s' % (timestamp, board),
     )
 
@@ -98,55 +116,38 @@ class ToolchainComparator(object):
     Args:
       trybot_image: artifact name such as
         'daisy-release-tryjob/R40-6394.0.0-b1389'
+        for recipe images, name is in this format:
+        'lulu-llvm-next-nightly/R84-13037.0.0-31011-8883172717979984032/'
 
     Returns:
       Latest official image name, e.g. 'daisy-release/R57-9089.0.0'.
     """
+    # For board names with underscores, we need to fix the trybot image name
+    # to replace the hyphen (for the recipe builder) with the underscore.
+    # Currently the only such board we use is 'veyron_tiger'.
+    if trybot_image.find('veyron-tiger') != -1:
+      trybot_image = trybot_image.replace('veyron-tiger', 'veyron_tiger')
     # We need to filter out -tryjob in the trybot_image.
-    trybot = re.sub('-tryjob', '', trybot_image)
-    mo = re.search(TRYBOT_IMAGE_RE, trybot)
+    if self._recipe:
+      trybot = re.sub('-llvm-next-nightly', '-release', trybot_image)
+      mo = re.search(RECIPE_IMAGE_RE, trybot)
+    else:
+      trybot = re.sub('-tryjob', '', trybot_image)
+      mo = re.search(TRYBOT_IMAGE_RE, trybot)
     assert mo
     dirname = IMAGE_DIR.replace('\\', '').format(**mo.groupdict())
     return buildbot_utils.GetLatestImage(self._chromeos_root, dirname)
 
-  def _GetNonAFDOImageName(self, trybot_image):
-    """Given a trybot artifact name, get corresponding non-AFDO image name.
-
-    We get the non-AFDO image from the PFQ builders. This image
-    is not generated for all the boards and, the closest PFQ image
-    was the one build for the previous ChromeOS version (the chrome
-    used in the current version is the one validated in the previous
-    version).
-    The previous ChromeOS does not always exist either. So, we try
-    a couple of versions before.
-
-    Args:
-      trybot_image: artifact name such as
-        'daisy-release-tryjob/R40-6394.0.0-b1389'
-
-    Returns:
-      Corresponding chrome PFQ image name, e.g.
-      'daisy-chrome-pfq/R40-6393.0.0-rc1'.
-    """
-    trybot = re.sub('-tryjob', '', trybot_image)
-    mo = re.search(TRYBOT_IMAGE_RE, trybot)
-    assert mo
-    image_dict = mo.groupdict()
-    image_dict['image_type'] = 'chrome-pfq'
-    for _ in range(2):
-      image_dict['tip'] = str(int(image_dict['tip']) - 1)
-      nonafdo_image = PFQ_IMAGE_FS.replace('\\', '').format(**image_dict)
-      if buildbot_utils.DoesImageExist(self._chromeos_root, nonafdo_image):
-        return nonafdo_image
-    return ''
-
-  def _TestImages(self, trybot_image, vanilla_image, nonafdo_image):
+  def _TestImages(self, trybot_image, vanilla_image):
     """Create crosperf experiment file.
 
     Given the names of the trybot, vanilla and non-AFDO images, create the
     appropriate crosperf experiment file and launch crosperf on it.
     """
-    experiment_file_dir = os.path.join(NIGHTLY_TESTS_DIR, self._weekday)
+    if self._test:
+      experiment_file_dir = TMP_TOOLCHAIN_TEST
+    else:
+      experiment_file_dir = os.path.join(NIGHTLY_TESTS_DIR, self._weekday)
     experiment_file_name = '%s_toolchain_experiment.txt' % self._board
 
     compiler_string = 'llvm'
@@ -159,10 +160,6 @@ class ToolchainComparator(object):
     board: %s
     remote: %s
     retries: 1
-    cooldown_temp: 40
-    cooldown_time: 10
-    cpu_freq_pct: 95
-    top_interval: 1
     """ % (self._board, self._remotes)
     experiment_tests = """
     benchmark: all_toolchain_perf {
@@ -204,57 +201,41 @@ class ToolchainComparator(object):
 
       # Now add vanilla to test file.
       official_image = """
-          vanilla_image {
-            chromeos_root: %s
-            build: %s
-            compiler: llvm
-          }
-          """ % (self._chromeos_root, vanilla_image)
+      vanilla_image {
+        chromeos_root: %s
+        build: %s
+        compiler: llvm
+      }
+      """ % (self._chromeos_root, vanilla_image)
       f.write(official_image)
-
-      # Now add non-AFDO image to test file.
-      if nonafdo_image:
-        official_nonafdo_image = """
-          nonafdo_image {
-            chromeos_root: %s
-            build: %s
-            compiler: llvm
-          }
-          """ % (self._chromeos_root, nonafdo_image)
-        f.write(official_nonafdo_image)
 
       label_string = '%s_trybot_image' % compiler_string
 
       # Reuse autotest files from vanilla image for trybot images
       autotest_files = os.path.join('/tmp', vanilla_image, 'autotest_files')
       experiment_image = """
-          %s {
-            chromeos_root: %s
-            build: %s
-            autotest_path: %s
-            compiler: %s
-          }
-          """ % (label_string, self._chromeos_root, trybot_image,
-                 autotest_files, compiler_string)
+      %s {
+        chromeos_root: %s
+        build: %s
+        autotest_path: %s
+        compiler: %s
+      }
+      """ % (label_string, self._chromeos_root, trybot_image, autotest_files,
+             compiler_string)
       f.write(experiment_image)
 
     crosperf = os.path.join(TOOLCHAIN_DIR, 'crosperf', 'crosperf')
     noschedv2_opts = '--noschedv2' if self._noschedv2 else ''
-    command = ('{crosperf} --no_email=True --results_dir={r_dir} '
-               '--intel_pstate=no_hwp '
-               '--json_report=True {noschedv2_opts} {exp_file}').format(
+    command = ('{crosperf} --no_email={no_email} --results_dir={r_dir} '
+               '--logging_level=verbose --json_report=True {noschedv2_opts} '
+               '{exp_file}').format(
                    crosperf=crosperf,
+                   no_email=not self._test,
                    r_dir=self._reports_dir,
                    noschedv2_opts=noschedv2_opts,
                    exp_file=experiment_file)
 
-    ret = self._ce.RunCommand(command)
-    if ret != 0:
-      raise RuntimeError('Crosperf execution error!')
-
-    # Copy json report to pending archives directory.
-    command = 'cp %s/*.json %s/.' % (self._reports_dir, PENDING_ARCHIVES_DIR)
-    ret = self._ce.RunCommand(command)
+    return self._ce.RunCommand(command)
 
   def _SendEmail(self):
     """Find email message generated by crosperf and send it."""
@@ -264,9 +245,21 @@ class ToolchainComparator(object):
       email_title = 'buildbot llvm test results'
       if USE_LLVM_NEXT_PATCH in self._patches_string:
         email_title = 'buildbot llvm_next test results'
-      command = ('cat %s | %s -s "%s, %s" -team -html' %
-                 (filename, MAIL_PROGRAM, email_title, self._board))
+      command = ('cat %s | %s -s "%s, %s %s" -team -html' %
+                 (filename, MAIL_PROGRAM, email_title, self._board, self._date))
       self._ce.RunCommand(command)
+
+  def _CopyJson(self):
+    # Make sure a destination directory exists.
+    os.makedirs(PENDING_ARCHIVES_DIR, exist_ok=True)
+    # Copy json report to pending archives directory.
+    command = 'cp %s/*.json %s/.' % (self._reports_dir, PENDING_ARCHIVES_DIR)
+    ret = self._ce.RunCommand(command)
+    # Failing to access json report means that crosperf terminated or all tests
+    # failed, raise an error.
+    if ret != 0:
+      raise RuntimeError(
+          'Crosperf failed to run tests, cannot copy json report!')
 
   def DoAll(self):
     """Main function inside ToolchainComparator class.
@@ -274,29 +267,47 @@ class ToolchainComparator(object):
     Launch trybot, get image names, create crosperf experiment file, run
     crosperf, and copy images into seven-day report directories.
     """
-    buildbucket_id, trybot_image = buildbot_utils.GetTrybotImage(
-        self._chromeos_root,
-        self._build,
-        self._patches,
-        tryjob_flags=['--notests'],
-        build_toolchain=True)
+    if self._recipe:
+      print('Using recipe buckets to get latest image.')
+      # crbug.com/1077313: Some boards are not consistently
+      # spelled, having underscores in some places and dashes in others.
+      # The image directories consistenly use dashes, so convert underscores
+      # to dashes to work around this.
+      trybot_image = buildbot_utils.GetLatestRecipeImage(
+          self._chromeos_root,
+          '%s-llvm-next-nightly' % self._board.replace('_', '-'))
+    else:
+      # Launch tryjob and wait to get image location.
+      buildbucket_id, trybot_image = buildbot_utils.GetTrybotImage(
+          self._chromeos_root,
+          self._build,
+          self._patches,
+          tryjob_flags=['--notests'],
+          build_toolchain=True)
+      print('trybot_url: \
+            http://cros-goldeneye/chromeos/healthmonitoring/buildDetails?buildbucketId=%s'
+            % buildbucket_id)
 
-    print('trybot_url: \
-          http://cros-goldeneye/chromeos/healthmonitoring/buildDetails?buildbucketId=%s'
-          % buildbucket_id)
     if not trybot_image:
       self._l.LogError('Unable to find trybot_image!')
       return 2
 
     vanilla_image = self._GetVanillaImageName(trybot_image)
-    nonafdo_image = self._GetNonAFDOImageName(trybot_image)
 
     print('trybot_image: %s' % trybot_image)
     print('vanilla_image: %s' % vanilla_image)
-    print('nonafdo_image: %s' % nonafdo_image)
 
-    self._TestImages(trybot_image, vanilla_image, nonafdo_image)
-    self._SendEmail()
+    ret = self._TestImages(trybot_image, vanilla_image)
+    # Always try to send report email as crosperf will generate report when
+    # tests partially succeeded.
+    if not self._test:
+      self._SendEmail()
+      self._CopyJson()
+    # Non-zero ret here means crosperf tests partially failed, raise error here
+    # so that toolchain summary report can catch it.
+    if ret != 0:
+      raise RuntimeError('Crosperf tests partially failed!')
+
     return 0
 
 
@@ -331,6 +342,19 @@ def Main(argv):
       action='store_true',
       default=False,
       help='Pass --noschedv2 to crosperf.')
+  parser.add_argument(
+      '--recipe',
+      dest='recipe',
+      default=True,
+      help='Use images generated from recipe rather than'
+      'launching tryjob to get images.')
+  parser.add_argument(
+      '--test',
+      dest='test',
+      default=False,
+      help='Test this script on local desktop, '
+      'disabling mobiletc checking and email sending.'
+      'Artifacts stored in /tmp/toolchain-tests')
 
   options = parser.parse_args(argv[1:])
   if not options.board:
@@ -342,9 +366,15 @@ def Main(argv):
   if not options.chromeos_root:
     print('Please specify the ChromeOS root directory.')
     return 1
+  if options.test:
+    print('Cleaning local test directory for this script.')
+    if os.path.exists(TMP_TOOLCHAIN_TEST):
+      shutil.rmtree(TMP_TOOLCHAIN_TEST)
+    os.mkdir(TMP_TOOLCHAIN_TEST)
 
   fc = ToolchainComparator(options.board, options.remote, options.chromeos_root,
-                           options.weekday, options.patches, options.noschedv2)
+                           options.weekday, options.patches, options.recipe,
+                           options.test, options.noschedv2)
   return fc.DoAll()
 
 

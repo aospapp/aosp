@@ -1,13 +1,19 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """This module provides the utilities for bluetooth audio using chameleon."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import time
 
 from autotest_lib.client.bin import utils
+from six.moves import range
 
 
 _PIN = '0000'
@@ -135,7 +141,7 @@ def pair_legacy_bluetooth_module(bt_adapter, target_mac_address, pin=_PIN,
 
     """
     # Pairs the bluetooth adapter with bluetooth module.
-    for trial in xrange(retries):
+    for trial in range(retries):
         if bt_adapter.pair_legacy_device(
             target_mac_address, pin, False, pairing_timeout):
                 logging.debug('Pairing to %s succeeded', target_mac_address)

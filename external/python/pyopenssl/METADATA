@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/pyca/pyopenssl"
   }
-  version: "19.0.0"
+  version: "20.0.1"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2019
-    month: 5
-    day: 13
+    year: 2020
+    month: 12
+    day: 15
   }
 }

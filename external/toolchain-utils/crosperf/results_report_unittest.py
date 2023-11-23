@@ -57,7 +57,8 @@ class FreeFunctionsTest(unittest.TestCase):
         ParseChromeosImage(os.path.dirname(buildbot_case)),
         ('', os.path.dirname(buildbot_img)))
 
-    # Ensure we don't act completely insanely given a few mildly insane paths.
+    # Ensure we do something reasonable when giving paths that don't quite
+    # match the expected pattern.
     fun_case = '/chromiumos_test_image.bin'
     self.assertEqual(ParseChromeosImage(fun_case), ('', fun_case))
 

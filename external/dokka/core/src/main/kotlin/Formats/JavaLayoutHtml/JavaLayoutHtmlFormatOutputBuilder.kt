@@ -253,7 +253,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                         renderedSignature(receiver.detail(NodeKind.Type), SUMMARY)
                         +"."
                     }
-                    a(href = node) { +node.name }
+                    a(href = node) { +node.prettyName }
                     shortFunctionParametersList(node)
                 }
             }
@@ -392,6 +392,7 @@ open class JavaLayoutHtmlFormatOutputBuilder(
         bodyContent = {
             h1 { +page.node.name }
             nodeContent(page.node)
+            summaryNodeGroup(page.interfaces, "Interfaces", headerAsRow = false) { classLikeRow(it) }
             summaryNodeGroup(page.classes, "Classes", headerAsRow = false) { classLikeRow(it) }
             summaryNodeGroup(page.exceptions, "Exceptions", headerAsRow = false) { classLikeRow(it) }
             summaryNodeGroup(page.typeAliases, "Type-aliases", headerAsRow = false) { classLikeRow(it) }
@@ -1088,6 +1089,8 @@ open class JavaLayoutHtmlFormatOutputBuilder(
                 assert(node.kind == NodeKind.Package)
             }
 
+            val interfaces = node.members(NodeKind.Interface) +
+                    node.members(NodeKind.Class).flatMap { it.members(NodeKind.Interface) }
             val classes = node.members(NodeKind.Class)
             val exceptions = node.members(NodeKind.Exception)
             val typeAliases = node.members(NodeKind.TypeAlias)

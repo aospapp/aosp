@@ -28,7 +28,8 @@ void wpas_notify_state_changed(struct wpa_supplicant *wpa_s,
 			       enum wpa_states old_state);
 void wpas_notify_disconnect_reason(struct wpa_supplicant *wpa_s);
 void wpas_notify_auth_status_code(struct wpa_supplicant *wpa_s);
-void wpas_notify_assoc_status_code(struct wpa_supplicant *wpa_s);
+void wpas_notify_assoc_status_code(struct wpa_supplicant *wpa_s, const u8 *bssid, u8 timed_out,
+				   const u8 *assoc_resp_ie, size_t assoc_resp_ie_len);
 void wpas_notify_auth_timeout(struct wpa_supplicant *wpa_s);
 void wpas_notify_roam_time(struct wpa_supplicant *wpa_s);
 void wpas_notify_roam_complete(struct wpa_supplicant *wpa_s);
@@ -100,6 +101,7 @@ void wpas_notify_p2p_find_stopped(struct wpa_supplicant *wpa_s);
 void wpas_notify_p2p_device_found(struct wpa_supplicant *wpa_s,
 				 const u8 *addr, const struct p2p_peer_info *info,
 				 const u8* peer_wfd_device_info, u8 peer_wfd_device_info_len,
+				 const u8* peer_wfd_r2_device_info, u8 peer_wfd_r2_device_info_len,
 				 int new_device);
 void wpas_notify_p2p_device_lost(struct wpa_supplicant *wpa_s,
 				 const u8 *dev_addr);
@@ -174,6 +176,8 @@ void wpas_notify_hs20_rx_subscription_remediation(struct wpa_supplicant *wpa_s,
 void wpas_notify_hs20_rx_deauth_imminent_notice(struct wpa_supplicant *wpa_s,
 						u8 code, u16 reauth_delay,
 						const char *url);
+void wpas_notify_hs20_rx_terms_and_conditions_acceptance(
+		struct wpa_supplicant *wpa_s, const char *url);
 void wpas_notify_dpp_config_received(struct wpa_supplicant *wpa_s,
 	    struct wpa_ssid *ssid);
 void wpas_notify_dpp_config_sent(struct wpa_supplicant *wpa_s);
@@ -193,5 +197,9 @@ void wpas_notify_dpp_config_accepted(struct wpa_supplicant *wpa_s);
 void wpas_notify_dpp_config_rejected(struct wpa_supplicant *wpa_s);
 void wpas_notify_pmk_cache_added(struct wpa_supplicant *wpa_s,
 				 struct rsn_pmksa_cache_entry *entry);
+void wpas_notify_transition_disable(struct wpa_supplicant *wpa_s,
+				    struct wpa_ssid *ssid,
+				    u8 bitmap);
+void wpas_notify_network_not_found(struct wpa_supplicant *wpa_s);
 
 #endif /* NOTIFY_H */

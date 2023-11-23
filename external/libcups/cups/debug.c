@@ -1,15 +1,10 @@
 /*
  * Debugging functions for CUPS.
  *
- * Copyright 2008-2015 by Apple Inc.
+ * Copyright © 2008-2018 by Apple Inc.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -17,6 +12,7 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #include "thread-private.h"
 #ifdef _WIN32
 #  include <sys/timeb.h>
@@ -41,6 +37,7 @@ _cups_gettimeofday(struct timeval *tv,	/* I  - Timeval struct */
 #include <fcntl.h>
 
 
+#ifdef DEBUG
 /*
  * Globals...
  */
@@ -51,7 +48,6 @@ int			_cups_debug_level = 1;
 					/* Log level (0 to 9) */
 
 
-#ifdef DEBUG
 /*
  * Local globals...
  */
@@ -317,6 +313,24 @@ _cups_debug_set(const char *logfile,	/* I - Log file or NULL */
   }
 
   _cupsMutexUnlock(&debug_init_mutex);
+}
+
+
+#else
+/*
+ * '_cups_debug_set()' - Enable or disable debug logging.
+ */
+
+void
+_cups_debug_set(const char *logfile,	/* I - Log file or NULL */
+		const char *level,	/* I - Log level or NULL */
+		const char *filter,	/* I - Filter string or NULL */
+		int        force)	/* I - Force initialization */
+{
+  (void)logfile;
+  (void)level;
+  (void)filter;
+  (void)force;
 }
 #endif /* DEBUG */
 

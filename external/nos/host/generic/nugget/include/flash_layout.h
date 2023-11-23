@@ -10,7 +10,7 @@
  * The flash memory is implemented in two halves. The SoC bootrom will look for
  * a first-stage bootloader (aka "RO firmware") at the beginning of each of the
  * two halves and prefer the newer one if both are valid. The chosen bootloader
- * also looks in each half of the flash for a valid application image (("RW
+ * also looks in each half of the flash for a valid application image ("RW
  * firmware"), so we have two possible RW images as well. The RO and RW images
  * are not tightly coupled, so either RO image can choose to boot either RW
  * image. RO images are provided by the SoC team, and can be updated separately
@@ -34,5 +34,11 @@
 #define DAUNTLESS_RO_B_MEM_OFF DAUNTLESS_FLASH_HALF
 #define DAUNTLESS_RW_A_MEM_OFF DAUNTLESS_RO_SIZE
 #define DAUNTLESS_RW_B_MEM_OFF (DAUNTLESS_FLASH_HALF + DAUNTLESS_RW_A_MEM_OFF)
+
+/*
+ * Citadel reserves 0x4000 bytes (16K) for its RO firmware. Dauntless can vary,
+ * but the RW firmware will follow RO and be aligned on a 16K boundary.
+ */
+#define FLASH_RW_ALIGNMENT 0x4000
 
 #endif	/* __CROS_EC_FLASH_LAYOUT_H */

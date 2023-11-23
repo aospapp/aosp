@@ -1,10 +1,16 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Helper class for managing charging the DUT with Servo v4."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
+from six.moves import range
 import time
 
 from autotest_lib.client.common_lib import error
@@ -23,6 +29,12 @@ _RETRYS = 3
 _RECOVERY_WAIT_SEC = 1
 # Delay to wait before polling whether the role as been changed successfully.
 _ROLE_SETTLING_DELAY_SEC = 1
+# Timeout in minutes to attempt checking AC information over ssh.
+# Ethernet connection through the v4 flickers on role change. The usb
+# adapter needs to reenumerate and the DUT reconnect before information can be
+# queried. This delay has proven sufficient to overcome this in the current
+# implementation.
+_ETH_REENUMERATE_TIMEOUT_MIN = 1
 
 
 def _invert_role(role):
@@ -46,7 +58,9 @@ class ServoV4ChargeManager(object):
         responds to Servo charging commands. Restore Servo v4 power role after
         sanity check.
 
-        @param host: CrosHost object representing the DUT.
+        @param host: CrosHost object representing the DUT or None.
+                     If host is None, then the is_ac_connected check on the
+                     host object is skipped.
         @param servo: a proxy for servod.
         """
         super(ServoV4ChargeManager, self).__init__()
@@ -142,7 +156,8 @@ class ServoV4ChargeManager(object):
         time.sleep(_ROLE_SETTLING_DELAY_SEC)
 
         if not verify:
-          return
+            return
+
         @retry.retry(error.TestError, timeout_min=_TIMEOUT_MIN,
                      delay_sec=_DELAY_SEC, backoff=_BACKOFF)
         def check_servo_role(role):
@@ -175,23 +190,14 @@ class ServoV4ChargeManager(object):
 
         check_ac_connected(connected)
 
-        @retry.retry(error.TestError, timeout_min=_TIMEOUT_MIN,
+        @retry.retry(error.TestError, timeout_min=_ETH_REENUMERATE_TIMEOUT_MIN,
                      delay_sec=_DELAY_SEC, backoff=_BACKOFF)
         def check_host_ac(connected):
             """Check if DUT AC power is as expected, if not, retry."""
             if self._host.is_ac_connected() != connected:
                 intent = 'connect' if connected else 'disconnect'
                 raise error.TestError('DUT failed to %s AC power.'% intent)
-        # TODO(b:143467862): Replace this try/except with a servo.has_control()
-        # test once Sarien servo overlay correctly says that Sarien does not
-        # have this control.
-        try:
-            power_state = self._servo.get('ec_system_powerstate')
-        except error.TestFail:
-            logging.warn('Could not verify that the DUT observes power as the '
-                          '%r control is not available on servod.',
-                          'ec_system_powerstate')
-            power_state = None
-        if power_state == 'S0':
+
+        if self._host and self._host.is_up_fast():
             # If the DUT has been charging in S3/S5/G3, cannot verify.
             check_host_ac(connected)

@@ -27,6 +27,7 @@ import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.VersionInfo;
 
 public class CLDRConfig extends Properties {
+    public static boolean SKIP_SEED = System.getProperty("CLDR_SKIP_SEED") != null;
     /**
      *
      */
@@ -62,7 +63,7 @@ public class CLDRConfig extends Properties {
      * Object to use for synchronization when interacting with Factory
      */
     private static final Object ANNOTATIONS_FACTORY_SYNC = new Object();
-    
+
     /**
      * Object to use for synchronization when interacting with Factory
      */
@@ -98,7 +99,7 @@ public class CLDRConfig extends Properties {
         SMOKETEST, // staging area
         PRODUCTION, // production server!
         UNITTEST // unit test setting
-    };
+    }
 
     public static CLDRConfig getInstance() {
         synchronized (CLDRConfig.class) {
@@ -172,6 +173,7 @@ public class CLDRConfig extends Properties {
         .maximumSize(200)
         .build(
             new CacheLoader<String, CLDRFile>() {
+                @Override
                 public CLDRFile load(String locale) {
                     return getFullCldrFactory().make(locale, true);
                 }
@@ -182,6 +184,7 @@ public class CLDRConfig extends Properties {
         .maximumSize(1000)
         .build(
             new CacheLoader<String, CLDRFile>() {
+                @Override
                 public CLDRFile load(String locale) {
                     return getFullCldrFactory().make(locale, false);
                 }
@@ -319,8 +322,8 @@ public class CLDRConfig extends Properties {
                 File[] paths = {
                     new File(CLDRPaths.MAIN_DIRECTORY),
                     new File(CLDRPaths.ANNOTATIONS_DIRECTORY),
-                    new File(CLDRPaths.SEED_DIRECTORY),
-                    new File(CLDRPaths.SEED_ANNOTATIONS_DIRECTORY)
+                    SKIP_SEED ? null : new File(CLDRPaths.SEED_DIRECTORY),
+                        SKIP_SEED ? null : new File(CLDRPaths.SEED_ANNOTATIONS_DIRECTORY)
                 };
                 commonAndSeedAndMainAndAnnotationsFactory = SimpleFactory.make(paths, ".*");
             }
@@ -332,8 +335,8 @@ public class CLDRConfig extends Properties {
         synchronized (FULL_FACTORY_SYNC) {
             if (fullFactory == null) {
                 File[] paths = {
-                    new File(CLDRPaths.MAIN_DIRECTORY), 
-                    new File(CLDRPaths.SEED_DIRECTORY)};
+                    new File(CLDRPaths.MAIN_DIRECTORY),
+                    SKIP_SEED ? null : new File(CLDRPaths.SEED_DIRECTORY)};
                 fullFactory = SimpleFactory.make(paths, ".*");
             }
         }
@@ -412,7 +415,7 @@ public class CLDRConfig extends Properties {
         return result;
     }
 
-    private Set<String> shown = new HashSet<String>();
+    private Set<String> shown = new HashSet<>();
 
     private Map<String, String> localSet = null;
 
@@ -485,7 +488,7 @@ public class CLDRConfig extends Properties {
             throw new InternalError("setProperty() only valid in UNITTEST Environment.");
         }
         if (localSet == null) {
-            localSet = new ConcurrentHashMap<String, String>();
+            localSet = new ConcurrentHashMap<>();
         }
         shown.remove(k); // show it again with -D
         return localSet.put(k, v);
@@ -531,13 +534,28 @@ public class CLDRConfig extends Properties {
         }
     }
 
-    public File getCldrBaseDirectory() {
-        String dir = getProperty("CLDR_DIR", null);
-        if (dir != null) {
-            return new File(dir);
-        } else {
-            return null;
+    private static class FileWrapper {
+        private File cldrDir = null;
+        private FileWrapper() {
+            String dir = getInstance().getProperty("CLDR_DIR", null);
+            if (dir != null) {
+                cldrDir = new File(dir);
+            } else {
+                cldrDir = null;
+            }
         }
+        public File getCldrDir() {
+            return this.cldrDir;
+        }
+        // singleton
+        private static FileWrapper fileWrapperInstance = new FileWrapper();
+        public static FileWrapper getFileWrapperInstance() {
+            return fileWrapperInstance;
+        }
+    }
+
+    public File getCldrBaseDirectory() {
+        return FileWrapper.getFileWrapperInstance().getCldrDir();
     }
 
     /**
@@ -546,6 +564,7 @@ public class CLDRConfig extends Properties {
      */
     public Set<File> getAllCLDRFilesEndingWith(final String suffix) {
         FilenameFilter filter = new FilenameFilter() {
+            @Override
             public boolean accept(File dir, String name) {
                 return name.endsWith(suffix) && !isJunkFile(name); // skip junk and backup files
             }
@@ -564,7 +583,7 @@ public class CLDRConfig extends Properties {
      */
     public Set<File> getCLDRFilesMatching(FilenameFilter filter, final File baseDir) {
         Set<File> list;
-        list = new LinkedHashSet<File>();
+        list = new LinkedHashSet<>();
         for (String subdir : getCLDRDataDirectories()) {
             getFilesRecursively(new File(baseDir, subdir), filter, list);
         }

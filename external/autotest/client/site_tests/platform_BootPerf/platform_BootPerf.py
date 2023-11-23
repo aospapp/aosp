@@ -4,8 +4,8 @@
 
 import glob
 import logging
-import os
 import re
+import os
 import shutil
 import time
 import utils
@@ -130,7 +130,7 @@ class platform_BootPerf(test.test):
             except Exception:
                 pass
 
-    def _parse_bootstat(self, filename, fieldnum):
+    def _parse_bootstat(self, filename, fieldnum, required=False):
         """Read values from a bootstat event file.
 
         Each line of a bootstat event file represents one occurrence
@@ -153,6 +153,19 @@ class platform_BootPerf(test.test):
 
         """
         try:
+            # crbug.com/1098635: racing with chrome browser
+            #  See external/chromium_org/chrome/browser/chromeos/boot_times_loader.cc
+            if required:
+                cnt = 0
+                while cnt < 30:
+                    if os.path.exists(filename):
+                        break
+                    time.sleep(1)
+                    cnt += 1
+
+                if cnt :
+                    logging.warning("Waited %d seconds for bootstat file: %s", cnt, filename)
+
             with open(filename) as statfile:
                 values = map(lambda l: float(l.split()[fieldnum]),
                              statfile.readlines())
@@ -162,7 +175,7 @@ class platform_BootPerf(test.test):
                                  filename)
 
 
-    def _parse_uptime(self, eventname, bootstat_dir='/tmp', index=0):
+    def _parse_uptime(self, eventname, bootstat_dir='/tmp', index=0, required=False):
         """Return time since boot for a bootstat event.
 
         @param eventname        Name of the bootstat event.
@@ -170,6 +183,7 @@ class platform_BootPerf(test.test):
                                 files.
         @param index            Index of which occurrence of the event
                                 to select.
+        @param required         If the parameter is required, wait for it.
         @return                 Time since boot for the selected
                                 event.
 
@@ -198,20 +212,28 @@ class platform_BootPerf(test.test):
     def _gather_firmware_boot_time(self, results):
         """Read and report firmware startup time.
 
-        The boot process writes the firmware startup time to the
-        file named in `_FIRMWARE_TIME_FILE`.  Read the time from that
-        file, and record it in `results` as the keyval
-        seconds_power_on_to_kernel.
+        send-boot-metrics.cong writes the firmware startup time to the
+        file named in `_FIRMWARE_TIME_FILE`.  Read the time and record
+        it in `results` as the keyval seconds_power_on_to_kernel.
 
         @param results  Keyvals dictionary.
 
         """
-        try:
-            # If the firmware boot time is not available, the file
-            # will not exist.
-            data = utils.read_one_line(self._FIRMWARE_TIME_FILE)
-        except IOError:
-            return
+
+        # crbug.com/1098635 - don't race with send-boot-metrics.conf
+        # TODO(grundler): directly read the firmware_time instead of depending
+        # on send-boot-metrics to create _FIRMWARE_TIME_FILE.
+        cnt = 1
+        while cnt < 60:
+            if  os.path.exists(self._FIRMWARE_TIME_FILE):
+                break
+            time.sleep(1)
+            cnt += 1
+
+        # If the firmware boot time is not available, the file
+        # will not exist and we should throw an exception here.
+        data = utils.read_one_line(self._FIRMWARE_TIME_FILE)
+
         firmware_time = float(data)
         boot_time = results['seconds_kernel_to_login']
         results['seconds_power_on_to_kernel'] = firmware_time
@@ -242,7 +264,7 @@ class platform_BootPerf(test.test):
         for keyval_name, event_name, required in self._EVENT_KEYVALS:
             key = 'seconds_' + keyval_name
             try:
-                results[key] = self._parse_uptime(event_name)
+                results[key] = self._parse_uptime(event_name, required=required)
             except error.TestFail:
                 if required:
                     raise;
@@ -439,3 +461,22 @@ class platform_BootPerf(test.test):
         self._copy_console_ramoops()
 
         self.write_perf_keyval(results)
+
+        if utils.system('crossystem mainfw_type?normal',
+                        ignore_status=True) != 0:
+            raise error.TestNAError(
+                    'Firmware boot times are not accurate in developer mode. '
+                    'Please run this test in normal mode.')
+        if 'EC returned from reboot' in utils.system_output('cbmem -1'):
+            raise error.TestNAError(
+                    'Firmware boot times should be measured without an EC reboot. '
+                    'Please warm reboot this system by running the "reboot" userspace command, then rerun the test.'
+            )
+        # This is looking for the LB_TAG_SERIAL entry in the coreboot table.
+        # 0x0000000f = tag, 0x00000020 = size, 0x0001c200 = 115200 baud.
+        if re.search('\x0f\0\0\0\x20\0\0\0........\0\xc2\x01\0',
+                     utils.system_output('cbmem -r 43425442')):
+            raise error.TestNAError(
+                    'Firmware boot times should be measured without serial output. '
+                    'Please rerun this test with a production image (image.bin, not image.dev.bin).'
+            )

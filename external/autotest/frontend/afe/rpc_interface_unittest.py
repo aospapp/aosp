@@ -238,7 +238,7 @@ class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
 
 
     def _testResendHostsAfterFailedHeartbeatHelper(self, host1):
-        """Check that master accepts resending updated records after failure."""
+        """Check that main accepts resending updated records after failure."""
         # Send the host
         self._do_heartbeat_and_assert_response(hosts=[host1])
 
@@ -1171,20 +1171,20 @@ class RpcInterfaceTest(unittest.TestCase,
 
         host = models.Host.objects.get(pk=host.id)
         if on_shard:
-            # modify_host on shard does nothing but routing the RPC to master.
+            # modify_host on shard does nothing but routing the RPC to main.
             self.assertFalse(host.locked)
         else:
             self.assertTrue(host.locked)
         self.god.check_playback()
 
 
-    def test_modify_host_on_master_host_on_master(self):
-        """Call modify_host to master for host in master."""
+    def test_modify_host_on_main_host_on_main(self):
+        """Call modify_host to main for host in main."""
         self._modify_host_helper()
 
 
-    def test_modify_host_on_master_host_on_shard(self):
-        """Call modify_host to master for host in shard."""
+    def test_modify_host_on_main_host_on_shard(self):
+        """Call modify_host to main for host in shard."""
         self._modify_host_helper(host_on_shard=True)
 
 
@@ -1193,7 +1193,7 @@ class RpcInterfaceTest(unittest.TestCase,
         self._modify_host_helper(on_shard=True, host_on_shard=True)
 
 
-    def test_modify_hosts_on_master_host_on_shard(self):
+    def test_modify_hosts_on_main_host_on_shard(self):
         """Ensure calls to modify_hosts are correctly forwarded to shards."""
         host1 = models.Host.objects.all()[0]
         host2 = models.Host.objects.all()[1]
@@ -1213,8 +1213,8 @@ class RpcInterfaceTest(unittest.TestCase,
                                                   'MockAFE')
         self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
 
-        # The statuses of one host might differ on master and shard.
-        # Filters are always applied on the master. So the host on the shard
+        # The statuses of one host might differ on main and shard.
+        # Filters are always applied on the main. So the host on the shard
         # will be affected no matter what his status is.
         filters_to_use = {'status': 'Ready'}
 
@@ -1618,7 +1618,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
             job_id)
 
 
-    def _get_records_for_sending_to_master(self):
+    def _get_records_for_sending_to_main(self):
         return [{'control_file': 'foo',
                  'control_type': 1,
                  'created_on': datetime.datetime(2014, 8, 21),
@@ -1652,9 +1652,9 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                 }]
 
 
-    def _send_records_to_master_helper(
+    def _send_records_to_main_helper(
         self, jobs, hqes, shard_hostname='host1',
-        exception_to_throw=error.UnallowedRecordsSentToMaster, aborted=False):
+        exception_to_throw=error.UnallowedRecordsSentToMain, aborted=False):
         job_id = rpc_interface.create_job(
                 name='dummy',
                 priority=self._PRIORITY,
@@ -1684,11 +1684,11 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                 upload_jobs=jobs, upload_hqes=hqes)
 
 
-    def testSendingRecordsToMaster(self):
-        """Send records to the master and ensure they are persisted."""
-        jobs, hqes = self._get_records_for_sending_to_master()
+    def testSendingRecordsToMain(self):
+        """Send records to the main and ensure they are persisted."""
+        jobs, hqes = self._get_records_for_sending_to_main()
         hqes[0]['status'] = 'Completed'
-        self._send_records_to_master_helper(
+        self._send_records_to_main_helper(
             jobs=jobs, hqes=hqes, exception_to_throw=None)
 
         # Check the entry was actually written to db
@@ -1696,11 +1696,11 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                          'Completed')
 
 
-    def testSendingRecordsToMasterAbortedOnMaster(self):
-        """Send records to the master and ensure they are persisted."""
-        jobs, hqes = self._get_records_for_sending_to_master()
+    def testSendingRecordsToMainAbortedOnMain(self):
+        """Send records to the main and ensure they are persisted."""
+        jobs, hqes = self._get_records_for_sending_to_main()
         hqes[0]['status'] = 'Completed'
-        self._send_records_to_master_helper(
+        self._send_records_to_main_helper(
             jobs=jobs, hqes=hqes, exception_to_throw=None, aborted=True)
 
         # Check the entry was actually written to db
@@ -1708,7 +1708,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                          'Completed')
 
 
-    def testSendingRecordsToMasterJobAssignedToDifferentShard(self):
+    def testSendingRecordsToMainJobAssignedToDifferentShard(self):
         """Ensure records belonging to different shard are silently rejected."""
         shard1 = models.Shard.objects.create(hostname='shard1')
         shard2 = models.Shard.objects.create(hostname='shard2')
@@ -1749,12 +1749,12 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                          'Aborted')
 
 
-    def testSendingRecordsToMasterNotExistingJob(self):
+    def testSendingRecordsToMainNotExistingJob(self):
         """Ensure update for non existing job gets rejected."""
-        jobs, hqes = self._get_records_for_sending_to_master()
+        jobs, hqes = self._get_records_for_sending_to_main()
         jobs[0]['id'] = 3
 
-        self._send_records_to_master_helper(
+        self._send_records_to_main_helper(
             jobs=jobs, hqes=hqes)
 
 

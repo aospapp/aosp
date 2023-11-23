@@ -29,6 +29,30 @@
 #define IDMAP_LEN 32U
 #define DEFAULT_TMP_SIZE (64 * 1024 * 1024)
 
+/*
+ * A malloc() that aborts on failure.  We only implement this in the CLI as
+ * the library should return ENOMEM errors when allocations fail.
+ */
+static void *xmalloc(size_t size)
+{
+	void *ret = malloc(size);
+	if (!ret) {
+		perror("malloc() failed");
+		exit(1);
+	}
+	return ret;
+}
+
+static char *xstrdup(const char *s)
+{
+	char *ret = strdup(s);
+	if (!ret) {
+		perror("strdup() failed");
+		exit(1);
+	}
+	return ret;
+}
+
 static void set_user(struct minijail *j, const char *arg, uid_t *out_uid,
 		     gid_t *out_gid)
 {
@@ -40,13 +64,16 @@ static void set_user(struct minijail *j, const char *arg, uid_t *out_uid,
 		return;
 	}
 
-	if (lookup_user(arg, out_uid, out_gid)) {
-		fprintf(stderr, "Bad user: '%s'\n", arg);
+	int ret = lookup_user(arg, out_uid, out_gid);
+	if (ret) {
+		fprintf(stderr, "Bad user '%s': %s\n", arg, strerror(-ret));
 		exit(1);
 	}
 
-	if (minijail_change_user(j, arg)) {
-		fprintf(stderr, "Bad user: '%s'\n", arg);
+	ret = minijail_change_user(j, arg);
+	if (ret) {
+		fprintf(stderr, "minijail_change_user('%s') failed: %s\n", arg,
+			strerror(-ret));
 		exit(1);
 	}
 }
@@ -61,15 +88,13 @@ static void set_group(struct minijail *j, const char *arg, gid_t *out_gid)
 		return;
 	}
 
-	if (lookup_group(arg, out_gid)) {
-		fprintf(stderr, "Bad group: '%s'\n", arg);
+	int ret = lookup_group(arg, out_gid);
+	if (ret) {
+		fprintf(stderr, "Bad group '%s': %s\n", arg, strerror(-ret));
 		exit(1);
 	}
 
-	if (minijail_change_group(j, arg)) {
-		fprintf(stderr, "Bad group: '%s'\n", arg);
-		exit(1);
-	}
+	minijail_change_gid(j, *out_gid);
 }
 
 /*
@@ -81,15 +106,16 @@ static void suppl_group_add(size_t *suppl_gids_count, gid_t **suppl_gids,
 	char *end = NULL;
 	int groupid = strtod(arg, &end);
 	gid_t gid;
+	int ret;
 	if (!*end && *arg) {
 		/* A gid number has been specified, proceed. */
 		gid = groupid;
-	} else if (lookup_group(arg, &gid)) {
+	} else if ((ret = lookup_group(arg, &gid))) {
 		/*
 		 * A group name has been specified,
 		 * but doesn't exist: we bail out.
 		 */
-		fprintf(stderr, "Bad group: '%s'\n", arg);
+		fprintf(stderr, "Bad group '%s': %s\n", arg, strerror(-ret));
 		exit(1);
 	}
 
@@ -287,7 +313,7 @@ static void add_mount(struct minijail *j, char *arg)
 static char *build_idmap(id_t id, id_t lowerid)
 {
 	int ret;
-	char *idmap = malloc(IDMAP_LEN);
+	char *idmap = xmalloc(IDMAP_LEN);
 	ret = snprintf(idmap, IDMAP_LEN, "%d %d 1", id, lowerid);
 	if (ret < 0 || (size_t)ret >= IDMAP_LEN) {
 		free(idmap);
@@ -485,12 +511,7 @@ static void read_seccomp_filter(const char *filter_path,
 	rewind(f);
 
 	filter->len = filter_size / sizeof(struct sock_filter);
-	filter->filter = malloc(filter_size);
-	if (!filter->filter) {
-		fclose(f);
-		fprintf(stderr, "failed to allocate memory for filter: %m");
-		exit(1);
-	}
+	filter->filter = xmalloc(filter_size);
 	if (fread(filter->filter, sizeof(struct sock_filter), filter->len, f) !=
 	    filter->len) {
 		fclose(f);
@@ -506,7 +527,7 @@ static void usage(const char *progn)
 	/* clang-format off */
 	printf("Usage: %s [-dGhHiIKlLnNprRstUvyYz]\n"
 	       "  [-a <table>]\n"
-	       "  [-b <src>[,<dest>[,<writeable>]]] [-k <src>,<dest>,<type>[,<flags>[,<data>]]]\n"
+	       "  [-b <src>[,[dest][,<writeable>]]] [-k <src>,<dest>,<type>[,<flags>[,<data>]]]\n"
 	       "  [-c <caps>] [-C <dir>] [-P <dir>] [-e[file]] [-f <file>] [-g <group>]\n"
 	       "  [-m[<uid> <loweruid> <count>]*] [-M[<gid> <lowergid> <count>]*] [--profile <name>]\n"
 	       "  [-R <type,cur,max>] [-S <file>] [-t[size]] [-T <type>] [-u <user>] [-V <file>]\n"
@@ -599,7 +620,9 @@ static void usage(const char *progn)
 	       "                E.g., '-S /usr/share/filters/<prog>.$(uname -m).bpf'.\n"
 	       "                Requires -n when not running as root.\n"
 	       "                The user is responsible for ensuring that the binary\n"
-	       "                was compiled for the correct architecture / kernel version.\n");
+	       "                was compiled for the correct architecture / kernel version.\n"
+	       "  --allow-speculative-execution:Allow speculative execution and disable\n"
+	       "                mitigations for speculative execution attacks.\n");
 	/* clang-format on */
 }
 
@@ -624,6 +647,7 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 	int binding = 0;
 	int chroot = 0, pivot_root = 0;
 	int mount_ns = 0, change_remount = 0;
+	const char *remount_mode = NULL;
 	int inherit_suppl_gids = 0, keep_suppl_gids = 0;
 	int caps = 0, ambient_caps = 0;
 	int seccomp = -1;
@@ -651,6 +675,7 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 		{"preload-library", required_argument, 0, 132},
 		{"seccomp-bpf-binary", required_argument, 0, 133},
 		{"add-suppl-group", required_argument, 0, 134},
+		{"allow-speculative-execution", no_argument, 0, 135},
 		{0, 0, 0, 0},
 	};
 	/* clang-format on */
@@ -725,11 +750,7 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			add_mount(j, optarg);
 			break;
 		case 'K':
-			if (optarg) {
-				set_remount_mode(j, optarg);
-			} else {
-				minijail_skip_remount_private(j);
-			}
+			remount_mode = optarg;
 			change_remount = 1;
 			break;
 		case 'P':
@@ -759,6 +780,37 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			break;
 		case 'v':
 			minijail_namespace_vfs(j);
+			/*
+			 * Set the default mount propagation in the command-line
+			 * tool to MS_SLAVE.
+			 *
+			 * When executing the sandboxed program in a new mount
+			 * namespace the Minijail library will by default
+			 * remount all mounts with the MS_PRIVATE flag. While
+			 * this is an appropriate, safe default for the library,
+			 * MS_PRIVATE can be problematic: unmount events will
+			 * not propagate into mountpoints marked as MS_PRIVATE.
+			 * This means that if a mount is unmounted in the root
+			 * mount namespace, it will not be unmounted in the
+			 * non-root mount namespace.
+			 * This in turn can be problematic because activity in
+			 * the non-root mount namespace can now directly
+			 * influence the root mount namespace (e.g. preventing
+			 * re-mounts of said mount), which would be a privilege
+			 * inversion.
+			 *
+			 * Setting the default in the command-line to MS_SLAVE
+			 * will still prevent mounts from leaking out of the
+			 * non-root mount namespace but avoid these
+			 * privilege-inversion issues.
+			 * For cases where mounts should not flow *into* the
+			 * namespace either, the user can pass -Kprivate.
+			 * Note that mounts are marked as MS_PRIVATE by default
+			 * by the kernel, so unless the init process (like
+			 * systemd) or something else marks them as shared, this
+			 * won't do anything.
+			 */
+			minijail_remount_mode(j, MS_SLAVE);
 			mount_ns = 1;
 			break;
 		case 'V':
@@ -818,7 +870,7 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 				uidmap = NULL;
 			}
 			if (optarg)
-				uidmap = strdup(optarg);
+				uidmap = xstrdup(optarg);
 			break;
 		case 'M':
 			set_gidmap = 1;
@@ -827,7 +879,7 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 				gidmap = NULL;
 			}
 			if (optarg)
-				gidmap = strdup(optarg);
+				gidmap = xstrdup(optarg);
 			break;
 		case 'a':
 			if (0 != minijail_use_alt_syscall(j, optarg)) {
@@ -908,6 +960,9 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			suppl_group_add(&suppl_gids_count, &suppl_gids,
 			                optarg);
 			break;
+		case 135:
+			minijail_set_seccomp_filter_allow_speculation(j);
+			break;
 		default:
 			usage(argv[0]);
 			exit(opt == 'h' ? 0 : 1);
@@ -967,6 +1022,15 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 				"without -v (new mount namespace).\n"
 				"Do you need to add '-v' explicitly?\n");
 		exit(1);
+	}
+
+	/* Configure the remount flag here to avoid having -v override it. */
+	if (change_remount) {
+		if (remount_mode != NULL) {
+			set_remount_mode(j, remount_mode);
+		} else {
+			minijail_skip_remount_private(j);
+		}
 	}
 
 	/*

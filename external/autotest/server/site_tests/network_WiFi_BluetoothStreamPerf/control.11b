@@ -4,10 +4,11 @@
 
 AUTHOR = 'bfreed'
 NAME = 'network_WiFi_BluetoothStreamPerf.11b'
-ATTRIBUTES = 'suite:wifi_perf'
+# TODO(b/168842922) Schedule the test when it is fixed
+ATTRIBUTES = ''
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'wificell, chameleon:bt_a2dp_sink'
+DEPENDENCIES = 'wificell, working_bluetooth_btpeer:1'
 
 DOC = """
 This test uses netperf to measure the maximal receiving and transmitting
@@ -19,10 +20,11 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros.network import hostap_config
 
 args_dict = utils.args_to_dict(args)
-chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
+btpeer_args = hosts.CrosHost.get_btpeer_arguments(args_dict)
 
 def run(machine):
-    host = hosts.create_host(machine, chameleon_args=chameleon_args)
+    host = hosts.create_host(machine)
+    host.initialize_btpeer(btpeer_args)
     mode = hostap_config.HostapConfig.MODE_11B
     configs = [hostap_config.HostapConfig(channel=channel, mode=mode)
                for channel in (6,)]

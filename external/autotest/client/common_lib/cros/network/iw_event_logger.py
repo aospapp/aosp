@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,7 +7,7 @@ import collections
 import logging
 import os
 import re
-import StringIO
+import six
 
 IW_REMOTE_EVENT_LOG_FILE_NAME = 'iw_event.log'
 
@@ -101,9 +102,9 @@ class IwEventLogger(object):
 
         """
         iw_log = self._host.run('cat %s' % self._iw_event_log_path).stdout
-        iw_log_file = StringIO.StringIO(iw_log)
+        iw_log_file = six.StringIO(iw_log)
         for line in iw_log_file.readlines():
-            parse_line = re.match('\s*(\d+).(\d+): (\w.*): (\w.*)', line)
+            parse_line = re.match('\s*(\d+).(\d+): (\w[^:]*): (\w.*)', line)
             if parse_line:
                 time_integer = parse_line.group(1)
                 time_decimal = parse_line.group(2)
@@ -181,6 +182,6 @@ class IwEventLogger(object):
                 "Deauthenticated" event is detected in the iw event log.
         """
         for entry in self.get_log_entries():
-          if self._check_message_for_disconnect(entry.message):
+            if self._check_message_for_disconnect(entry.message):
                 return entry.timestamp - self._start_time
         return None

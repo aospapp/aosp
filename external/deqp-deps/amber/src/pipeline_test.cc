@@ -31,26 +31,26 @@ class PipelineTest : public testing::Test {
  public:
   void TearDown() override {
     color_buffer_ = nullptr;
-    depth_buffer_ = nullptr;
+    depth_stencil_buffer_ = nullptr;
   }
 
   void SetupColorAttachment(Pipeline* p, uint32_t location) {
     if (!color_buffer_)
       color_buffer_ = p->GenerateDefaultColorAttachmentBuffer();
 
-    p->AddColorAttachment(color_buffer_.get(), location);
+    p->AddColorAttachment(color_buffer_.get(), location, 0);
   }
 
-  void SetupDepthAttachment(Pipeline* p) {
-    if (!depth_buffer_)
-      depth_buffer_ = p->GenerateDefaultDepthAttachmentBuffer();
+  void SetupDepthStencilAttachment(Pipeline* p) {
+    if (!depth_stencil_buffer_)
+      depth_stencil_buffer_ = p->GenerateDefaultDepthStencilAttachmentBuffer();
 
-    p->SetDepthBuffer(depth_buffer_.get());
+    p->SetDepthStencilBuffer(depth_stencil_buffer_.get());
   }
 
  private:
   std::unique_ptr<Buffer> color_buffer_;
-  std::unique_ptr<Buffer> depth_buffer_;
+  std::unique_ptr<Buffer> depth_stencil_buffer_;
 };
 
 TEST_F(PipelineTest, AddShader) {
@@ -185,7 +185,7 @@ TEST_F(PipelineTest, SetOptimizationForInvalidShader) {
 
 TEST_F(PipelineTest, GraphicsPipelineRequiresColorAttachment) {
   Pipeline p(PipelineType::kGraphics);
-  SetupDepthAttachment(&p);
+  SetupDepthStencilAttachment(&p);
 
   Result r = p.Validate();
   ASSERT_FALSE(r.IsSuccess());
@@ -199,7 +199,7 @@ TEST_F(PipelineTest, GraphicsPipelineRequiresVertexAndFragmentShader) {
 
   Pipeline p(PipelineType::kGraphics);
   SetupColorAttachment(&p, 0);
-  SetupDepthAttachment(&p);
+  SetupDepthStencilAttachment(&p);
 
   Result r = p.AddShader(&v, kShaderTypeVertex);
   EXPECT_TRUE(r.IsSuccess()) << r.Error();
@@ -220,7 +220,7 @@ TEST_F(PipelineTest, GraphicsPipelineMissingVertexShader) {
 
   Pipeline p(PipelineType::kGraphics);
   SetupColorAttachment(&p, 0);
-  SetupDepthAttachment(&p);
+  SetupDepthStencilAttachment(&p);
 
   Result r = p.AddShader(&g, kShaderTypeGeometry);
   EXPECT_TRUE(r.IsSuccess()) << r.Error();
@@ -238,7 +238,7 @@ TEST_F(PipelineTest, ComputePipelineRequiresComputeShader) {
 
   Pipeline p(PipelineType::kCompute);
   SetupColorAttachment(&p, 0);
-  SetupDepthAttachment(&p);
+  SetupDepthStencilAttachment(&p);
 
   Result r = p.AddShader(&c, kShaderTypeCompute);
   EXPECT_TRUE(r.IsSuccess()) << r.Error();
@@ -250,7 +250,7 @@ TEST_F(PipelineTest, ComputePipelineRequiresComputeShader) {
 TEST_F(PipelineTest, ComputePipelineWithoutShader) {
   Pipeline p(PipelineType::kCompute);
   SetupColorAttachment(&p, 0);
-  SetupDepthAttachment(&p);
+  SetupDepthStencilAttachment(&p);
 
   Result r = p.Validate();
   EXPECT_FALSE(r.IsSuccess()) << r.Error();
@@ -260,9 +260,9 @@ TEST_F(PipelineTest, ComputePipelineWithoutShader) {
 TEST_F(PipelineTest, PipelineBufferWithoutFormat) {
   Pipeline p(PipelineType::kCompute);
 
-  auto buf = MakeUnique<Buffer>(BufferType::kStorage);
+  auto buf = MakeUnique<Buffer>();
   buf->SetName("MyBuffer");
-  p.AddBuffer(buf.get(), 0, 0);
+  p.AddBuffer(buf.get(), BufferType::kStorage, 0, 0, 0, 0);
 
   Result r = p.Validate();
   EXPECT_FALSE(r.IsSuccess()) << r.Error();
@@ -343,7 +343,7 @@ TEST_F(PipelineTest, Clone) {
   p.SetFramebufferHeight(600);
 
   SetupColorAttachment(&p, 0);
-  SetupDepthAttachment(&p);
+  SetupDepthStencilAttachment(&p);
 
   Shader f(kShaderTypeFragment);
   p.AddShader(&f, kShaderTypeFragment);
@@ -351,21 +351,25 @@ TEST_F(PipelineTest, Clone) {
   p.AddShader(&v, kShaderTypeVertex);
   p.SetShaderEntryPoint(&v, "my_main");
 
-  auto vtex_buf = MakeUnique<Buffer>(BufferType::kVertex);
+  auto vtex_buf = MakeUnique<Buffer>();
   vtex_buf->SetName("vertex_buffer");
-  p.AddVertexBuffer(vtex_buf.get(), 1);
+  TypeParser parser;
+  auto int_type = parser.Parse("R32_SINT");
+  auto int_fmt = MakeUnique<Format>(int_type.get());
+  p.AddVertexBuffer(vtex_buf.get(), 1, InputRate::kVertex, int_fmt.get(), 5,
+                    10);
 
-  auto idx_buf = MakeUnique<Buffer>(BufferType::kIndex);
+  auto idx_buf = MakeUnique<Buffer>();
   idx_buf->SetName("Index Buffer");
   p.SetIndexBuffer(idx_buf.get());
 
-  auto buf1 = MakeUnique<Buffer>(BufferType::kStorage);
+  auto buf1 = MakeUnique<Buffer>();
   buf1->SetName("buf1");
-  p.AddBuffer(buf1.get(), 1, 1);
+  p.AddBuffer(buf1.get(), BufferType::kStorage, 1, 1, 0, 0);
 
-  auto buf2 = MakeUnique<Buffer>(BufferType::kStorage);
+  auto buf2 = MakeUnique<Buffer>();
   buf2->SetName("buf2");
-  p.AddBuffer(buf2.get(), 1, 2);
+  p.AddBuffer(buf2.get(), BufferType::kStorage, 1, 2, 0, 16);
 
   auto clone = p.Clone();
   EXPECT_EQ("", clone->GetName());
@@ -385,16 +389,22 @@ TEST_F(PipelineTest, Clone) {
   ASSERT_EQ(1U, vtex_buffers.size());
   EXPECT_EQ(1, vtex_buffers[0].location);
   EXPECT_EQ("vertex_buffer", vtex_buffers[0].buffer->GetName());
+  EXPECT_EQ(InputRate::kVertex, vtex_buffers[0].input_rate);
+  EXPECT_EQ(FormatType::kR32_SINT, vtex_buffers[0].format->GetFormatType());
+  EXPECT_EQ(5, vtex_buffers[0].offset);
+  EXPECT_EQ(10, vtex_buffers[0].stride);
 
   auto bufs = clone->GetBuffers();
   ASSERT_EQ(2U, bufs.size());
   EXPECT_EQ("buf1", bufs[0].buffer->GetName());
   EXPECT_EQ(1U, bufs[0].descriptor_set);
   EXPECT_EQ(1U, bufs[0].binding);
+  EXPECT_EQ(0U, bufs[0].dynamic_offset);
 
   EXPECT_EQ("buf2", bufs[1].buffer->GetName());
   EXPECT_EQ(1U, bufs[1].descriptor_set);
   EXPECT_EQ(2U, bufs[1].binding);
+  EXPECT_EQ(16U, bufs[1].dynamic_offset);
 }
 
 TEST_F(PipelineTest, OpenCLUpdateBindings) {
@@ -422,13 +432,13 @@ TEST_F(PipelineTest, OpenCLUpdateBindings) {
   entry2.arg_ordinal = 1;
   p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry2));
 
-  auto a_buf = MakeUnique<Buffer>(BufferType::kStorage);
+  auto a_buf = MakeUnique<Buffer>();
   a_buf->SetName("buf1");
-  p.AddBuffer(a_buf.get(), "arg_a");
+  p.AddBuffer(a_buf.get(), BufferType::kStorage, "arg_a");
 
-  auto b_buf = MakeUnique<Buffer>(BufferType::kStorage);
+  auto b_buf = MakeUnique<Buffer>();
   b_buf->SetName("buf2");
-  p.AddBuffer(b_buf.get(), 1);
+  p.AddBuffer(b_buf.get(), BufferType::kStorage, 1);
 
   p.UpdateOpenCLBufferBindings();
 
@@ -467,18 +477,68 @@ TEST_F(PipelineTest, OpenCLUpdateBindingTypeMismatch) {
   entry2.arg_ordinal = 1;
   p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry2));
 
-  auto a_buf = MakeUnique<Buffer>(BufferType::kStorage);
+  auto a_buf = MakeUnique<Buffer>();
   a_buf->SetName("buf1");
-  p.AddBuffer(a_buf.get(), "arg_a");
+  p.AddBuffer(a_buf.get(), BufferType::kStorage, "arg_a");
 
-  auto b_buf = MakeUnique<Buffer>(BufferType::kUniform);
+  auto b_buf = MakeUnique<Buffer>();
   b_buf->SetName("buf2");
-  p.AddBuffer(b_buf.get(), 1);
+  p.AddBuffer(b_buf.get(), BufferType::kUniform, 1);
 
   auto r = p.UpdateOpenCLBufferBindings();
 
   ASSERT_FALSE(r.IsSuccess());
-  EXPECT_EQ("Buffer buf2 must be an uniform binding", r.Error());
+  EXPECT_EQ("Buffer buf2 must be a uniform binding", r.Error());
+}
+
+TEST_F(PipelineTest, OpenCLUpdateBindingImagesAndSamplers) {
+  Pipeline p(PipelineType::kCompute);
+  p.SetName("my_pipeline");
+
+  Shader cs(kShaderTypeCompute);
+  cs.SetFormat(kShaderFormatOpenCLC);
+  p.AddShader(&cs, kShaderTypeCompute);
+  p.SetShaderEntryPoint(&cs, "my_main");
+
+  Pipeline::ShaderInfo::DescriptorMapEntry entry1;
+  entry1.kind = Pipeline::ShaderInfo::DescriptorMapEntry::Kind::RO_IMAGE;
+  entry1.descriptor_set = 4;
+  entry1.binding = 5;
+  entry1.arg_name = "arg_a";
+  entry1.arg_ordinal = 0;
+  p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry1));
+
+  Pipeline::ShaderInfo::DescriptorMapEntry entry2;
+  entry2.kind = Pipeline::ShaderInfo::DescriptorMapEntry::Kind::WO_IMAGE;
+  entry2.descriptor_set = 3;
+  entry2.binding = 1;
+  entry2.arg_name = "arg_b";
+  entry2.arg_ordinal = 1;
+  p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry2));
+
+  Pipeline::ShaderInfo::DescriptorMapEntry entry3;
+  entry2.kind = Pipeline::ShaderInfo::DescriptorMapEntry::Kind::SAMPLER;
+  entry2.descriptor_set = 3;
+  entry2.binding = 2;
+  entry2.arg_name = "arg_c";
+  entry2.arg_ordinal = 2;
+  p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry2));
+
+  auto a_buf = MakeUnique<Buffer>();
+  a_buf->SetName("buf1");
+  p.AddBuffer(a_buf.get(), BufferType::kSampledImage, "arg_a");
+
+  auto b_buf = MakeUnique<Buffer>();
+  b_buf->SetName("buf2");
+  p.AddBuffer(b_buf.get(), BufferType::kStorageImage, 1);
+
+  auto s = MakeUnique<Sampler>();
+  s->SetName("samp");
+  p.AddSampler(s.get(), "arg_c");
+
+  auto r = p.UpdateOpenCLBufferBindings();
+
+  ASSERT_TRUE(r.IsSuccess());
 }
 
 TEST_F(PipelineTest, OpenCLGeneratePodBuffers) {
@@ -737,6 +797,159 @@ TEST_F(PipelineTest, OpenCLClone) {
   EXPECT_EQ(4U, b2.descriptor_set);
   EXPECT_EQ(4U, b2.binding);
   EXPECT_EQ(4U, b2.buffer->ValueCount());
+}
+
+TEST_F(PipelineTest, OpenCLGenerateLiteralSamplers) {
+  Pipeline p(PipelineType::kCompute);
+  p.SetName("my_pipeline");
+
+  p.AddSampler(16, 0, 0);
+  p.AddSampler(41, 0, 1);
+
+  auto r = p.GenerateOpenCLLiteralSamplers();
+  ASSERT_TRUE(r.IsSuccess());
+  for (auto& info : p.GetSamplers()) {
+    if (info.mask == 16) {
+      EXPECT_NE(nullptr, info.sampler);
+      EXPECT_EQ(FilterType::kNearest, info.sampler->GetMagFilter());
+      EXPECT_EQ(FilterType::kNearest, info.sampler->GetMinFilter());
+      EXPECT_EQ(AddressMode::kClampToEdge, info.sampler->GetAddressModeU());
+      EXPECT_EQ(AddressMode::kClampToEdge, info.sampler->GetAddressModeV());
+      EXPECT_EQ(AddressMode::kClampToEdge, info.sampler->GetAddressModeW());
+      EXPECT_EQ(0.0f, info.sampler->GetMinLOD());
+      EXPECT_EQ(0.0f, info.sampler->GetMaxLOD());
+    } else {
+      EXPECT_NE(nullptr, info.sampler);
+      EXPECT_EQ(FilterType::kLinear, info.sampler->GetMagFilter());
+      EXPECT_EQ(FilterType::kLinear, info.sampler->GetMinFilter());
+      EXPECT_EQ(AddressMode::kMirroredRepeat, info.sampler->GetAddressModeU());
+      EXPECT_EQ(AddressMode::kMirroredRepeat, info.sampler->GetAddressModeV());
+      EXPECT_EQ(AddressMode::kMirroredRepeat, info.sampler->GetAddressModeW());
+      EXPECT_EQ(0.0f, info.sampler->GetMinLOD());
+      EXPECT_EQ(0.0f, info.sampler->GetMaxLOD());
+    }
+  }
+}
+
+TEST_F(PipelineTest, OpenCLGeneratePushConstants) {
+  Pipeline p(PipelineType::kCompute);
+  p.SetName("my_pipeline");
+
+  Shader cs(kShaderTypeCompute);
+  cs.SetFormat(kShaderFormatOpenCLC);
+  p.AddShader(&cs, kShaderTypeCompute);
+  p.SetShaderEntryPoint(&cs, "my_main");
+
+  Pipeline::ShaderInfo::PushConstant pc1;
+  pc1.type = Pipeline::ShaderInfo::PushConstant::PushConstantType::kDimensions;
+  pc1.offset = 0;
+  pc1.size = 4;
+  p.GetShaders()[0].AddPushConstant(std::move(pc1));
+
+  Pipeline::ShaderInfo::PushConstant pc2;
+  pc2.type =
+      Pipeline::ShaderInfo::PushConstant::PushConstantType::kGlobalOffset;
+  pc2.offset = 16;
+  pc2.size = 12;
+  p.GetShaders()[0].AddPushConstant(std::move(pc2));
+
+  auto r = p.GenerateOpenCLPushConstants();
+  ASSERT_TRUE(r.IsSuccess());
+
+  const auto& buf = p.GetPushConstantBuffer();
+  EXPECT_EQ(28U, buf.buffer->GetSizeInBytes());
+
+  const uint32_t* bytes = buf.buffer->GetValues<uint32_t>();
+  EXPECT_EQ(3U, bytes[0]);
+  EXPECT_EQ(0U, bytes[4]);
+  EXPECT_EQ(0U, bytes[5]);
+  EXPECT_EQ(0U, bytes[6]);
+}
+
+TEST_F(PipelineTest, OpenCLPodPushConstants) {
+  Pipeline p(PipelineType::kCompute);
+  p.SetName("my_pipeline");
+
+  Shader cs(kShaderTypeCompute);
+  cs.SetFormat(kShaderFormatOpenCLC);
+  p.AddShader(&cs, kShaderTypeCompute);
+  p.SetShaderEntryPoint(&cs, "my_main");
+
+  // Descriptor map.
+  Pipeline::ShaderInfo::DescriptorMapEntry entry1;
+  entry1.kind =
+      Pipeline::ShaderInfo::DescriptorMapEntry::Kind::POD_PUSHCONSTANT;
+  entry1.descriptor_set = static_cast<uint32_t>(-1);
+  entry1.binding = static_cast<uint32_t>(-1);
+  entry1.arg_name = "arg_a";
+  entry1.arg_ordinal = 0;
+  entry1.pod_offset = 0;
+  entry1.pod_arg_size = 4;
+  p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry1));
+
+  Pipeline::ShaderInfo::DescriptorMapEntry entry2;
+  entry2.kind =
+      Pipeline::ShaderInfo::DescriptorMapEntry::Kind::POD_PUSHCONSTANT;
+  entry2.descriptor_set = static_cast<uint32_t>(-1);
+  entry2.binding = static_cast<uint32_t>(-1);
+  entry2.arg_name = "arg_b";
+  entry2.arg_ordinal = 1;
+  entry2.pod_offset = 4;
+  entry2.pod_arg_size = 1;
+  p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry2));
+
+  Pipeline::ShaderInfo::DescriptorMapEntry entry3;
+  entry3.kind =
+      Pipeline::ShaderInfo::DescriptorMapEntry::Kind::POD_PUSHCONSTANT;
+  entry3.descriptor_set = static_cast<uint32_t>(-1);
+  entry3.binding = static_cast<uint32_t>(-1);
+  entry3.arg_name = "arg_c";
+  entry3.arg_ordinal = 2;
+  entry3.pod_offset = 8;
+  entry3.pod_arg_size = 4;
+  p.GetShaders()[0].AddDescriptorEntry("my_main", std::move(entry3));
+
+  // Set commands.
+  Value int_value;
+  int_value.SetIntValue(1);
+
+  TypeParser parser;
+  auto int_type = parser.Parse("R32_SINT");
+  auto int_fmt = MakeUnique<Format>(int_type.get());
+  auto char_type = parser.Parse("R8_SINT");
+  auto char_fmt = MakeUnique<Format>(char_type.get());
+
+  Pipeline::ArgSetInfo arg_info1;
+  arg_info1.name = "arg_a";
+  arg_info1.ordinal = 99;
+  arg_info1.fmt = int_fmt.get();
+  arg_info1.value = int_value;
+  p.SetArg(std::move(arg_info1));
+
+  Pipeline::ArgSetInfo arg_info2;
+  arg_info2.name = "arg_b";
+  arg_info2.ordinal = 99;
+  arg_info2.fmt = char_fmt.get();
+  arg_info2.value = int_value;
+  p.SetArg(std::move(arg_info2));
+
+  Pipeline::ArgSetInfo arg_info3;
+  arg_info3.name = "arg_c";
+  arg_info3.ordinal = 99;
+  arg_info3.fmt = int_fmt.get();
+  arg_info3.value = int_value;
+  p.SetArg(std::move(arg_info3));
+
+  auto r = p.GenerateOpenCLPodBuffers();
+  auto* buf = p.GetPushConstantBuffer().buffer;
+  EXPECT_NE(nullptr, buf);
+  EXPECT_EQ(12U, buf->GetSizeInBytes());
+
+  const uint32_t* ints = buf->GetValues<uint32_t>();
+  const uint8_t* bytes = buf->GetValues<uint8_t>();
+  EXPECT_EQ(1U, ints[0]);
+  EXPECT_EQ(1U, bytes[4]);
+  EXPECT_EQ(1U, ints[2]);
 }
 
 }  // namespace amber

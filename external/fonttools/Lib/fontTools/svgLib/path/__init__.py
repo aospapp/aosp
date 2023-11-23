@@ -1,6 +1,4 @@
-from __future__ import (
-    print_function, division, absolute_import, unicode_literals)
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import tostr
 
 from fontTools.pens.transformPen import TransformPen
 from fontTools.misc import etree

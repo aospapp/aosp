@@ -29,6 +29,7 @@
 
 
 #include "glheader.h"
+#include "main/mtypes.h"
 #include "compiler/shader_enums.h"
 
 #ifdef __cplusplus
@@ -296,6 +297,12 @@ extern struct gl_program_resource *
 _mesa_program_resource_find_index(struct gl_shader_program *shProg,
                                   GLenum programInterface, GLuint index);
 
+extern struct gl_program_resource *
+_mesa_program_resource_find_active_variable(struct gl_shader_program *shProg,
+                                            GLenum programInterface,
+                                            const struct gl_uniform_block *block,
+                                            unsigned index);
+
 extern bool
 _mesa_get_program_resource_name(struct gl_shader_program *shProg,
                                 GLenum programInterface, GLuint index,
@@ -324,6 +331,9 @@ _mesa_get_program_resourceiv(struct gl_shader_program *shProg,
                              GLsizei propCount, const GLenum *props,
                              GLsizei bufSize, GLsizei *length,
                              GLint *params);
+
+extern void
+_mesa_create_program_resource_hash(struct gl_shader_program *shProg);
 
 /* GL_ARB_tessellation_shader */
 void GLAPIENTRY
@@ -374,11 +384,49 @@ extern GLvoid GLAPIENTRY
 _mesa_GetProgramStageiv(GLuint program, GLenum shadertype,
                         GLenum pname, GLint *values);
 
+extern GLvoid GLAPIENTRY
+_mesa_NamedStringARB(GLenum type, GLint namelen, const GLchar *name,
+                     GLint stringlen, const GLchar *string);
+
+extern GLvoid GLAPIENTRY
+_mesa_DeleteNamedStringARB(GLint namelen, const GLchar *name);
+
+extern GLvoid GLAPIENTRY
+_mesa_CompileShaderIncludeARB(GLuint shader, GLsizei count,
+                              const GLchar* const *path, const GLint *length);
+
+extern GLboolean GLAPIENTRY
+_mesa_IsNamedStringARB(GLint namelen, const GLchar *name);
+
+extern GLvoid GLAPIENTRY
+_mesa_GetNamedStringARB(GLint namelen, const GLchar *name, GLsizei bufSize,
+                        GLint *stringlen, GLchar *string);
+
+extern GLvoid GLAPIENTRY
+_mesa_GetNamedStringivARB(GLint namelen, const GLchar *name,
+                          GLenum pname, GLint *params);
+
 GLcharARB *
 _mesa_read_shader_source(const gl_shader_stage stage, const char *source);
 
 void
 _mesa_dump_shader_source(const gl_shader_stage stage, const char *source);
+
+void
+_mesa_init_shader_includes(struct gl_shared_state *shared);
+
+size_t
+_mesa_get_shader_include_cursor(struct gl_shared_state *shared);
+
+void
+_mesa_set_shader_include_cursor(struct gl_shared_state *shared, size_t cusor);
+
+void
+_mesa_destroy_shader_includes(struct gl_shared_state *shared);
+
+const char *
+_mesa_lookup_shader_include(struct gl_context *ctx, char *path,
+                            bool error_check);
 
 #ifdef __cplusplus
 }

@@ -24,12 +24,15 @@ extern "C" {
 
 
 extern PyObject* PyInit__posixshmem(void);
+extern PyObject* PyInit__ssl(void);
+extern PyObject* PyInit__hashlib(void);
 extern PyObject* PyInit_array(void);
 extern PyObject* PyInit_cmath(void);
 extern PyObject* PyInit_math(void);
 extern PyObject* PyInit__contextvars(void);
 extern PyObject* PyInit_time(void);
 extern PyObject* PyInit__datetime(void);
+extern PyObject* PyInit__zoneinfo(void);
 extern PyObject* PyInit__random(void);
 extern PyObject* PyInit__bisect(void);
 extern PyObject* PyInit__heapq(void);
@@ -68,10 +71,12 @@ extern PyObject* PyInit__codecs_hk(void);
 extern PyObject* PyInit__codecs_iso2022(void);
 extern PyObject* PyInit__multiprocessing(void);
 extern PyObject* PyInit__ctypes(void);
-extern PyObject* PyInit__sha256(void);
-extern PyObject* PyInit__sha512(void);
+extern PyObject* PyInit__blake2(void);
 extern PyObject* PyInit__md5(void);
 extern PyObject* PyInit__sha1(void);
+extern PyObject* PyInit__sha256(void);
+extern PyObject* PyInit__sha512(void);
+extern PyObject* PyInit__sha3(void);
 extern PyObject* PyInit__struct(void);
 extern PyObject* PyInit_posix(void);
 extern PyObject* PyInit_errno(void);
@@ -93,6 +98,7 @@ extern PyObject* PyInit__locale(void);
 extern PyObject* PyInit__io(void);
 extern PyObject* PyInit_faulthandler(void);
 extern PyObject* PyInit__tracemalloc(void);
+extern PyObject* PyInit__peg_parser(void);
 extern PyObject* PyInit__symtable(void);
 extern PyObject* PyInit_xxsubtype(void);
 
@@ -108,12 +114,15 @@ extern PyObject* PyInit__string(void);
 struct _inittab _PyImport_Inittab[] = {
 
     {"_posixshmem", PyInit__posixshmem},
+    {"_ssl", PyInit__ssl},
+    {"_hashlib", PyInit__hashlib},
     {"array", PyInit_array},
     {"cmath", PyInit_cmath},
     {"math", PyInit_math},
     {"_contextvars", PyInit__contextvars},
     {"time", PyInit_time},
     {"_datetime", PyInit__datetime},
+    {"_zoneinfo", PyInit__zoneinfo},
     {"_random", PyInit__random},
     {"_bisect", PyInit__bisect},
     {"_heapq", PyInit__heapq},
@@ -152,10 +161,12 @@ struct _inittab _PyImport_Inittab[] = {
     {"_codecs_iso2022", PyInit__codecs_iso2022},
     {"_multiprocessing", PyInit__multiprocessing},
     {"_ctypes", PyInit__ctypes},
-    {"_sha256", PyInit__sha256},
-    {"_sha512", PyInit__sha512},
+    {"_blake2", PyInit__blake2},
     {"_md5", PyInit__md5},
     {"_sha1", PyInit__sha1},
+    {"_sha256", PyInit__sha256},
+    {"_sha512", PyInit__sha512},
+    {"_sha3", PyInit__sha3},
     {"_struct", PyInit__struct},
     {"posix", PyInit_posix},
     {"errno", PyInit_errno},
@@ -177,6 +188,7 @@ struct _inittab _PyImport_Inittab[] = {
     {"_io", PyInit__io},
     {"faulthandler", PyInit_faulthandler},
     {"_tracemalloc", PyInit__tracemalloc},
+    {"_peg_parser", PyInit__peg_parser},
     {"_symtable", PyInit__symtable},
     {"xxsubtype", PyInit_xxsubtype},
 

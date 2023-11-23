@@ -34,20 +34,6 @@
 #include "nir_builder.h"
 #include "nir_deref.h"
 
-static bool
-deref_has_indirect(nir_deref_instr *deref)
-{
-   while (deref->deref_type != nir_deref_type_var) {
-      if (deref->deref_type == nir_deref_type_array &&
-          nir_src_as_const_value(deref->arr.index) == NULL)
-         return true;
-
-      deref = nir_deref_instr_parent(deref);
-   }
-
-   return false;
-}
-
 static void
 lower_load_store(nir_builder *b,
                  nir_intrinsic_instr *intrin,
@@ -71,24 +57,25 @@ lower_load_store(nir_builder *b,
       load->num_components = intrin->num_components;
       load->src[0] = nir_src_for_ssa(offset);
       nir_intrinsic_set_align(load, align, 0);
+      unsigned bit_size = intrin->dest.ssa.bit_size;
       nir_ssa_dest_init(&load->instr, &load->dest,
                         intrin->dest.ssa.num_components,
-                        intrin->dest.ssa.bit_size, NULL);
+                        bit_size == 1 ? 32 : bit_size, NULL);
       nir_builder_instr_insert(b, &load->instr);
 
       nir_ssa_def *value = &load->dest.ssa;
-      if (glsl_type_is_boolean(deref->type))
-         value = nir_b2i32(b, value);
+      if (bit_size == 1)
+         value = nir_b2b1(b, value);
 
       nir_ssa_def_rewrite_uses(&intrin->dest.ssa,
-                               nir_src_for_ssa(&load->dest.ssa));
+                               nir_src_for_ssa(value));
    } else {
       assert(intrin->intrinsic == nir_intrinsic_store_deref);
 
       assert(intrin->src[1].is_ssa);
       nir_ssa_def *value = intrin->src[1].ssa;
-      if (glsl_type_is_boolean(deref->type))
-         value = nir_i2b(b, value);
+      if (value->bit_size == 1)
+         value = nir_b2b32(b, value);
 
       nir_intrinsic_instr *store =
          nir_intrinsic_instr_create(b->shader, nir_intrinsic_store_scratch);
@@ -125,10 +112,10 @@ nir_lower_vars_to_scratch(nir_shader *shader,
                continue;
 
             nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-            if (!(deref->mode & modes))
+            if (!nir_deref_mode_is_one_of(deref, modes))
                continue;
 
-            if (!deref_has_indirect(nir_src_as_deref(intrin->src[0])))
+            if (!nir_deref_instr_has_indirect(nir_src_as_deref(intrin->src[0])))
                continue;
 
             nir_variable *var = nir_deref_instr_get_variable(deref);
@@ -188,6 +175,8 @@ nir_lower_vars_to_scratch(nir_shader *shader,
          progress = true;
          nir_metadata_preserve(function->impl, nir_metadata_block_index |
                                                nir_metadata_dominance);
+      } else {
+         nir_metadata_preserve(function->impl, nir_metadata_all);
       }
    }
 

@@ -14,10 +14,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 
 DOC = """
-This test is a wrapper around a few functionality tests surrounding servo,
-servod, and basic lab functionality. As this test is designed to test the
-labstation serving servod itself, instead of specific DUTs functionality,
-it should be independent of what DUT is on the other side.
+This test is a wrapper around servo_Verification
 
 This test makes the following assumptions:
 1. There is a servo device attached to the labstation being tested.
@@ -33,12 +30,6 @@ addresses
 
 4.1: There is also a way for local testing to specify dut_ip=${IP} in the args
 to skip IP inferring and use a known IP.
-
-A note on failures:
-- Failures might occur if the test to install test images fails to query
-the right devserver. This will cause platform_InstallTestImage and the
-subsequent test to fail as well. This is a known issue when kicking it off
-from a workstation for example. (crbug.com/c/953113).
 
 Sample usage:
 test_that <labstation ip> servo_LabstationVerification

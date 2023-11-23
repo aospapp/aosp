@@ -808,6 +808,8 @@ class OffloadDirectoryTests(_TempResultsDirTestBase):
             release_build, gs_offloader.CTS_RESULT_PATTERN, 'cros_test_platform'))
         self.assertTrue(gs_offloader._is_valid_result(
             release_build, gs_offloader.CTS_RESULT_PATTERN, 'bvt-arc'))
+        self.assertTrue(gs_offloader._is_valid_result(
+            release_build, gs_offloader.CTS_RESULT_PATTERN, 'bvt-perbuild'))
         self.assertFalse(gs_offloader._is_valid_result(
             release_build, gs_offloader.CTS_RESULT_PATTERN, 'bvt-cq'))
         self.assertTrue(gs_offloader._is_valid_result(

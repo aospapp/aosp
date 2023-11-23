@@ -1,4 +1,5 @@
 homepage: "https://github.com/libimobiledevice/libplist"
+language: c++
 primary_contact: "nikias.bassen@gmail.com"
 auto_ccs:
   - "nikias@gmx.li"
@@ -12,3 +13,4 @@ sanitizers:
   - memory
   - undefined
   - dataflow
+main_repo: 'https://github.com/libimobiledevice/libplist'

@@ -15,7 +15,7 @@ FakeMessageLoop::FakeMessageLoop(base::SimpleTestClock* clock)
 
 MessageLoop::TaskId FakeMessageLoop::PostDelayedTask(
     const base::Location& from_here,
-    const base::Closure& task,
+    base::OnceClosure task,
     base::TimeDelta delay) {
   // If no SimpleTestClock was provided, we use the last time we fired a
   // callback. In this way, tasks scheduled from a Closure will have the right
@@ -25,25 +25,11 @@ MessageLoop::TaskId FakeMessageLoop::PostDelayedTask(
   MessageLoop::TaskId current_id = ++last_id_;
   // FakeMessageLoop is limited to only 2^64 tasks. That should be enough.
   CHECK(current_id);
-  tasks_.emplace(current_id, ScheduledTask{from_here, false, task});
+  tasks_.emplace(current_id, ScheduledTask{from_here, std::move(task)});
   fire_order_.push(std::make_pair(current_time_ + delay, current_id));
   VLOG_LOC(from_here, 1) << "Scheduling delayed task_id " << current_id
                          << " to run at " << current_time_ + delay
                          << " (in " << delay << ").";
-  return current_id;
-}
-
-MessageLoop::TaskId FakeMessageLoop::WatchFileDescriptor(
-    const base::Location& from_here,
-    int fd,
-    WatchMode mode,
-    bool persistent,
-    const base::Closure& task) {
-  MessageLoop::TaskId current_id = ++last_id_;
-  // FakeMessageLoop is limited to only 2^64 tasks. That should be enough.
-  CHECK(current_id);
-  tasks_.emplace(current_id, ScheduledTask{from_here, persistent, task});
-  fds_watched_.emplace(std::make_pair(fd, mode), current_id);
   return current_id;
 }
 
@@ -58,36 +44,6 @@ bool FakeMessageLoop::CancelTask(TaskId task_id) {
 bool FakeMessageLoop::RunOnce(bool may_block) {
   if (test_clock_)
     current_time_ = test_clock_->Now();
-  // Try to fire ready file descriptors first.
-  for (const auto& fd_mode : fds_ready_) {
-    const auto& fd_watched =  fds_watched_.find(fd_mode);
-    if (fd_watched == fds_watched_.end())
-      continue;
-    // The fd_watched->second task might have been canceled and we never removed
-    // it from the fds_watched_, so we fix that now.
-    const auto& scheduled_task_ref = tasks_.find(fd_watched->second);
-    if (scheduled_task_ref == tasks_.end()) {
-      fds_watched_.erase(fd_watched);
-      continue;
-    }
-    VLOG_LOC(scheduled_task_ref->second.location, 1)
-        << "Running task_id " << fd_watched->second
-        << " for watching file descriptor " << fd_mode.first << " for "
-        << (fd_mode.second == MessageLoop::kWatchRead ? "reading" : "writing")
-        << (scheduled_task_ref->second.persistent ?
-            " persistently" : " just once")
-        << " scheduled from this location.";
-    if (scheduled_task_ref->second.persistent) {
-      scheduled_task_ref->second.callback.Run();
-    } else {
-      base::Closure callback = std::move(scheduled_task_ref->second.callback);
-      tasks_.erase(scheduled_task_ref);
-      fds_watched_.erase(fd_watched);
-      callback.Run();
-    }
-    return true;
-  }
-
   // Try to fire time-based callbacks afterwards.
   while (!fire_order_.empty() &&
          (may_block || fire_order_.top().first <= current_time_)) {
@@ -108,32 +64,22 @@ bool FakeMessageLoop::RunOnce(bool may_block) {
     // Move the Closure out of the map before delete it. We need to delete the
     // entry from the map before we call the callback, since calling CancelTask
     // for the task you are running now should fail and return false.
-    base::Closure callback = std::move(scheduled_task_ref->second.callback);
+    base::OnceClosure callback = std::move(scheduled_task_ref->second.callback);
     VLOG_LOC(scheduled_task_ref->second.location, 1)
         << "Running task_id " << task_ref.second
         << " at time " << current_time_ << " from this location.";
     tasks_.erase(scheduled_task_ref);
 
-    callback.Run();
+    std::move(callback).Run();
     return true;
   }
   return false;
 }
 
-void FakeMessageLoop::SetFileDescriptorReadiness(int fd,
-                                                 WatchMode mode,
-                                                 bool ready) {
-  if (ready)
-    fds_ready_.emplace(fd, mode);
-  else
-    fds_ready_.erase(std::make_pair(fd, mode));
-}
-
 bool FakeMessageLoop::PendingTasks() {
   for (const auto& task : tasks_) {
     VLOG_LOC(task.second.location, 1)
-        << "Pending " << (task.second.persistent ? "persistent " : "")
-        << "task_id " << task.first << " scheduled from here.";
+        << "Pending task_id " << task.first << " scheduled from here.";
   }
   return !tasks_.empty();
 }

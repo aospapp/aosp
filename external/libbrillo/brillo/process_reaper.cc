@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <utility>
+
 #include <base/bind.h>
 #include <base/posix/eintr_wrapper.h>
 #include <brillo/asynchronous_signal_handler.h>
@@ -37,10 +39,11 @@ void ProcessReaper::Unregister() {
 
 bool ProcessReaper::WatchForChild(const base::Location& from_here,
                                   pid_t pid,
-                                  const ChildCallback& callback) {
+                                  ChildCallback callback) {
   if (watched_processes_.find(pid) != watched_processes_.end())
     return false;
-  watched_processes_.emplace(pid, WatchedProcess{from_here, callback});
+  watched_processes_.emplace(
+      pid, WatchedProcess{from_here, std::move(callback)});
   return true;
 }
 
@@ -79,7 +82,7 @@ bool ProcessReaper::HandleSIGCHLD(
           << info.si_status << " (code = " << info.si_code << ")";
       ChildCallback callback = std::move(proc->second.callback);
       watched_processes_.erase(proc);
-      callback.Run(info);
+      std::move(callback).Run(info);
     }
   }
 

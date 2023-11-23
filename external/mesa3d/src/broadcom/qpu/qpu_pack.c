@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include "util/macros.h"
+#include "util/bitscan.h"
 
 #include "broadcom/common/v3d_device_info.h"
 #include "qpu_instr.h"
@@ -521,7 +522,9 @@ static const struct opcode_desc add_ops[] = {
 
         { 187, 187, 1 << 3, ANYMUX, V3D_QPU_A_VPMSETUP, 33 },
         { 188, 188, 1 << 0, ANYMUX, V3D_QPU_A_LDVPMV_IN, 40 },
+        { 188, 188, 1 << 0, ANYMUX, V3D_QPU_A_LDVPMV_OUT, 40 },
         { 188, 188, 1 << 1, ANYMUX, V3D_QPU_A_LDVPMD_IN, 40 },
+        { 188, 188, 1 << 1, ANYMUX, V3D_QPU_A_LDVPMD_OUT, 40 },
         { 188, 188, 1 << 2, ANYMUX, V3D_QPU_A_LDVPMP, 40 },
         { 188, 188, 1 << 3, ANYMUX, V3D_QPU_A_RSQRT, 41 },
         { 188, 188, 1 << 4, ANYMUX, V3D_QPU_A_EXP, 41 },
@@ -529,6 +532,7 @@ static const struct opcode_desc add_ops[] = {
         { 188, 188, 1 << 6, ANYMUX, V3D_QPU_A_SIN, 41 },
         { 188, 188, 1 << 7, ANYMUX, V3D_QPU_A_RSQRT2, 41 },
         { 189, 189, ANYMUX, ANYMUX, V3D_QPU_A_LDVPMG_IN, 40 },
+        { 189, 189, ANYMUX, ANYMUX, V3D_QPU_A_LDVPMG_OUT, 40 },
 
         /* FIXME: MORE COMPLICATED */
         /* { 190, 191, ANYMUX, ANYMUX, V3D_QPU_A_VFMOVABSNEGNAB }, */
@@ -1448,14 +1452,14 @@ v3d_qpu_instr_pack_branch(const struct v3d_device_info *devinfo,
 
                 *packed_instr |= QPU_SET_FIELD(instr->branch.offset >> 24,
                                                VC5_QPU_BRANCH_ADDR_HIGH);
-
-        case V3D_QPU_BRANCH_DEST_REGFILE:
-                *packed_instr |= QPU_SET_FIELD(instr->branch.raddr_a,
-                                               VC5_QPU_RADDR_A);
-                break;
-
         default:
                 break;
+        }
+
+        if (instr->branch.bdi == V3D_QPU_BRANCH_DEST_REGFILE ||
+            instr->branch.bdu == V3D_QPU_BRANCH_DEST_REGFILE) {
+                *packed_instr |= QPU_SET_FIELD(instr->branch.raddr_a,
+                                               VC5_QPU_RADDR_A);
         }
 
         return true;

@@ -6,6 +6,7 @@
  *
  * - <a href="../Server/index.html">Server-side API</a>
  * - <a href="../Client/index.html">Client-side API</a>
+ * - <a href="../Cursor/index.html">Cursor helper library API</a>
  *
  * Further documentation about the architecture and principles of Wayland is
  * available in the

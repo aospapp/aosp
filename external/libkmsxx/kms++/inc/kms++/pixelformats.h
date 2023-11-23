@@ -2,20 +2,29 @@
 
 #include <cstdint>
 #include <string>
+#include <stdexcept>
 
 namespace kms
 {
-constexpr uint32_t MakeFourCC(const char *fourcc)
+constexpr uint32_t MakeFourCC(const char* fourcc)
 {
 	return fourcc[0] | (fourcc[1] << 8) | (fourcc[2] << 16) | (fourcc[3] << 24);
 }
 
-enum class PixelFormat : uint32_t
-{
+enum class PixelFormat : uint32_t {
 	Undefined = 0,
 
 	NV12 = MakeFourCC("NV12"),
 	NV21 = MakeFourCC("NV21"),
+	NV16 = MakeFourCC("NV16"),
+	NV61 = MakeFourCC("NV61"),
+
+	YUV420 = MakeFourCC("YU12"),
+	YVU420 = MakeFourCC("YV12"),
+	YUV422 = MakeFourCC("YU16"),
+	YVU422 = MakeFourCC("YV16"),
+	YUV444 = MakeFourCC("YU24"),
+	YVU444 = MakeFourCC("YV24"),
 
 	UYVY = MakeFourCC("UYVY"),
 	YUYV = MakeFourCC("YUYV"),
@@ -35,8 +44,13 @@ enum class PixelFormat : uint32_t
 	RGB888 = MakeFourCC("RG24"),
 	BGR888 = MakeFourCC("BG24"),
 
+	RGB332 = MakeFourCC("RGB8"),
+
 	RGB565 = MakeFourCC("RG16"),
 	BGR565 = MakeFourCC("BG16"),
+
+	XRGB4444 = MakeFourCC("XR12"),
+	XRGB1555 = MakeFourCC("XR15"),
 
 	ARGB4444 = MakeFourCC("AR12"),
 	ARGB1555 = MakeFourCC("AR15"),
@@ -59,29 +73,26 @@ static inline PixelFormat FourCCToPixelFormat(const std::string& fourcc)
 
 static inline std::string PixelFormatToFourCC(PixelFormat f)
 {
-	char buf[5] = { (char)(((int)f >> 0) & 0xff),
-			(char)(((int)f >> 8) & 0xff),
-			(char)(((int)f >> 16) & 0xff),
-			(char)(((int)f >> 24) & 0xff),
+	char buf[5] = { (char)(((uint32_t)f >> 0) & 0xff),
+			(char)(((uint32_t)f >> 8) & 0xff),
+			(char)(((uint32_t)f >> 16) & 0xff),
+			(char)(((uint32_t)f >> 24) & 0xff),
 			0 };
 	return std::string(buf);
 }
 
-enum class PixelColorType
-{
+enum class PixelColorType {
 	RGB,
 	YUV,
 };
 
-struct PixelFormatPlaneInfo
-{
+struct PixelFormatPlaneInfo {
 	uint8_t bitspp;
 	uint8_t xsub;
 	uint8_t ysub;
 };
 
-struct PixelFormatInfo
-{
+struct PixelFormatInfo {
 	PixelColorType type;
 	uint8_t num_planes;
 	struct PixelFormatPlaneInfo planes[4];
@@ -89,4 +100,4 @@ struct PixelFormatInfo
 
 const struct PixelFormatInfo& get_pixel_format_info(PixelFormat format);
 
-}
+} // namespace kms

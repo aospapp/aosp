@@ -298,7 +298,7 @@ bool validateFeatureLimits(VkPhysicalDeviceProperties* properties, VkPhysicalDev
 		{ LIMIT(subPixelInterpolationOffsetBits),					FEATURE(sampleRateShading),				0, 0, 0, 0.0f },
 		{ LIMIT(storageImageSampleCounts),							FEATURE(shaderStorageImageMultisample),	VK_SAMPLE_COUNT_1_BIT, 0, 0, 0.0f },
 		{ LIMIT(maxClipDistances),									FEATURE(shaderClipDistance),			0, 0, 0, 0.0f },
-		{ LIMIT(maxCullDistances),									FEATURE(shaderClipDistance),			0, 0, 0, 0.0f },
+		{ LIMIT(maxCullDistances),									FEATURE(shaderCullDistance),			0, 0, 0, 0.0f },
 		{ LIMIT(maxCombinedClipAndCullDistances),					FEATURE(shaderClipDistance),			0, 0, 0, 0.0f },
 		{ LIMIT(pointSizeRange[0]),									FEATURE(largePoints),					0, 0, 0, 1.0f },
 		{ LIMIT(pointSizeRange[1]),									FEATURE(largePoints),					0, 0, 0, 1.0f },
@@ -820,7 +820,7 @@ tcu::TestStatus validateLimits12 (Context& context)
 		{ PN(checkAlways),								PN(limits.timestampComputeAndGraphics),															LIM_NONE_UINT32 },
 		{ PN(checkAlways),								PN(limits.timestampPeriod),																		LIM_NONE_UINT32 },
 		{ PN(features.shaderClipDistance),				PN(limits.maxClipDistances),																	LIM_MIN_UINT32(8) },
-		{ PN(features.shaderClipDistance),				PN(limits.maxCullDistances),																	LIM_MIN_UINT32(8) },
+		{ PN(features.shaderCullDistance),				PN(limits.maxCullDistances),																	LIM_MIN_UINT32(8) },
 		{ PN(features.shaderClipDistance),				PN(limits.maxCombinedClipAndCullDistances),														LIM_MIN_UINT32(8) },
 		{ PN(checkAlways),								PN(limits.discreteQueuePriorities),																LIM_MIN_UINT32(2) },
 		{ PN(features.largePoints),						PN(limits.pointSizeRange[0]),																	LIM_MIN_FLOAT(0.0f) },
@@ -1510,9 +1510,10 @@ void checkSupportFeatureBitInfluence (Context& context)
 		TCU_THROW(NotSupportedError, "At least Vulkan 1.2 required to run test");
 }
 
-void createDevice (Context& context, void* pNext, const char* const* ppEnabledExtensionNames, deUint32 enabledExtensionCount)
+void createTestDevice (Context& context, void* pNext, const char* const* ppEnabledExtensionNames, deUint32 enabledExtensionCount)
 {
 	const PlatformInterface&				platformInterface		= context.getPlatformInterface();
+	const auto								validationEnabled		= context.getTestContext().getCommandLine().isValidationEnabled();
 	const Unique<VkInstance>				instance				(createDefaultInstance(platformInterface, context.getUsedApiVersion()));
 	const InstanceDriver					instanceDriver			(platformInterface, instance.get());
 	const VkPhysicalDevice					physicalDevice			= chooseDevice(instanceDriver, instance.get(), context.getTestContext().getCommandLine());
@@ -1543,7 +1544,7 @@ void createDevice (Context& context, void* pNext, const char* const* ppEnabledEx
 		ppEnabledExtensionNames,					//  const char* const*				ppEnabledExtensionNames;
 		DE_NULL,									//  const VkPhysicalDeviceFeatures*	pEnabledFeatures;
 	};
-	const Unique<VkDevice>					device					(createDevice(platformInterface, *instance, instanceDriver, physicalDevice, &deviceCreateInfo));
+	const Unique<VkDevice>					device					(createCustomDevice(validationEnabled, platformInterface, *instance, instanceDriver, physicalDevice, &deviceCreateInfo));
 	const DeviceDriver						deviceDriver			(platformInterface, instance.get(), device.get());
 	const VkQueue							queue					= getDeviceQueue(deviceDriver, *device,  queueFamilyIndex, queueIndex);
 
@@ -1747,7 +1748,7 @@ tcu::TestStatus featureBitInfluenceOnDeviceCreate (Context& context)
 					if (featureDependencyTable[featureDependencyTableNdx].featurePtr == featurePtr)
 						featureDependencyTable[featureDependencyTableNdx].dependOnPtr[0] = DE_TRUE;
 
-				createDevice(context, &features2, DE_NULL, 0u);
+				createTestDevice(context, &features2, DE_NULL, 0u);
 			}
 		}
 
@@ -1782,7 +1783,7 @@ tcu::TestStatus featureBitInfluenceOnDeviceCreate (Context& context)
 						if (featureDependencyTable[featureDependencyTableNdx].featurePtr == featurePtr)
 							featureDependencyTable[featureDependencyTableNdx].dependOnPtr[0] = DE_TRUE;
 
-					createDevice(context, &features2, &extStringPtr, (extStringPtr == DE_NULL) ? 0u : 1u );
+					createTestDevice(context, &features2, &extStringPtr, (extStringPtr == DE_NULL) ? 0u : 1u );
 				}
 			}
 		}
@@ -1966,7 +1967,7 @@ void checkKhrExtensions (tcu::ResultCollector&		results,
 		if (de::beginsWith(*extIter, "VK_KHR_") &&
 			!de::contains(allowedExtSet, *extIter))
 		{
-			results.fail("Unknown  extension " + *extIter);
+			results.fail("Unknown extension " + *extIter);
 		}
 	}
 }
@@ -2206,8 +2207,8 @@ tcu::TestStatus enumerateDeviceExtensions (Context& context)
 			if (context.contextSupports(vk::ApiVersion(versionMajor, versionMinor, 0)))
 			{
 				checkDeviceExtensionDependencies(results,
-					DE_LENGTH_OF_ARRAY(instanceExtensionDependencies),
-					instanceExtensionDependencies,
+					DE_LENGTH_OF_ARRAY(deviceExtensionDependencies),
+					deviceExtensionDependencies,
 					versionMajor,
 					versionMinor,
 					instanceExtensionProperties,
@@ -2845,12 +2846,12 @@ namespace
 
 tcu::TestStatus deviceMandatoryFeatures(Context& context)
 {
-	if( checkMandatoryFeatures(context) )
+	if ( checkMandatoryFeatures(context) )
 		return tcu::TestStatus::pass("Passed");
-	return tcu::TestStatus::fail("Not all mandatory features are supported ( see: chapter 35.1 )");
+	return tcu::TestStatus::fail("Not all mandatory features are supported ( see: vkspec.html#features-requirements )");
 }
 
-VkFormatFeatureFlags getRequiredOptimalTilingFeatures (VkFormat format)
+VkFormatFeatureFlags getBaseRequiredOptimalTilingFeatures (VkFormat format)
 {
 	struct Formatpair
 	{
@@ -2868,58 +2869,59 @@ VkFormatFeatureFlags getRequiredOptimalTilingFeatures (VkFormat format)
 		CABL = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT,
 		STIM = VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT,
 		STIA = VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT,
-		DSAT = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+		DSAT = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		TRSR = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT,
+		TRDS = VK_FORMAT_FEATURE_TRANSFER_DST_BIT
 	};
 
 	static const Formatpair formatflags[] =
 	{
-		{ VK_FORMAT_B4G4R4A4_UNORM_PACK16,		SAIM | BLSR |               SIFL },
-		{ VK_FORMAT_R5G6B5_UNORM_PACK16,		SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_A1R5G5B5_UNORM_PACK16,		SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_R8_UNORM,					SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_R8_SNORM,					SAIM | BLSR |               SIFL },
-		{ VK_FORMAT_R8_UINT,					SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R8_SINT,					SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R8G8_UNORM,					SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_R8G8_SNORM,					SAIM | BLSR |               SIFL },
-		{ VK_FORMAT_R8G8_UINT,					SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R8G8_SINT,					SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R8G8B8A8_UNORM,				SAIM | BLSR | COAT | BLDS | SIFL | STIM | CABL },
-		{ VK_FORMAT_R8G8B8A8_SNORM,				SAIM | BLSR |               SIFL | STIM },
-		{ VK_FORMAT_R8G8B8A8_UINT,				SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R8G8B8A8_SINT,				SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R8G8B8A8_SRGB,				SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_B8G8R8A8_UNORM,				SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_B8G8R8A8_SRGB,				SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_A8B8G8R8_UNORM_PACK32,		SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_A8B8G8R8_SNORM_PACK32,		SAIM | BLSR |               SIFL },
-		{ VK_FORMAT_A8B8G8R8_UINT_PACK32,		SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_A8B8G8R8_SINT_PACK32,		SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_A8B8G8R8_SRGB_PACK32,		SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_A2B10G10R10_UNORM_PACK32,	SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_A2B10G10R10_UINT_PACK32,	SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R16_UINT,					SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R16_SINT,					SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R16_SFLOAT,					SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_R16G16_UINT,				SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R16G16_SINT,				SAIM | BLSR | COAT | BLDS },
-		{ VK_FORMAT_R16G16_SFLOAT,				SAIM | BLSR | COAT | BLDS | SIFL |        CABL },
-		{ VK_FORMAT_R16G16B16A16_UINT,			SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R16G16B16A16_SINT,			SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R16G16B16A16_SFLOAT,		SAIM | BLSR | COAT | BLDS | SIFL | STIM | CABL },
-		{ VK_FORMAT_R32_UINT,					SAIM | BLSR | COAT | BLDS |        STIM |        STIA },
-		{ VK_FORMAT_R32_SINT,					SAIM | BLSR | COAT | BLDS |        STIM |        STIA },
-		{ VK_FORMAT_R32_SFLOAT,					SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R32G32_UINT,				SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R32G32_SINT,				SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R32G32_SFLOAT,				SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R32G32B32A32_UINT,			SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R32G32B32A32_SINT,			SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_R32G32B32A32_SFLOAT,		SAIM | BLSR | COAT | BLDS |        STIM },
-		{ VK_FORMAT_B10G11R11_UFLOAT_PACK32,	SAIM | BLSR |               SIFL },
-		{ VK_FORMAT_E5B9G9R9_UFLOAT_PACK32,		SAIM | BLSR |               SIFL },
-		{ VK_FORMAT_D16_UNORM,					SAIM | BLSR |                                           DSAT },
-		{ VK_FORMAT_D32_SFLOAT,					SAIM | BLSR }
+		{ VK_FORMAT_B4G4R4A4_UNORM_PACK16,		SAIM | BLSR | TRSR | TRDS |               SIFL },
+		{ VK_FORMAT_R5G6B5_UNORM_PACK16,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_A1R5G5B5_UNORM_PACK16,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_R8_UNORM,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_R8_SNORM,					SAIM | BLSR | TRSR | TRDS |               SIFL },
+		{ VK_FORMAT_R8_UINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R8_SINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R8G8_UNORM,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_R8G8_SNORM,					SAIM | BLSR | TRSR | TRDS |               SIFL },
+		{ VK_FORMAT_R8G8_UINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R8G8_SINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R8G8B8A8_UNORM,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL | STIM | CABL },
+		{ VK_FORMAT_R8G8B8A8_SNORM,				SAIM | BLSR | TRSR | TRDS |               SIFL | STIM },
+		{ VK_FORMAT_R8G8B8A8_UINT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R8G8B8A8_SINT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R8G8B8A8_SRGB,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_B8G8R8A8_UNORM,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_B8G8R8A8_SRGB,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_A8B8G8R8_UNORM_PACK32,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_A8B8G8R8_SNORM_PACK32,		SAIM | BLSR | TRSR | TRDS |               SIFL },
+		{ VK_FORMAT_A8B8G8R8_UINT_PACK32,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_A8B8G8R8_SINT_PACK32,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_A8B8G8R8_SRGB_PACK32,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_A2B10G10R10_UNORM_PACK32,	SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_A2B10G10R10_UINT_PACK32,	SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R16_UINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R16_SINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R16_SFLOAT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_R16G16_UINT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R16G16_SINT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS },
+		{ VK_FORMAT_R16G16_SFLOAT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL |        CABL },
+		{ VK_FORMAT_R16G16B16A16_UINT,			SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R16G16B16A16_SINT,			SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R16G16B16A16_SFLOAT,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS | SIFL | STIM | CABL },
+		{ VK_FORMAT_R32_UINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM |        STIA },
+		{ VK_FORMAT_R32_SINT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM |        STIA },
+		{ VK_FORMAT_R32_SFLOAT,					SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R32G32_UINT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R32G32_SINT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R32G32_SFLOAT,				SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R32G32B32A32_UINT,			SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R32G32B32A32_SINT,			SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_R32G32B32A32_SFLOAT,		SAIM | BLSR | TRSR | TRDS | COAT | BLDS |        STIM },
+		{ VK_FORMAT_B10G11R11_UFLOAT_PACK32,	SAIM | BLSR | TRSR | TRDS |               SIFL },
+		{ VK_FORMAT_E5B9G9R9_UFLOAT_PACK32,		SAIM | BLSR | TRSR | TRDS |               SIFL },
+		{ VK_FORMAT_D16_UNORM,					SAIM | BLSR | TRSR | TRDS |                                           DSAT },
 	};
 
 	size_t formatpairs = sizeof(formatflags) / sizeof(Formatpair);
@@ -2985,6 +2987,68 @@ VkFormatFeatureFlags getRequiredOptimalExtendedTilingFeatures (Context& context,
 			}
 		}
 	}
+
+	// VK_EXT_filter_cubic:
+	// If cubic filtering is supported, VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_EXT must be supported for the following image view types:
+	// VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_VIEW_TYPE_2D_ARRAY
+	static const VkFormat s_requiredSampledImageFilterCubicFormats[] =
+	{
+		VK_FORMAT_R4G4_UNORM_PACK8,
+		VK_FORMAT_R4G4B4A4_UNORM_PACK16,
+		VK_FORMAT_B4G4R4A4_UNORM_PACK16,
+		VK_FORMAT_R5G6B5_UNORM_PACK16,
+		VK_FORMAT_B5G6R5_UNORM_PACK16,
+		VK_FORMAT_R5G5B5A1_UNORM_PACK16,
+		VK_FORMAT_B5G5R5A1_UNORM_PACK16,
+		VK_FORMAT_A1R5G5B5_UNORM_PACK16,
+		VK_FORMAT_R8_UNORM,
+		VK_FORMAT_R8_SNORM,
+		VK_FORMAT_R8_SRGB,
+		VK_FORMAT_R8G8_UNORM,
+		VK_FORMAT_R8G8_SNORM,
+		VK_FORMAT_R8G8_SRGB,
+		VK_FORMAT_R8G8B8_UNORM,
+		VK_FORMAT_R8G8B8_SNORM,
+		VK_FORMAT_R8G8B8_SRGB,
+		VK_FORMAT_B8G8R8_UNORM,
+		VK_FORMAT_B8G8R8_SNORM,
+		VK_FORMAT_B8G8R8_SRGB,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_FORMAT_R8G8B8A8_SNORM,
+		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_FORMAT_B8G8R8A8_UNORM,
+		VK_FORMAT_B8G8R8A8_SNORM,
+		VK_FORMAT_B8G8R8A8_SRGB,
+		VK_FORMAT_A8B8G8R8_UNORM_PACK32,
+		VK_FORMAT_A8B8G8R8_SNORM_PACK32,
+		VK_FORMAT_A8B8G8R8_SRGB_PACK32
+	};
+
+	static const VkFormat s_requiredSampledImageFilterCubicFormatsETC2[] =
+	{
+		VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK,
+		VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK,
+		VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK,
+		VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK,
+		VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK,
+		VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK
+	};
+
+	if ( (queriedFlags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0 && de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), "VK_EXT_filter_cubic") )
+	{
+		if ( de::contains(DE_ARRAY_BEGIN(s_requiredSampledImageFilterCubicFormats), DE_ARRAY_END(s_requiredSampledImageFilterCubicFormats), format) )
+			flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_EXT;
+
+		VkPhysicalDeviceFeatures2						coreFeatures;
+		deMemset(&coreFeatures, 0, sizeof(coreFeatures));
+
+		coreFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		coreFeatures.pNext = DE_NULL;
+		context.getInstanceInterface().getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &coreFeatures);
+		if ( coreFeatures.features.textureCompressionETC2 && de::contains(DE_ARRAY_BEGIN(s_requiredSampledImageFilterCubicFormatsETC2), DE_ARRAY_END(s_requiredSampledImageFilterCubicFormatsETC2), format) )
+			flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_EXT;
+	}
+
 	return flags;
 }
 
@@ -3125,62 +3189,6 @@ VkFormatFeatureFlags getRequiredBufferFeatures (VkFormat format)
 	return flags;
 }
 
-tcu::TestStatus formatProperties (Context& context, VkFormat format)
-{
-	TestLog&					log					= context.getTestContext().getLog();
-	const VkFormatProperties	properties			= getPhysicalDeviceFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(), format);
-	bool						allOk				= true;
-
-	// \todo [2017-05-16 pyry] This should be extended to cover for example COLOR_ATTACHMENT for depth formats etc.
-	// \todo [2017-05-18 pyry] Any other color conversion related features that can't be supported by regular formats?
-	const VkFormatFeatureFlags	extOptimalFeatures	= getRequiredOptimalExtendedTilingFeatures(context, format, properties.optimalTilingFeatures);
-
-	const VkFormatFeatureFlags	notAllowedFeatures	= VK_FORMAT_FEATURE_DISJOINT_BIT;
-
-	const struct
-	{
-		VkFormatFeatureFlags VkFormatProperties::*	field;
-		const char*									fieldName;
-		VkFormatFeatureFlags						requiredFeatures;
-	} fields[] =
-	{
-		{ &VkFormatProperties::linearTilingFeatures,	"linearTilingFeatures",		(VkFormatFeatureFlags)0											},
-		{ &VkFormatProperties::optimalTilingFeatures,	"optimalTilingFeatures",	getRequiredOptimalTilingFeatures(format) | extOptimalFeatures	},
-		{ &VkFormatProperties::bufferFeatures,			"bufferFeatures",			getRequiredBufferFeatures(format)								}
-	};
-
-	log << TestLog::Message << properties << TestLog::EndMessage;
-
-	for (int fieldNdx = 0; fieldNdx < DE_LENGTH_OF_ARRAY(fields); fieldNdx++)
-	{
-		const char* const				fieldName	= fields[fieldNdx].fieldName;
-		const VkFormatFeatureFlags		supported	= properties.*fields[fieldNdx].field;
-		const VkFormatFeatureFlags		required	= fields[fieldNdx].requiredFeatures;
-
-		if ((supported & required) != required)
-		{
-			log << TestLog::Message << "ERROR in " << fieldName << ":\n"
-									<< "  required: " << getFormatFeatureFlagsStr(required) << "\n  "
-									<< "  missing: " << getFormatFeatureFlagsStr(~supported & required)
-				<< TestLog::EndMessage;
-			allOk = false;
-		}
-
-		if ((supported & notAllowedFeatures) != 0)
-		{
-			log << TestLog::Message << "ERROR in " << fieldName << ":\n"
-									<< "  has: " << getFormatFeatureFlagsStr(supported & notAllowedFeatures)
-				<< TestLog::EndMessage;
-			allOk = false;
-		}
-	}
-
-	if (allOk)
-		return tcu::TestStatus::pass("Query and validation passed");
-	else
-		return tcu::TestStatus::fail("Required features not supported");
-}
-
 VkPhysicalDeviceSamplerYcbcrConversionFeatures getPhysicalDeviceSamplerYcbcrConversionFeatures (const InstanceInterface& vk, VkPhysicalDevice physicalDevice)
 {
 	VkPhysicalDeviceFeatures2						coreFeatures;
@@ -3223,103 +3231,145 @@ bool isYcbcrConversionSupported (Context& context)
 	return (ycbcrFeatures.samplerYcbcrConversion == VK_TRUE);
 }
 
-VkFormatFeatureFlags getAllowedYcbcrFormatFeatures (VkFormat format)
+VkFormatFeatureFlags getRequiredYcbcrFormatFeatures (Context& context, VkFormat format)
 {
-	DE_ASSERT(isYCbCrFormat(format));
+	bool req = isYcbcrConversionSupported(context) && (	format == VK_FORMAT_G8_B8R8_2PLANE_420_UNORM ||
+														format == VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM);
 
-	VkFormatFeatureFlags	flags	= (VkFormatFeatureFlags)0;
-
-	// all formats *may* support these
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG;
-	flags |= VK_FORMAT_FEATURE_TRANSFER_SRC_BIT;
-	flags |= VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
-	flags |= VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT;
-	flags |= VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT;
-	flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT_EXT;
-
-	// multi-plane formats *may* support DISJOINT_BIT
-	if (getPlaneCount(format) >= 2)
-		flags |= VK_FORMAT_FEATURE_DISJOINT_BIT;
-
-	if (isChromaSubsampled(format))
-		flags |= VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT;
-
-	return flags;
+	const VkFormatFeatureFlags	required	= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+											| VK_FORMAT_FEATURE_TRANSFER_SRC_BIT
+											| VK_FORMAT_FEATURE_TRANSFER_DST_BIT
+											| VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT;
+	return req ? required : (VkFormatFeatureFlags)0;
 }
 
-tcu::TestStatus ycbcrFormatProperties (Context& context, VkFormat format)
+VkFormatFeatureFlags getRequiredOptimalTilingFeatures (Context& context, VkFormat format)
 {
-	DE_ASSERT(isYCbCrFormat(format));
-	// check if Ycbcr format enums are valid given the version and extensions
-	checkYcbcrApiSupport(context);
-
-	TestLog&					log						= context.getTestContext().getLog();
-	const VkFormatProperties	properties				= getPhysicalDeviceFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(), format);
-	bool						allOk					= true;
-	const VkFormatFeatureFlags	allowedImageFeatures	= getAllowedYcbcrFormatFeatures(format);
-
-	const struct
+	if (isYCbCrFormat(format))
+		return getRequiredYcbcrFormatFeatures(context, format);
+	else
 	{
-		VkFormatFeatureFlags VkFormatProperties::*	field;
-		const char*									fieldName;
-		bool										requiredFeatures;
-		VkFormatFeatureFlags						allowedFeatures;
+		VkFormatFeatureFlags ret = getBaseRequiredOptimalTilingFeatures(format);
+
+		// \todo [2017-05-16 pyry] This should be extended to cover for example COLOR_ATTACHMENT for depth formats etc.
+		// \todo [2017-05-18 pyry] Any other color conversion related features that can't be supported by regular formats?
+		ret |= getRequiredOptimalExtendedTilingFeatures(context, format, ret);
+
+		// Compressed formats have optional support for some features
+		// TODO: Is this really correct? It looks like it should be checking the different compressed features
+		if (isCompressedFormat(format) && (ret & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+			ret |=	VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+					VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+					VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+					VK_FORMAT_FEATURE_BLIT_SRC_BIT;
+
+		return ret;
+	}
+}
+
+bool requiresYCbCrConversion(VkFormat format)
+{
+	return isYCbCrFormat(format) &&
+			format != VK_FORMAT_R10X6_UNORM_PACK16 && format != VK_FORMAT_R10X6G10X6_UNORM_2PACK16 &&
+			format != VK_FORMAT_R12X4_UNORM_PACK16 && format != VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
+}
+
+VkFormatFeatureFlags getAllowedOptimalTilingFeatures (VkFormat format)
+{
+	// YCbCr formats only support a subset of format feature flags
+	const VkFormatFeatureFlags ycbcrAllows =
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG |
+		VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+		VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+		VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT |
+		VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT |
+		VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT_EXT |
+		VK_FORMAT_FEATURE_DISJOINT_BIT;
+
+	// By default everything is allowed.
+	VkFormatFeatureFlags allow = (VkFormatFeatureFlags)~0u;
+	// Formats for which SamplerYCbCrConversion is required may not support certain features.
+	if (requiresYCbCrConversion(format))
+		allow &= ycbcrAllows;
+	// single-plane formats *may not* support DISJOINT_BIT
+	if (!isYCbCrFormat(format) || getPlaneCount(format) == 1)
+		allow &= ~VK_FORMAT_FEATURE_DISJOINT_BIT;
+
+	return allow;
+}
+
+VkFormatFeatureFlags getAllowedBufferFeatures (VkFormat format)
+{
+	// TODO: Do we allow non-buffer flags in the bufferFeatures?
+	return requiresYCbCrConversion(format) ? (VkFormatFeatureFlags)0 : (VkFormatFeatureFlags)(~VK_FORMAT_FEATURE_DISJOINT_BIT);
+}
+
+tcu::TestStatus formatProperties (Context& context, VkFormat format)
+{
+	// check if Ycbcr format enums are valid given the version and extensions
+	if (isYCbCrFormat(format))
+		checkYcbcrApiSupport(context);
+
+	TestLog&					log			= context.getTestContext().getLog();
+	const VkFormatProperties	properties	= getPhysicalDeviceFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(), format);
+	bool						allOk		= true;
+
+	const VkFormatFeatureFlags reqImg	= getRequiredOptimalTilingFeatures(context, format);
+	const VkFormatFeatureFlags reqBuf	= getRequiredBufferFeatures(format);
+	const VkFormatFeatureFlags allowImg	= getAllowedOptimalTilingFeatures(format);
+	const VkFormatFeatureFlags allowBuf	= getAllowedBufferFeatures(format);
+
+	const struct feature_req
+	{
+		const char*				fieldName;
+		VkFormatFeatureFlags	supportedFeatures;
+		VkFormatFeatureFlags	requiredFeatures;
+		VkFormatFeatureFlags	allowedFeatures;
 	} fields[] =
 	{
-		{ &VkFormatProperties::linearTilingFeatures,	"linearTilingFeatures",		false,	allowedImageFeatures	},
-		{ &VkFormatProperties::optimalTilingFeatures,	"optimalTilingFeatures",	true,	allowedImageFeatures	},
-		{ &VkFormatProperties::bufferFeatures,			"bufferFeatures",			false,	(VkFormatFeatureFlags)0	}
+		{ "linearTilingFeatures",	properties.linearTilingFeatures,	(VkFormatFeatureFlags)0,	allowImg },
+		{ "optimalTilingFeatures",	properties.optimalTilingFeatures,	reqImg,						allowImg },
+		{ "bufferFeatures",			properties.bufferFeatures,			reqBuf,						allowBuf }
 	};
-	static const VkFormat		s_requiredBaseFormats[]	=
-	{
-		VK_FORMAT_G8_B8R8_2PLANE_420_UNORM,
-		VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM
-	};
-	const bool					isRequiredBaseFormat	= isYcbcrConversionSupported(context) &&
-														  de::contains(DE_ARRAY_BEGIN(s_requiredBaseFormats), DE_ARRAY_END(s_requiredBaseFormats), format);
 
 	log << TestLog::Message << properties << TestLog::EndMessage;
 
 	for (int fieldNdx = 0; fieldNdx < DE_LENGTH_OF_ARRAY(fields); fieldNdx++)
 	{
-		const char* const				fieldName	= fields[fieldNdx].fieldName;
-		const VkFormatFeatureFlags		supported	= properties.*fields[fieldNdx].field;
-		const VkFormatFeatureFlags		allowed		= fields[fieldNdx].allowedFeatures;
+		const char* const			fieldName	= fields[fieldNdx].fieldName;
+		const VkFormatFeatureFlags	supported	= fields[fieldNdx].supportedFeatures;
+		const VkFormatFeatureFlags	required	= fields[fieldNdx].requiredFeatures;
+		const VkFormatFeatureFlags	allowed		= fields[fieldNdx].allowedFeatures;
 
-		if (isRequiredBaseFormat && fields[fieldNdx].requiredFeatures)
+		if ((supported & required) != required)
 		{
-			const VkFormatFeatureFlags	required	= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
-													| VK_FORMAT_FEATURE_TRANSFER_SRC_BIT
-													| VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
-
-			if ((supported & required) != required)
-			{
-				log << TestLog::Message << "ERROR in " << fieldName << ":\n"
-										<< "  required: " << getFormatFeatureFlagsStr(required) << "\n  "
-										<< "  missing: " << getFormatFeatureFlagsStr(~supported & required)
-					<< TestLog::EndMessage;
-				allOk = false;
-			}
-
-			if ((supported & (VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT | VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT)) == 0)
-			{
-				log << TestLog::Message << "ERROR in " << fieldName << ":\n"
-										<< "  Either VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT or VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT required"
-					<< TestLog::EndMessage;
-				allOk = false;
-			}
+			log << TestLog::Message << "ERROR in " << fieldName << ":\n"
+									<< "  required: " << getFormatFeatureFlagsStr(required) << "\n  "
+									<< "  missing: " << getFormatFeatureFlagsStr(~supported & required)
+				<< TestLog::EndMessage;
+			allOk = false;
 		}
 
 		if ((supported & ~allowed) != 0)
 		{
 			log << TestLog::Message << "ERROR in " << fieldName << ":\n"
 									<< "  has: " << getFormatFeatureFlagsStr(supported & ~allowed)
+				<< TestLog::EndMessage;
+			allOk = false;
+		}
+
+		if (((supported & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT) != 0) &&
+			((supported & VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT) == 0))
+		{
+			log << TestLog::Message << "ERROR in " << fieldName << ":\n"
+									<< " supports VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT"
+									<< " but not VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT"
 				<< TestLog::EndMessage;
 			allOk = false;
 		}
@@ -3450,13 +3500,16 @@ tcu::TestStatus testCompressedFormatsSupported (Context& context)
 
 	for (int setNdx = 0; setNdx < DE_LENGTH_OF_ARRAY(s_compressedFormatSets); ++setNdx)
 	{
-		const char* const	setName			= s_compressedFormatSets[setNdx].setName;
-		const char* const	featureName		= s_compressedFormatSets[setNdx].featureName;
-		const bool			featureBitSet	= features.*s_compressedFormatSets[setNdx].feature == VK_TRUE;
+		const char* const			setName				= s_compressedFormatSets[setNdx].setName;
+		const char* const			featureName			= s_compressedFormatSets[setNdx].featureName;
+		const bool					featureBitSet		= features.*s_compressedFormatSets[setNdx].feature == VK_TRUE;
+		const VkFormatFeatureFlags	requiredFeatures	=
+			VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT |
+			VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
 		const bool			allSupported	= optimalTilingFeaturesSupportedForAll(context,
 																				   s_compressedFormatSets[setNdx].formatsBegin,
 																				   s_compressedFormatSets[setNdx].formatsEnd,
-																				   VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
+																				   requiredFeatures);
 
 		if (featureBitSet && !allSupported)
 		{
@@ -3498,30 +3551,31 @@ void createFormatTests (tcu::TestCaseGroup* testGroup)
 
 	static const struct
 	{
-		VkFormat								begin;
-		VkFormat								end;
-		FunctionInstance1<VkFormat>::Function	testFunction;
+		VkFormat	begin;
+		VkFormat	end;
 	} s_formatRanges[] =
 	{
 		// core formats
-		{ (VkFormat)(VK_FORMAT_UNDEFINED+1),	VK_CORE_FORMAT_LAST,										formatProperties },
+		{ (VkFormat)(VK_FORMAT_UNDEFINED+1),		VK_CORE_FORMAT_LAST										},
 
 		// YCbCr formats
-		{ VK_FORMAT_G8B8G8R8_422_UNORM,			(VkFormat)(VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM+1),	ycbcrFormatProperties },
+		{ VK_FORMAT_G8B8G8R8_422_UNORM,				(VkFormat)(VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM+1)	},
+
+		// YCbCr extended formats
+		{ VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT,	(VkFormat)(VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT+1)	},
 	};
 
 	for (int rangeNdx = 0; rangeNdx < DE_LENGTH_OF_ARRAY(s_formatRanges); ++rangeNdx)
 	{
 		const VkFormat								rangeBegin		= s_formatRanges[rangeNdx].begin;
 		const VkFormat								rangeEnd		= s_formatRanges[rangeNdx].end;
-		const FunctionInstance1<VkFormat>::Function	testFunction	= s_formatRanges[rangeNdx].testFunction;
 
 		for (VkFormat format = rangeBegin; format != rangeEnd; format = (VkFormat)(format+1))
 		{
 			const char* const	enumName	= getFormatName(format);
 			const string		caseName	= de::toLower(string(enumName).substr(10));
 
-			addFunctionCase(testGroup, caseName, enumName, testFunction, format);
+			addFunctionCase(testGroup, caseName, enumName, formatProperties, format);
 		}
 	}
 
@@ -3772,8 +3826,8 @@ struct ImageFormatPropertyCase
 	ImageFormatPropertyCase (void)
 		: testFunction	((Function)DE_NULL)
 		, format		(VK_FORMAT_UNDEFINED)
-		, imageType		(VK_IMAGE_TYPE_LAST)
-		, tiling		(VK_IMAGE_TILING_MAX_ENUM)
+		, imageType		(VK_CORE_IMAGE_TYPE_LAST)
+		, tiling		(VK_CORE_IMAGE_TILING_LAST)
 	{}
 };
 
@@ -3853,9 +3907,9 @@ tcu::TestStatus imageFormatProperties (Context& context, const VkFormat format, 
 
 			if (queryResult == VK_SUCCESS)
 			{
-				const deUint32	fullMipPyramidSize	= de::max(de::max(deLog2Ceil32(properties.maxExtent.width),
-																	  deLog2Ceil32(properties.maxExtent.height)),
-															  deLog2Ceil32(properties.maxExtent.depth)) + 1;
+				const deUint32	fullMipPyramidSize	= de::max(de::max(deLog2Floor32(properties.maxExtent.width),
+																	  deLog2Floor32(properties.maxExtent.height)),
+															  deLog2Floor32(properties.maxExtent.depth)) + 1;
 
 				log << TestLog::Message << properties << "\n" << TestLog::EndMessage;
 
@@ -3954,6 +4008,7 @@ tcu::TestStatus deviceFeatures2 (Context& context)
 	const VkPhysicalDevice		physicalDevice	= context.getPhysicalDevice();
 	const CustomInstance		instance		(createCustomInstanceWithExtension(context, "VK_KHR_get_physical_device_properties2"));
 	const InstanceDriver&		vki				(instance.getDriver());
+	const int					count			= 2u;
 	TestLog&					log				= context.getTestContext().getLog();
 	VkPhysicalDeviceFeatures	coreFeatures;
 	VkPhysicalDeviceFeatures2	extFeatures;
@@ -3977,258 +4032,8 @@ tcu::TestStatus deviceFeatures2 (Context& context)
 	log << TestLog::Message << extFeatures << TestLog::EndMessage;
 
 	vector<VkExtensionProperties> properties	= enumerateDeviceExtensionProperties(vki, physicalDevice, DE_NULL);
-	const bool ext_conditional_rendering		= checkExtension(properties, "VK_EXT_conditional_rendering");
-	const bool ext_scalar_block_layout			= checkExtension(properties, "VK_EXT_scalar_block_layout");
-	const bool khr_performance_counter			= checkExtension(properties, "VK_KHR_performance_query");
-	const bool khr_16bit_storage				= checkExtension(properties, "VK_KHR_16bit_storage")			||	context.contextSupports(vk::ApiVersion(1, 1, 0));
-	const bool khr_multiview					= checkExtension(properties, "VK_KHR_multiview")				||	context.contextSupports(vk::ApiVersion(1, 1, 0));
-	const bool khr_device_protected_memory		=																	context.contextSupports(vk::ApiVersion(1, 1, 0));
-	const bool khr_sampler_ycbcr_conversion		= checkExtension(properties, "VK_KHR_sampler_ycbcr_conversion")	||	context.contextSupports(vk::ApiVersion(1, 1, 0));
-	const bool khr_variable_pointers			= checkExtension(properties, "VK_KHR_variable_pointers")		||	context.contextSupports(vk::ApiVersion(1, 1, 0));
-	const bool khr_8bit_storage					= checkExtension(properties, "VK_KHR_8bit_storage")				||	context.contextSupports(vk::ApiVersion(1, 2, 0));
-	const bool khr_shader_atomic_int64			= checkExtension(properties, "VK_KHR_shader_atomic_int64")		||	context.contextSupports(vk::ApiVersion(1, 2, 0));
-	const bool khr_shader_float16_int8			= checkExtension(properties, "VK_KHR_shader_float16_int8")		||	context.contextSupports(vk::ApiVersion(1, 2, 0));
-	const bool khr_buffer_device_address		= checkExtension(properties, "VK_KHR_buffer_device_address")	||	context.contextSupports(vk::ApiVersion(1, 2, 0));
-	const bool ext_descriptor_indexing			= checkExtension(properties, "VK_EXT_descriptor_indexing")		||	context.contextSupports(vk::ApiVersion(1, 2, 0));
-	const bool ext_buffer_device_address		= checkExtension(properties, "VK_EXT_buffer_device_address");
 
-	const int count = 2u;
-	VkPhysicalDeviceConditionalRenderingFeaturesEXT	deviceConditionalRenderingFeatures[count];
-	VkPhysicalDeviceScalarBlockLayoutFeatures		scalarBlockLayoutFeatures[count];
-	VkPhysicalDevicePerformanceQueryFeaturesKHR		performanceQueryFeatures[count];
-	VkPhysicalDevice16BitStorageFeatures			device16BitStorageFeatures[count];
-	VkPhysicalDeviceMultiviewFeatures				deviceMultiviewFeatures[count];
-	VkPhysicalDeviceProtectedMemoryFeatures			protectedMemoryFeatures[count];
-	VkPhysicalDeviceSamplerYcbcrConversionFeatures	samplerYcbcrConversionFeatures[count];
-	VkPhysicalDeviceVariablePointersFeatures		variablePointerFeatures[count];
-	VkPhysicalDevice8BitStorageFeatures				device8BitStorageFeatures[count];
-	VkPhysicalDeviceShaderAtomicInt64Features		deviceShaderAtomicInt64Features[count];
-	VkPhysicalDeviceShaderFloat16Int8Features		deviceShaderFloat16Int8Features[count];
-	VkPhysicalDeviceBufferDeviceAddressFeaturesEXT	deviceBufferDeviceAddressFeaturesEXT[count];
-	VkPhysicalDeviceBufferDeviceAddressFeatures		deviceBufferDeviceAddressFeatures[count];
-	VkPhysicalDeviceDescriptorIndexingFeatures		deviceDescriptorIndexingFeatures[count];
-	VkPhysicalDeviceTimelineSemaphoreFeatures		timelineSemaphoreFeatures[count];
-
-	for (int ndx = 0; ndx < count; ++ndx)
-	{
-		deMemset(&deviceConditionalRenderingFeatures[ndx],	0xFF * ndx, sizeof(VkPhysicalDeviceConditionalRenderingFeaturesEXT));
-		deMemset(&scalarBlockLayoutFeatures[ndx],			0xFF * ndx, sizeof(VkPhysicalDeviceScalarBlockLayoutFeatures));
-		deMemset(&performanceQueryFeatures[ndx],			0xFF * ndx, sizeof(VkPhysicalDevicePerformanceQueryFeaturesKHR));
-		deMemset(&device16BitStorageFeatures[ndx],			0xFF * ndx, sizeof(VkPhysicalDevice16BitStorageFeatures));
-		deMemset(&deviceMultiviewFeatures[ndx],				0xFF * ndx, sizeof(VkPhysicalDeviceMultiviewFeatures));
-		deMemset(&protectedMemoryFeatures[ndx],				0xFF * ndx, sizeof(VkPhysicalDeviceProtectedMemoryFeatures));
-		deMemset(&samplerYcbcrConversionFeatures[ndx],		0xFF * ndx, sizeof(VkPhysicalDeviceSamplerYcbcrConversionFeatures));
-		deMemset(&variablePointerFeatures[ndx],				0xFF * ndx, sizeof(VkPhysicalDeviceVariablePointersFeatures));
-		deMemset(&device8BitStorageFeatures[ndx],			0xFF * ndx, sizeof(VkPhysicalDevice8BitStorageFeaturesKHR));
-		deMemset(&deviceShaderAtomicInt64Features[ndx],		0xFF * ndx, sizeof(VkPhysicalDeviceShaderAtomicInt64Features));
-		deMemset(&deviceShaderFloat16Int8Features[ndx],		0xFF * ndx, sizeof(VkPhysicalDeviceShaderFloat16Int8Features));
-		deMemset(&deviceBufferDeviceAddressFeatures[ndx],	0xFF * ndx, sizeof(VkPhysicalDeviceBufferDeviceAddressFeatures));
-		deMemset(&deviceBufferDeviceAddressFeaturesEXT[ndx],0xFF * ndx, sizeof(VkPhysicalDeviceBufferDeviceAddressFeaturesEXT));
-		deMemset(&deviceDescriptorIndexingFeatures[ndx],	0xFF * ndx, sizeof(VkPhysicalDeviceDescriptorIndexingFeatures));
-
-		deviceConditionalRenderingFeatures[ndx].sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT;
-		deviceConditionalRenderingFeatures[ndx].pNext	= &scalarBlockLayoutFeatures[ndx];
-
-		scalarBlockLayoutFeatures[ndx].sType			= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
-		scalarBlockLayoutFeatures[ndx].pNext			= &performanceQueryFeatures[ndx];
-
-		performanceQueryFeatures[ndx].sType				= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR;
-		performanceQueryFeatures[ndx].pNext				= &device16BitStorageFeatures[ndx];
-
-		device16BitStorageFeatures[ndx].sType			= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
-		device16BitStorageFeatures[ndx].pNext			= &deviceMultiviewFeatures[ndx];
-
-		deviceMultiviewFeatures[ndx].sType				= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
-		deviceMultiviewFeatures[ndx].pNext				= &protectedMemoryFeatures[ndx];
-
-		protectedMemoryFeatures[ndx].sType				= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES;
-		protectedMemoryFeatures[ndx].pNext				= &samplerYcbcrConversionFeatures[ndx];
-
-		samplerYcbcrConversionFeatures[ndx].sType		= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
-		samplerYcbcrConversionFeatures[ndx].pNext		= &variablePointerFeatures[ndx];
-
-		variablePointerFeatures[ndx].sType				= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES;
-		variablePointerFeatures[ndx].pNext				= &device8BitStorageFeatures[ndx];
-
-		device8BitStorageFeatures[ndx].sType			= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
-		device8BitStorageFeatures[ndx].pNext			= &deviceShaderAtomicInt64Features[ndx];
-
-		deviceShaderAtomicInt64Features[ndx].sType		= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
-		deviceShaderAtomicInt64Features[ndx].pNext		= &deviceShaderFloat16Int8Features[ndx];
-
-		deviceShaderFloat16Int8Features[ndx].sType		= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
-		deviceShaderFloat16Int8Features[ndx].pNext		= &deviceBufferDeviceAddressFeatures[ndx];
-
-		deviceBufferDeviceAddressFeatures[ndx].sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-		deviceBufferDeviceAddressFeatures[ndx].pNext	= &deviceBufferDeviceAddressFeaturesEXT[ndx];
-
-		deviceBufferDeviceAddressFeaturesEXT[ndx].sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT;
-		deviceBufferDeviceAddressFeaturesEXT[ndx].pNext	= &deviceDescriptorIndexingFeatures[ndx];
-
-		deviceDescriptorIndexingFeatures[ndx].sType		= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-		deviceDescriptorIndexingFeatures[ndx].pNext		= &timelineSemaphoreFeatures[ndx];
-
-		timelineSemaphoreFeatures[ndx].sType			= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-		timelineSemaphoreFeatures[ndx].pNext			= DE_NULL;
-
-		deMemset(&extFeatures.features, 0xcd, sizeof(extFeatures.features));
-		extFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-		extFeatures.pNext = &deviceConditionalRenderingFeatures[ndx];
-
-		vki.getPhysicalDeviceFeatures2(physicalDevice, &extFeatures);
-	}
-
-	if (ext_conditional_rendering)
-		log << TestLog::Message << deviceConditionalRenderingFeatures[0] << TestLog::EndMessage;
-	if (ext_scalar_block_layout)
-		log << TestLog::Message << scalarBlockLayoutFeatures[0] << TestLog::EndMessage;
-	if (khr_performance_counter)
-		log << TestLog::Message << performanceQueryFeatures[0] << TestLog::EndMessage;
-	if (khr_16bit_storage)
-		log << TestLog::Message << device16BitStorageFeatures[0] << TestLog::EndMessage;
-	if (khr_multiview)
-		log << TestLog::Message << deviceMultiviewFeatures[0] << TestLog::EndMessage;
-	if (khr_device_protected_memory)
-		log << TestLog::Message << protectedMemoryFeatures[0] << TestLog::EndMessage;
-	if (khr_sampler_ycbcr_conversion)
-		log << TestLog::Message << samplerYcbcrConversionFeatures[0] << TestLog::EndMessage;
-	if (khr_variable_pointers)
-		log << TestLog::Message << variablePointerFeatures[0] << TestLog::EndMessage;
-	if (khr_8bit_storage)
-		log << TestLog::Message << device8BitStorageFeatures[0] << TestLog::EndMessage;
-	if (khr_shader_atomic_int64)
-		log << TestLog::Message << deviceShaderAtomicInt64Features[0] << TestLog::EndMessage;
-	if (khr_shader_float16_int8)
-		log << TestLog::Message << deviceShaderFloat16Int8Features[0] << TestLog::EndMessage;
-	if (khr_buffer_device_address)
-		log << TestLog::Message << deviceBufferDeviceAddressFeatures[0] << TestLog::EndMessage;
-	if (ext_buffer_device_address)
-		log << TestLog::Message << deviceBufferDeviceAddressFeaturesEXT[0] << TestLog::EndMessage;
-	if (ext_descriptor_indexing)
-		log << TestLog::Message << deviceDescriptorIndexingFeatures[0] << TestLog::EndMessage;
-
-	if ( ext_conditional_rendering &&
-		(	deviceConditionalRenderingFeatures[0].conditionalRendering				!= deviceConditionalRenderingFeatures[1].conditionalRendering ||
-			deviceConditionalRenderingFeatures[0].inheritedConditionalRendering		!= deviceConditionalRenderingFeatures[1].inheritedConditionalRendering ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceConditionalRenderingFeaturesEXT");
-	}
-	if ( khr_performance_counter &&
-		(	performanceQueryFeatures[0].performanceCounterQueryPools			!= performanceQueryFeatures[1].performanceCounterQueryPools ||
-			performanceQueryFeatures[0].performanceCounterMultipleQueryPools	!= performanceQueryFeatures[1].performanceCounterMultipleQueryPools ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDevicePerformancQueryFeaturesKHR");
-	}
-
-	if ( ext_scalar_block_layout &&
-		(	scalarBlockLayoutFeatures[0].scalarBlockLayout != scalarBlockLayoutFeatures[1].scalarBlockLayout ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceScalarBlockLayoutFeatures");
-	}
-
-	if ( khr_performance_counter &&
-		(	performanceQueryFeatures[0].performanceCounterQueryPools			!= performanceQueryFeatures[1].performanceCounterQueryPools ||
-			performanceQueryFeatures[0].performanceCounterMultipleQueryPools	!= performanceQueryFeatures[1].performanceCounterMultipleQueryPools ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDevicePerformancQueryFeaturesKHR");
-	}
-
-	if ( khr_16bit_storage &&
-		(	device16BitStorageFeatures[0].storageBuffer16BitAccess				!= device16BitStorageFeatures[1].storageBuffer16BitAccess ||
-			device16BitStorageFeatures[0].uniformAndStorageBuffer16BitAccess	!= device16BitStorageFeatures[1].uniformAndStorageBuffer16BitAccess ||
-			device16BitStorageFeatures[0].storagePushConstant16					!= device16BitStorageFeatures[1].storagePushConstant16 ||
-			device16BitStorageFeatures[0].storageInputOutput16					!= device16BitStorageFeatures[1].storageInputOutput16 ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDevice16BitStorageFeatures");
-	}
-
-	if ( khr_multiview &&
-		(	deviceMultiviewFeatures[0].multiview					!= deviceMultiviewFeatures[1].multiview ||
-			deviceMultiviewFeatures[0].multiviewGeometryShader		!= deviceMultiviewFeatures[1].multiviewGeometryShader ||
-			deviceMultiviewFeatures[0].multiviewTessellationShader	!= deviceMultiviewFeatures[1].multiviewTessellationShader ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceMultiviewFeatures");
-	}
-
-	if ( khr_device_protected_memory && protectedMemoryFeatures[0].protectedMemory != protectedMemoryFeatures[1].protectedMemory )
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceProtectedMemoryFeatures");
-	}
-
-	if ( khr_sampler_ycbcr_conversion && samplerYcbcrConversionFeatures[0].samplerYcbcrConversion != samplerYcbcrConversionFeatures[1].samplerYcbcrConversion )
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceSamplerYcbcrConversionFeatures");
-	}
-
-	if ( khr_variable_pointers &&
-		(	variablePointerFeatures[0].variablePointersStorageBuffer	!= variablePointerFeatures[1].variablePointersStorageBuffer ||
-			variablePointerFeatures[0].variablePointers					!= variablePointerFeatures[1].variablePointers))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceVariablePointersFeatures");
-	}
-
-	if ( khr_8bit_storage &&
-		(	device8BitStorageFeatures[0].storageBuffer8BitAccess			!= device8BitStorageFeatures[1].storageBuffer8BitAccess ||
-			device8BitStorageFeatures[0].uniformAndStorageBuffer8BitAccess	!= device8BitStorageFeatures[1].uniformAndStorageBuffer8BitAccess ||
-			device8BitStorageFeatures[0].storagePushConstant8				!= device8BitStorageFeatures[1].storagePushConstant8 ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDevice8BitStorageFeatures");
-	}
-
-	if ( khr_shader_atomic_int64 &&
-		(	deviceShaderAtomicInt64Features[0].shaderBufferInt64Atomics != deviceShaderAtomicInt64Features[1].shaderBufferInt64Atomics ||
-			deviceShaderAtomicInt64Features[0].shaderSharedInt64Atomics != deviceShaderAtomicInt64Features[1].shaderSharedInt64Atomics ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceShaderAtomicInt64Features");
-	}
-
-	if ( khr_shader_float16_int8 &&
-		(	deviceShaderFloat16Int8Features[0].shaderFloat16	!= deviceShaderFloat16Int8Features[1].shaderFloat16 ||
-			deviceShaderFloat16Int8Features[0].shaderInt8		!= deviceShaderFloat16Int8Features[1].shaderInt8 ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceShaderFloat16Int8Features");
-	}
-
-	if ( khr_buffer_device_address &&
-		(	deviceBufferDeviceAddressFeatures[0].bufferDeviceAddress				!= deviceBufferDeviceAddressFeatures[1].bufferDeviceAddress ||
-			deviceBufferDeviceAddressFeatures[0].bufferDeviceAddressCaptureReplay	!= deviceBufferDeviceAddressFeatures[1].bufferDeviceAddressCaptureReplay ||
-			deviceBufferDeviceAddressFeatures[0].bufferDeviceAddressMultiDevice		!= deviceBufferDeviceAddressFeatures[1].bufferDeviceAddressMultiDevice ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceBufferDeviceAddressFeatures");
-	}
-
-	if ( ext_buffer_device_address &&
-		(	deviceBufferDeviceAddressFeaturesEXT[0].bufferDeviceAddress					!= deviceBufferDeviceAddressFeaturesEXT[1].bufferDeviceAddress ||
-			deviceBufferDeviceAddressFeaturesEXT[0].bufferDeviceAddressCaptureReplay	!= deviceBufferDeviceAddressFeaturesEXT[1].bufferDeviceAddressCaptureReplay ||
-			deviceBufferDeviceAddressFeaturesEXT[0].bufferDeviceAddressMultiDevice		!= deviceBufferDeviceAddressFeaturesEXT[1].bufferDeviceAddressMultiDevice ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceBufferDeviceAddressFeaturesEXT");
-	}
-
-	if ( ext_descriptor_indexing &&
-		(	deviceDescriptorIndexingFeatures[0].shaderInputAttachmentArrayDynamicIndexing			!= deviceDescriptorIndexingFeatures[1].shaderInputAttachmentArrayDynamicIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderUniformTexelBufferArrayDynamicIndexing		!= deviceDescriptorIndexingFeatures[1].shaderUniformTexelBufferArrayDynamicIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderStorageTexelBufferArrayDynamicIndexing		!= deviceDescriptorIndexingFeatures[1].shaderStorageTexelBufferArrayDynamicIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderUniformBufferArrayNonUniformIndexing			!= deviceDescriptorIndexingFeatures[1].shaderUniformBufferArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderSampledImageArrayNonUniformIndexing			!= deviceDescriptorIndexingFeatures[1].shaderSampledImageArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderStorageBufferArrayNonUniformIndexing			!= deviceDescriptorIndexingFeatures[1].shaderStorageBufferArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderStorageImageArrayNonUniformIndexing			!= deviceDescriptorIndexingFeatures[1].shaderStorageImageArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderInputAttachmentArrayNonUniformIndexing		!= deviceDescriptorIndexingFeatures[1].shaderInputAttachmentArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderUniformTexelBufferArrayNonUniformIndexing		!= deviceDescriptorIndexingFeatures[1].shaderUniformTexelBufferArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].shaderStorageTexelBufferArrayNonUniformIndexing		!= deviceDescriptorIndexingFeatures[1].shaderStorageTexelBufferArrayNonUniformIndexing ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingUniformBufferUpdateAfterBind		!= deviceDescriptorIndexingFeatures[1].descriptorBindingUniformBufferUpdateAfterBind ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingSampledImageUpdateAfterBind		!= deviceDescriptorIndexingFeatures[1].descriptorBindingSampledImageUpdateAfterBind ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingStorageImageUpdateAfterBind		!= deviceDescriptorIndexingFeatures[1].descriptorBindingStorageImageUpdateAfterBind ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingStorageBufferUpdateAfterBind		!= deviceDescriptorIndexingFeatures[1].descriptorBindingStorageBufferUpdateAfterBind ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingUniformTexelBufferUpdateAfterBind	!= deviceDescriptorIndexingFeatures[1].descriptorBindingUniformTexelBufferUpdateAfterBind ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingStorageTexelBufferUpdateAfterBind	!= deviceDescriptorIndexingFeatures[1].descriptorBindingStorageTexelBufferUpdateAfterBind ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingUpdateUnusedWhilePending			!= deviceDescriptorIndexingFeatures[1].descriptorBindingUpdateUnusedWhilePending ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingPartiallyBound						!= deviceDescriptorIndexingFeatures[1].descriptorBindingPartiallyBound ||
-			deviceDescriptorIndexingFeatures[0].descriptorBindingVariableDescriptorCount			!= deviceDescriptorIndexingFeatures[1].descriptorBindingVariableDescriptorCount ||
-			deviceDescriptorIndexingFeatures[0].runtimeDescriptorArray								!= deviceDescriptorIndexingFeatures[1].runtimeDescriptorArray ))
-	{
-		TCU_FAIL("Mismatch between VkPhysicalDeviceDescriptorIndexingFeatures");
-	}
+#include "vkDeviceFeatures2.inl"
 
 	return tcu::TestStatus::pass("Querying device features succeeded");
 }
@@ -4419,6 +4224,17 @@ tcu::TestStatus deviceProperties2 (Context& context)
 		(maintenance3Properties[0].maxPerSetDescriptors		!= maintenance3Properties[1].maxPerSetDescriptors ||
 		 maintenance3Properties[0].maxMemoryAllocationSize	!= maintenance3Properties[1].maxMemoryAllocationSize))
 	{
+		if (protectedMemoryPropertiesKHR[0].protectedNoFault != protectedMemoryPropertiesKHR[1].protectedNoFault)
+		{
+			TCU_FAIL("Mismatch between VkPhysicalDeviceProtectedMemoryProperties");
+		}
+		if ((subgroupProperties[0].subgroupSize					!= subgroupProperties[1].subgroupSize) ||
+			(subgroupProperties[0].supportedStages				!= subgroupProperties[1].supportedStages) ||
+			(subgroupProperties[0].supportedOperations			!= subgroupProperties[1].supportedOperations) ||
+			(subgroupProperties[0].quadOperationsInAllStages	!= subgroupProperties[1].quadOperationsInAllStages))
+		{
+			TCU_FAIL("Mismatch between VkPhysicalDeviceSubgroupProperties");
+		}
 		TCU_FAIL("Mismatch between VkPhysicalDeviceMaintenance3Properties");
 	}
 	if (khr_depth_stencil_resolve &&
@@ -5557,8 +5373,8 @@ tcu::TestStatus sparseImageFormatProperties2 (Context& context, const VkFormat f
 				tiling,
 			};
 
-			deUint32										numCoreProperties	= ~0u;
-			deUint32										numExtProperties	= ~0u;
+			deUint32	numCoreProperties	= 0u;
+			deUint32	numExtProperties	= 0u;
 
 			// Query count
 			vki.getPhysicalDeviceSparseImageFormatProperties(physicalDevice, imageFormatInfo.format, imageFormatInfo.type, imageFormatInfo.samples, imageFormatInfo.usage, imageFormatInfo.tiling, &numCoreProperties, DE_NULL);
@@ -5638,10 +5454,13 @@ void createImageFormatTypeTilingTests (tcu::TestCaseGroup* testGroup, ImageForma
 	} s_formatRanges[] =
 	{
 		// core formats
-		{ (VkFormat)(VK_FORMAT_UNDEFINED + 1),	VK_CORE_FORMAT_LAST,										params },
+		{ (VkFormat)(VK_FORMAT_UNDEFINED + 1),		VK_CORE_FORMAT_LAST,										params },
 
 		// YCbCr formats
-		{ VK_FORMAT_G8B8G8R8_422_UNORM_KHR,		(VkFormat)(VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM_KHR + 1),	params }
+		{ VK_FORMAT_G8B8G8R8_422_UNORM_KHR,			(VkFormat)(VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM_KHR + 1),	params },
+
+		// YCbCr extended formats
+		{ VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT,	(VkFormat)(VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT+1),	params },
 	};
 
 	for (int rangeNdx = 0; rangeNdx < DE_LENGTH_OF_ARRAY(s_formatRanges); ++rangeNdx)
@@ -5672,7 +5491,7 @@ void createImageFormatTypeTilingTests (tcu::TestCaseGroup* testGroup, ImageForma
 
 void createImageFormatTypeTests (tcu::TestCaseGroup* testGroup, ImageFormatPropertyCase params)
 {
-	DE_ASSERT(params.tiling == VK_IMAGE_TILING_MAX_ENUM);
+	DE_ASSERT(params.tiling == VK_CORE_IMAGE_TILING_LAST);
 
 	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "optimal",	"",	createImageFormatTypeTilingTests, ImageFormatPropertyCase(params.testFunction, VK_FORMAT_UNDEFINED, params.imageType, VK_IMAGE_TILING_OPTIMAL)));
 	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "linear",	"",	createImageFormatTypeTilingTests, ImageFormatPropertyCase(params.testFunction, VK_FORMAT_UNDEFINED, params.imageType, VK_IMAGE_TILING_LINEAR)));
@@ -5680,9 +5499,9 @@ void createImageFormatTypeTests (tcu::TestCaseGroup* testGroup, ImageFormatPrope
 
 void createImageFormatTests (tcu::TestCaseGroup* testGroup, ImageFormatPropertyCase::Function testFunction)
 {
-	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "1d", "", createImageFormatTypeTests, ImageFormatPropertyCase(testFunction, VK_FORMAT_UNDEFINED, VK_IMAGE_TYPE_1D, VK_IMAGE_TILING_MAX_ENUM)));
-	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "2d", "", createImageFormatTypeTests, ImageFormatPropertyCase(testFunction, VK_FORMAT_UNDEFINED, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_MAX_ENUM)));
-	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "3d", "", createImageFormatTypeTests, ImageFormatPropertyCase(testFunction, VK_FORMAT_UNDEFINED, VK_IMAGE_TYPE_3D, VK_IMAGE_TILING_MAX_ENUM)));
+	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "1d", "", createImageFormatTypeTests, ImageFormatPropertyCase(testFunction, VK_FORMAT_UNDEFINED, VK_IMAGE_TYPE_1D, VK_CORE_IMAGE_TILING_LAST)));
+	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "2d", "", createImageFormatTypeTests, ImageFormatPropertyCase(testFunction, VK_FORMAT_UNDEFINED, VK_IMAGE_TYPE_2D, VK_CORE_IMAGE_TILING_LAST)));
+	testGroup->addChild(createTestGroup(testGroup->getTestContext(), "3d", "", createImageFormatTypeTests, ImageFormatPropertyCase(testFunction, VK_FORMAT_UNDEFINED, VK_IMAGE_TYPE_3D, VK_CORE_IMAGE_TILING_LAST)));
 }
 
 

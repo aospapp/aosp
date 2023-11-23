@@ -195,3 +195,90 @@ def create_chameleon_host(dut, chameleon_args):
             )
         else:
             return None
+
+
+def create_btpeer_host(dut, btpeer_args_list):
+    """Create a ChameleonHost object for a Bluetooth peer
+
+    This is similar to create_chameleon_host but unlike chameleon board
+    there can be multiple btpeers with a single DUT
+
+    There four possible cases:
+    1) If the DUT is in Cros Lab then assume that it can have up to 4 bluetooth
+       peers. Ping the url and create a Chameleon host for each Bluetooth peer
+       present. btpeer_args_list is ignored.
+    2) If not case 1) and btpeer_args_list is not empty, then
+       create a BtpeerHost object for each host specified in btpeer_args_list.
+    3) If neither case 1) or 2) applies, return None.
+    4) This DUT is controlled  by moblab. This case is not implemented.
+
+
+    @param dut: host name of the host that btpeer connects. It can be used
+                to lookup the btpeer in test lab using naming convention.
+                If dut is an IP address, it can not be used to lookup the
+                btpeer in test lab. Naming convention in the lab is
+                <hostname>-btpeer[1-4]
+    @param btpeer_args_list: A list of dictionaries that contains args for
+                            creating a BtpeerHost object,
+                           e.g. {'btpeer_host': '172.11.11.112',
+                                 'btpeer_port': 9992}.
+
+    @returns: A list of BtpeerHost objects
+
+    """
+    def _convert_btpeer_args(args):
+        """Convert btpeer args to format accepted by ChameleonHost."""
+        ret_args = {}
+        if 'btpeer_host' in args:
+            ret_args['chameleon_host'] = args['btpeer_host']
+        if 'btpeer_port' in args:
+            ret_args['chameleon_port'] = args['btpeer_port']
+        if 'btpeer_ssh_port' in args:
+            ret_args['port'] = int(args['btpeer_ssh_port'])
+        return ret_args
+
+    if not utils.is_in_container():
+        is_moblab = utils.is_moblab()
+    else:
+        is_moblab = _CONFIG.get_config_value(
+                'SSP', 'is_moblab', type=bool, default=False)
+
+    btpeer_hosts = []
+
+    if not is_moblab:
+        if (not dnsname_mangler.is_ip_address(dut) and
+            utils.host_is_in_lab_zone(dut)):
+            # This is a device in the lab. Ignore any arguments passed and
+            # derive peer hostnames from the DUT hostname
+            btpeer_hostnames = chameleon.make_btpeer_hostnames(dut)
+            for btpeer_hostname in btpeer_hostnames:
+                # Not all test bed have 4 Bluetooth peers
+                if utils.ping(btpeer_hostname, deadline=3):
+                    logging.warning('Btpeer %s is not accessible. This maybe '
+                                    'expected or it maybe an issue with the '
+                                    'Bluetooth peer. Please Check the test bed.'
+                                    , btpeer_hostname)
+                    continue
+                else:
+                    logging.debug("Creating btpeer from %s",btpeer_hostname)
+                    btpeer_hosts.append(
+                        ChameleonHost(chameleon_host=btpeer_hostname))
+            return btpeer_hosts
+        else:
+            # IP address given or DNS address is not in lab.
+            # Create the Bluetooth peers from the arguments passed
+            return [ ChameleonHost(**_convert_btpeer_args(btpeer_args))
+                     for btpeer_args in btpeer_args_list]
+    else:
+        # TODO(b:149606762)
+        # moblab still create Bluetooth peer from chameleon_args
+        afe = frontend_wrappers.RetryingAFE(timeout_min=5, delay_sec=10)
+        hosts = afe.get_hosts(hostname=dut)
+        if hosts and CHAMELEON_HOST_ATTR in hosts[0].attributes:
+            return [ChameleonHost(
+                chameleon_host=hosts[0].attributes[CHAMELEON_HOST_ATTR],
+                chameleon_port=hosts[0].attributes.get(
+                    CHAMELEON_PORT_ATTR, 9992)
+            )]
+        else:
+            return []

@@ -1,5 +1,6 @@
 package org.bouncycastle.jcajce.provider.asymmetric.ec;
 
+import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -61,6 +62,11 @@ public class SignatureSpi
         }
     }
 
+    protected AlgorithmParameters engineGetParameters()
+    {
+        return null;
+    }
+    
     static public class ecDSA
         extends SignatureSpi
     {

@@ -28,6 +28,7 @@ import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
+import com.googlecode.android_scripting.rpc.RpcDefault;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
 import java.util.ArrayList;
@@ -237,27 +238,32 @@ public class BluetoothHfpClientFacade extends RpcReceiver {
         return sHfpClientProfile.getAudioState(device);
     }
 
+    private BluetoothDevice getDevice(String deviceStr) {
+        if (sHfpClientProfile == null) return null;
+        BluetoothDevice device;
+        try {
+            device =  BluetoothFacade.getDevice(sHfpClientProfile.getConnectedDevices(), deviceStr);
+        } catch (Exception e) {
+            // Do nothing since it is disconnect and this function should force disconnect.
+            Log.e("bluetoothHfpClientConnect getDevice failed " + e);
+            return null;
+        }
+        return device;
+    }
+
     /**
-     * Start Voice Recognition on remote device
+     * Starts Voice Recognition on remote device
      *
      * @param deviceStr the Bluetooth MAC address of remote device
-     * @return True if command was sent
+     * @return True if command has been issued successfully
      */
     @Rpc(description = "Start Remote device Voice Recognition through HFP Client.")
     public boolean bluetoothHfpClientStartVoiceRecognition(
             @RpcParameter(name = "device",
                 description = "MAC address of a bluetooth device.")
                     String deviceStr) {
-        if (sHfpClientProfile == null) return false;
-        BluetoothDevice device;
-        try {
-            device = BluetoothFacade.getDevice(
-                    sHfpClientProfile.getConnectedDevices(), deviceStr);
-        } catch (Exception e) {
-            // Do nothing since it is disconnect and this function should force disconnect.
-            Log.e("bluetoothHfpClientConnect getDevice failed " + e);
-            return false;
-        }
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
         return sHfpClientProfile.startVoiceRecognition(device);
     }
 
@@ -265,49 +271,89 @@ public class BluetoothHfpClientFacade extends RpcReceiver {
      * Stops Voice Recognition in the remote device through Bluetooth HFP client
      *
      * @param deviceStr the Bluetooth MAC address of remote device
-     * @return True if command was sent
+     * @return True if command has been issued successfully
      */
     @Rpc(description = "Stops Remote device Voice Recognition through HFP Client.")
     public boolean bluetoothHfpClientStopVoiceRecognition(
             @RpcParameter(name = "device",
                 description = "MAC address of a bluetooth device.")
                     String deviceStr) {
-        if (sHfpClientProfile == null) return false;
-        BluetoothDevice device;
-        try {
-            device = BluetoothFacade.getDevice(
-                    sHfpClientProfile.getConnectedDevices(), deviceStr);
-        } catch (Exception e) {
-            // Do nothing since it is disconnect
-            // and this function should force disconnect.
-            Log.e("bluetoothHfpClientConnect getDevice failed " + e);
-            return false;
-        }
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
         return sHfpClientProfile.stopVoiceRecognition(device);
+    }
+
+    /**
+     * Initiates a connection of audio channel.
+     *
+     * It setup SCO channel with remote connected Handsfree Audio Gateway device.
+     *
+     * @param deviceStr the Bluetooth MAC address of remote device
+     * @return True if command has been issued successfully
+     */
+    @Rpc(description = "Initiates a connection of audio channel.")
+    public boolean bluetoothHfpClientConnectAudio(
+            @RpcParameter(name = "device",
+                description = "MAC address of a bluetooth device.")
+                String deviceStr) {
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
+        return sHfpClientProfile.connectAudio(device);
+    }
+
+    /**
+     * Dials a call in the remote device through Bluetooth HFP Client
+     *
+     * The last number dial will be placed if the number is an empty string
+     *
+     * @param deviceStr the Bluetooth MAC address of remote device
+     * @param number phone number to dial, the value of null or empty string for last number redial
+     * @return The string of <code>{@link BluetoothHeadsetClientCall} call</code> or null if no
+     *         device was not found.
+     */
+    @Rpc(description = "Dials a call in the remote device through HFP Client.")
+    public String bluetoothHfpClientDial(
+            @RpcParameter(name = "device",
+                description = "MAC address of a bluetooth device.") String deviceStr,
+            @RpcParameter(name = "phone_number", description =
+                "phone number to dial, default for last number redial")
+                @RpcDefault("") String number) {
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return null;
+        return sHfpClientProfile.dial(device, number).toString(true);
+    }
+
+    /**
+     * Disconnects audio channel.
+     *
+     * It tears down the SCO channel from remote AuG device.
+     *
+     * @param deviceStr the Bluetooth MAC address of remote device
+     * @return True if command has been issued successfully
+     */
+    @Rpc(description = "Disconnects audio channel.")
+    public boolean bluetoothHfpClientDisconnectAudio(
+            @RpcParameter(name = "device",
+                description = "MAC address of a bluetooth device.")
+                String deviceStr) {
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
+        return sHfpClientProfile.disconnectAudio(device);
     }
 
     /**
      * Accepts a call in the remote device through Bluetooth HFP Client
      *
      * @param deviceStr the Bluetooth MAC address of remote device
-     * @return True if command was sent
+     * @return True if command has been issued successfully
      */
     @Rpc(description = "Accepts a call in the remote device through HFP Client.")
     public boolean bluetoothHfpClientAcceptCall(
             @RpcParameter(name = "device",
                 description = "MAC address of a bluetooth device.")
                     String deviceStr) {
-        if (sHfpClientProfile == null) return false;
-        BluetoothDevice device;
-        try {
-            device = BluetoothFacade.getDevice(
-                    sHfpClientProfile.getConnectedDevices(), deviceStr);
-        } catch (Exception e) {
-            // Do nothing since it is disconnect
-            // and this function should force disconnect.
-            Log.e("bluetoothHfpClientConnect getDevice failed " + e);
-            return false;
-        }
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
         return sHfpClientProfile.acceptCall(device, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
     }
 
@@ -315,24 +361,15 @@ public class BluetoothHfpClientFacade extends RpcReceiver {
      * Terminates all calls in the remote device through Bluetooth HFP Client
      *
      * @param deviceStr the Bluetooth MAC address of remote device
-     * @return True if command was sent
+     * @return True if command has been issued successfully
      */
     @Rpc(description = "Terminates all calls in the remote device through HFP Client.")
     public boolean bluetoothHfpClientTerminateAllCalls(
             @RpcParameter(name = "device",
                 description = "MAC address of a bluetooth device.")
                     String deviceStr) {
-        if (sHfpClientProfile == null) return false;
-        BluetoothDevice device;
-        try {
-            device = BluetoothFacade.getDevice(
-                    sHfpClientProfile.getConnectedDevices(), deviceStr);
-        } catch (Exception e) {
-            // Do nothing since it is disconnect
-            // and this function should force disconnect.
-            Log.e("bluetoothHfpClientConnect getDevice failed " + e);
-            return false;
-        }
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
         return sHfpClientProfile.terminateCall(device, null);
     }
 
@@ -340,24 +377,15 @@ public class BluetoothHfpClientFacade extends RpcReceiver {
      * Rejects a call in the remote device through Bluetooth HFP Client
      *
      * @param deviceStr the Bluetooth MAC address of remote device
-     * @return True if command was sent
+     * @return True if command has been issued successfully
      */
     @Rpc(description = "Rejects a call in the remote device through HFP Client.")
     public boolean bluetoothHfpClientRejectCall(
             @RpcParameter(name = "device",
                 description = "MAC address of a bluetooth device.")
                     String deviceStr) {
-        if (sHfpClientProfile == null) return false;
-        BluetoothDevice device;
-        try {
-            device = BluetoothFacade.getDevice(
-                    sHfpClientProfile.getConnectedDevices(), deviceStr);
-        } catch (Exception e) {
-            // Do nothing since it is disconnect
-            // and this function should force disconnect.
-            Log.e("bluetoothHfpClientConnect getDevice failed " + e);
-            return false;
-        }
+        BluetoothDevice device = getDevice(deviceStr);
+        if (device == null) return false;
         return sHfpClientProfile.rejectCall(device);
     }
 

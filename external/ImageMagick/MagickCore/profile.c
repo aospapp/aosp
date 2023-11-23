@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,6 +40,7 @@
   Include declarations.
 */
 #include "MagickCore/studio.h"
+#include "MagickCore/artifact.h"
 #include "MagickCore/attribute.h"
 #include "MagickCore/cache.h"
 #include "MagickCore/color.h"
@@ -366,9 +367,11 @@ typedef struct _LCMSInfo
     intent;
 
   double
-    **magick_restrict pixels,
     scale,
     translate;
+
+  void
+    **magick_restrict pixels;
 } LCMSInfo;
 
 #if LCMS_VERSION < 2060
@@ -396,42 +399,47 @@ static void cmsDeleteContext(cmsContext magick_unused(ContextID))
 }
 #endif
 
-static double **DestroyPixelThreadSet(double **pixels)
+static void **DestroyPixelThreadSet(void **pixels)
 {
-  register ssize_t
+  ssize_t
     i;
 
-  if (pixels == (double **) NULL)
-    return((double **) NULL);
+  if (pixels == (void **) NULL)
+    return((void **) NULL);
   for (i=0; i < (ssize_t) GetMagickResourceLimit(ThreadResource); i++)
-    if (pixels[i] != (double *) NULL)
-      pixels[i]=(double *) RelinquishMagickMemory(pixels[i]);
-  pixels=(double **) RelinquishMagickMemory(pixels);
+    if (pixels[i] != (void *) NULL)
+      pixels[i]=RelinquishMagickMemory(pixels[i]);
+  pixels=(void **) RelinquishMagickMemory(pixels);
   return(pixels);
 }
 
-static double **AcquirePixelThreadSet(const size_t columns,
-  const size_t channels)
+static void **AcquirePixelThreadSet(const size_t columns,
+  const size_t channels,MagickBooleanType highres)
 {
-  double
-    **pixels;
-
-  register ssize_t
+  ssize_t
     i;
 
   size_t
     number_threads;
 
+  size_t
+    size;
+
+  void
+    **pixels;
+
   number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
-  pixels=(double **) AcquireQuantumMemory(number_threads,sizeof(*pixels));
-  if (pixels == (double **) NULL)
-    return((double **) NULL);
+  pixels=(void **) AcquireQuantumMemory(number_threads,sizeof(*pixels));
+  if (pixels == (void **) NULL)
+    return((void **) NULL);
   (void) memset(pixels,0,number_threads*sizeof(*pixels));
+  size=sizeof(double);
+  if (highres == MagickFalse)
+    size=sizeof(Quantum);
   for (i=0; i < (ssize_t) number_threads; i++)
   {
-    pixels[i]=(double *) AcquireQuantumMemory(columns,channels*
-      sizeof(**pixels));
-    if (pixels[i] == (double *) NULL)
+    pixels[i]=AcquireQuantumMemory(columns,channels*size);
+    if (pixels[i] == (void *) NULL)
       return(DestroyPixelThreadSet(pixels));
   }
   return(pixels);
@@ -439,7 +447,7 @@ static double **AcquirePixelThreadSet(const size_t columns,
 
 static cmsHTRANSFORM *DestroyTransformThreadSet(cmsHTRANSFORM *transform)
 {
-  register ssize_t
+  ssize_t
     i;
 
   assert(transform != (cmsHTRANSFORM *) NULL);
@@ -457,7 +465,7 @@ static cmsHTRANSFORM *AcquireTransformThreadSet(const LCMSInfo *source_info,
   cmsHTRANSFORM
     *transform;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -511,6 +519,105 @@ static void CMSExceptionHandler(cmsContext context,cmsUInt32Number severity,
   (void) ThrowMagickException(exception,GetMagickModule(),ImageWarning,
     "UnableToTransformColorspace","`%s', %s (#%u)",image->filename,
     message != (char *) NULL ? message : "no message",severity);
+}
+
+static void TransformDoublePixels(const int id,const Image* image,
+  const LCMSInfo *source_info,const LCMSInfo *target_info,
+  const cmsHTRANSFORM *transform,Quantum *q)
+{
+#define GetLCMSPixel(source_info,pixel) \
+  (source_info->scale*QuantumScale*(pixel)+source_info->translate)
+#define SetLCMSPixel(target_info,pixel) \
+  ClampToQuantum(target_info->scale*QuantumRange*(pixel)+target_info->translate)
+
+  double
+    *p;
+
+  ssize_t
+    x;
+
+  p=(double *) source_info->pixels[id];
+  for (x=0; x < (ssize_t) image->columns; x++)
+  {
+    *p++=GetLCMSPixel(source_info,GetPixelRed(image,q));
+    if (source_info->channels > 1)
+      {
+        *p++=GetLCMSPixel(source_info,GetPixelGreen(image,q));
+        *p++=GetLCMSPixel(source_info,GetPixelBlue(image,q));
+      }
+    if (source_info->channels > 3)
+      *p++=GetLCMSPixel(source_info,GetPixelBlack(image,q));
+    q+=GetPixelChannels(image);
+  }
+  cmsDoTransform(transform[id],source_info->pixels[id],
+    target_info->pixels[id],(unsigned int) image->columns);
+  p=(double *) target_info->pixels[id];
+  q-=GetPixelChannels(image)*image->columns;
+  for (x=0; x < (ssize_t) image->columns; x++)
+  {
+    if (target_info->channels == 1)
+      SetPixelGray(image,SetLCMSPixel(target_info,*p),q);
+    else
+      SetPixelRed(image,SetLCMSPixel(target_info,*p),q);
+    p++;
+    if (target_info->channels > 1)
+      {
+        SetPixelGreen(image,SetLCMSPixel(target_info,*p),q);
+        p++;
+        SetPixelBlue(image,SetLCMSPixel(target_info,*p),q);
+        p++;
+      }
+    if (target_info->channels > 3)
+      {
+        SetPixelBlack(image,SetLCMSPixel(target_info,*p),q);
+        p++;
+      }
+    q+=GetPixelChannels(image);
+  }
+}
+
+static void TransformQuantumPixels(const int id,const Image* image,
+  const LCMSInfo *source_info,const LCMSInfo *target_info,
+  const cmsHTRANSFORM *transform,Quantum *q)
+{
+  Quantum
+    *p;
+
+  ssize_t
+    x;
+
+  p=(Quantum *) source_info->pixels[id];
+  for (x=0; x < (ssize_t) image->columns; x++)
+  {
+    *p++=GetPixelRed(image,q);
+    if (source_info->channels > 1)
+      {
+        *p++=GetPixelGreen(image,q);
+        *p++=GetPixelBlue(image,q);
+      }
+    if (source_info->channels > 3)
+      *p++=GetPixelBlack(image,q);
+    q+=GetPixelChannels(image);
+  }
+  cmsDoTransform(transform[id],source_info->pixels[id],
+    target_info->pixels[id],(unsigned int) image->columns);
+  p=(Quantum *) target_info->pixels[id];
+  q-=GetPixelChannels(image)*image->columns;
+  for (x=0; x < (ssize_t) image->columns; x++)
+  {
+    if (target_info->channels == 1)
+      SetPixelGray(image,*p++,q);
+    else
+      SetPixelRed(image,*p++,q);
+    if (target_info->channels > 1)
+      {
+        SetPixelGreen(image,*p++,q);
+        SetPixelBlue(image,*p++,q);
+      }
+    if (target_info->channels > 3)
+      SetPixelBlack(image,*p++,q);
+    q+=GetPixelChannels(image);
+  }
 }
 #endif
 
@@ -810,13 +917,14 @@ static MagickBooleanType SetsRGBImageProfile(Image *image,
 MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
   const void *datum,const size_t length,ExceptionInfo *exception)
 {
-#define GetLCMSPixel(source_info,pixel) \
-  (source_info.scale*QuantumScale*(pixel)+source_info.translate)
 #define ProfileImageTag  "Profile/Image"
-#define SetLCMSPixel(target_info,pixel) \
-  ClampToQuantum(target_info.scale*QuantumRange*(pixel)+target_info.translate)
+#ifndef TYPE_XYZ_8
+  #define TYPE_XYZ_8 (COLORSPACE_SH(PT_XYZ)|CHANNELS_SH(3)|BYTES_SH(1))
+#endif
 #define ThrowProfileException(severity,tag,context) \
 { \
+  if (profile != (StringInfo *) NULL) \
+     profile=DestroyStringInfo(profile); \
   if (cms_context != (cmsContext) NULL) \
     cmsDeleteContext(cms_context); \
   if (source_info.profile != (cmsHPROFILE) NULL) \
@@ -944,6 +1052,14 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
             cmsUInt32Number
               flags;
 
+#if !defined(MAGICKCORE_HDRI_SUPPORT)
+            const char
+              *artifact;
+#endif
+
+            MagickBooleanType
+              highres;
+
             MagickOffsetType
               progress;
 
@@ -961,6 +1077,12 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
                   ThrowProfileException(ResourceLimitError,
                     "ColorspaceColorProfileMismatch",name);
               }
+            highres=MagickTrue;
+#if !defined(MAGICKCORE_HDRI_SUPPORT)
+            artifact=GetImageArtifact(image,"profile:highres-transform");
+            if (IsStringFalse(artifact) != MagickFalse)
+              highres=MagickFalse;
+#endif
             source_info.scale=1.0;
             source_info.translate=0.0;
             source_info.colorspace=sRGBColorspace;
@@ -971,35 +1093,84 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
               {
                 source_info.colorspace=CMYKColorspace;
                 source_info.channels=4;
-                source_info.type=(cmsUInt32Number) TYPE_CMYK_DBL;
-                source_info.scale=100.0;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_CMYK_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_CMYK_16;
+                else
+#endif
+                  {
+                    source_info.type=(cmsUInt32Number) TYPE_CMYK_DBL;
+                    source_info.scale=100.0;
+                  }
                 break;
               }
               case cmsSigGrayData:
               {
                 source_info.colorspace=GRAYColorspace;
                 source_info.channels=1;
-                source_info.type=(cmsUInt32Number) TYPE_GRAY_DBL;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_GRAY_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_GRAY_16;
+                else
+#endif
+                  source_info.type=(cmsUInt32Number) TYPE_GRAY_DBL;
                 break;
               }
               case cmsSigLabData:
               {
                 source_info.colorspace=LabColorspace;
-                source_info.type=(cmsUInt32Number) TYPE_Lab_DBL;
-                source_info.scale=100.0;
-                source_info.translate=(-0.5);
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_Lab_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_Lab_16;
+                else
+#endif
+                  {
+                    source_info.type=(cmsUInt32Number) TYPE_Lab_DBL;
+                    source_info.scale=100.0;
+                    source_info.translate=(-0.5);
+                  }
                 break;
               }
               case cmsSigRgbData:
               {
                 source_info.colorspace=sRGBColorspace;
-                source_info.type=(cmsUInt32Number) TYPE_RGB_DBL;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_RGB_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_RGB_16;
+                else
+#endif
+                  source_info.type=(cmsUInt32Number) TYPE_RGB_DBL;
                 break;
               }
               case cmsSigXYZData:
               {
                 source_info.colorspace=XYZColorspace;
-                source_info.type=(cmsUInt32Number) TYPE_XYZ_DBL;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_XYZ_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_XYZ_16;
+                else
+#endif
+                  source_info.type=(cmsUInt32Number) TYPE_XYZ_DBL;
                 break;
               }
               default:
@@ -1018,35 +1189,84 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
               {
                 target_info.colorspace=CMYKColorspace;
                 target_info.channels=4;
-                target_info.type=(cmsUInt32Number) TYPE_CMYK_DBL;
-                target_info.scale=0.01;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_CMYK_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_CMYK_16;
+                else
+#endif
+                  {
+                    target_info.type=(cmsUInt32Number) TYPE_CMYK_DBL;
+                    target_info.scale=0.01;
+                  }
                 break;
               }
               case cmsSigGrayData:
               {
                 target_info.colorspace=GRAYColorspace;
                 target_info.channels=1;
-                target_info.type=(cmsUInt32Number) TYPE_GRAY_DBL;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_GRAY_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_GRAY_16;
+                else
+#endif
+                  target_info.type=(cmsUInt32Number) TYPE_GRAY_DBL;
                 break;
               }
               case cmsSigLabData:
               {
                 target_info.colorspace=LabColorspace;
-                target_info.type=(cmsUInt32Number) TYPE_Lab_DBL;
-                target_info.scale=0.01;
-                target_info.translate=0.5;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_Lab_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_Lab_16;
+                else
+#endif
+                  {
+                    target_info.type=(cmsUInt32Number) TYPE_Lab_DBL;
+                    target_info.scale=0.01;
+                    target_info.translate=0.5;
+                  }
                 break;
               }
               case cmsSigRgbData:
               {
                 target_info.colorspace=sRGBColorspace;
-                target_info.type=(cmsUInt32Number) TYPE_RGB_DBL;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_RGB_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_RGB_16;
+                else
+#endif
+                  target_info.type=(cmsUInt32Number) TYPE_RGB_DBL;
                 break;
               }
               case cmsSigXYZData:
               {
                 target_info.colorspace=XYZColorspace;
-                target_info.type=(cmsUInt32Number) TYPE_XYZ_DBL;
+#if (MAGICKCORE_QUANTUM_DEPTH == 8)
+                if (highres == MagickFalse)
+                  target_info.type=(cmsUInt32Number) TYPE_XYZ_8;
+                else
+#elif (MAGICKCORE_QUANTUM_DEPTH == 16)
+                if (highres == MagickFalse)
+                  source_info.type=(cmsUInt32Number) TYPE_XYZ_16;
+                else
+#endif
+                  target_info.type=(cmsUInt32Number) TYPE_XYZ_DBL;
                 break;
               }
               default:
@@ -1095,11 +1315,11 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
               Transform image as dictated by the source & target image profiles.
             */
             source_info.pixels=AcquirePixelThreadSet(image->columns,
-              source_info.channels);
+              source_info.channels,highres);
             target_info.pixels=AcquirePixelThreadSet(image->columns,
-              target_info.channels);
-            if ((source_info.pixels == (double **) NULL) ||
-                (target_info.pixels == (double **) NULL))
+              target_info.channels,highres);
+            if ((source_info.pixels == (void **) NULL) ||
+                (target_info.pixels == (void **) NULL))
               {
                 target_info.pixels=DestroyPixelThreadSet(target_info.pixels);
                 source_info.pixels=DestroyPixelThreadSet(source_info.pixels);
@@ -1134,14 +1354,8 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
               MagickBooleanType
                 sync;
 
-              register double
-                *p;
-
-              register Quantum
+              Quantum
                 *magick_restrict q;
-
-              register ssize_t
-                x;
 
               if (status == MagickFalse)
                 continue;
@@ -1152,44 +1366,10 @@ MagickExport MagickBooleanType ProfileImage(Image *image,const char *name,
                   status=MagickFalse;
                   continue;
                 }
-              p=source_info.pixels[id];
-              for (x=0; x < (ssize_t) image->columns; x++)
-              {
-                *p++=GetLCMSPixel(source_info,GetPixelRed(image,q));
-                if (source_info.channels > 1)
-                  {
-                    *p++=GetLCMSPixel(source_info,GetPixelGreen(image,q));
-                    *p++=GetLCMSPixel(source_info,GetPixelBlue(image,q));
-                  }
-                if (source_info.channels > 3)
-                  *p++=GetLCMSPixel(source_info,GetPixelBlack(image,q));
-                q+=GetPixelChannels(image);
-              }
-              cmsDoTransform(transform[id],source_info.pixels[id],
-                target_info.pixels[id],(unsigned int) image->columns);
-              p=target_info.pixels[id];
-              q-=GetPixelChannels(image)*image->columns;
-              for (x=0; x < (ssize_t) image->columns; x++)
-              {
-                if (target_info.channels == 1)
-                  SetPixelGray(image,SetLCMSPixel(target_info,*p),q);
-                else
-                  SetPixelRed(image,SetLCMSPixel(target_info,*p),q);
-                p++;
-                if (target_info.channels > 1)
-                  {
-                    SetPixelGreen(image,SetLCMSPixel(target_info,*p),q);
-                    p++;
-                    SetPixelBlue(image,SetLCMSPixel(target_info,*p),q);
-                    p++;
-                  }
-                if (target_info.channels > 3)
-                  {
-                    SetPixelBlack(image,SetLCMSPixel(target_info,*p),q);
-                    p++;
-                  }
-                q+=GetPixelChannels(image);
-              }
+              if (highres != MagickFalse)
+                TransformDoublePixels(id,image,&source_info,&target_info,transform,q);
+              else
+                TransformQuantumPixels(id,image,&source_info,&target_info,transform,q);
               sync=SyncCacheViewAuthenticPixels(image_view,exception);
               if (sync == MagickFalse)
                 status=MagickFalse;
@@ -1409,7 +1589,7 @@ static void WriteTo8BimProfile(Image *image,const char *name,
     *datum,
     *q;
 
-  register const unsigned char
+  const unsigned char
     *p;
 
   size_t
@@ -1517,7 +1697,7 @@ static void GetProfilesFromResourceBlock(Image *image,
   const unsigned char
     *datum;
 
-  register const unsigned char
+  const unsigned char
     *p;
 
   size_t
@@ -1660,8 +1840,67 @@ static void GetProfilesFromResourceBlock(Image *image,
   }
 }
 
+static void PatchCorruptProfile(const char *name,StringInfo *profile)
+{
+  unsigned char
+    *p;
+
+  size_t
+    length;
+
+  /*
+    Detect corrupt profiles and if discovered, repair.
+  */
+  if (LocaleCompare(name,"xmp") == 0)
+    {
+      /*
+        Remove garbage after xpacket end.
+      */
+      p=GetStringInfoDatum(profile);
+      p=(unsigned char *) strstr((const char *) p,"<?xpacket end=\"w\"?>");
+      if (p != (unsigned char *) NULL)
+        {
+          p+=19;
+          length=p-GetStringInfoDatum(profile);
+          if (length != GetStringInfoLength(profile))
+            {
+              *p='\0';
+              SetStringInfoLength(profile,length);
+            }
+        }
+      return;
+    }
+  if (LocaleCompare(name,"exif") == 0)
+    {
+      /*
+        Check if profile starts with byte order marker instead of Exif.
+      */
+      p=GetStringInfoDatum(profile);
+      if ((LocaleNCompare((const char *) p,"MM",2) == 0) ||
+          (LocaleNCompare((const char *) p,"II",2) == 0))
+        {
+          const unsigned char
+            profile_start[] = "Exif\0\0";
+
+          StringInfo
+            *exif_profile;
+
+          exif_profile=AcquireStringInfo(6);
+          if (exif_profile != (StringInfo *) NULL)
+            {
+              SetStringInfoDatum(exif_profile,profile_start);
+              ConcatenateStringInfo(exif_profile,profile);
+              SetStringInfoLength(profile,GetStringInfoLength(exif_profile));
+              SetStringInfo(profile,exif_profile);
+              exif_profile=DestroyStringInfo(exif_profile);
+            }
+        }
+    }
+}
+
 #if defined(MAGICKCORE_XML_DELEGATE)
-static MagickBooleanType ValidateXMPProfile(const StringInfo *profile)
+static MagickBooleanType ValidateXMPProfile(Image *image,
+  const StringInfo *profile,ExceptionInfo *exception)
 {
   xmlDocPtr
     document;
@@ -1673,13 +1912,20 @@ static MagickBooleanType ValidateXMPProfile(const StringInfo *profile)
     GetStringInfoLength(profile),"xmp.xml",NULL,XML_PARSE_NOERROR |
     XML_PARSE_NOWARNING);
   if (document == (xmlDocPtr) NULL)
-    return(MagickFalse);
+    {
+      (void) ThrowMagickException(exception,GetMagickModule(),ImageWarning,
+        "CorruptImageProfile","`%s' (XMP)",image->filename);
+      return(MagickFalse);
+    }
   xmlFreeDoc(document);
   return(MagickTrue);
 }
 #else
-static MagickBooleanType ValidateXMPProfile(const StringInfo *profile)
+static MagickBooleanType ValidateXMPProfile(Image *image,
+  const StringInfo *profile,ExceptionInfo *exception)
 {
+  (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateWarning,
+    "DelegateLibrarySupportNotBuiltIn","'%s' (XML)",image->filename);
   return(MagickFalse);
 }
 #endif
@@ -1694,15 +1940,19 @@ static MagickBooleanType SetImageProfileInternal(Image *image,const char *name,
   MagickBooleanType
     status;
 
+  StringInfo
+    *clone_profile;
+
   assert(image != (Image *) NULL);
   assert(image->signature == MagickCoreSignature);
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  clone_profile=CloneStringInfo(profile);
+  PatchCorruptProfile(name,clone_profile);
   if ((LocaleCompare(name,"xmp") == 0) &&
-      (ValidateXMPProfile(profile) == MagickFalse))
+      (ValidateXMPProfile(image,clone_profile,exception) == MagickFalse))
     {
-      (void) ThrowMagickException(exception,GetMagickModule(),ImageWarning,
-        "CorruptImageProfile","`%s'",name);
+      clone_profile=DestroyStringInfo(clone_profile);
       return(MagickTrue);
     }
   if (image->profiles == (SplayTreeInfo *) NULL)
@@ -1711,14 +1961,14 @@ static MagickBooleanType SetImageProfileInternal(Image *image,const char *name,
   (void) CopyMagickString(key,name,MagickPathExtent);
   LocaleLower(key);
   status=AddValueToSplayTree((SplayTreeInfo *) image->profiles,
-    ConstantString(key),CloneStringInfo(profile));
+    ConstantString(key),clone_profile);
   if (status != MagickFalse)
     {
       if (LocaleCompare(name,"8bim") == 0)
-        GetProfilesFromResourceBlock(image,profile,exception);
+        GetProfilesFromResourceBlock(image,clone_profile,exception);
       else
         if (recursive == MagickFalse)
-          WriteTo8BimProfile(image,name,profile);
+          WriteTo8BimProfile(image,name,clone_profile);
     }
   return(status);
 }
@@ -1934,18 +2184,18 @@ static MagickBooleanType Sync8BimProfile(Image *image,StringInfo *profile)
     if ((id == 0x3ED) && (count == 16))
       {
         if (image->units == PixelsPerCentimeterResolution)
-          WriteProfileLong(MSBEndian,(unsigned int) (image->resolution.x*2.54*
-            65536.0),p);
+          WriteProfileLong(MSBEndian,(unsigned int) CastDoubleToLong(
+            image->resolution.x*2.54*65536.0),p);
         else
-          WriteProfileLong(MSBEndian,(unsigned int) (image->resolution.x*
-            65536.0),p);
+          WriteProfileLong(MSBEndian,(unsigned int) CastDoubleToLong(
+            image->resolution.x*65536.0),p);
         WriteProfileShort(MSBEndian,(unsigned short) image->units,p+4);
         if (image->units == PixelsPerCentimeterResolution)
-          WriteProfileLong(MSBEndian,(unsigned int) (image->resolution.y*2.54*
-            65536.0),p+8);
+          WriteProfileLong(MSBEndian,(unsigned int) CastDoubleToLong(
+            image->resolution.y*2.54*65536.0),p+8);
         else
-          WriteProfileLong(MSBEndian,(unsigned int) (image->resolution.y*
-            65536.0),p+8);
+          WriteProfileLong(MSBEndian,(unsigned int) CastDoubleToLong(
+            image->resolution.y*65536.0),p+8);
         WriteProfileShort(MSBEndian,(unsigned short) image->units,p+12);
       }
     p+=count;
@@ -2067,7 +2317,7 @@ MagickBooleanType SyncExifProfile(Image *image,StringInfo *profile)
       int
         components;
 
-      register unsigned char
+      unsigned char
         *p,
         *q;
 
@@ -2198,4 +2448,148 @@ MagickPrivate MagickBooleanType SyncImageProfiles(Image *image)
     if (SyncExifProfile(image,profile) == MagickFalse)
       status=MagickFalse;
   return(status);
+}
+
+static void UpdateClipPath(unsigned char *blob,size_t length,
+  const size_t old_columns,const size_t old_rows,
+  const RectangleInfo *new_geometry)
+{
+  ssize_t
+    i;
+
+  ssize_t
+    knot_count,
+    selector;
+
+  knot_count=0;
+  while (length != 0)
+  {
+    selector=(ssize_t) ReadProfileMSBShort(&blob,&length);
+    switch (selector)
+    {
+      case 0:
+      case 3:
+      {
+        if (knot_count != 0)
+          {
+            blob+=24;
+            length-=MagickMin(24,(ssize_t) length);
+            break;
+          }
+        /*
+          Expected subpath length record.
+        */
+        knot_count=(ssize_t) ReadProfileMSBShort(&blob,&length);
+        blob+=22;
+        length-=MagickMin(22,(ssize_t) length);
+        break;
+      }
+      case 1:
+      case 2:
+      case 4:
+      case 5:
+      {
+        if (knot_count == 0)
+          {
+            /*
+              Unexpected subpath knot.
+            */
+            blob+=24;
+            length-=MagickMin(24,(ssize_t) length);
+            break;
+          }
+        /*
+          Add sub-path knot
+        */
+        for (i=0; i < 3; i++)
+        {
+          double
+            x,
+            y;
+
+          signed int
+            xx,
+            yy;
+
+          y=(double) ReadProfileMSBLong(&blob,&length);
+          y=y*old_rows/4096.0/4096.0;
+          y-=new_geometry->y;
+          yy=(signed int) ((y*4096*4096)/new_geometry->height);
+          WriteProfileLong(MSBEndian,(size_t) yy,blob-4);
+          x=(double) ReadProfileMSBLong(&blob,&length);
+          x=x*old_columns/4096.0/4096.0;
+          x-=new_geometry->x;
+          xx=(signed int) ((x*4096*4096)/new_geometry->width);
+          WriteProfileLong(MSBEndian,(size_t) xx,blob-4);
+        }
+        knot_count--;
+        break;
+      }
+      case 6:
+      case 7:
+      case 8:
+      default:
+      {
+        blob+=24;
+        length-=MagickMin(24,(ssize_t) length);
+        break;
+      }
+    }
+  }
+}
+
+MagickPrivate void Update8BIMClipPath(const Image *image,
+  const size_t old_columns,const size_t old_rows,
+  const RectangleInfo *new_geometry)
+{
+  const StringInfo
+    *profile;
+
+  size_t
+    length;
+
+  ssize_t
+    count,
+    id;
+
+  unsigned char
+    *info;
+
+  assert(image != (Image *) NULL);
+  assert(new_geometry != (RectangleInfo *) NULL);
+  profile=GetImageProfile(image,"8bim");
+  if (profile == (StringInfo *) NULL)
+    return;
+  length=GetStringInfoLength(profile);
+  info=GetStringInfoDatum(profile);
+  while (length > 0)
+  {
+    if (ReadProfileByte(&info,&length) != (unsigned char) '8')
+      continue;
+    if (ReadProfileByte(&info,&length) != (unsigned char) 'B')
+      continue;
+    if (ReadProfileByte(&info,&length) != (unsigned char) 'I')
+      continue;
+    if (ReadProfileByte(&info,&length) != (unsigned char) 'M')
+      continue;
+    id=(ssize_t) ReadProfileMSBShort(&info,&length);
+    count=(ssize_t) ReadProfileByte(&info,&length);
+    if ((count != 0) && ((size_t) count <= length))
+      {
+        info+=count;
+        length-=count;
+      }
+    if ((count & 0x01) == 0)
+      (void) ReadProfileByte(&info,&length);
+    count=(ssize_t) ReadProfileMSBLong(&info,&length);
+    if ((count < 0) || ((size_t) count > length))
+      {
+        length=0;
+        continue;
+      }
+    if ((id > 1999) && (id < 2999))
+      UpdateClipPath(info,(size_t) count,old_columns,old_rows,new_geometry);
+    info+=count;
+    length-=MagickMin(count,(ssize_t) length);
+  }
 }

@@ -2,26 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::cmp;
 use std::fmt::{self, Display};
 use std::fs::File;
-use std::io::Write;
-use std::mem::{size_of, size_of_val};
-use std::os::unix::io::{AsRawFd, RawFd};
-use std::result;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::io;
 use std::thread;
 
-use sys_util::Result as SysResult;
-use sys_util::{
-    error, EventFd, GuestAddress, GuestMemory, GuestMemoryError, PollContext, PollToken,
-};
-
+use base::{error, AsRawDescriptor, Event, PollToken, RawDescriptor, Tube, WaitContext};
+use base::{Error as SysError, Result as SysResult};
 use data_model::{DataInit, Le32, Le64};
+use vm_control::{MemSlot, VmMsyncRequest, VmMsyncResponse};
+use vm_memory::{GuestAddress, GuestMemory};
 
 use super::{
-    DescriptorChain, Queue, VirtioDevice, INTERRUPT_STATUS_USED_RING, TYPE_PMEM, VIRTIO_F_VERSION_1,
+    copy_config, DescriptorChain, DescriptorError, Interrupt, Queue, Reader, SignalableInterrupt,
+    VirtioDevice, Writer, TYPE_PMEM,
 };
 
 const QUEUE_SIZE: u16 = 256;
@@ -60,137 +54,116 @@ struct virtio_pmem_req {
 unsafe impl DataInit for virtio_pmem_req {}
 
 #[derive(Debug)]
-enum ParseError {
-    /// Guest gave us bad memory addresses.
-    GuestMemory(GuestMemoryError),
-    /// Guest gave us a write only descriptor that protocol says to read from.
-    UnexpectedWriteOnlyDescriptor,
-    /// Guest gave us a read only descriptor that protocol says to write to.
-    UnexpectedReadOnlyDescriptor,
-    /// Guest gave us too few descriptors in a descriptor chain.
-    DescriptorChainTooShort,
-    /// Guest gave us a buffer that was too short to use.
-    BufferLengthTooSmall,
-    /// Guest sent us invalid request.
-    InvalidRequest,
+enum Error {
+    /// Invalid virtio descriptor chain.
+    Descriptor(DescriptorError),
+    /// Failed to read from virtqueue.
+    ReadQueue(io::Error),
+    /// Failed to write to virtqueue.
+    WriteQueue(io::Error),
 }
 
-impl Display for ParseError {
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::ParseError::*;
+        use self::Error::*;
 
         match self {
-            BufferLengthTooSmall => write!(f, "buffer length too small"),
-            DescriptorChainTooShort => write!(f, "descriptor chain too short"),
-            GuestMemory(e) => write!(f, "bad guest memory address: {}", e),
-            InvalidRequest => write!(f, "invalid request"),
-            UnexpectedReadOnlyDescriptor => write!(f, "unexpected read-only descriptor"),
-            UnexpectedWriteOnlyDescriptor => write!(f, "unexpected write-only descriptor"),
+            Descriptor(e) => write!(f, "virtio descriptor error: {}", e),
+            ReadQueue(e) => write!(f, "failed to read from virtqueue: {}", e),
+            WriteQueue(e) => write!(f, "failed to write to virtqueue: {}", e),
         }
     }
 }
 
-enum Request {
-    Flush { status_address: GuestAddress },
-}
+impl ::std::error::Error for Error {}
 
-impl Request {
-    fn parse(
-        avail_desc: &DescriptorChain,
-        memory: &GuestMemory,
-    ) -> result::Result<Request, ParseError> {
-        // The head contains the request type which MUST be readable.
-        if avail_desc.is_write_only() {
-            return Err(ParseError::UnexpectedWriteOnlyDescriptor);
-        }
-
-        if avail_desc.len as usize != size_of::<virtio_pmem_req>() {
-            return Err(ParseError::InvalidRequest);
-        }
-
-        let request: virtio_pmem_req = memory
-            .read_obj_from_addr(avail_desc.addr)
-            .map_err(ParseError::GuestMemory)?;
-
-        // Currently, there is only one virtio-pmem request, FLUSH.
-        if request.type_ != VIRTIO_PMEM_REQ_TYPE_FLUSH {
-            error!("unknown request type: {}", request.type_.to_native());
-            return Err(ParseError::InvalidRequest);
-        }
-
-        let status_desc = avail_desc
-            .next_descriptor()
-            .ok_or(ParseError::DescriptorChainTooShort)?;
-
-        // The status MUST always be writable
-        if status_desc.is_read_only() {
-            return Err(ParseError::UnexpectedReadOnlyDescriptor);
-        }
-
-        if (status_desc.len as usize) < size_of::<virtio_pmem_resp>() {
-            return Err(ParseError::BufferLengthTooSmall);
-        }
-
-        Ok(Request::Flush {
-            status_address: status_desc.addr,
-        })
-    }
-}
+type Result<T> = ::std::result::Result<T, Error>;
 
 struct Worker {
+    interrupt: Interrupt,
     queue: Queue,
     memory: GuestMemory,
-    disk_image: File,
-    interrupt_status: Arc<AtomicUsize>,
-    interrupt_event: EventFd,
-    interrupt_resample_event: EventFd,
+    pmem_device_tube: Tube,
+    mapping_arena_slot: MemSlot,
+    mapping_size: usize,
 }
 
 impl Worker {
-    fn process_queue(&mut self) -> bool {
-        let mut needs_interrupt = false;
-        while let Some(avail_desc) = self.queue.pop(&self.memory) {
-            let len;
-            match Request::parse(&avail_desc, &self.memory) {
-                Ok(Request::Flush { status_address }) => {
-                    let status_code = match self.disk_image.sync_all() {
-                        Ok(()) => VIRTIO_PMEM_RESP_TYPE_OK,
-                        Err(e) => {
+    fn execute_request(&self, request: virtio_pmem_req) -> u32 {
+        match request.type_.to_native() {
+            VIRTIO_PMEM_REQ_TYPE_FLUSH => {
+                let request = VmMsyncRequest::MsyncArena {
+                    slot: self.mapping_arena_slot,
+                    offset: 0, // The pmem backing file is always at offset 0 in the arena.
+                    size: self.mapping_size,
+                };
+
+                if let Err(e) = self.pmem_device_tube.send(&request) {
+                    error!("failed to send request: {}", e);
+                    return VIRTIO_PMEM_RESP_TYPE_EIO;
+                }
+
+                match self.pmem_device_tube.recv() {
+                    Ok(response) => match response {
+                        VmMsyncResponse::Ok => VIRTIO_PMEM_RESP_TYPE_OK,
+                        VmMsyncResponse::Err(e) => {
                             error!("failed flushing disk image: {}", e);
                             VIRTIO_PMEM_RESP_TYPE_EIO
                         }
-                    };
-
-                    let response = virtio_pmem_resp {
-                        status_code: status_code.into(),
-                    };
-                    len = match self.memory.write_obj_at_addr(response, status_address) {
-                        Ok(_) => size_of::<virtio_pmem_resp>() as u32,
-                        Err(e) => {
-                            error!("bad guest memory address: {}", e);
-                            0
-                        }
+                    },
+                    Err(e) => {
+                        error!("failed to receive data: {}", e);
+                        VIRTIO_PMEM_RESP_TYPE_EIO
                     }
                 }
-                Err(e) => {
-                    error!("failed processing available descriptor chain: {}", e);
-                    len = 0;
-                }
             }
-            self.queue.add_used(&self.memory, avail_desc.index, len);
+            _ => {
+                error!("unknown request type: {}", request.type_.to_native());
+                VIRTIO_PMEM_RESP_TYPE_EIO
+            }
+        }
+    }
+
+    fn handle_request(&self, avail_desc: DescriptorChain) -> Result<usize> {
+        let mut reader =
+            Reader::new(self.memory.clone(), avail_desc.clone()).map_err(Error::Descriptor)?;
+        let mut writer = Writer::new(self.memory.clone(), avail_desc).map_err(Error::Descriptor)?;
+
+        let status_code = reader
+            .read_obj()
+            .map(|request| self.execute_request(request))
+            .map_err(Error::ReadQueue)?;
+
+        let response = virtio_pmem_resp {
+            status_code: status_code.into(),
+        };
+
+        writer.write_obj(response).map_err(Error::WriteQueue)?;
+
+        Ok(writer.bytes_written())
+    }
+
+    fn process_queue(&mut self) -> bool {
+        let mut needs_interrupt = false;
+        while let Some(avail_desc) = self.queue.pop(&self.memory) {
+            let avail_desc_index = avail_desc.index;
+
+            let bytes_written = match self.handle_request(avail_desc) {
+                Ok(count) => count,
+                Err(e) => {
+                    error!("pmem: unable to handle request: {}", e);
+                    0
+                }
+            };
+            self.queue
+                .add_used(&self.memory, avail_desc_index, bytes_written as u32);
             needs_interrupt = true;
         }
 
         needs_interrupt
     }
 
-    fn signal_used_queue(&self) {
-        self.interrupt_status
-            .fetch_or(INTERRUPT_STATUS_USED_RING as usize, Ordering::SeqCst);
-        self.interrupt_event.write(1).unwrap();
-    }
-
-    fn run(&mut self, queue_evt: EventFd, kill_evt: EventFd) {
+    fn run(&mut self, queue_evt: Event, kill_evt: Event) {
         #[derive(PollToken)]
         enum Token {
             QueueAvailable,
@@ -198,23 +171,28 @@ impl Worker {
             Kill,
         }
 
-        let poll_ctx: PollContext<Token> = match PollContext::new()
-            .and_then(|pc| pc.add(&queue_evt, Token::QueueAvailable).and(Ok(pc)))
-            .and_then(|pc| {
-                pc.add(&self.interrupt_resample_event, Token::InterruptResample)
-                    .and(Ok(pc))
-            })
-            .and_then(|pc| pc.add(&kill_evt, Token::Kill).and(Ok(pc)))
-        {
+        let wait_ctx: WaitContext<Token> = match WaitContext::build_with(&[
+            (&queue_evt, Token::QueueAvailable),
+            (&kill_evt, Token::Kill),
+        ]) {
             Ok(pc) => pc,
             Err(e) => {
-                error!("failed creating PollContext: {}", e);
+                error!("failed creating WaitContext: {}", e);
                 return;
             }
         };
+        if let Some(resample_evt) = self.interrupt.get_resample_evt() {
+            if wait_ctx
+                .add(resample_evt, Token::InterruptResample)
+                .is_err()
+            {
+                error!("failed adding resample event to WaitContext.");
+                return;
+            }
+        }
 
-        'poll: loop {
-            let events = match poll_ctx.wait() {
+        'wait: loop {
+            let events = match wait_ctx.wait() {
                 Ok(v) => v,
                 Err(e) => {
                     error!("failed polling for events: {}", e);
@@ -223,49 +201,61 @@ impl Worker {
             };
 
             let mut needs_interrupt = false;
-            for event in events.iter_readable() {
-                match event.token() {
+            for event in events.iter().filter(|e| e.is_readable) {
+                match event.token {
                     Token::QueueAvailable => {
                         if let Err(e) = queue_evt.read() {
-                            error!("failed reading queue EventFd: {}", e);
-                            break 'poll;
+                            error!("failed reading queue Event: {}", e);
+                            break 'wait;
                         }
                         needs_interrupt |= self.process_queue();
                     }
                     Token::InterruptResample => {
-                        let _ = self.interrupt_resample_event.read();
-                        if self.interrupt_status.load(Ordering::SeqCst) != 0 {
-                            self.interrupt_event.write(1).unwrap();
-                        }
+                        self.interrupt.interrupt_resample();
                     }
-                    Token::Kill => break 'poll,
+                    Token::Kill => break 'wait,
                 }
             }
             if needs_interrupt {
-                self.signal_used_queue();
+                self.interrupt.signal_used_queue(self.queue.vector);
             }
         }
     }
 }
 
 pub struct Pmem {
-    kill_event: Option<EventFd>,
+    kill_event: Option<Event>,
+    worker_thread: Option<thread::JoinHandle<()>>,
+    base_features: u64,
     disk_image: Option<File>,
     mapping_address: GuestAddress,
+    mapping_arena_slot: MemSlot,
     mapping_size: u64,
+    pmem_device_tube: Option<Tube>,
 }
 
 impl Pmem {
     pub fn new(
+        base_features: u64,
         disk_image: File,
         mapping_address: GuestAddress,
+        mapping_arena_slot: MemSlot,
         mapping_size: u64,
+        pmem_device_tube: Option<Tube>,
     ) -> SysResult<Pmem> {
+        if mapping_size > usize::max_value() as u64 {
+            return Err(SysError::new(libc::EOVERFLOW));
+        }
+
         Ok(Pmem {
             kill_event: None,
+            worker_thread: None,
+            base_features,
             disk_image: Some(disk_image),
             mapping_address,
+            mapping_arena_slot,
             mapping_size,
+            pmem_device_tube,
         })
     }
 }
@@ -276,16 +266,24 @@ impl Drop for Pmem {
             // Ignore the result because there is nothing we can do about it.
             let _ = kill_evt.write(1);
         }
+
+        if let Some(worker_thread) = self.worker_thread.take() {
+            let _ = worker_thread.join();
+        }
     }
 }
 
 impl VirtioDevice for Pmem {
-    fn keep_fds(&self) -> Vec<RawFd> {
+    fn keep_rds(&self) -> Vec<RawDescriptor> {
+        let mut keep_rds = Vec::new();
         if let Some(disk_image) = &self.disk_image {
-            vec![disk_image.as_raw_fd()]
-        } else {
-            vec![]
+            keep_rds.push(disk_image.as_raw_descriptor());
         }
+
+        if let Some(ref pmem_device_tube) = self.pmem_device_tube {
+            keep_rds.push(pmem_device_tube.as_raw_descriptor());
+        }
+        keep_rds
     }
 
     fn device_type(&self) -> u32 {
@@ -297,35 +295,23 @@ impl VirtioDevice for Pmem {
     }
 
     fn features(&self) -> u64 {
-        1 << VIRTIO_F_VERSION_1
+        self.base_features
     }
 
-    fn read_config(&self, offset: u64, mut data: &mut [u8]) {
+    fn read_config(&self, offset: u64, data: &mut [u8]) {
         let config = virtio_pmem_config {
             start_address: Le64::from(self.mapping_address.offset()),
             size: Le64::from(self.mapping_size as u64),
         };
-        let config_len = size_of_val(&config) as u64;
-        if offset >= config_len {
-            return;
-        }
-
-        if let Some(end) = offset.checked_add(data.len() as u64) {
-            let offset = offset as usize;
-            let end = cmp::min(end, config_len) as usize;
-            // This write can't fail, offset and end are checked against config_len.
-            data.write_all(&config.as_slice()[offset..end]).unwrap();
-        }
+        copy_config(data, 0, config.as_slice(), offset);
     }
 
     fn activate(
         &mut self,
         memory: GuestMemory,
-        interrupt_event: EventFd,
-        interrupt_resample_event: EventFd,
-        status: Arc<AtomicUsize>,
+        interrupt: Interrupt,
         mut queues: Vec<Queue>,
-        mut queue_events: Vec<EventFd>,
+        mut queue_events: Vec<Event>,
     ) {
         if queues.len() != 1 || queue_events.len() != 1 {
             return;
@@ -334,12 +320,16 @@ impl VirtioDevice for Pmem {
         let queue = queues.remove(0);
         let queue_event = queue_events.remove(0);
 
-        if let Some(disk_image) = self.disk_image.take() {
+        let mapping_arena_slot = self.mapping_arena_slot;
+        // We checked that this fits in a usize in `Pmem::new`.
+        let mapping_size = self.mapping_size as usize;
+
+        if let Some(pmem_device_tube) = self.pmem_device_tube.take() {
             let (self_kill_event, kill_event) =
-                match EventFd::new().and_then(|e| Ok((e.try_clone()?, e))) {
+                match Event::new().and_then(|e| Ok((e.try_clone()?, e))) {
                     Ok(v) => v,
                     Err(e) => {
-                        error!("failed creating kill EventFd pair: {}", e);
+                        error!("failed creating kill Event pair: {}", e);
                         return;
                     }
                 };
@@ -349,18 +339,24 @@ impl VirtioDevice for Pmem {
                 .name("virtio_pmem".to_string())
                 .spawn(move || {
                     let mut worker = Worker {
+                        interrupt,
                         memory,
-                        disk_image,
                         queue,
-                        interrupt_status: status,
-                        interrupt_event,
-                        interrupt_resample_event,
+                        pmem_device_tube,
+                        mapping_arena_slot,
+                        mapping_size,
                     };
                     worker.run(queue_event, kill_event);
                 });
-            if let Err(e) = worker_result {
-                error!("failed to spawn virtio_pmem worker: {}", e);
-                return;
+
+            match worker_result {
+                Err(e) => {
+                    error!("failed to spawn virtio_pmem worker: {}", e);
+                    return;
+                }
+                Ok(join_handle) => {
+                    self.worker_thread = Some(join_handle);
+                }
             }
         }
     }

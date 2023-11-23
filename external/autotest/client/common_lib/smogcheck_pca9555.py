@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -20,11 +21,11 @@ Notes:
 """
 
 import logging
-from autotest_lib.client.common_lib import i2c_slave
+from autotest_lib.client.common_lib import i2c_node
 
 
 # I2C constants
-PCA9555_SLV = 0x27  # I2C slave address of PCA9555
+PCA9555_SLV = 0x27  # I2C node address of PCA9555
 
 # PCA9555 registers
 PCA_REG = {
@@ -63,7 +64,7 @@ class PcaError(Exception):
     """Base class for all errors in this module."""
 
 
-class PcaController(i2c_slave.I2cSlave):
+class PcaController(i2c_node.I2cNode):
     """Object to control PCA9555 module on TTCI board."""
 
     def __init__(self):
@@ -75,11 +76,11 @@ class PcaController(i2c_slave.I2cSlave):
         super(PcaController, self).__init__()
         logging.info('Attempt to initialize PCA9555 module')
         try:
-            self.setSlaveAddress(PCA9555_SLV)
+            self.setNodeAddress(PCA9555_SLV)
             self.writeWord(PCA_REG['OUT0'], PCA_OUT0_INIT_VAL)
             self.writeWord(PCA_REG['PI0'], 0)
             self.writeWord(PCA_REG['CONF0'], PCA_CONF0_INIT_VAL)
-        except PcaError, e:
+        except PcaError as e:
             raise PcaError('Error initializing PCA9555: %s' % e)
 
     def setPCAcontrol(self, key, turn_on):
@@ -101,7 +102,7 @@ class PcaController(i2c_slave.I2cSlave):
                 write_byte = byte_read & ~PCA_BIT_ONE[key]
             self.writeByte(PCA_REG['OUT0'], write_byte)
             return 0
-        except PcaError, e:
+        except PcaError as e:
             logging.error('Error setting PCA9555 Output Port 0: %s', e)
             return -1
 
@@ -145,7 +146,7 @@ class PcaController(i2c_slave.I2cSlave):
             if PCA_BIT_ONE[key] & self.readByte(PCA_REG['OUT0']):
                 status = True
             return (0, status)
-        except PcaError, e:
+        except PcaError as e:
             logging.error('Error reading from PCA9555 Output Port 0: %s', e)
             return (-1, status)
 
@@ -198,7 +199,7 @@ class PcaController(i2c_slave.I2cSlave):
                           byte_read, reset_low6, bit_mask, write_byte)
             self.writeByte(PCA_REG['OUT1'], write_byte)
             return 0
-        except PcaError, e:
+        except PcaError as e:
             logging.error('Error setting PCA9555 Output Port 0: %s', e)
             return -1
 
@@ -218,7 +219,7 @@ class PcaController(i2c_slave.I2cSlave):
             status = byte_read >> 6
             logging.info('DIP switch status = 0x%x', status)
             ret = 0
-        except PcaError, e:
+        except PcaError as e:
             logging.error('No byte read from PCA9555 Input Port 1: %s', e)
 
         return (ret, status)
@@ -248,7 +249,7 @@ class PcaController(i2c_slave.I2cSlave):
             logging.info('LED bit_value = %r, failure = %r, warning = %r',
                          bit_value, failure, warning)
             ret = 0
-        except PcaError, e:
+        except PcaError as e:
             logging.error('No byte read from PCA9555 Output Port 1: %s', e)
 
         return (ret, bit_value, failure, warning)

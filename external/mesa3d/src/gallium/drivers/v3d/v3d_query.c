@@ -64,7 +64,7 @@ v3d_destroy_query(struct pipe_context *pctx, struct pipe_query *query)
         free(q);
 }
 
-static boolean
+static bool
 v3d_begin_query(struct pipe_context *pctx, struct pipe_query *query)
 {
         struct v3d_context *v3d = v3d_context(pctx);
@@ -72,19 +72,35 @@ v3d_begin_query(struct pipe_context *pctx, struct pipe_query *query)
 
         switch (q->type) {
         case PIPE_QUERY_PRIMITIVES_GENERATED:
+                /* If we are using PRIMITIVE_COUNTS_FEEDBACK to retrieve
+                 * primitive counts from the GPU (which we need when a GS
+                 * is present), then we need to update our counters now
+                 * to discard any primitives generated before this.
+                 */
+                if (v3d->prog.gs)
+                        v3d_update_primitive_counters(v3d);
                 q->start = v3d->prims_generated;
                 break;
         case PIPE_QUERY_PRIMITIVES_EMITTED:
+                /* If we are inside transform feedback we need to update the
+                 * primitive counts to skip primtives recorded before this.
+                 */
+                if (v3d->streamout.num_targets > 0)
+                        v3d_update_primitive_counters(v3d);
                 q->start = v3d->tf_prims_generated;
                 break;
-        default:
+        case PIPE_QUERY_OCCLUSION_COUNTER:
+        case PIPE_QUERY_OCCLUSION_PREDICATE:
+        case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
                 q->bo = v3d_bo_alloc(v3d->screen, 4096, "query");
-
                 uint32_t *map = v3d_bo_map(q->bo);
                 *map = 0;
+
                 v3d->current_oq = q->bo;
                 v3d->dirty |= VC5_DIRTY_OQ;
                 break;
+        default:
+                unreachable("unsupported query type");
         }
 
         return true;
@@ -98,36 +114,52 @@ v3d_end_query(struct pipe_context *pctx, struct pipe_query *query)
 
         switch (q->type) {
         case PIPE_QUERY_PRIMITIVES_GENERATED:
+                /* If we are using PRIMITIVE_COUNTS_FEEDBACK to retrieve
+                 * primitive counts from the GPU (which we need when a GS
+                 * is present), then we need to update our counters now.
+                 */
+                if (v3d->prog.gs)
+                        v3d_update_primitive_counters(v3d);
                 q->end = v3d->prims_generated;
                 break;
         case PIPE_QUERY_PRIMITIVES_EMITTED:
+                /* If transform feedback has ended, then we have already
+                 * updated the primitive counts at glEndTransformFeedback()
+                 * time. Otherwise, we have to do it now.
+                 */
+                if (v3d->streamout.num_targets > 0)
+                        v3d_update_primitive_counters(v3d);
                 q->end = v3d->tf_prims_generated;
                 break;
-        default:
+        case PIPE_QUERY_OCCLUSION_COUNTER:
+        case PIPE_QUERY_OCCLUSION_PREDICATE:
+        case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
                 v3d->current_oq = NULL;
                 v3d->dirty |= VC5_DIRTY_OQ;
                 break;
+        default:
+                unreachable("unsupported query type");
         }
 
         return true;
 }
 
-static boolean
+static bool
 v3d_get_query_result(struct pipe_context *pctx, struct pipe_query *query,
-                     boolean wait, union pipe_query_result *vresult)
+                     bool wait, union pipe_query_result *vresult)
 {
+        struct v3d_context *v3d = v3d_context(pctx);
         struct v3d_query *q = (struct v3d_query *)query;
         uint32_t result = 0;
 
         if (q->bo) {
-                /* XXX: Only flush the jobs using this BO. */
-                v3d_flush(pctx);
+                v3d_flush_jobs_using_bo(v3d, q->bo);
 
                 if (wait) {
-                        if (!v3d_bo_wait(q->bo, 0, "query"))
+                        if (!v3d_bo_wait(q->bo, ~0ull, "query"))
                                 return false;
                 } else {
-                        if (!v3d_bo_wait(q->bo, ~0ull, "query"))
+                        if (!v3d_bo_wait(q->bo, 0, "query"))
                                 return false;
                 }
 
@@ -158,7 +190,7 @@ v3d_get_query_result(struct pipe_context *pctx, struct pipe_query *query,
 }
 
 static void
-v3d_set_active_query_state(struct pipe_context *pctx, boolean enable)
+v3d_set_active_query_state(struct pipe_context *pctx, bool enable)
 {
         struct v3d_context *v3d = v3d_context(pctx);
 

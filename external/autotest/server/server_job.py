@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable-msg=C0111
 
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
@@ -10,6 +11,10 @@ This is the core infrastructure. Derived from the client side job.py
 
 Copyright Martin J. Bligh, Andy Whitcroft 2007
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import errno
 import fcntl
@@ -29,6 +34,8 @@ import traceback
 import uuid
 import warnings
 
+from datetime import datetime
+
 from autotest_lib.client.bin import sysinfo
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import control_data
@@ -36,12 +43,15 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import logging_manager
 from autotest_lib.client.common_lib import packages
 from autotest_lib.client.common_lib import utils
+from autotest_lib.client.common_lib import seven
 from autotest_lib.server import profilers
 from autotest_lib.server import site_gtest_runner
 from autotest_lib.server import subcommand
 from autotest_lib.server import test
+from autotest_lib.server.autotest import OFFLOAD_ENVVAR
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
+from autotest_lib.server import hosts
 from autotest_lib.server.hosts import abstract_ssh
 from autotest_lib.server.hosts import afe_store
 from autotest_lib.server.hosts import file_store
@@ -51,6 +61,7 @@ from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import ssh_multiplex
 from autotest_lib.tko import models as tko_models
 from autotest_lib.tko import parser_lib
+from six.moves import zip
 
 try:
     from chromite.lib import metrics
@@ -67,6 +78,7 @@ def _control_segment_path(name):
 CLIENT_CONTROL_FILENAME = 'control'
 SERVER_CONTROL_FILENAME = 'control.srv'
 MACHINES_FILENAME = '.machines'
+DUT_STATEFUL_PATH = "/usr/local"
 
 CLIENT_WRAPPER_CONTROL_FILE = _control_segment_path('client_wrapper')
 CLIENT_TRAMPOLINE_CONTROL_FILE = _control_segment_path('client_trampoline')
@@ -105,7 +117,7 @@ def get_machine_dicts(machine_names, store_dir, in_lab, use_shadow_store,
             'host_info_store': A host_info.CachingHostInfoStore object to obtain
                     host information. A stub if in_lab is False.
             'connection_pool': ssh_multiplex.ConnectionPool instance to share
-                    master ssh connection across control scripts. This is set to
+                    ssh connection across control scripts. This is set to
                     None, and should be overridden for connection sharing.
     """
     # See autoserv_parser.parse_args. Only one of in_lab or host_attributes can
@@ -242,7 +254,8 @@ class server_job(base_job.base_job):
                  tag='', disable_sysinfo=False,
                  control_filename=SERVER_CONTROL_FILENAME,
                  parent_job_id=None, in_lab=False,
-                 use_client_trampoline=False):
+                 use_client_trampoline=False,
+                 sync_offload_dir=''):
         """
         Create a server side job object.
 
@@ -261,7 +274,7 @@ class server_job(base_job.base_job):
         @param ssh_verbosity_flag: The SSH verbosity flag, '-v', '-vv',
                 '-vvv', or an empty string if not needed.
         @param ssh_options: A string giving additional options that will be
-                            included in ssh commands.
+                included in ssh commands.
         @param group_name: If supplied, this will be written out as
                 host_group_name in the keyvals file for the parser.
         @param tag: The job execution tag from the scheduler.  [optional]
@@ -272,14 +285,16 @@ class server_job(base_job.base_job):
         @param parent_job_id: Job ID of the parent job. Default to None if the
                 job does not have a parent job.
         @param in_lab: Boolean that indicates if this is running in the lab
-                       environment.
+                environment.
         @param use_client_trampoline: Boolean that indicates whether to
-               use the client trampoline flow.  If this is True, control
-               is interpreted as the name of the client test to run.
-               The client control file will be client_trampoline.  The
-               test name will be passed to client_trampoline, which will
-               install the test package and re-exec the actual test
-               control file.
+                use the client trampoline flow.  If this is True, control
+                is interpreted as the name of the client test to run.
+                The client control file will be client_trampoline.  The
+                test name will be passed to client_trampoline, which will
+                install the test package and re-exec the actual test
+                control file.
+        @param sync_offload_dir: String; relative path to synchronous offload
+                dir, relative to the results directory. Ignored if empty.
         """
         super(server_job, self).__init__(resultdir=resultdir)
         self.control = control
@@ -319,6 +334,7 @@ class server_job(base_job.base_job):
 
         self.sysinfo = sysinfo.sysinfo(self.resultdir)
         self.profilers = profilers.profilers(self)
+        self._sync_offload_dir = sync_offload_dir
 
         job_data = {'label' : label, 'user' : user,
                     'hostname' : ','.join(machines),
@@ -631,7 +647,7 @@ class server_job(base_job.base_job):
         results = self.parallel_simple(function, machines, timeout=timeout,
                                        return_results=True)
         success_machines = []
-        for result, machine in itertools.izip(results, machines):
+        for result, machine in zip(results, machines):
             if not isinstance(result, Exception):
                 success_machines.append(machine)
         return success_machines
@@ -729,7 +745,7 @@ class server_job(base_job.base_job):
                              "skipping crashinfo collection")
                 return
             else:
-                log_file = open(self._uncollected_log_file, "w")
+                log_file = open(self._uncollected_log_file, "wb")
                 pickle.dump([], log_file)
                 log_file.close()
                 created_uncollected_logs = True
@@ -741,6 +757,8 @@ class server_job(base_job.base_job):
             if self.control is None:
                 control = ''
             elif self._use_client_trampoline:
+                # Some tests must be loaded and staged before they can be run,
+                # see crbug.com/883403#c42 and #c46 for details.
                 control = self._load_control_file(
                         CLIENT_TRAMPOLINE_CONTROL_FILE)
                 # repr of a string is safe for eval.
@@ -812,12 +830,21 @@ class server_job(base_job.base_job):
                 else:
                     utils.open_write_close(server_control_file, control)
 
+                sync_dir = self._offload_dir_target_path()
+                if self._sync_offload_dir:
+                    logging.info("Preparing synchronous offload dir")
+                    self.create_marker_file()
+                    logging.info("Offload dir and marker file ready")
+                    logging.debug("Results dir is %s", self.resultdir)
+                    logging.debug("Synchronous offload dir is %s", sync_dir)
                 logging.info("Processing control file")
                 namespace['use_packaging'] = use_packaging
+                namespace['synchronous_offload_dir'] = sync_dir
+                os.environ[OFFLOAD_ENVVAR] = sync_dir
                 self._execute_code(server_control_file, namespace)
                 logging.info("Finished processing control file")
-
-                # If no device error occured, no need to collect crashinfo.
+                self._maybe_retrieve_client_offload_dirs()
+                # If no device error occurred, no need to collect crashinfo.
                 collect_crashinfo = self.failed_with_device_error
             except Exception as e:
                 try:
@@ -864,6 +891,85 @@ class server_job(base_job.base_job):
                     self._execute_code(GET_NETWORK_STATS_CONTROL_FILE,
                                        namespace)
 
+    def _server_offload_dir_path(self):
+        return os.path.join(self.resultdir, self._sync_offload_dir)
+
+    def _offload_dir_target_path(self):
+        if not self._sync_offload_dir:
+            return ''
+        if self._client:
+            return os.path.join(DUT_STATEFUL_PATH, self._sync_offload_dir)
+        return os.path.join(self.resultdir, self._sync_offload_dir)
+
+    def _maybe_retrieve_client_offload_dirs(self):
+        if not(self._sync_offload_dir and self._client):
+            logging.info("No client dir to retrieve.")
+            return ''
+        logging.info("Retrieving synchronous offload dir from client")
+        server_path = self._server_offload_dir_path()
+        client_path = self._offload_dir_target_path()
+        def serial(machine):
+            host = hosts.create_host(machine)
+            server_subpath = os.path.join(server_path, host.hostname)
+            # Empty final piece ensures that get_file gets a trailing slash,
+            #  which makes it copy dir contents rather than the dir itself.
+            client_subpath = os.path.join(client_path, '')
+            logging.debug("Client dir to retrieve is %s", client_subpath)
+            os.makedirs(server_subpath)
+            host.get_file(client_subpath, server_subpath)
+        self.parallel_simple(serial, self.machines)
+        logging.debug("Synchronous offload dir retrieved to %s", server_path)
+        return server_path
+
+    def _create_client_offload_dirs(self):
+        marker_string = "client %s%s" % (
+            "in SSP " if utils.is_in_container() else "",
+            str(datetime.utcnow())
+        )
+        offload_path = self._offload_dir_target_path()
+        _, file_path = tempfile.mkstemp()
+        def serial(machine):
+            host = hosts.create_host(machine)
+            marker_path = os.path.join(offload_path, "sync_offloads_marker")
+            host.run(("mkdir -p %s" % offload_path), ignore_status=False)
+            host.send_file(file_path, marker_path)
+
+        try:
+            utils.open_write_close(file_path, marker_string)
+            self.parallel_simple(serial, self.machines)
+        finally:
+            os.remove(file_path)
+
+
+    def create_marker_file(self):
+        """Create a marker file in the leaf task's synchronous offload dir.
+
+        This ensures that we will get some results offloaded if the test fails
+        to create output properly, distinguishing offload errs from test errs.
+        @obj_param _client: Boolean, whether the control file is client-side.
+        @obj_param _sync_offload_dir: rel. path from results dir to offload dir.
+
+        @returns: path to offload dir on the machine of the leaf task
+        """
+        # Make the server-side directory regardless
+        try:
+            # 2.7 makedirs doesn't have an option for pre-existing directories
+            os.makedirs(self._server_offload_dir_path())
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        if not self._client:
+            offload_path = self._offload_dir_target_path()
+            marker_string = "server %s%s" % (
+                "in SSP " if utils.is_in_container() else "",
+                str(datetime.utcnow())
+            )
+            utils.open_write_close(
+                os.path.join(offload_path, "sync_offloads_marker"),
+                marker_string
+            )
+            return offload_path
+        return self._create_client_offload_dirs()
 
     def run_test(self, url, *args, **dargs):
         """
@@ -1164,7 +1270,7 @@ class server_job(base_job.base_job):
                 os.path.exists(self._uncollected_log_file)):
             return
         if self._uncollected_log_file:
-            log_file = open(self._uncollected_log_file, "r+")
+            log_file = open(self._uncollected_log_file, "rb+")
             fcntl.flock(log_file, fcntl.LOCK_EX)
         try:
             uncollected_logs = pickle.load(log_file)
@@ -1337,7 +1443,7 @@ class server_job(base_job.base_job):
                 existing_machines_text = None
             if machines_text != existing_machines_text:
                 utils.open_write_close(MACHINES_FILENAME, machines_text)
-        execfile(code_file, namespace, namespace)
+        seven.exec_file(code_file, locals_=namespace, globals_=namespace)
 
 
     def preprocess_client_state(self):
@@ -1376,7 +1482,7 @@ class server_job(base_job.base_job):
         try:
             self._state.read_from_file(state_path)
             os.remove(state_path)
-        except OSError, e:
+        except OSError as e:
             # ignore file-not-found errors
             if e.errno != errno.ENOENT:
                 raise

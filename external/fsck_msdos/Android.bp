@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_fsck_msdos_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_fsck_msdos_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_binary {
     name: "fsck_msdos",
     srcs: [

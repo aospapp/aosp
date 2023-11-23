@@ -19,13 +19,15 @@ package org.chromium.latency.walt;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v7.preference.DialogPreference;
-import android.support.v7.preference.PreferenceDialogFragmentCompat;
 import android.util.AttributeSet;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+import androidx.preference.DialogPreference;
+import androidx.preference.PreferenceDialogFragmentCompat;
+
 public class NumberPickerPreference extends DialogPreference {
+    private boolean isInitSet = false;
     private int currentValue;
     private int maxValue;
     private int minValue;
@@ -62,9 +64,13 @@ public class NumberPickerPreference extends DialogPreference {
     }
 
     public void setValue(int value) {
-        currentValue = value;
-        persistInt(currentValue);
-        setSummary(String.format(defaultSummary, getValue()));
+        boolean changed = (currentValue != value);
+        if (changed || !isInitSet) {
+            isInitSet = true;
+            currentValue = value;
+            persistInt(currentValue);
+            setSummary(String.format(defaultSummary, getValue()));
+        }
     }
 
     @Override
@@ -73,8 +79,8 @@ public class NumberPickerPreference extends DialogPreference {
     }
 
     @Override
-    protected void onSetInitialValue(boolean restorePersistedValue, Object defaultValue) {
-        setValue(restorePersistedValue ? getPersistedInt(currentValue) : (Integer) defaultValue);
+    protected void onSetInitialValue(Object defaultValue) {
+        setValue((Integer) defaultValue);
     }
 
     public static class NumberPickerPreferenceDialogFragmentCompat

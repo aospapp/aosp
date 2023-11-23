@@ -16,10 +16,10 @@
 
 package com.google.android.setupdesign.template;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 import android.util.Log;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.google.android.setupdesign.template.RequireScrollMixin.ScrollHandlingDelegate;
 
 /**

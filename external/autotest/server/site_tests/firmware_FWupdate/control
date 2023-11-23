@@ -11,14 +11,11 @@ TEST_TYPE = "server"
 
 DOC = """
 RO+RW firmware update using chromeos-firmwareupdate --mode=recovery
-or chromeos-firmwareupdate --mode=factory
 
-Example for servo V3:
-test_that --board=BOARD --args 'servo_host=SERVO3_IP new_ec=/path/to/ec.bin new_bios=/path/to/bios.bin' DUT_IP f:.*firmware_FWupdate/control
+Required arguments:
+    test_that ... --args "old_bios=/path/to/old.bin new_bios=/path/to/new.bin"
 
-Remove servo_host param for V2 servo.
-Default mode is recovery, add mode=factory to use factory mode.
-
+The *_bios arguments can also be split into separate _bios_ro and _bios_rw args.
 """
 
 from autotest_lib.client.common_lib import utils
@@ -29,6 +26,7 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 def run_firmwareupdate(machine):
     # Setup the client machine.
     host = hosts.create_host(machine, servo_args=servo_args)
-    job.run_test('firmware_FWupdate', host=host, cmdline_args=args)
+    job.run_test('firmware_FWupdate', test_name=NAME, host=host,
+                 cmdline_args=args)
 
 parallel_simple(run_firmwareupdate, machines)

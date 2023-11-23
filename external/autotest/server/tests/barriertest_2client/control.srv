@@ -11,6 +11,7 @@ events between two clients without the help of the server.
 """
 
 from autotest_lib.server import utils
+from six.moves import zip
 
 def run(pair):
     logging.info('Running on %s and %s', pair[0], pair[1])

@@ -66,6 +66,15 @@ enum event_id {
   EVENT_ALERT_V2 = 4,  // Globalsec Alertv2 fired
 };
 
+/*
+ * Upgrade state definition.
+ */
+enum upgrade_state_def {
+  UPGRADE_SUCCESS = 0,
+  UPGRADE_PW_MISMATCH = 1,
+  UPGRADE_EN_FW_FAIL =2,
+};
+
 /* Please do not change the size of this struct */
 #define EVENT_RECORD_SIZE 64
 struct event_record {
@@ -84,6 +93,9 @@ struct event_record {
       uint32_t which0;
       uint32_t which1;
     } rebooted;
+    struct {
+      uint32_t upgrade_state;
+    } upgraded;
     struct {
       uint32_t alert_grp[4];
       uint16_t camo_breaches[2];

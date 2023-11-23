@@ -29,7 +29,7 @@ public final class GoogleDefaultProtocolNegotiator implements ProtocolNegotiator
   private final ProtocolNegotiator tlsProtocolNegotiator;
 
   public GoogleDefaultProtocolNegotiator(TsiHandshakerFactory altsFactory, SslContext sslContext) {
-    altsProtocolNegotiator = AltsProtocolNegotiator.create(altsFactory);
+    altsProtocolNegotiator = AltsProtocolNegotiator.createClientNegotiator(altsFactory);
     tlsProtocolNegotiator = ProtocolNegotiators.tls(sslContext);
   }
 
@@ -48,5 +48,11 @@ public final class GoogleDefaultProtocolNegotiator implements ProtocolNegotiator
     } else {
       return tlsProtocolNegotiator.newHandler(grpcHandler);
     }
+  }
+
+  @Override
+  public void close() {
+    altsProtocolNegotiator.close();
+    tlsProtocolNegotiator.close();
   }
 }

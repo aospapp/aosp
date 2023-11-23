@@ -74,12 +74,12 @@ inline Script GetScript(const unsigned char *p, int num_bytes) {
       // CPU, so it's better to use than int32.
       static const unsigned int kGreekStart = 0x370;
 
-      // Commented out (unsued in the code): kGreekEnd = 0x3FF;
+      // Commented out (unused in the code): kGreekEnd = 0x3FF;
       static const unsigned int kCyrillicStart = 0x400;
       static const unsigned int kCyrillicEnd = 0x4FF;
       static const unsigned int kHebrewStart = 0x590;
 
-      // Commented out (unsued in the code): kHebrewEnd = 0x5FF;
+      // Commented out (unused in the code): kHebrewEnd = 0x5FF;
       static const unsigned int kArabicStart = 0x600;
       static const unsigned int kArabicEnd = 0x6FF;
       const unsigned int codepoint = ((p[0] & 0x1F) << 6) | (p[1] & 0x3F);
@@ -117,7 +117,7 @@ inline Script GetScript(const unsigned char *p, int num_bytes) {
       static const unsigned int kHiraganaStart = 0x3041;
       static const unsigned int kHiraganaEnd = 0x309F;
 
-      // Commented out (unsued in the code): kKatakanaStart = 0x30A0;
+      // Commented out (unused in the code): kKatakanaStart = 0x30A0;
       static const unsigned int kKatakanaEnd = 0x30FF;
       const unsigned int codepoint =
           ((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);

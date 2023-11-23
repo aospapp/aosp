@@ -1,4 +1,4 @@
-/* Generated code, see packets.xml and gen_packet_header.py */
+/* Generated code, see v3d_packet_v21.xml, v3d_packet_v33.xml and gen_pack_header.py */
 
 
 /* Packets, enums and structures for V3D 2.1.

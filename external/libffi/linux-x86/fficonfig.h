@@ -9,7 +9,7 @@
 #undef C_ALLOCA
 
 /* Define to the flags needed for the .section .eh_frame directive. */
-#define EH_FRAME_FLAGS "aw"
+#define EH_FRAME_FLAGS "a"
 
 /* Define this if you want extra debugging. */
 #undef FFI_DEBUG
@@ -41,7 +41,7 @@
 #define HAVE_DLFCN_H 1
 
 /* Define if __attribute__((visibility("hidden"))) is supported. */
-#undef HAVE_HIDDEN_VISIBILITY_ATTRIBUTE
+#define HAVE_HIDDEN_VISIBILITY_ATTRIBUTE 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -68,7 +68,7 @@
 #define HAVE_MMAP_FILE 1
 
 /* Define if .eh_frame sections should be read-only. */
-#undef HAVE_RO_EH_FRAME
+#define HAVE_RO_EH_FRAME 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -146,7 +146,11 @@
 
 #ifdef HAVE_HIDDEN_VISIBILITY_ATTRIBUTE
 #ifdef LIBFFI_ASM
+#ifdef __APPLE__
+#define FFI_HIDDEN(name) .private_extern name
+#else
 #define FFI_HIDDEN(name) .hidden name
+#endif
 #else
 #define FFI_HIDDEN __attribute__ ((visibility ("hidden")))
 #endif

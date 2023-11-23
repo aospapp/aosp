@@ -34,7 +34,7 @@
 
 #include "xf86drm.h"
 #include "etnaviv_drmif.h"
-#include "etnaviv_drm.h"
+#include <drm/etnaviv_drm.h>
 
 static void test_cache(struct etna_device *dev)
 {

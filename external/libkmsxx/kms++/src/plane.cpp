@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
@@ -13,14 +13,12 @@ using namespace std;
 
 namespace kms
 {
-
-struct PlanePriv
-{
+struct PlanePriv {
 	drmModePlanePtr drm_plane;
 };
 
-Plane::Plane(Card &card, uint32_t id, uint32_t idx)
-	:DrmPropObject(card, id, DRM_MODE_OBJECT_PLANE, idx)
+Plane::Plane(Card& card, uint32_t id, uint32_t idx)
+	: DrmPropObject(card, id, DRM_MODE_OBJECT_PLANE, idx)
 {
 	m_priv = new PlanePriv();
 	m_priv->drm_plane = drmModeGetPlane(this->card().fd(), this->id());
@@ -51,7 +49,7 @@ bool Plane::supports_format(PixelFormat fmt) const
 
 PlaneType Plane::plane_type() const
 {
-	if (card().has_has_universal_planes()) {
+	if (card().has_universal_planes()) {
 		switch (get_prop_value("type")) {
 		case DRM_PLANE_TYPE_OVERLAY:
 			return PlaneType::Overlay;
@@ -76,14 +74,13 @@ vector<Crtc*> Plane::get_possible_crtcs() const
 	for (uint32_t crtc_mask = m_priv->drm_plane->possible_crtcs;
 	     crtc_mask;
 	     idx++, crtc_mask >>= 1) {
-
 		if ((crtc_mask & 1) == 0)
 			continue;
 
 		auto iter = find_if(crtcs.begin(), crtcs.end(), [idx](Crtc* crtc) { return crtc->idx() == idx; });
 
 		if (iter == crtcs.end())
-			throw runtime_error("get_possible_crtcs: crtc missing");
+			continue;
 
 		v.push_back(*iter);
 	}
@@ -97,7 +94,7 @@ vector<PixelFormat> Plane::get_formats() const
 	vector<PixelFormat> r;
 
 	for (unsigned i = 0; i < p->count_formats; ++i)
-		r.push_back((PixelFormat) p->formats[i]);
+		r.push_back((PixelFormat)p->formats[i]);
 
 	return r;
 }
@@ -137,4 +134,4 @@ uint32_t Plane::gamma_size() const
 	return m_priv->drm_plane->gamma_size;
 }
 
-}
+} // namespace kms

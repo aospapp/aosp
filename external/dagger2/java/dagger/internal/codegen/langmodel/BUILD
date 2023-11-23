@@ -15,17 +15,22 @@
 # Description:
 #   Dagger-specific extensions to the javax.lang.model APIs
 
+load("@rules_java//java:defs.bzl", "java_library")
+
 package(default_visibility = ["//:src"])
 
 java_library(
     name = "langmodel",
     srcs = glob(["*.java"]),
-    plugins = ["//java/dagger/internal/codegen:bootstrap_compiler_plugin"],
+    plugins = ["//java/dagger/internal/codegen/bootstrap"],
     tags = ["maven:merged"],
     deps = [
         "//java/dagger:core",
-        "@google_bazel_common//third_party/java/auto:common",
-        "@google_bazel_common//third_party/java/guava",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
+        "//java/dagger/internal/guava:concurrent",
+        "//java/dagger/internal/guava:graph",
         "@google_bazel_common//third_party/java/javapoet",
+        "@maven//:com_google_auto_auto_common",
     ],
 )

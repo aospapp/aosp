@@ -23,7 +23,7 @@
 #include "annotator/model_generated.h"
 #include "annotator/types-test-util.h"
 #include "annotator/types.h"
-#include "utils/test-utils.h"
+#include "utils/tokenizer-utils.h"
 #include "utils/utf8/unicodetext.h"
 #include "utils/utf8/unilib.h"
 #include "gmock/gmock.h"
@@ -435,21 +435,57 @@ TEST_F(DurationAnnotatorTest,
                                 3.5 * 60 * 1000)))))));
 }
 
-TEST_F(DurationAnnotatorTest, CorrectlyAnnotatesSpanWithDanglingQuantity) {
+TEST_F(DurationAnnotatorTest, FindsDurationWithDanglingQuantity) {
   const UnicodeText text = UTF8ToUnicodeText("20 minutes 10");
   std::vector<Token> tokens = Tokenize(text);
   std::vector<AnnotatedSpan> result;
   EXPECT_TRUE(duration_annotator_.FindAll(
       text, tokens, AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
 
-  // TODO(b/144752747) Include test for duration_ms.
   EXPECT_THAT(
       result,
       ElementsAre(
           AllOf(Field(&AnnotatedSpan::span, CodepointSpan(0, 13)),
                 Field(&AnnotatedSpan::classification,
-                      ElementsAre(AllOf(Field(&ClassificationResult::collection,
-                                              "duration")))))));
+                      ElementsAre(AllOf(
+                          Field(&ClassificationResult::collection, "duration"),
+                          Field(&ClassificationResult::duration_ms,
+                                20 * 60 * 1000 + 10 * 1000)))))));
+}
+
+TEST_F(DurationAnnotatorTest, FindsDurationWithDanglingQuantityNotSupported) {
+  const UnicodeText text = UTF8ToUnicodeText("20 seconds 10");
+  std::vector<Token> tokens = Tokenize(text);
+  std::vector<AnnotatedSpan> result;
+  EXPECT_TRUE(duration_annotator_.FindAll(
+      text, tokens, AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+
+  EXPECT_THAT(
+      result,
+      ElementsAre(AllOf(
+          Field(&AnnotatedSpan::span, CodepointSpan(0, 10)),
+          Field(&AnnotatedSpan::classification,
+                ElementsAre(AllOf(
+                    Field(&ClassificationResult::collection, "duration"),
+                    Field(&ClassificationResult::duration_ms, 20 * 1000)))))));
+}
+
+TEST_F(DurationAnnotatorTest, FindsDurationWithDecimalQuantity) {
+  const UnicodeText text = UTF8ToUnicodeText("in 10.2 hours");
+  std::vector<Token> tokens = Tokenize(text);
+  std::vector<AnnotatedSpan> result;
+  EXPECT_TRUE(duration_annotator_.FindAll(
+      text, tokens, AnnotationUsecase_ANNOTATION_USECASE_RAW, &result));
+
+  EXPECT_THAT(
+      result,
+      ElementsAre(
+          AllOf(Field(&AnnotatedSpan::span, CodepointSpan(3, 13)),
+                Field(&AnnotatedSpan::classification,
+                      ElementsAre(AllOf(
+                          Field(&ClassificationResult::collection, "duration"),
+                          Field(&ClassificationResult::duration_ms,
+                                10 * 60 * 60 * 1000 + 12 * 60 * 1000)))))));
 }
 
 const DurationAnnotatorOptions* TestingJapaneseDurationAnnotatorOptions() {
@@ -472,7 +508,7 @@ const DurationAnnotatorOptions* TestingJapaneseDurationAnnotatorOptions() {
     options.half_expressions.push_back("半");
 
     options.require_quantity = true;
-    options.enable_dangling_quantity_interpretation = false;
+    options.enable_dangling_quantity_interpretation = true;
 
     flatbuffers::FlatBufferBuilder builder;
     builder.Finish(DurationAnnotatorOptions::Pack(builder, &options));
@@ -545,7 +581,7 @@ TEST_F(JapaneseDurationAnnotatorTest, IgnoresDurationWithoutQuantity) {
   EXPECT_THAT(result, IsEmpty());
 }
 
-TEST_F(JapaneseDurationAnnotatorTest, IgnoresDanglingQuantity) {
+TEST_F(JapaneseDurationAnnotatorTest, FindsDurationWithDanglingQuantity) {
   const UnicodeText text = UTF8ToUnicodeText("2 分 10 の アラーム");
   std::vector<Token> tokens = Tokenize(text);
   std::vector<AnnotatedSpan> result;
@@ -555,12 +591,12 @@ TEST_F(JapaneseDurationAnnotatorTest, IgnoresDanglingQuantity) {
   EXPECT_THAT(
       result,
       ElementsAre(
-          AllOf(Field(&AnnotatedSpan::span, CodepointSpan(0, 3)),
+          AllOf(Field(&AnnotatedSpan::span, CodepointSpan(0, 6)),
                 Field(&AnnotatedSpan::classification,
                       ElementsAre(AllOf(
                           Field(&ClassificationResult::collection, "duration"),
                           Field(&ClassificationResult::duration_ms,
-                                2 * 60 * 1000)))))));
+                                2 * 60 * 1000 + 10 * 1000)))))));
 }
 
 }  // namespace

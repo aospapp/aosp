@@ -29,7 +29,7 @@
 
 #include "util/u_inlines.h"
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
 #include "util/u_prim.h"
@@ -215,7 +215,7 @@ static boolean r300_reserve_cs_dwords(struct r300_context *r300,
     cs_dwords += r300_get_num_cs_end_dwords(r300);
 
     /* Reserve requested CS space. */
-    if (!r300->rws->cs_check_space(r300->cs, cs_dwords)) {
+    if (!r300->rws->cs_check_space(r300->cs, cs_dwords, false)) {
         r300_flush(&r300->context, PIPE_FLUSH_ASYNC, NULL);
         flushed = TRUE;
     }
@@ -324,7 +324,7 @@ static boolean immd_is_good_idea(struct r300_context *r300,
     }
 
     /* Buffers can only be used for read by r300 (except query buffers, but
-     * those can't be bound by a state tracker as vertex buffers). */
+     * those can't be bound by an gallium frontend as vertex buffers). */
     return TRUE;
 }
 
@@ -374,7 +374,7 @@ static void r300_draw_arrays_immediate(struct r300_context *r300,
         if (!map[vbi]) {
             map[vbi] = (uint32_t*)r300->rws->buffer_map(
                 r300_resource(vbuf->buffer.resource)->buf,
-                r300->cs, PIPE_TRANSFER_READ | PIPE_TRANSFER_UNSYNCHRONIZED);
+                r300->cs, PIPE_MAP_READ | PIPE_MAP_UNSYNCHRONIZED);
             map[vbi] += (vbuf->buffer_offset / 4) + stride[i] * info->start;
         }
         mapelem[i] = map[vbi] + (velem->src_offset / 4);
@@ -609,8 +609,8 @@ static void r300_draw_elements(struct r300_context *r300,
         /* If we got here, then orgIndexBuffer == indexBuffer. */
         uint16_t *ptr = r300->rws->buffer_map(r300_resource(orgIndexBuffer)->buf,
                                               r300->cs,
-                                              PIPE_TRANSFER_READ |
-                                              PIPE_TRANSFER_UNSYNCHRONIZED);
+                                              PIPE_MAP_READ |
+                                              PIPE_MAP_UNSYNCHRONIZED);
 
         if (info->mode == PIPE_PRIM_TRIANGLES) {
            memcpy(indices3, ptr + start, 6);
@@ -922,7 +922,7 @@ static boolean r300_render_allocate_vertices(struct vbuf_render* render,
         }
         r300->draw_vbo_offset = 0;
         r300render->vbo_ptr = rws->buffer_map(r300->vbo, r300->cs,
-                                              PIPE_TRANSFER_WRITE);
+                                              PIPE_MAP_WRITE);
     }
 
     r300render->vertex_size = vertex_size;

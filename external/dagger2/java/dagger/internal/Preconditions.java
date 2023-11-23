@@ -51,6 +51,34 @@ public final class Preconditions {
   }
 
   /**
+   * Ensures that an object reference returned from a provides method is not null.
+   *
+   * @param reference an object reference
+   * @return the non-null reference that was validated
+   * @throws NullPointerException if {@code reference} is null
+   */
+  public static <T> T checkNotNullFromProvides(T reference) {
+    if (reference == null) {
+      throw new NullPointerException("Cannot return null from a non-@Nullable @Provides method");
+    }
+    return reference;
+  }
+
+  /**
+   * Ensures that an object reference returned from a component method is not null.
+   *
+   * @param reference an object reference
+   * @return the non-null reference that was validated
+   * @throws NullPointerException if {@code reference} is null
+   */
+  public static <T> T checkNotNullFromComponent(T reference) {
+    if (reference == null) {
+      throw new NullPointerException("Cannot return null from a non-@Nullable component method");
+    }
+    return reference;
+  }
+
+  /**
    * Ensures that an object reference passed as a parameter to the calling method is not null.
    *
    * @param reference an object reference

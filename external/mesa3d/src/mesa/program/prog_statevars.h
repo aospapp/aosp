@@ -122,6 +122,7 @@ typedef enum gl_state_index_ {
    STATE_PT_BIAS,               /**< Pixel transfer RGBA bias */
    STATE_FB_SIZE,               /**< (width-1, height-1, 0, 0) */
    STATE_FB_WPOS_Y_TRANSFORM,   /**< (1, 0, -1, height) if a FBO is bound, (-1, height, 1, 0) otherwise */
+   STATE_FB_PNTC_Y_TRANSFORM,   /**< (1, 0, 0, 0) if point origin is upper left, (-1, 1, 0, 0) otherwise */
    STATE_TCS_PATCH_VERTICES_IN, /**< gl_PatchVerticesIn for TCS (integer) */
    STATE_TES_PATCH_VERTICES_IN, /**< gl_PatchVerticesIn for TES (integer) */
    /**
@@ -129,6 +130,8 @@ typedef enum gl_state_index_ {
     * currently active advanced blending equation, or zero if disabled.
     */
    STATE_ADVANCED_BLENDING_MODE,
+   STATE_ALPHA_REF,        /* alpha-test reference value */
+   STATE_CLIP_INTERNAL,    /* similar to STATE_CLIPPLANE, but in clip-space */
    STATE_INTERNAL_DRIVER	/* first available state index for drivers (must be last) */
 } gl_state_index;
 
@@ -137,6 +140,8 @@ extern void
 _mesa_load_state_parameters(struct gl_context *ctx,
                             struct gl_program_parameter_list *paramList);
 
+extern unsigned
+_mesa_program_state_value_size(const gl_state_index16 state[STATE_LENGTH]);
 
 extern GLbitfield
 _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH]);

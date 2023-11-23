@@ -103,7 +103,7 @@ public class OCSPReq
 
     public int getVersionNumber()
     {
-        return req.getTbsRequest().getVersion().getValue().intValue() + 1;
+        return req.getTbsRequest().getVersion().intValueExact() + 1;
     }
 
     public GeneralName getRequestorName()
@@ -246,14 +246,8 @@ public class OCSPReq
     /**
      * return the ASN.1 encoded representation of this object.
      */
-    public byte[] getEncoded()
-        throws IOException
+    public byte[] getEncoded() throws IOException
     {
-        ByteArrayOutputStream   bOut = new ByteArrayOutputStream();
-        ASN1OutputStream        aOut = new ASN1OutputStream(bOut);
-
-        aOut.writeObject(req);
-
-        return bOut.toByteArray();
+        return req.getEncoded();
     }
 }

@@ -22,13 +22,18 @@ import com.google.android.setupdesign.util.TextViewPartnerStyler.TextPartnerConf
 
 /**
  * Applies the partner style of description to the given TextView {@code description}. The user
- * needs to check if the {@code description} should apply partner heavy theme before calling this
- * method.
+ * needs to check if the {@code description} should apply partner heavy theme or light theme before
+ * calling this method, only heavy theme can apply for all configs.
  */
 public final class DescriptionStyler {
 
-  public static void applyPartnerCustomizationStyle(TextView description) {
-
+  /**
+   * Applies the partner heavy style of description to the given text view. Must check the current
+   * text view applies partner customized configurations to heavy theme before applying.
+   *
+   * @param description A text view description resource
+   */
+  public static void applyPartnerCustomizationHeavyStyle(TextView description) {
     TextViewPartnerStyler.applyPartnerCustomizationStyle(
         description,
         new TextPartnerConfigs(
@@ -36,6 +41,27 @@ public final class DescriptionStyler {
             PartnerConfig.CONFIG_DESCRIPTION_LINK_TEXT_COLOR,
             PartnerConfig.CONFIG_DESCRIPTION_TEXT_SIZE,
             PartnerConfig.CONFIG_DESCRIPTION_FONT_FAMILY,
+            null,
+            null,
+            PartnerStyleHelper.getLayoutGravity(description.getContext())));
+  }
+
+  /**
+   * Applies the partner light style of description to the given text view. Must check the current
+   * text view applies partner customized configurations to light theme before applying.
+   *
+   * @param description A text view description resource
+   */
+  public static void applyPartnerCustomizationLightStyle(TextView description) {
+    TextViewPartnerStyler.applyPartnerCustomizationLightStyle(
+        description,
+        new TextPartnerConfigs(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             PartnerStyleHelper.getLayoutGravity(description.getContext())));
   }
 

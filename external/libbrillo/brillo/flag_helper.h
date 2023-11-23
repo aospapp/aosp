@@ -20,6 +20,7 @@
 //
 //    DEFINE_bool(name, default_value, help)
 //    DEFINE_int32(name, default_value, help)
+//    DEFINE_uint32(name, default_value, help)
 //    DEFINE_int64(name, default_value, help)
 //    DEFINE_uint64(name, default_value, help)
 //    DEFINE_double(name, default_value, help)
@@ -118,6 +119,21 @@ class BRILLO_EXPORT Int32Flag final : public Flag {
   int* value_;
 };
 
+class BRILLO_EXPORT UInt32Flag final : public Flag {
+ public:
+  UInt32Flag(const char* name,
+             uint32_t* value,
+             const char* default_value,
+             const char* help,
+             bool visible);
+  bool SetValue(const std::string& value) override;
+
+  const char* GetType() const override;
+
+ private:
+  uint32_t* value_;
+};
+
 class BRILLO_EXPORT Int64Flag final : public Flag {
  public:
   Int64Flag(const char* name,
@@ -191,6 +207,8 @@ class BRILLO_EXPORT StringFlag final : public Flag {
 
 #define DEFINE_int32(name, value, help) \
   DEFINE_type(int, Int32Flag, name, value, help)
+#define DEFINE_uint32(name, value, help) \
+  DEFINE_type(uint32_t, UInt32Flag, name, value, help)
 #define DEFINE_int64(name, value, help) \
   DEFINE_type(int64_t, Int64Flag, name, value, help)
 #define DEFINE_uint64(name, value, help) \

@@ -1,7 +1,6 @@
 package org.bouncycastle.asn1.pkcs;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Enumeration;
 
 import org.bouncycastle.asn1.ASN1BitString;
@@ -88,12 +87,12 @@ public class PrivateKeyInfo
 
     private static int getVersionValue(ASN1Integer version)
     {
-        BigInteger bigValue = version.getValue();
-        if (bigValue.compareTo(BigIntegers.ZERO) < 0 || bigValue.compareTo(BigIntegers.ONE) > 0)
+        int versionValue = version.intValueExact();
+        if (versionValue < 0 || versionValue > 1)
         {
             throw new IllegalArgumentException("invalid version for private key info");
         }
-        return bigValue.intValue();
+        return versionValue;
     }
 
     public PrivateKeyInfo(
@@ -176,6 +175,11 @@ public class PrivateKeyInfo
         }
     }
 
+    public ASN1Integer getVersion()
+    {
+        return version;
+    }
+
     public ASN1Set getAttributes()
     {
         return attributes;
@@ -184,6 +188,11 @@ public class PrivateKeyInfo
     public AlgorithmIdentifier getPrivateKeyAlgorithm()
     {
         return privateKeyAlgorithm;
+    }
+
+    public ASN1OctetString getPrivateKey()
+    {
+        return new DEROctetString(privateKey.getOctets());
     }
 
     public ASN1Encodable parsePrivateKey()
@@ -228,7 +237,7 @@ public class PrivateKeyInfo
 
     public ASN1Primitive toASN1Primitive()
     {
-        ASN1EncodableVector v = new ASN1EncodableVector();
+        ASN1EncodableVector v = new ASN1EncodableVector(5);
 
         v.add(version);
         v.add(privateKeyAlgorithm);

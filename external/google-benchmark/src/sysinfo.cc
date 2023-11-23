@@ -29,7 +29,8 @@
 #include <sys/types.h>  // this header must be included before 'sys/sysctl.h' to avoid compilation error on FreeBSD
 #include <unistd.h>
 #if defined BENCHMARK_OS_FREEBSD || defined BENCHMARK_OS_MACOSX || \
-    defined BENCHMARK_OS_NETBSD || defined BENCHMARK_OS_OPENBSD
+    defined BENCHMARK_OS_NETBSD || defined BENCHMARK_OS_OPENBSD || \
+    defined BENCHMARK_OS_DRAGONFLY
 #define BENCHMARK_HAS_SYSCTL
 #include <sys/sysctl.h>
 #endif
@@ -57,6 +58,7 @@
 #include <memory>
 #include <sstream>
 #include <locale>
+#include <utility>
 
 #include "check.h"
 #include "cycleclock.h"
@@ -209,11 +211,11 @@ bool ReadFromFile(std::string const& fname, ArgT* arg) {
   return f.good();
 }
 
-bool CpuScalingEnabled(int num_cpus) {
+CPUInfo::Scaling CpuScaling(int num_cpus) {
   // We don't have a valid CPU count, so don't even bother.
-  if (num_cpus <= 0) return false;
+  if (num_cpus <= 0) return CPUInfo::Scaling::UNKNOWN;
 #ifdef BENCHMARK_OS_QNX
-  return false;
+  return CPUInfo::Scaling::UNKNOWN;
 #endif
 #ifndef BENCHMARK_OS_WINDOWS
   // On Linux, the CPUfreq subsystem exposes CPU information as files on the
@@ -223,10 +225,11 @@ bool CpuScalingEnabled(int num_cpus) {
   for (int cpu = 0; cpu < num_cpus; ++cpu) {
     std::string governor_file =
         StrCat("/sys/devices/system/cpu/cpu", cpu, "/cpufreq/scaling_governor");
-    if (ReadFromFile(governor_file, &res) && res != "performance") return true;
+    if (ReadFromFile(governor_file, &res) && res != "performance") return CPUInfo::Scaling::ENABLED;
   }
+  return CPUInfo::Scaling::DISABLED;
 #endif
-  return false;
+  return CPUInfo::Scaling::UNKNOWN;
 }
 
 int CountSetBitsInCPUMap(std::string Val) {
@@ -382,9 +385,11 @@ std::vector<CPUInfo::CacheInfo> GetCacheSizesQNX() {
       case CACHE_FLAG_UNIFIED :
         info.type = "Unified";
         info.level = 2;
+        break;
       case CACHE_FLAG_SHARED :
         info.type = "Shared";
         info.level = 3;
+        break;
       default :
         continue;
         break;
@@ -603,6 +608,8 @@ double GetCPUCyclesPerSecond() {
       "machdep.tsc_freq";
 #elif defined BENCHMARK_OS_OPENBSD
       "hw.cpuspeed";
+#elif defined BENCHMARK_OS_DRAGONFLY
+      "hw.tsc_frequency";
 #else
       "hw.cpufrequency";
 #endif
@@ -667,9 +674,10 @@ double GetCPUCyclesPerSecond() {
 }
 
 std::vector<double> GetLoadAvg() {
-#if (defined BENCHMARK_OS_FREEBSD || defined(BENCHMARK_OS_LINUX) || \
-    defined BENCHMARK_OS_MACOSX || defined BENCHMARK_OS_NETBSD ||  \
-    defined BENCHMARK_OS_OPENBSD) && !defined(__ANDROID__)
+#if (defined BENCHMARK_OS_FREEBSD || defined(BENCHMARK_OS_LINUX) ||     \
+     defined BENCHMARK_OS_MACOSX || defined BENCHMARK_OS_NETBSD ||      \
+     defined BENCHMARK_OS_OPENBSD || defined BENCHMARK_OS_DRAGONFLY) && \
+    !defined(__ANDROID__)
   constexpr int kMaxSamples = 3;
   std::vector<double> res(kMaxSamples, 0.0);
   const int nelem = getloadavg(res.data(), kMaxSamples);
@@ -695,7 +703,7 @@ CPUInfo::CPUInfo()
     : num_cpus(GetNumCPUs()),
       cycles_per_second(GetCPUCyclesPerSecond()),
       caches(GetCacheSizes()),
-      scaling_enabled(CpuScalingEnabled(num_cpus)),
+      scaling(CpuScaling(num_cpus)),
       load_avg(GetLoadAvg()) {}
 
 

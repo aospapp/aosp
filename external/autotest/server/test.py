@@ -106,8 +106,8 @@ class _sysinfo_logger(object):
                     self.job.machine_dict_list[0])
             try:
                 # Remove existing autoserv-* directories before creating more
-                self.host.delete_all_tmp_dirs(self.AUTOTEST_PARENT_DIR)
-                self.host.delete_all_tmp_dirs(self.OUTPUT_PARENT_DIR)
+                self.host.delete_all_tmp_dirs([self.AUTOTEST_PARENT_DIR,
+                                               self.OUTPUT_PARENT_DIR])
 
                 tmp_dir = self.host.get_tmp_dir(self.AUTOTEST_PARENT_DIR)
                 self.autotest = autotest.Autotest(self.host)

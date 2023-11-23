@@ -345,6 +345,10 @@ class platform_ExternalUsbPeripherals(test.test):
         self.check_connected_peripherals()
 
         action_sequence = action_sequence.upper()
+        # Check for if board type is NOT chromebook and skip lid_close_open tests
+        if (not (host.get_board_type() == 'CHROMEBOOK')) and \
+                ('CLOSELID' in action_sequence):
+            raise error.TestNAError('No lid on DUT. Test Skipped')
         actions = action_sequence.split(',')
         boot_id = 0
         self.detect_crash = crash_detector.CrashDetector(self.host)

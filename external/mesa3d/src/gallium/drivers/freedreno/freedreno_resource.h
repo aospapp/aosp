@@ -30,43 +30,26 @@
 #include "util/list.h"
 #include "util/u_range.h"
 #include "util/u_transfer_helper.h"
+#include "util/simple_mtx.h"
 
 #include "freedreno_batch.h"
 #include "freedreno_util.h"
+#include "freedreno/fdl/freedreno_layout.h"
 
-/* Texture Layout on a3xx:
- *
- * Each mipmap-level contains all of it's layers (ie. all cubmap
- * faces, all 1d/2d array elements, etc).  The texture sampler is
- * programmed with the start address of each mipmap level, and hw
- * derives the layer offset within the level.
- *
- * Texture Layout on a4xx+:
- *
- * For cubemap and 2d array, each layer contains all of it's mipmap
- * levels (layer_first layout).
- *
- * 3d textures are layed out as on a3xx, but unknown about 3d-array
- * textures.
- *
- * In either case, the slice represents the per-miplevel information,
- * but in layer_first layout it only includes the first layer, and
- * an additional offset of (rsc->layer_size * layer) must be added.
- */
-struct fd_resource_slice {
-	uint32_t offset;         /* offset of first layer in slice */
-	uint32_t pitch;
-	uint32_t size0;          /* size of first layer in slice */
+enum fd_lrz_direction {
+	FD_LRZ_UNKNOWN,
+	/* Depth func less/less-than: */
+	FD_LRZ_LESS,
+	/* Depth func greater/greater-than: */
+	FD_LRZ_GREATER,
 };
 
 struct fd_resource {
 	struct pipe_resource base;
-	struct fd_bo *bo;
-	uint32_t cpp;
+	struct fd_bo *bo;  /* use fd_resource_set_bo() to write */
 	enum pipe_format internal_format;
-	bool layer_first;        /* see above description */
-	uint32_t layer_size;
-	struct fd_resource_slice slices[MAX_MIP_LEVELS];
+	struct fdl_layout layout;
+
 	/* buffer range that has been initialized */
 	struct util_range valid_buffer_range;
 	bool valid;
@@ -76,10 +59,7 @@ struct fd_resource {
 	/* TODO rename to secondary or auxiliary? */
 	struct fd_resource *stencil;
 
-	uint32_t offset;
-	uint32_t ubwc_offset;
-	uint32_t ubwc_pitch;
-	uint32_t ubwc_size;
+	simple_mtx_t lock;
 
 	/* bitmask of in-flight batches which reference this resource.  Note
 	 * that the batch doesn't hold reference to resources (but instead
@@ -102,22 +82,52 @@ struct fd_resource {
 	/* Sequence # incremented each time bo changes: */
 	uint16_t seqno;
 
-	unsigned tile_mode : 2;
+	/* bitmask of state this resource could potentially dirty when rebound,
+	 * see rebind_resource()
+	 */
+	enum fd_dirty_3d_state dirty;
+
+	/* Uninitialized resources with UBWC format need their UBWC flag data
+	 * cleared before writes, as the UBWC state is read and used during
+	 * writes, so undefined UBWC flag data results in undefined results.
+	 */
+	bool needs_ubwc_clear : 1;
 
 	/*
 	 * LRZ
+	 *
+	 * TODO lrz width/height/pitch should probably also move to
+	 * fdl_layout
 	 */
 	bool lrz_valid : 1;
+	enum fd_lrz_direction lrz_direction : 2;
 	uint16_t lrz_width;  // for lrz clear, does this differ from lrz_pitch?
 	uint16_t lrz_height;
 	uint16_t lrz_pitch;
 	struct fd_bo *lrz;
 };
 
+struct fd_memory_object {
+	struct pipe_memory_object b;
+	struct fd_bo *bo;
+};
+
 static inline struct fd_resource *
 fd_resource(struct pipe_resource *ptex)
 {
 	return (struct fd_resource *)ptex;
+}
+
+static inline const struct fd_resource *
+fd_resource_const(const struct pipe_resource *ptex)
+{
+	return (const struct fd_resource *)ptex;
+}
+
+static inline struct fd_memory_object *
+fd_memory_object (struct pipe_memory_object *pmemobj)
+{
+	return (struct fd_memory_object *)pmemobj;
 }
 
 static inline bool
@@ -137,6 +147,48 @@ pending(struct fd_resource *rsc, bool write)
 	return false;
 }
 
+static inline bool
+fd_resource_busy(struct fd_resource *rsc, unsigned op)
+{
+	return fd_bo_cpu_prep(rsc->bo, NULL, op | DRM_FREEDRENO_PREP_NOSYNC) != 0;
+}
+
+static inline void
+fd_resource_lock(struct fd_resource *rsc)
+{
+	simple_mtx_lock(&rsc->lock);
+}
+
+static inline void
+fd_resource_unlock(struct fd_resource *rsc)
+{
+	simple_mtx_unlock(&rsc->lock);
+}
+
+static inline void
+fd_resource_set_usage(struct pipe_resource *prsc, enum fd_dirty_3d_state usage)
+{
+	if (!prsc)
+		return;
+	struct fd_resource *rsc = fd_resource(prsc);
+	/* Bits are only ever ORed in, and we expect many set_usage() per
+	 * resource, so do the quick check outside of the lock.
+	 */
+	if (likely(rsc->dirty & usage))
+		return;
+	fd_resource_lock(rsc);
+	rsc->dirty |= usage;
+	fd_resource_unlock(rsc);
+}
+
+static inline bool
+has_depth(enum pipe_format format)
+{
+	const struct util_format_description *desc =
+			util_format_description(format);
+	return util_format_has_depth(desc);
+}
+
 struct fd_transfer {
 	struct pipe_transfer base;
 	struct pipe_resource *staging_prsc;
@@ -149,56 +201,66 @@ fd_transfer(struct pipe_transfer *ptrans)
 	return (struct fd_transfer *)ptrans;
 }
 
-static inline struct fd_resource_slice *
+static inline struct fdl_slice *
 fd_resource_slice(struct fd_resource *rsc, unsigned level)
 {
 	assert(level <= rsc->base.last_level);
-	return &rsc->slices[level];
+	return &rsc->layout.slices[level];
+}
+
+static inline uint32_t
+fd_resource_layer_stride(struct fd_resource *rsc, unsigned level)
+{
+	return fdl_layer_stride(&rsc->layout, level);
+}
+
+/* get pitch (in bytes) for specified mipmap level */
+static inline uint32_t
+fd_resource_pitch(struct fd_resource *rsc, unsigned level)
+{
+	if (is_a2xx(fd_screen(rsc->base.screen)))
+		return fdl2_pitch(&rsc->layout, level);
+
+	return fdl_pitch(&rsc->layout, level);
 }
 
 /* get offset for specified mipmap level and texture/array layer */
 static inline uint32_t
 fd_resource_offset(struct fd_resource *rsc, unsigned level, unsigned layer)
 {
-	struct fd_resource_slice *slice = fd_resource_slice(rsc, level);
-	unsigned offset;
-	if (rsc->layer_first) {
-		offset = slice->offset + (rsc->layer_size * layer);
-	} else {
-		offset = slice->offset + (slice->size0 * layer);
-	}
+	uint32_t offset = fdl_surface_offset(&rsc->layout, level, layer);
 	debug_assert(offset < fd_bo_size(rsc->bo));
-	return offset + rsc->offset;
+	return offset;
 }
 
 static inline uint32_t
 fd_resource_ubwc_offset(struct fd_resource *rsc, unsigned level, unsigned layer)
 {
-	/* for now this doesn't do anything clever, but when UBWC is enabled
-	 * for multi layer/level images, it will.
-	 */
-	if (rsc->ubwc_size) {
-		debug_assert(level == 0);
-		debug_assert(layer == 0);
-	}
-	return rsc->ubwc_offset;
+	uint32_t offset = fdl_ubwc_offset(&rsc->layout, level, layer);
+	debug_assert(offset < fd_bo_size(rsc->bo));
+	return offset;
 }
 
 /* This might be a5xx specific, but higher mipmap levels are always linear: */
 static inline bool
-fd_resource_level_linear(struct pipe_resource *prsc, int level)
+fd_resource_level_linear(const struct pipe_resource *prsc, int level)
 {
-	unsigned w = u_minify(prsc->width0, level);
-	if (w < 16)
-		return true;
-	return false;
+	struct fd_screen *screen = fd_screen(prsc->screen);
+	debug_assert(!is_a3xx(screen));
+
+	return fdl_level_linear(&fd_resource_const(prsc)->layout, level);
+}
+
+static inline uint32_t
+fd_resource_tile_mode(struct pipe_resource *prsc, int level)
+{
+	return fdl_tile_mode(&fd_resource(prsc)->layout, level);
 }
 
 static inline bool
 fd_resource_ubwc_enabled(struct fd_resource *rsc, int level)
 {
-	return rsc->ubwc_size && rsc->tile_mode &&
-			!fd_resource_level_linear(&rsc->base, level);
+	return fdl_ubwc_enabled(&rsc->layout, level);
 }
 
 /* access # of samples, with 0 normalized to 1 (which is what we care about
@@ -215,7 +277,36 @@ void fd_resource_context_init(struct pipe_context *pctx);
 
 uint32_t fd_setup_slices(struct fd_resource *rsc);
 void fd_resource_resize(struct pipe_resource *prsc, uint32_t sz);
+void fd_resource_uncompress(struct fd_context *ctx, struct fd_resource *rsc);
+void fd_resource_dump(struct fd_resource *rsc, const char *name);
 
 bool fd_render_condition_check(struct pipe_context *pctx);
+
+static inline bool
+fd_batch_references_resource(struct fd_batch *batch, struct fd_resource *rsc)
+{
+	return rsc->batch_mask & (1 << batch->idx);
+}
+
+static inline void
+fd_batch_write_prep(struct fd_batch *batch, struct fd_resource *rsc)
+{
+	if (unlikely(rsc->needs_ubwc_clear)) {
+		batch->ctx->clear_ubwc(batch, rsc);
+		rsc->needs_ubwc_clear = false;
+	}
+}
+
+static inline void
+fd_batch_resource_read(struct fd_batch *batch,
+		struct fd_resource *rsc)
+{
+	/* Fast path: if we hit this then we know we don't have anyone else
+	 * writing to it (since both _write and _read flush other writers), and
+	 * that we've already recursed for stencil.
+	 */
+	if (unlikely(!fd_batch_references_resource(batch, rsc)))
+		fd_batch_resource_read_slowpath(batch, rsc);
+}
 
 #endif /* FREEDRENO_RESOURCE_H_ */

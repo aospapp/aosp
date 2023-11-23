@@ -1,4 +1,4 @@
-/* Generated code, see packets.xml and gen_packet_header.py */
+/* Generated code, see v3d_packet_v21.xml, v3d_packet_v33.xml and gen_pack_header.py */
 
 
 /* Packets, enums and structures for V3D 3.3.
@@ -219,12 +219,23 @@ enum V3D33_Pack_Mode {
         V3D_PACK_MODE_16_WAY                 =      0,
         V3D_PACK_MODE_8_WAY                  =      1,
         V3D_PACK_MODE_4_WAY                  =      2,
+        V3D_PACK_MODE_1_WAY                  =      3,
 };
 
 enum V3D33_TCS_flush_mode {
         V3D_TCS_FLUSH_MODE_FULLY_PACKED      =      0,
         V3D_TCS_FLUSH_MODE_SINGLE_PATCH      =      1,
         V3D_TCS_FLUSH_MODE_PACKED_COMPLETE_PATCHES =      2,
+};
+
+enum V3D33_Primitve_counters {
+        V3D_PRIM_COUNTS_TF_WORDS_BUFFER0     =      0,
+        V3D_PRIM_COUNTS_TF_WORDS_BUFFER1     =      1,
+        V3D_PRIM_COUNTS_TF_WORDS_BUFFER2     =      2,
+        V3D_PRIM_COUNTS_TF_WORDS_BUFFER3     =      3,
+        V3D_PRIM_COUNTS_WRITTEN              =      4,
+        V3D_PRIM_COUNTS_TF_WRITTEN           =      5,
+        V3D_PRIM_COUNTS_TF_OVERFLOW          =      6,
 };
 
 #define V3D33_HALT_opcode                      0
@@ -3718,7 +3729,7 @@ struct V3D33_TESSELLATION_GEOMETRY_SHADER_PARAMS {
    uint32_t                             tpg_max_tcs_output_segments_per_tes_batch;
    uint32_t                             tpg_min_tes_output_segments_required_in_play;
    uint32_t                             gbg_max_tes_output_vertex_segments_per_gs_batch;
-   uint32_t                             gbg_max_tes_output_vertex_segments_required_in_play;
+   uint32_t                             gbg_min_gs_output_segments_required_in_play;
 };
 
 static inline void
@@ -3731,7 +3742,7 @@ V3D33_TESSELLATION_GEOMETRY_SHADER_PARAMS_pack(__gen_user_data *data, uint8_t * 
    assert(values->tpg_max_patches_per_tes_batch >= 1);
    assert(values->tpg_max_tcs_output_segments_per_tes_batch >= 1);
    assert(values->tpg_min_tes_output_segments_required_in_play >= 1);
-   assert(values->gbg_max_tes_output_vertex_segments_required_in_play >= 1);
+   assert(values->gbg_min_gs_output_segments_required_in_play >= 1);
    cl[ 0] = __gen_uint(values->tcs_batch_flush_mode, 0, 1) |
             __gen_uint(values->per_patch_data_column_depth, 2, 5);
 
@@ -3758,7 +3769,7 @@ V3D33_TESSELLATION_GEOMETRY_SHADER_PARAMS_pack(__gen_user_data *data, uint8_t * 
 
    cl[ 7] = __gen_uint(values->tpg_min_tes_output_segments_required_in_play - 1, 6, 8) >> 8 |
             __gen_uint(values->gbg_max_tes_output_vertex_segments_per_gs_batch, 1, 2) |
-            __gen_uint(values->gbg_max_tes_output_vertex_segments_required_in_play - 1, 3, 5);
+            __gen_uint(values->gbg_min_gs_output_segments_required_in_play - 1, 3, 5);
 
 }
 
@@ -3785,7 +3796,7 @@ V3D33_TESSELLATION_GEOMETRY_SHADER_PARAMS_unpack(const uint8_t * restrict cl,
    values->tpg_max_tcs_output_segments_per_tes_batch = __gen_unpack_uint(cl, 51, 53) + 1;
    values->tpg_min_tes_output_segments_required_in_play = __gen_unpack_uint(cl, 54, 56) + 1;
    values->gbg_max_tes_output_vertex_segments_per_gs_batch = __gen_unpack_uint(cl, 57, 58);
-   values->gbg_max_tes_output_vertex_segments_required_in_play = __gen_unpack_uint(cl, 59, 61) + 1;
+   values->gbg_min_gs_output_segments_required_in_play = __gen_unpack_uint(cl, 59, 61) + 1;
 }
 #endif
 
@@ -4341,6 +4352,7 @@ enum V3D33_Texture_Data_Formats {
         TEXTURE_DATA_FORMAT_RGBA32I          =    112,
         TEXTURE_DATA_FORMAT_RGBA32UI         =    113,
         TEXTURE_DATA_FORMAT_RGB10_A2UI       =    114,
+        TEXTURE_DATA_FORMAT_A1_RGB5          =    115,
 };
 
 #endif /* V3D33_PACK_H */

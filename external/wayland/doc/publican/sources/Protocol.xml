@@ -167,10 +167,10 @@
 	  <term>new_id</term>
 	  <listitem>
 	    <para>
-	      The 32-bit object ID.  On requests, the client
-	      decides the ID.  The only events with <type>new_id</type> are
-	      advertisements of globals, and the server will use IDs below
-	      0x10000.
+	      The 32-bit object ID.  Generally, the interface used for the new
+	      object is inferred from the xml, but in the case where it's not
+	      specified, a new_id is preceded by a <code>string</code> specifying
+	      the interface name, and a <code>uint</code> specifying the version.
 	    </para>
 	  </listitem>
 	</varlistentry>
@@ -214,7 +214,7 @@
 	<listitem>
 	  <para>
 	    The object creation hierarchy must be a tree.  Otherwise,
-	    infering object versions from the parent object becomes a much
+	    inferring object versions from the parent object becomes a much
 	    more difficult to properly track.
 	  </para>
 	</listitem>
@@ -293,7 +293,7 @@
       creating the object (either client or server).  IDs allocated by the
       client are in the range [1, 0xfeffffff] while IDs allocated by the
       server are in the range [0xff000000, 0xffffffff].  The 0 ID is
-      reserved to represent a null or non-existant object.
+      reserved to represent a null or non-existent object.
 
       For efficiency purposes, the IDs are densely packed in the sense that
       the ID N will not be used until N-1 has been used.  Any ID allocation
@@ -401,10 +401,11 @@
       set the pointer image.
     </para>
     <para>
+      Setting the pointer image to NULL causes the cursor to be hidden.
+    </para>
+    <para>
       The compositor will revert the pointer image back to a default image
-      when no surface has the pointer focus for that device.  Clients can
-      revert the pointer image back to the default image by setting a NULL
-      image.
+      when no surface has the pointer focus for that device.
     </para>
     <para>
       What if the pointer moves from one window which has set a special
@@ -412,7 +413,10 @@
       the motion event?  The new surface will be stuck with the special
       pointer image.  We can't just revert the pointer image on leaving a
       surface, since if we immediately enter a surface that sets a different
-      image, the image will flicker.  Broken app, I suppose.
+      image, the image will flicker.  If a client does not set a pointer image
+      when the pointer enters a surface, the pointer stays with the image set
+      by the last surface that changed it, possibly even hidden.  Such a client
+      is likely just broken.
     </para>
   </section>
   <section id="sect-Protocol-Output">

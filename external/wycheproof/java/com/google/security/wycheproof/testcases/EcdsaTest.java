@@ -16,6 +16,7 @@
 
 package com.google.security.wycheproof;
 
+import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
 import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import com.google.security.wycheproof.WycheproofRunner.SlowTest;
 // Android-removed: Android doesn't support JMX
@@ -640,12 +641,18 @@ public class EcdsaTest extends TestCase {
     assertEquals(0, errors);
   }
 
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "Signature.SHA256WithECDSA is removed")
   public void testValidSignatures() throws Exception {
     testVectors(
         VALID_SIGNATURES, publicKey1(), "Hello", "SHA256WithECDSA", "Valid ECDSA signature",
         true, true);
   }
 
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "Signature.SHA256WithECDSA is removed")
   public void testModifiedSignatures() throws Exception {
     testVectors(
         MODIFIED_SIGNATURES,
@@ -657,6 +664,9 @@ public class EcdsaTest extends TestCase {
         true);
   }
 
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "Signature.SHA256WithECDSA is removed")
   public void testInvalidSignatures() throws Exception {
     testVectors(
         INVALID_SIGNATURES,
@@ -672,6 +682,9 @@ public class EcdsaTest extends TestCase {
    * This test checks the basic functionality of ECDSA. It can also be used to generate simple test
    * vectors.
    */
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyPairGenerator.EC is removed")
   public void testBasic() throws Exception {
     String algorithm = "SHA256WithECDSA";
     String hashAlgorithm = "SHA-256";

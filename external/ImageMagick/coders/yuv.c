@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -109,16 +109,13 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
   MagickBooleanType
     status;
 
-  register const Quantum
-    *chroma_pixels;
-
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
-  register unsigned char
+  unsigned char
     *p;
 
   ssize_t
@@ -237,7 +234,7 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
       }
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      register Quantum
+      Quantum
         *chroma_pixels;
 
       if (interlace == NoInterlace)
@@ -449,11 +446,14 @@ static Image *ReadYUVImage(const ImageInfo *image_info,ExceptionInfo *exception)
     chroma_image=DestroyImage(chroma_image);
     if (resize_image == (Image *) NULL)
       {
-        scanline=(unsigned char *) RelinquishMagickMemory(scanline);   
+        scanline=(unsigned char *) RelinquishMagickMemory(scanline);
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       }
     for (y=0; y < (ssize_t) image->rows; y++)
     {
+      const Quantum
+        *chroma_pixels;
+
       q=GetAuthenticPixels(image,0,y,image->columns,1,exception);
       chroma_pixels=GetVirtualPixels(resize_image,0,y,resize_image->columns,1,
         exception);
@@ -623,11 +623,11 @@ static MagickBooleanType WriteYUVImage(const ImageInfo *image_info,Image *image,
   MagickOffsetType
     scene;
 
-  register const Quantum
+  const Quantum
     *p,
     *s;
 
-  register ssize_t
+  ssize_t
     x;
 
   size_t

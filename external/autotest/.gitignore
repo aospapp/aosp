@@ -77,4 +77,9 @@ hwid_key
 # Present on Skylab drones
 /swarming_state/
 
+# Nested checkout
+server/cros/faft/fw-testing-configs/
+
 .idea
+.vscode
+.cipd_bin

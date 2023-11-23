@@ -97,7 +97,7 @@ final class Cycles {
       this.sProvider = sProvider;
     }
   }
-
+  
   static class X {
     public final Y y;
 
@@ -143,10 +143,10 @@ final class Cycles {
     A a();
 
     C c();
-
+    
     ChildCycleComponent child();
   }
-
+  
   @Module
   static class CycleModule {
     @Provides
@@ -160,12 +160,12 @@ final class Cycles {
   interface SelfCycleComponent {
     S s();
   }
-
+  
   @Subcomponent
   interface ChildCycleComponent {
     @SuppressWarnings("dependency-cycle")
     A a();
-
+    
     @SuppressWarnings("dependency-cycle")
     Object object();
   }

@@ -34,10 +34,7 @@ class firmware_Cr50WPG3(Cr50Test):
 
     def generate_flashrom_wp_cmd(self):
         """Use the cr50 serialname to generate the flashrom command."""
-        devid = self.servo.get('cr50_devid')
-        serial = devid.replace('0x', '').replace(' ', '-').upper()
-        logging.info('CCD serial: %s', serial)
-        self._flashrom_wp_cmd = self.FLASHROM_WP_CMD % serial
+        self._flashrom_wp_cmd = self.FLASHROM_WP_CMD % self.cr50.get_serial()
 
 
     def get_wp_state(self):
@@ -45,7 +42,7 @@ class firmware_Cr50WPG3(Cr50Test):
         flashrom_output = self.servo.system_output(self._flashrom_wp_cmd)
         match = re.search(self.WP_REGEX, flashrom_output)
         logging.info('WP is %s', match.group(1) if match else 'UKNOWN')
-        logging.debug('flashrom output\n%s', flashrom_output)
+        logging.info('flashrom output\n%s', flashrom_output)
         if not match:
             raise error.TestError('Unable to find WP status in flashrom output')
         return match.group(1)
@@ -63,7 +60,7 @@ class firmware_Cr50WPG3(Cr50Test):
             raise error.TestNAError('CCD required to check wp.')
         self.generate_flashrom_wp_cmd()
 
-        self.fast_open(True)
+        self.fast_ccd_open(True)
         # faft-cr50 runs with servo micro and type c servo v4. Use ccdblock to
         # get cr50 to ignore the fact servo is connected and allow the test to
         # use ccd to check wp status.
@@ -83,8 +80,8 @@ class firmware_Cr50WPG3(Cr50Test):
 
         # Verify we can see it's disabled. This should always work. If it
         # doesn't, it may be a setup issue.
-        servo_wp_s0 = self.get_wp_state()
-        if servo_wp_s0 == 'enabled':
+        logging.info('Checking WP from DUT')
+        if self.checkers.crossystem_checker({'wpsw_cur': '1'}):
             raise error.TestError("WP isn't disabled in S0")
 
         self.faft_client.system.run_shell_command('poweroff')

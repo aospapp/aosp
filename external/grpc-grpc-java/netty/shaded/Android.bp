@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2018 The Android Open Source Project
+// Copyright (C) 2020 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// TODO: Build from source instead
-java_import_host {
+
+// The below module imports the Netty shaded binary from the Maven repository
+// since it's not trivial to build from source due to the large number of
+// external dependencies and missing build-system support.
+//
+// WARNING: The artifact version must match the source to avoid runtime issues.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_grpc-grpc-java_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_grpc-grpc-java_license"],
+}
+
+java_library_host {
     name: "grpc-java-netty-shaded",
-    jars: [
-        "grpc-netty-shaded-1.14.0.jar",
+    static_libs: [
+        "grpc-netty-shaded-1.16.1-jar",
     ],
 }

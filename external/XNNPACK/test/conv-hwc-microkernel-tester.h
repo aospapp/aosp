@@ -244,20 +244,14 @@ public:
 
   inline size_t output_height() const {
     const size_t padded_input_height = padding_top() + input_height() + padding_bottom();
-    if (padded_input_height < kernel_height()) {
-      return 0;
-    } else {
-      return (padded_input_height - kernel_height()) / subsampling_height() + 1;
-    }
+    return (std::max<size_t>(padded_input_height + subsampling_height(), kernel_height()) - kernel_height())
+      / subsampling_height();
   }
 
   inline size_t output_width() const {
     const size_t padded_input_width = padding_left() + input_width() + padding_right();
-    if (padded_input_width < kernel_width()) {
-      return 0;
-    } else {
-      return (padded_input_width - kernel_width()) / subsampling_width() + 1;
-    }
+    return (std::max<size_t>(padded_input_width + subsampling_width(), kernel_width()) - kernel_width())
+      / subsampling_width();
   }
 
   inline ConvHWCMicrokernelTester& qmin(uint8_t qmin) {
@@ -319,7 +313,7 @@ public:
         input_channels(),
         output_channels_tile(),
         kernel_height(), kernel_width(),
-        kernel.data(), bias.data(), packed_weights.data());
+        kernel.data(), bias.data(), packed_weights.data(), nullptr);
 
       // Compute reference results, without clamping.
       for (size_t i = 0; i < batch_size(); i++) {
@@ -360,14 +354,14 @@ public:
         value = std::max(std::min(value, output_max), output_min);
       }
 
-      // Prepare output parameters.
-      xnn_f32_output_params output_params = { };
+      // Prepare parameters.
+      xnn_f32_minmax_params params = { };
       switch (variant) {
         case Variant::Native:
-          output_params = xnn_init_f32_output_params(output_min, output_max);
+          params = xnn_init_f32_minmax_params(output_min, output_max);
           break;
         case Variant::Scalar:
-          output_params = xnn_init_scalar_f32_output_params(output_min, output_max);
+          params = xnn_init_scalar_f32_minmax_params(output_min, output_max);
           break;
       }
 
@@ -379,7 +373,7 @@ public:
         padding_top(), output_channels(),
         output_pixel_stride() * output_width() * sizeof(float),
         output_pixel_stride() * sizeof(float),
-        &output_params);
+        &params);
 
       // Verify results.
       for (size_t i = 0; i < batch_size(); i++) {

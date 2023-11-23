@@ -155,6 +155,7 @@ void FboTestCase::checkError (void)
 static bool isRequiredFormat (deUint32 format, glu::RenderContext& renderContext)
 {
 	const bool supportsES32 = glu::contextSupports(renderContext.getType(), glu::ApiType::es(3, 2));
+	const bool supportsGL45 = glu::contextSupports(renderContext.getType(), glu::ApiType::core(4, 5));
 	switch (format)
 	{
 		// Color-renderable formats
@@ -211,7 +212,9 @@ static bool isRequiredFormat (deUint32 format, glu::RenderContext& renderContext
 		case GL_RGBA16F:
 		case GL_RG16F:
 		case GL_R16F:
-			return supportsES32;
+			return supportsES32 || supportsGL45;
+		case GL_RGB16F:
+			return supportsGL45;
 
 		default:
 			return false;
@@ -248,6 +251,12 @@ static std::vector<std::string> getEnablingExtensions (deUint32 format, glu::Ren
 		case GL_R32F:
 			if (!supportsES32)
 				out.push_back("GL_EXT_color_buffer_float");
+			break;
+
+		case GL_R16:
+		case GL_RG16:
+		case GL_RGBA16:
+			out.push_back("GL_EXT_texture_norm16");
 			break;
 
 		default:

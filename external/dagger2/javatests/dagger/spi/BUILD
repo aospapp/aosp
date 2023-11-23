@@ -15,14 +15,14 @@
 # Description:
 #   Tests for the Dagger SPI
 
-package(default_visibility = ["//:src"])
-
 load("//:test_defs.bzl", "GenJavaTests")
 load(
     "//:build_defs.bzl",
     "DOCLINT_HTML_AND_SYNTAX",
     "DOCLINT_REFERENCES",
 )
+
+package(default_visibility = ["//:src"])
 
 GenJavaTests(
     name = "spi_tests",
@@ -32,11 +32,11 @@ GenJavaTests(
     deps = [
         "//java/dagger:core",
         "//java/dagger/internal/codegen:processor",
-        "//java/dagger/model",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
         "//java/dagger/spi",
         "@google_bazel_common//third_party/java/auto:service",
         "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/guava",
         "@google_bazel_common//third_party/java/jsr330_inject",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/truth",

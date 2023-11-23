@@ -35,8 +35,8 @@ def _WriteJSONReportToFile(experiment, results_dir, json_report):
   compiler_string = 'llvm' if has_llvm else 'gcc'
   board = experiment.labels[0].board
   filename = 'report_%s_%s_%s.%s.json' % (board, json_report.date,
-                                          json_report.time.replace(':', '.'),
-                                          compiler_string)
+                                          json_report.time.replace(
+                                              ':', '.'), compiler_string)
   fullname = os.path.join(results_dir, filename)
   report_text = json_report.GetReport()
   with open(fullname, 'w') as out_file:
@@ -48,6 +48,10 @@ class ExperimentRunner(object):
 
   STATUS_TIME_DELAY = 30
   THREAD_MONITOR_DELAY = 2
+
+  SUCCEEDED = 0
+  HAS_FAILURE = 1
+  ALL_FAILED = 2
 
   def __init__(self,
                experiment,
@@ -153,13 +157,13 @@ class ExperimentRunner(object):
   def _ClearCacheEntries(self, experiment):
     for br in experiment.benchmark_runs:
       cache = ResultsCache()
-      cache.Init(
-          br.label.chromeos_image, br.label.chromeos_root,
-          br.benchmark.test_name, br.iteration, br.test_args, br.profiler_args,
-          br.machine_manager, br.machine, br.label.board, br.cache_conditions,
-          br.logger(), br.log_level, br.label, br.share_cache,
-          br.benchmark.suite, br.benchmark.show_all_results,
-          br.benchmark.run_local, br.benchmark.cwp_dso)
+      cache.Init(br.label.chromeos_image, br.label.chromeos_root,
+                 br.benchmark.test_name, br.iteration, br.test_args,
+                 br.profiler_args, br.machine_manager, br.machine,
+                 br.label.board, br.cache_conditions, br.logger(), br.log_level,
+                 br.label, br.share_cache, br.benchmark.suite,
+                 br.benchmark.show_all_results, br.benchmark.run_local,
+                 br.benchmark.cwp_dso)
       cache_dir = cache.GetCacheDirForWrite()
       if os.path.exists(cache_dir):
         self.l.LogOutput('Removing cache dir: %s' % cache_dir)
@@ -169,7 +173,7 @@ class ExperimentRunner(object):
     try:
       # We should not lease machines if tests are launched via `skylab
       # create-test`. This is because leasing DUT in skylab will create a
-      # dummy task on the DUT and new test created will be hanging there.
+      # no-op task on the DUT and new test created will be hanging there.
       # TODO(zhizhouy): Need to check whether machine is ready or not before
       # assigning a test to it.
       if not experiment.skylab:
@@ -242,8 +246,8 @@ class ExperimentRunner(object):
     subject = '%s: %s' % (experiment.name, ' vs. '.join(label_names))
 
     text_report = TextResultsReport.FromExperiment(experiment, True).GetReport()
-    text_report += (
-        '\nResults are stored in %s.\n' % experiment.results_directory)
+    text_report += ('\nResults are stored in %s.\n' %
+                    experiment.results_directory)
     text_report = "<pre style='font-size: 13px'>%s</pre>" % text_report
     html_report = HTMLResultsReport.FromExperiment(experiment).GetReport()
     attachment = EmailSender.Attachment('report.html', html_report)
@@ -258,13 +262,52 @@ class ExperimentRunner(object):
 
   def _StoreResults(self, experiment):
     if self._terminated:
-      return
+      return self.ALL_FAILED
+
     results_directory = experiment.results_directory
     FileUtils().RmDir(results_directory)
     FileUtils().MkDirP(results_directory)
     self.l.LogOutput('Storing experiment file in %s.' % results_directory)
     experiment_file_path = os.path.join(results_directory, 'experiment.exp')
     FileUtils().WriteFile(experiment_file_path, experiment.experiment_file)
+
+    has_failure = False
+    all_failed = True
+
+    topstats_file = os.path.join(results_directory, 'topstats.log')
+    self.l.LogOutput('Storing top statistics of each benchmark run into %s.' %
+                     topstats_file)
+    with open(topstats_file, 'w') as top_fd:
+      for benchmark_run in experiment.benchmark_runs:
+        if benchmark_run.result:
+          # FIXME: Pylint has a bug suggesting the following change, which
+          # should be fixed in pylint 2.0. Resolve this after pylint >= 2.0.
+          # Bug: https://github.com/PyCQA/pylint/issues/1984
+          # pylint: disable=simplifiable-if-statement
+          if benchmark_run.result.retval:
+            has_failure = True
+          else:
+            all_failed = False
+          # Header with benchmark run name.
+          top_fd.write('%s\n' % str(benchmark_run))
+          # Formatted string with top statistics.
+          top_fd.write(benchmark_run.result.FormatStringTopCommands())
+          top_fd.write('\n\n')
+
+    if all_failed:
+      return self.ALL_FAILED
+
+    self.l.LogOutput('Storing results of each benchmark run.')
+    for benchmark_run in experiment.benchmark_runs:
+      if benchmark_run.result:
+        benchmark_run_name = ''.join(
+            ch for ch in benchmark_run.name if ch.isalnum())
+        benchmark_run_path = os.path.join(results_directory, benchmark_run_name)
+        if experiment.compress_results:
+          benchmark_run.result.CompressResultsTo(benchmark_run_path)
+        else:
+          benchmark_run.result.CopyResultsTo(benchmark_run_path)
+        benchmark_run.result.CleanUp(benchmark_run.benchmark.rm_chroot_tmp)
 
     self.l.LogOutput('Storing results report in %s.' % results_directory)
     results_table_path = os.path.join(results_directory, 'results.html')
@@ -279,31 +322,12 @@ class ExperimentRunner(object):
     self.l.LogOutput('Storing email message body in %s.' % results_directory)
     msg_file_path = os.path.join(results_directory, 'msg_body.html')
     text_report = TextResultsReport.FromExperiment(experiment, True).GetReport()
-    text_report += (
-        '\nResults are stored in %s.\n' % experiment.results_directory)
+    text_report += ('\nResults are stored in %s.\n' %
+                    experiment.results_directory)
     msg_body = "<pre style='font-size: 13px'>%s</pre>" % text_report
     FileUtils().WriteFile(msg_file_path, msg_body)
 
-    self.l.LogOutput('Storing results of each benchmark run.')
-    for benchmark_run in experiment.benchmark_runs:
-      if benchmark_run.result:
-        benchmark_run_name = ''.join(
-            ch for ch in benchmark_run.name if ch.isalnum())
-        benchmark_run_path = os.path.join(results_directory, benchmark_run_name)
-        benchmark_run.result.CopyResultsTo(benchmark_run_path)
-        benchmark_run.result.CleanUp(benchmark_run.benchmark.rm_chroot_tmp)
-
-    topstats_file = os.path.join(results_directory, 'topstats.log')
-    self.l.LogOutput('Storing top5 statistics of each benchmark run into %s.' %
-                     topstats_file)
-    with open(topstats_file, 'w') as top_fd:
-      for benchmark_run in experiment.benchmark_runs:
-        if benchmark_run.result:
-          # Header with benchmark run name.
-          top_fd.write('%s\n' % str(benchmark_run))
-          # Formatted string with top statistics.
-          top_fd.write(benchmark_run.result.FormatStringTop5())
-          top_fd.write('\n\n')
+    return self.SUCCEEDED if not has_failure else self.HAS_FAILURE
 
   def Run(self):
     try:
@@ -311,9 +335,10 @@ class ExperimentRunner(object):
     finally:
       # Always print the report at the end of the run.
       self._PrintTable(self._experiment)
-      if not self._terminated:
-        self._StoreResults(self._experiment)
+      ret = self._StoreResults(self._experiment)
+      if ret != self.ALL_FAILED:
         self._Email(self._experiment)
+    return ret
 
 
 class MockExperimentRunner(ExperimentRunner):
@@ -323,8 +348,8 @@ class MockExperimentRunner(ExperimentRunner):
     super(MockExperimentRunner, self).__init__(experiment, json_report)
 
   def _Run(self, experiment):
-    self.l.LogOutput(
-        "Would run the following experiment: '%s'." % experiment.name)
+    self.l.LogOutput("Would run the following experiment: '%s'." %
+                     experiment.name)
 
   def _PrintTable(self, experiment):
     self.l.LogOutput('Would print the experiment table.')

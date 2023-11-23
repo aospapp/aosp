@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import urlparse
+import six.moves.urllib.parse
 import unittest
 
 import common
@@ -21,7 +21,7 @@ class AfeUrlsTestCase(unittest.TestCase):
         @param b First URL to compare
 
         """
-        urlsplit = urlparse.urlsplit
+        urlsplit = six.moves.urllib.parse.urlsplit
         self.assertEqual(urlsplit(a), urlsplit(b))
 
     def test__geturl(self):

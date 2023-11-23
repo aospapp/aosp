@@ -1,9 +1,15 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import re
 import logging
+from six.moves import range
 import time
 
 from autotest_lib.client.common_lib import error
@@ -19,14 +25,14 @@ class PDDevice(object):
 
     """
 
-    def is_src(self):
+    def is_src(self, state=None):
         """Checks if the port is connected as a source
 
         """
         raise NotImplementedError(
                 'is_src should be implemented in derived class')
 
-    def is_snk(self):
+    def is_snk(self, state=None):
         """Checks if the port is connected as a sink
 
         @returns None
@@ -34,14 +40,14 @@ class PDDevice(object):
         raise NotImplementedError(
                 'is_snk should be implemented in derived class')
 
-    def is_connected(self):
+    def is_connected(self, state=None):
         """Checks if the port is connected
 
         @returns True if in a connected state, False otherwise
         """
-        return self.is_src() or self.is_snk()
+        return self.is_src(state) or self.is_snk(state)
 
-    def is_disconnected(self):
+    def is_disconnected(self, state=None):
         """Checks if the port is disconnected
 
         """
@@ -127,17 +133,26 @@ class PDDevice(object):
         @param disc_time_sec: Time in seconds between disconnect and reconnect
         """
         raise NotImplementedError(
-                'drp_disconnect_reconnect should be implemented in \
-                derived class')
+                'drp_disconnect_connect should be implemented in derived class'
+        )
 
     def cc_disconnect_connect(self, disc_time_sec):
-        """Force PD disconnect/connect using PDTester fw command
+        """Force PD disconnect/connect
 
         @param disc_time_sec: Time in seconds between disconnect and reconnect
         """
         raise NotImplementedError(
-                'cc_disconnect_reconnect should be implemented in \
-                derived class')
+                'cc_disconnect_connect should be implemented in derived class')
+
+    def get_connected_state_after_cc_reconnect(self, disc_time_sec):
+        """Get the connected state after disconnect/reconnect
+
+        @param disc_time_sec: Time in seconds for disconnect period.
+        @returns: The connected PD state.
+        """
+        raise NotImplementedError(
+                'get_connected_state_after_cc_reconnect should be implemented'
+                'in derived class')
 
 
 class PDConsoleDevice(PDDevice):
@@ -148,7 +163,7 @@ class PDConsoleDevice(PDDevice):
     it stores both the UART console and port for the PD device.
     """
 
-    def __init__(self, console, port):
+    def __init__(self, console, port, utils):
         """Initialization method
 
         @param console: UART console object
@@ -157,46 +172,79 @@ class PDConsoleDevice(PDDevice):
         # Save UART console
         self.console = console
         # Instantiate PD utilities used by methods in this class
-        self.utils = pd_console.PDConsoleUtils(console)
+        self.utils = utils
         # Save the PD port number for this device
         self.port = port
         # Not a PDTester device
         self.is_pdtester = False
 
-    def is_src(self):
-        """Checks if the port is connected as a source
+    def get_pd_state(self):
+        """Get the state of the PD port"""
+        return self.utils.get_pd_state(self.port)
 
+    def get_pd_role(self):
+        """Get the current PD power role (source or sink)
+
+        @returns: current pd state
+        """
+        return self.utils.get_pd_role(self.port)
+
+    def is_pd_flag_set(self, key):
+        """Test a bit in PD protocol state flags
+
+        The flag word contains various PD protocol state information.
+        This method allows for a specific flag to be tested.
+
+        @param key: dict key to retrieve the flag bit mapping
+
+        @returns True if the bit to be tested is set
+        """
+        return self.utils.is_pd_flag_set(self.port, key)
+
+    def is_src(self, state=None):
+        """Checks if the port is connected as a source.
+
+        The "state" argument allows the caller to get_pd_state() once, and then
+        evaluate multiple conditions without re-getting the state.
+
+        @param state: the state to check (None to get current state)
         @returns True if connected as SRC, False otherwise
         """
-        state = self.utils.get_pd_state(self.port)
-        return bool(state == self.utils.SRC_CONNECT)
+        return self.utils.is_src_connected(self.port, state)
 
-    def is_snk(self):
+    def is_snk(self, state=None):
         """Checks if the port is connected as a sink
 
+        The "state" argument allows the caller to get_pd_state() once, and then
+        evaluate multiple conditions without re-getting the state.
+
+        @param state: the state to check (None to get current state)
         @returns True if connected as SNK, False otherwise
         """
-        state = self.utils.get_pd_state(self.port)
-        return bool(state == self.utils.SNK_CONNECT)
+        return self.utils.is_snk_connected(self.port, state)
 
-    def is_connected(self):
+    def is_connected(self, state=None):
         """Checks if the port is connected
 
+        The "state" argument allows the caller to get_pd_state() once, and then
+        evaluate multiple conditions without re-getting the state.
+
+        @param state: the state to check (None to get current state)
         @returns True if in a connected state, False otherwise
         """
-        state = self.utils.get_pd_state(self.port)
-        return bool(state == self.utils.SNK_CONNECT or
-                    state == self.utils.SRC_CONNECT)
+        return self.is_snk(state) or self.is_src(state)
 
-    def is_disconnected(self):
+    def is_disconnected(self, state=None):
         """Checks if the port is disconnected
 
         @returns True if in a disconnected state, False otherwise
         """
-        state = self.utils.get_pd_state(self.port)
-        return bool(state == self.utils.SRC_DISC or
-                    state == self.utils.SNK_DISC or
-                    state == self.utils.DRP_AUTO_TOGGLE)
+        return self.utils.is_disconnected(self.port, state)
+
+    def __repr__(self):
+        """String representation of the object"""
+        return "<%s %r port %s>" % (
+            self.__class__.__name__, self.console.name, self.port)
 
     def is_drp(self):
         """Checks if dual role mode is supported
@@ -226,10 +274,10 @@ class PDConsoleDevice(PDDevice):
         # Force state will be the opposite of current connect state
         if self.is_src():
             drp_mode = 'snk'
-            swap_state = self.utils.SNK_CONNECT
+            swap_state = self.utils.get_snk_connect_states()
         else:
             drp_mode = 'src'
-            swap_state = self.utils.SRC_CONNECT
+            swap_state = self.utils.get_src_connect_states()
         # Force disconnect
         self.drp_set(drp_mode)
         # Wait for disconnect time
@@ -243,8 +291,8 @@ class PDConsoleDevice(PDDevice):
         # the role swap verifies that a disconnect/connect sequence occurred.
         if disconnect == False:
             time.sleep(self.utils.CONNECT_TIME)
-            # Connected, verify if power role swap has ocurred
-            if swap_state == self.utils.get_pd_state(self.port):
+            # Connected, verify if power role swap has occurred
+            if self.utils.get_pd_state(self.port) in swap_state:
                 # Restore default dualrole mode
                 self.drp_set('on')
                 # Restore orignal power role
@@ -293,21 +341,31 @@ class PDConsoleDevice(PDDevice):
         """
         # Create Try.SRC pd command
         cmd = 'pd trysrc %d' % int(enable)
+        # TCPMv1 indicates Try.SRC is on by returning 'on'
+        # TCPMv2 indicates Try.SRC is on by returning 'Forced ON'
+        on_vals = ('on', 'Forced ON')
+        # TCPMv1 indicates Try.SRC is off by returning 'off'
+        # TCPMv2 indicates Try.SRC is off by returning 'Forced OFF'
+        off_vals = ('off', 'Forced OFF')
+
         # Try.SRC on/off is output, if supported feature
-        regex = ['Try\.SRC\s([\w]+)|(Parameter)']
+        regex = ['Try\.SRC\s(%s)|(Parameter)' % ('|'.join(on_vals + off_vals))]
         m = self.utils.send_pd_command_get_output(cmd, regex)
+
         # Determine if Try.SRC feature is supported
-        trysrc = re.search('Try\.SRC\s([\w]+)', m[0][0])
-        if not trysrc:
+        if 'Try.SRC' not in m[0][0]:
             logging.warn('Try.SRC not supported on this PD device')
             return False
+
         # TrySRC is supported on this PD device, verify setting.
-        logging.info('Try.SRC mode = %s', trysrc.group(1))
+        trysrc_val = m[0][1]
+        logging.info('Try.SRC mode = %s', trysrc_val)
         if enable:
-            val = 'on'
+            vals = on_vals
         else:
-            val = 'off'
-        return bool(val == m[0][1])
+            vals = off_vals
+
+        return trysrc_val in vals
 
     def soft_reset(self):
         """Initates a PD soft reset sequence
@@ -347,7 +405,10 @@ class PDConsoleDevice(PDDevice):
         state_before = self.utils.get_pd_state(self.port)
         self.utils.enable_pd_console_debug()
         try:
-            self.utils.send_pd_command_get_output(cmd, ['.*(HARD\sRST\sTX)'])
+            tcpmv1_pattern = '.*(HARD\sRST\sTX)'
+            tcpmv2_pattern = '.*(PE_SNK_Hard_Reset)|.*(PE_SRC_Hard_Reset)'
+            pattern = '|'.join((tcpmv1_pattern, tcpmv2_pattern))
+            self.utils.send_pd_command_get_output(cmd, [pattern])
         except error.TestFail:
             logging.warn('HARD RST TX not found')
             return False
@@ -370,7 +431,7 @@ class PDConsoleDevice(PDDevice):
         @returns True if the device has swapped power roles, False otherwise.
         """
         # Get starting state
-        if not self.is_drp() and not self.drp_set('on'):
+        if not self.is_drp():
             logging.warn('Dualrole Mode not enabled!')
             return False
         if self.is_connected() == False:
@@ -396,14 +457,14 @@ class PDTesterDevice(PDConsoleDevice):
     for PD console devices.
     """
 
-    def __init__(self, console, port):
+    def __init__(self, console, port, utils):
         """Initialization method
 
         @param console: UART console for this device
         @param port: USB PD port number
         """
         # Instantiate the PD console object
-        super(PDTesterDevice, self).__init__(console, port)
+        super(PDTesterDevice, self).__init__(console, port, utils)
         # Indicate this is PDTester device
         self.is_pdtester = True
 
@@ -429,7 +490,7 @@ class PDTesterDevice(PDConsoleDevice):
 
         @returns True when DRP mode is enabled, False if not successful
         """
-        for attempt in xrange(2):
+        for attempt in range(2):
             if self._toggle_pdtester_drp() == True:
                 logging.info('PDTester DRP mode enabled')
                 return True
@@ -465,6 +526,25 @@ class PDTesterDevice(PDConsoleDevice):
         disc_cmd = 'fakedisconnect %d  %d' % (DISC_DELAY,
                                               disc_time_sec * 1000)
         self.utils.send_pd_command(disc_cmd)
+
+    def get_connected_state_after_cc_reconnect(self, disc_time_sec):
+        """Get the connected state after disconnect/reconnect using PDTester
+
+        PDTester supports a feature which simulates a USB Type C disconnect
+        and reconnect. It returns the first connected state (either source or
+        sink) after reconnect.
+
+        @param disc_time_sec: Time in seconds for disconnect period.
+        @returns: The connected PD state.
+        """
+        DISC_DELAY = 100
+        disc_cmd = 'fakedisconnect %d %d' % (DISC_DELAY, disc_time_sec * 1000)
+        src_connected_tuple = self.utils.get_src_connect_states()
+        snk_connected_tuple = self.utils.get_snk_connect_states()
+        connected_exp = '|'.join(src_connected_tuple + snk_connected_tuple)
+        reply_exp = ['(.*)(C%d)\s+[\w]+:?\s(%s)' % (self.port, connected_exp)]
+        m = self.utils.send_pd_command_get_output(disc_cmd, reply_exp)
+        return m[0][3]
 
     def drp_disconnect_connect(self, disc_time_sec):
         """Disconnect/reconnect using PDTester
@@ -615,6 +695,10 @@ class PDPortPartner(object):
         """
         self.consoles = consoles
 
+    def __repr__(self):
+        """String representation of the object"""
+        return "<%s %r>" % (self.__class__.__name__, self.consoles)
+
     def _send_pd_state(self, port, console):
         """Tests if PD device exists on a given port number
 
@@ -642,7 +726,7 @@ class PDPortPartner(object):
         """
         MAX_PORTS = 2
         num_ports = 0
-        for port in xrange(MAX_PORTS):
+        for port in range(MAX_PORTS):
             if self._send_pd_state(port, console):
                 num_ports += 1
         return num_ports
@@ -676,7 +760,7 @@ class PDPortPartner(object):
         except error.TestFail:
             return False
 
-    def _check_port_pair(self, dev_pair):
+    def _check_port_pair(self, port1, port2):
         """Check if two PD devices could be connected
 
         If two USB PD devices are connected, then they should be in
@@ -690,14 +774,29 @@ class PDPortPartner(object):
         are a plausible pair based only on their PD states.
         """
         # Don't test if on the same servo console
-        if dev_pair[0].console == dev_pair[1].console:
-            logging.info('PD Devices are on same platform -> cant be a pair')
+        if port1.console == port2.console:
+            logging.info("PD Devices are on same platform -> can't be a pair")
             return False
-        # Must be SRC <--> SNK or SNK <--> SRC
-        return bool((dev_pair[0].is_src() and dev_pair[1].is_snk()) or
-                    (dev_pair[0].is_snk() and dev_pair[1].is_src()))
 
-    def _verify_pdtester_connection(self, dev_pair):
+        state1 = port1.get_pd_state()
+        port1_is_snk = port1.is_snk(state1)
+        port1_is_src = port1.is_src(state1)
+
+        state2 = port2.get_pd_state()
+        port2_is_snk = port2.is_snk(state2)
+        port2_is_src = port2.is_src(state2)
+
+        # Must be SRC <--> SNK or SNK <--> SRC
+        if (port1_is_src and port2_is_snk) or (port1_is_snk and port2_is_src):
+            logging.debug("SRC+SNK pair: %s (%s) <--> (%s) %s",
+                          port1, state1, state2, port2)
+            return True
+        else:
+            logging.debug("Not a SRC+SNK pair: %s (%s) <--> (%s) %s",
+                          port1, state1, state2, port2)
+            return False
+
+    def _verify_pdtester_connection(self, tester_port, dut_port):
         """Verify DUT to PDTester PD connection
 
         This method checks for a PDTester PD connection for the
@@ -711,41 +810,56 @@ class PDPortPartner(object):
 
         @returns True if DUT to PDTester pd connection is verified
         """
-        DISC_CHECK_TIME = .5
-        DISC_WAIT_TIME = 2
+        DISC_CHECK_TIME = 10
+        DISC_WAIT_TIME = 20
         CONNECT_TIME = 4
 
-        if not self._check_port_pair(dev_pair):
+        logging.info("Check: %s <--> %s", tester_port, dut_port)
+
+        if not self._check_port_pair(tester_port, dut_port):
             return False
 
-        for index in xrange(len(dev_pair)):
-            try:
-                # Force PD disconnect
-                dev_pair[index].cc_disconnect_connect(DISC_WAIT_TIME)
-                time.sleep(DISC_CHECK_TIME)
-                # Verify that both devices are now disconnected
-                if (dev_pair[0].is_disconnected() and
-                    dev_pair[1].is_disconnected()):
-                    # Allow enough time for reconnection
-                    time.sleep(DISC_WAIT_TIME + CONNECT_TIME)
-                    if self._check_port_pair(dev_pair):
-                        # Have verifed a pd disconnect/reconnect sequence
-                        logging.info('PDTester <-> DUT pair found')
-                        return True
-                else:
-                    # Delay to allow
-                    time.sleep(DISC_WAIT_TIME + CONNECT_TIME)
-            except NotImplementedError:
-                logging.info('dev %d is not PDTester', index)
+        # Force PD disconnect
+        logging.debug('Disconnecting to check if devices are partners')
+        tester_port.cc_disconnect_connect(DISC_WAIT_TIME)
+        time.sleep(DISC_CHECK_TIME)
+
+        # Verify that both devices are now disconnected
+        tester_state = tester_port.get_pd_state()
+        dut_state = dut_port.get_pd_state()
+        logging.debug("Recheck: %s (%s) <--> (%s) %s",
+                      tester_port, tester_state, dut_state, dut_port)
+
+        if not (tester_port.is_disconnected(tester_state) and
+                dut_port.is_disconnected(dut_state)):
+            logging.info("Ports did not disconnect at the same time, so"
+                         " they aren't considered a pair.")
+            # Delay to allow non-pair devices to reconnect
+            time.sleep(DISC_WAIT_TIME - DISC_CHECK_TIME + CONNECT_TIME)
+            return False
+
+        logging.debug('Pair disconnected.  Waiting for reconnect...')
+
+        # Allow enough time for reconnection
+        time.sleep(DISC_WAIT_TIME - DISC_CHECK_TIME + CONNECT_TIME)
+        if self._check_port_pair(tester_port, dut_port):
+            # Have verified a pd disconnect/reconnect sequence
+            logging.info('PDTester <--> DUT pair found')
+            return True
+
+        logging.info("Ports did not reconnect at the same time, so"
+                     " they aren't considered a pair.")
         return False
 
     def identify_pd_devices(self):
         """Instantiate PD devices present in test setup
 
-        @returns list of 2 PD devices if a DUT <-> PDTester found. If
-        not found, then returns an empty list.
+        @return: list of 2 PD devices if a DUT <-> PDTester found.
+                 If not found, then returns an empty list.
         """
-        devices = []
+        tester_devports = []
+        dut_devports = []
+
         # For each possible uart console, check to see if a PD console
         # is present and determine the number of PD ports.
         for console in self.consoles:
@@ -754,25 +868,39 @@ class PDPortPartner(object):
                 num_ports = self._find_num_pd_ports(console)
                 # For each PD port that can be accessed via the console,
                 # instantiate either PDConsole or PDTester device.
-                for port in xrange(num_ports):
+                for port in range(num_ports):
                     if is_tester:
-                        logging.info('PDTester PD Device on port %d', port)
-                        devices.append(PDTesterDevice(console, port))
+                        logging.info('PDTesterDevice on %s port %d',
+                                     console.name, port)
+                        tester_utils = pd_console.create_pd_console_utils(
+                                       console)
+                        tester_devports.append(PDTesterDevice(console,
+                                                    port, tester_utils))
                     else:
-                        devices.append(PDConsoleDevice(console, port))
-                        logging.info('Console PD Device on port %d', port)
+                        logging.info('PDConsoleDevice on %s port %d',
+                                     console.name, port)
+                        dut_utils = pd_console.create_pd_console_utils(console)
+                        dut_devports.append(PDConsoleDevice(console,
+                                                    port, dut_utils))
 
-        # Determine PD port partners in the list of PD devices. Note, that
+        if not tester_devports:
+            logging.error('The specified consoles did not include any'
+                          ' PD testers: %s', self.consoles)
+
+        if not dut_devports:
+            logging.error('The specified consoles did not contain any'
+                          ' DUTs: %s', self.consoles)
+
+        # Determine PD port partners in the list of PD devices. Note that
         # there can be PD devices which are not accessible via a uart console,
         # but are connected to a PD port which is accessible.
-        test_pair = []
-        for deva in devices:
-            for dev_idx in range(devices.index(deva) + 1, len(devices)):
-                devb = devices[dev_idx]
-                pair = [deva, devb]
-                if self._verify_pdtester_connection(pair):
-                    test_pair = pair
-                    devices.remove(deva)
-                    devices.remove(devb)
-        return test_pair
+        for tester in reversed(tester_devports):
+            for dut in dut_devports:
+                if tester.console == dut.console:
+                    # PD Devices are on same servo console -> can't be a pair
+                    continue
+                if self._verify_pdtester_connection(tester, dut):
+                    dut_devports.remove(dut)
+                    return [tester, dut]
 
+        return []

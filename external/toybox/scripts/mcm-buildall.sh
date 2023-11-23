@@ -3,6 +3,8 @@
 # Script to build all cross and native compilers supported by musl-libc.
 # This isn't directly used by toybox, but is useful for testing.
 
+trap "exit 1" INT
+
 if [ ! -d litecross ]
 then
   echo Run this script in musl-cross-make directory to make "ccc" directory.
@@ -47,14 +49,16 @@ make_toolchain()
       HOST="$TARGET"
       export NATIVE=y
       LP="$OUTPUT/${RENAME:-$TARGET}-cross/bin:$LP"
+      [ -z "$(PATH="$LP" which $TARGET-cc)" ] &&
+         echo "no $TARGET-cc in $LP" && return
     fi
     COMMON_CONFIG="CC=\"$HOST-gcc -static --static\" CXX=\"$HOST-g++ -static --static\""
     export -n HOST
     OUTPUT="$OUTPUT/${RENAME:-$TARGET}-$TYPE"
   fi
 
-  if [ -e "$OUTPUT.sqf" ] || [ -e "$OUTPUT/bin/$TARGET-ld" ] ||
-     [ -e "$OUTPUT/bin/ld" ]
+  if [ -e "$OUTPUT.sqf" ] || [ -e "$OUTPUT/bin/$TARGET-cc" ] ||
+     [ -e "$OUTPUT/bin/cc" ]
   then
     return
   fi
@@ -65,11 +69,7 @@ make_toolchain()
   echo -en "\033]2;$TARGET-$TYPE\007"
 
   rm -rf build/"$TARGET" "$OUTPUT" &&
-  if [ -z "$CPUS" ]
-  then
-    CPUS="$(nproc)"
-    [ "$CPUS" != 1 ] && CPUS=$(($CPUS+1))
-  fi
+  [ -z "$CPUS" ] && CPUS=$(($(nproc)+1))
   set -x &&
   PATH="$LP" make OUTPUT="$OUTPUT" TARGET="$TARGET" \
     GCC_CONFIG="--disable-nls --disable-libquadmath --disable-decimal-float --disable-multilib --enable-languages=c,c++ $GCC_CONFIG" \
@@ -236,13 +236,14 @@ else
   # which is used to build the rest (in alphabetical order)
   for i in i686:: \
          aarch64:eabi: armv4l:eabihf:"--with-arch=armv5t --with-float=soft" \
-         "armv5l:eabihf:--with-arch=armv5t --with-float=vfp" \
-         "armv7l:eabihf:--with-arch=armv7-a --with-float=vfp" \
+         "armv5l:eabihf:--with-arch=armv5t --with-fpu=vfpv2 --with-float=hard" \
+         "armv7l:eabihf:--with-arch=armv7-a --with-fpu=vfpv3-d16 --with-float=hard" \
          "armv7m:eabi:--with-arch=armv7-m --with-mode=thumb --disable-libatomic --enable-default-pie" \
          armv7r:eabihf:"--with-arch=armv7-r --enable-default-pie" \
          i486:: m68k:: microblaze:: mips:: mips64:: mipsel:: powerpc:: \
          powerpc64:: powerpc64le:: s390x:: sh2eb:fdpic:--with-cpu=mj2 \
-         sh4::--enable-incomplete-targets x86_64:: x86_64@x32:x32:
+         sh4::--enable-incomplete-targets x86_64::--with-mtune=nocona \
+         x86_64@x32:x32:
   do
     make_tuple "$i"
   done

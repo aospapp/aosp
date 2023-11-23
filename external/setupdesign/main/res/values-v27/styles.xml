@@ -27,5 +27,14 @@
         <!-- Ignore NewApi: For some reason lint seems to think this API is new in v28 (b/73514594) -->
         <item name="android:windowLightNavigationBar" tools:ignore="NewApi">true</item>
         <item name="sucLightSystemNavBar" tools:ignore="NewApi">?android:attr/windowLightNavigationBar</item>
+        <item name="sucSystemNavBarDividerColor" tools:ignore="NewApi">?android:attr/navigationBarDividerColor</item>
+    </style>
+
+    <style name="SudThemeGlifV3" parent="SudBaseThemeGlifV3">
+        <item name="android:navigationBarColor">@color/sud_glif_v3_nav_bar_color_dark</item>
+        <item name="android:navigationBarDividerColor" tools:ignore="NewApi">@color/sud_glif_v3_nav_bar_divider_color_dark</item>
+        <item name="android:windowLightNavigationBar" tools:ignore="NewApi">false</item>
+        <item name="sucLightSystemNavBar" tools:ignore="NewApi">?android:attr/windowLightNavigationBar</item>
+        <item name="sucSystemNavBarDividerColor" tools:ignore="NewApi">?android:attr/navigationBarDividerColor</item>
     </style>
 </resources>

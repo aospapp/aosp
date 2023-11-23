@@ -8,3 +8,4 @@ Noto CJK fonts, for supporting Chinese, Japanese, and Korean.
 
 Local Modifications:
 The fonts have been modified by subset_noto_cjk.py to remove cmap entries for characters that should default to emoji style in Android.
+The fonts have been modified by kojii@google.com to have chws table. See https://github.com/kojiishi/contextual-spacing for more details.

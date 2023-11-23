@@ -2188,7 +2188,8 @@ WORD32 ihevce_t_q_iq_ssd_scan_fxn(
             pi2_trans_values,
             src_strd,
             pred_strd,
-            ((trans_size << 16) + 0)); /* dst strd and chroma flag are packed together */
+            trans_size,
+            NULL_PLANE);
 
         cbf = ps_ctxt->apf_quant_iquant_ssd
                   [i4_perform_coeff_level_rdoq + (e_ssd_type != FREQUENCY_DOMAIN_SSD) * 2](
@@ -2297,7 +2298,7 @@ WORD32 ihevce_t_q_iq_ssd_scan_fxn(
             zero_cbf_cost =
 
                 ps_ctxt->s_cmn_opt_func.pf_ssd_calculator(
-                    pu1_src, pu1_pred, src_strd, pred_strd, trans_size, trans_size);
+                    pu1_src, pu1_pred, src_strd, pred_strd, trans_size, trans_size, NULL_PLANE);
         }
 
         /************************************************************************/
@@ -7601,7 +7602,8 @@ LWORD64 ihevce_chroma_cu_prcs_rdopt(
                                     pred_strd,
                                     chrm_src_stride,
                                     trans_size,
-                                    trans_size);
+                                    trans_size,
+                                    U_PLANE);
 
                             if(u1_compute_spatial_ssd)
                             {
@@ -7861,12 +7863,13 @@ LWORD64 ihevce_chroma_cu_prcs_rdopt(
                             curr_cr_cod_cost = trans_ssd_v =
 
                                 ps_ctxt->s_cmn_opt_func.pf_chroma_interleave_ssd_calculator(
-                                    pu1_cur_pred + 1,
-                                    pu1_cur_src + 1,
+                                    pu1_cur_pred,
+                                    pu1_cur_src,
                                     pred_strd,
                                     chrm_src_stride,
                                     trans_size,
-                                    trans_size);
+                                    trans_size,
+                                    V_PLANE);
 
                             if(u1_compute_spatial_ssd)
                             {
@@ -10487,7 +10490,8 @@ LWORD64 ihevce_it_recon_ssd(
             i4_zero_row);
 
         return ps_ctxt->s_cmn_opt_func.pf_ssd_calculator(
-            pu1_recon, pu1_src, i4_recon_stride, i4_src_strd, u1_trans_size, u1_trans_size);
+            pu1_recon, pu1_src, i4_recon_stride, i4_src_strd, u1_trans_size, u1_trans_size,
+            e_chroma_plane);
     }
     else
     {
@@ -10507,12 +10511,13 @@ LWORD64 ihevce_it_recon_ssd(
             e_chroma_plane);
 
         return ps_ctxt->s_cmn_opt_func.pf_chroma_interleave_ssd_calculator(
-            pu1_recon + (e_chroma_plane == V_PLANE),
-            pu1_src + (e_chroma_plane == V_PLANE),
+            pu1_recon,
+            pu1_src,
             i4_recon_stride,
             i4_src_strd,
             u1_trans_size,
-            u1_trans_size);
+            u1_trans_size,
+            e_chroma_plane);
     }
 }
 
@@ -10628,12 +10633,13 @@ WORD32 ihevce_chroma_t_q_iq_ssd_scan_fxn(
     if(u1_is_skip)
     {
         pi8_cost[0] = ps_ctxt->s_cmn_opt_func.pf_chroma_interleave_ssd_calculator(
-            pu1_pred + e_chroma_plane,
-            pu1_src + e_chroma_plane,
+            pu1_pred,
+            pu1_src,
             pred_strd,
             src_strd,
             trans_size,
-            trans_size);
+            trans_size,
+            e_chroma_plane);
 
         if(e_ssd_type == SPATIAL_DOMAIN_SSD)
         {
@@ -10735,13 +10741,14 @@ WORD32 ihevce_chroma_t_q_iq_ssd_scan_fxn(
 
     /* ---------- call residue and transform block ------- */
     u4_blk_sad = ps_ctxt->apf_chrm_resd_trns[trans_idx - 1](
-        pu1_src + (e_chroma_plane == V_PLANE),
-        pu1_pred + (e_chroma_plane == V_PLANE),
+        pu1_src,
+        pu1_pred,
         pi4_trans_scratch,
         pi2_trans_values,
         src_strd,
         pred_strd,
-        ((trans_size << 16) + 1)); /* dst strd and chroma flag are packed together */
+        trans_size,
+        e_chroma_plane);
     (void)u4_blk_sad;
     /* -------- calculate SSD calculation in Transform Domain ------ */
 
@@ -10855,12 +10862,13 @@ WORD32 ihevce_chroma_t_q_iq_ssd_scan_fxn(
             zero_cbf_cost_u =
 
                 ps_ctxt->s_cmn_opt_func.pf_chroma_interleave_ssd_calculator(
-                    pu1_pred + (e_chroma_plane == V_PLANE),
-                    pu1_src + (e_chroma_plane == V_PLANE),
+                    pu1_pred,
+                    pu1_src,
                     pred_strd,
                     src_strd,
                     trans_size,
-                    trans_size);
+                    trans_size,
+                    e_chroma_plane);
         }
 
         /************************************************************************/

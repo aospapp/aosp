@@ -65,13 +65,14 @@ export INSTALL=install
 # installation directory
 PREFIX ?=/usr
 LIB_PATH ?= lib
-INSTALL_LIB_DIR=$(PREFIX)/$(LIB_PATH)
-INSTALL_BIN_DIR=$(PREFIX)/bin
-export INSTALL_INCLUDE_DIR=$(PREFIX)/include/
+INSTALL_LIB_DIR=$(DESTDIR)$(PREFIX)/$(LIB_PATH)
+INSTALL_BIN_DIR=$(DESTDIR)$(PREFIX)/bin
+export INSTALL_INCLUDE_DIR=$(DESTDIR)$(PREFIX)/include/
+INSTALL_MAN_DIR=$(DESTDIR)$(PREFIX)/share/man/man1
 
 # compile flags
-CFLAGS += $(CPPFLAGS) -c -Wall -DLINUX -Wno-switch -fPIC
-CXXFLAGS += $(CPPFLAGS) -c -Wall -DLINUX -Wno-switch -fPIC -std=c++11
+CFLAGS += $(CPPFLAGS) -c -Wall -DLINUX -Wno-switch -Wlogical-op -fPIC
+CXXFLAGS += $(CPPFLAGS) -c -Wall -DLINUX -Wno-switch -Wlogical-op -fPIC -std=c++11
 LDFLAGS += -Wl,-z,defs
 ARFLAGS ?= rcs
 
@@ -114,18 +115,25 @@ all: libs tests
 
 libs: $(LIB_BASE_NAME)_lib  $(LIB_CAPI_NAME)_lib
 
+DEF_SO_PERM ?= 644
+
 install: libs tests
 	mkdir -p $(INSTALL_LIB_DIR) $(INSTALL_INCLUDE_DIR) $(INSTALL_BIN_DIR)
 	cp -d $(LIB_TARGET_DIR)/lib$(LIB_BASE_NAME).so $(INSTALL_LIB_DIR)/
 	cp -d $(LIB_TARGET_DIR)/lib$(LIB_BASE_NAME).so.$(SO_MAJOR_VER) $(INSTALL_LIB_DIR)/
-	$(INSTALL) --mode=644 $(LIB_TARGET_DIR)/lib$(LIB_BASE_NAME).so.$(SO_VER) $(INSTALL_LIB_DIR)/
+	$(INSTALL) --mode=$(DEF_SO_PERM) $(LIB_TARGET_DIR)/lib$(LIB_BASE_NAME).so.$(SO_VER) $(INSTALL_LIB_DIR)/
 	cp -d $(LIB_TARGET_DIR)/lib$(LIB_CAPI_NAME).so $(INSTALL_LIB_DIR)/
 	cp -d $(LIB_TARGET_DIR)/lib$(LIB_CAPI_NAME).so.$(SO_MAJOR_VER) $(INSTALL_LIB_DIR)/
-	$(INSTALL) --mode=644 $(LIB_TARGET_DIR)/lib$(LIB_CAPI_NAME).so.$(SO_VER) $(INSTALL_LIB_DIR)/
+	$(INSTALL) --mode=$(DEF_SO_PERM) $(LIB_TARGET_DIR)/lib$(LIB_CAPI_NAME).so.$(SO_VER) $(INSTALL_LIB_DIR)/
+ifndef DISABLE_STATIC
 	$(INSTALL) --mode=644 $(LIB_TARGET_DIR)/lib$(LIB_BASE_NAME).a $(INSTALL_LIB_DIR)/
 	$(INSTALL) --mode=644 $(LIB_TARGET_DIR)/lib$(LIB_CAPI_NAME).a $(INSTALL_LIB_DIR)/
+endif
 	cd $(OCSD_ROOT)/build/linux/rctdl_c_api_lib && make install_inc
 	$(INSTALL) --mode=755 $(BIN_TEST_TARGET_DIR)/trc_pkt_lister $(INSTALL_BIN_DIR)/ 
+
+install_man:
+	$(INSTALL) --mode=644 $(OCSD_ROOT)/docs/man/trc_pkt_lister.1 $(INSTALL_MAN_DIR)/
 
 
 ################################
@@ -198,3 +206,5 @@ clean_install:
 	-rm    $(INSTALL_LIB_DIR)/lib$(LIB_BASE_NAME).*
 	-rm    $(INSTALL_LIB_DIR)/lib$(LIB_CAPI_NAME).*
 	-rm -r $(INSTALL_INCLUDE_DIR)/$(LIB_UAPI_INC_DIR)
+	-rm    $(INSTALL_BIN_DIR)/trc_pkt_lister
+	-rm    $(INSTALL_MAN_DIR)/trc_pkt_lister.1

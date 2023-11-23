@@ -59,7 +59,10 @@ std::vector<MergedCallsite> GetMergedCallsites(TraceStorage* storage,
 
   if (!symbol_set_id) {
     StringId frame_name = frames_tbl.name()[frame_idx];
-    return {{frame_name, mapping_name, base::nullopt}};
+    base::Optional<StringId> deobfuscated_name =
+        frames_tbl.deobfuscated_name()[frame_idx];
+    return {{deobfuscated_name ? *deobfuscated_name : frame_name, mapping_name,
+             base::nullopt}};
   }
 
   std::vector<MergedCallsite> result;
@@ -74,6 +77,7 @@ std::vector<MergedCallsite> GetMergedCallsites(TraceStorage* storage,
     result.emplace_back(
         MergedCallsite{symbols_tbl.name()[i], mapping_name, base::nullopt});
   }
+  std::reverse(result.begin(), result.end());
   return result;
 }
 }  // namespace
@@ -106,11 +110,14 @@ std::unique_ptr<tables::ExperimentalFlamegraphNodesTable> BuildNativeFlamegraph(
     auto opt_parent_id = callsites_tbl.parent_id()[i];
     if (opt_parent_id) {
       parent_idx = callsites_tbl.id().IndexOf(*opt_parent_id);
-      parent_idx = callsite_to_merged_callsite[*parent_idx];
+      // Make sure what we index into has been populated already.
       PERFETTO_CHECK(*parent_idx < i);
+      parent_idx = callsite_to_merged_callsite[*parent_idx];
     }
 
     auto callsites = GetMergedCallsites(storage, i);
+    // Loop below needs to run at least once for parent_idx to get updated.
+    PERFETTO_CHECK(!callsites.empty());
     for (MergedCallsite& merged_callsite : callsites) {
       merged_callsite.parent_idx = parent_idx;
       auto it = merged_callsites_to_table_idx.find(merged_callsite);
@@ -137,6 +144,7 @@ std::unique_ptr<tables::ExperimentalFlamegraphNodesTable> BuildNativeFlamegraph(
       }
       parent_idx = it->second;
     }
+
     PERFETTO_CHECK(parent_idx);
     callsite_to_merged_callsite[i] = *parent_idx;
   }
@@ -169,9 +177,15 @@ std::unique_ptr<tables::ExperimentalFlamegraphNodesTable> BuildNativeFlamegraph(
     uint32_t merged_idx =
         callsite_to_merged_callsite[*callsites_tbl.id().IndexOf(
             CallsiteId(static_cast<uint32_t>(callsite_id)))];
-    if (count > 0) {
+    // On old heapprofd producers, the count field is incorrectly set and we
+    // zero it in proto_trace_parser.cc.
+    // As such, we cannot depend on count == 0 to imply size == 0, so we check
+    // for both of them separately.
+    if (size > 0) {
       tbl->mutable_alloc_size()->Set(merged_idx,
                                      tbl->alloc_size()[merged_idx] + size);
+    }
+    if (count > 0) {
       tbl->mutable_alloc_count()->Set(merged_idx,
                                       tbl->alloc_count()[merged_idx] + count);
     }
@@ -251,12 +265,12 @@ void HeapProfileTracker::SetProfilePacketIndex(uint32_t seq_id,
 
 void HeapProfileTracker::AddAllocation(
     uint32_t seq_id,
-    StackProfileTracker* stack_profile_tracker,
+    SequenceStackProfileTracker* sequence_stack_profile_tracker,
     const SourceAllocation& alloc,
-    const StackProfileTracker::InternLookup* intern_lookup) {
+    const SequenceStackProfileTracker::InternLookup* intern_lookup) {
   SequenceState& sequence_state = sequence_state_[seq_id];
 
-  auto opt_callstack_id = stack_profile_tracker->FindOrInsertCallstack(
+  auto opt_callstack_id = sequence_stack_profile_tracker->FindOrInsertCallstack(
       alloc.callstack_id, intern_lookup);
   if (!opt_callstack_id)
     return;
@@ -267,12 +281,18 @@ void HeapProfileTracker::AddAllocation(
       static_cast<uint32_t>(alloc.pid));
 
   tables::HeapProfileAllocationTable::Row alloc_row{
-      alloc.timestamp, upid, callstack_id,
+      alloc.timestamp,
+      upid,
+      alloc.heap_name,
+      callstack_id,
       static_cast<int64_t>(alloc.alloc_count),
       static_cast<int64_t>(alloc.self_allocated)};
 
   tables::HeapProfileAllocationTable::Row free_row{
-      alloc.timestamp, upid, callstack_id,
+      alloc.timestamp,
+      upid,
+      alloc.heap_name,
+      callstack_id,
       -static_cast<int64_t>(alloc.free_count),
       -static_cast<int64_t>(alloc.self_freed)};
 
@@ -295,7 +315,8 @@ void HeapProfileTracker::AddAllocation(
   tables::HeapProfileAllocationTable::Row& prev_free = prev_free_it->second;
 
   std::set<CallsiteId>& callstacks_for_source_callstack_id =
-      sequence_state.seen_callstacks[std::make_pair(upid, alloc.callstack_id)];
+      sequence_state.seen_callstacks[SourceAllocationIndex{
+          upid, alloc.callstack_id, alloc.heap_name}];
   bool new_callstack;
   std::tie(std::ignore, new_callstack) =
       callstacks_for_source_callstack_id.emplace(callstack_id);
@@ -338,11 +359,12 @@ void HeapProfileTracker::AddAllocation(
     return;
   }
 
-  if (alloc_delta.count) {
+  // Dump at max profiles do not have .count set.
+  if (alloc_delta.count || alloc_delta.size) {
     context_->storage->mutable_heap_profile_allocation_table()->Insert(
         alloc_delta);
   }
-  if (free_delta.count) {
+  if (free_delta.count || free_delta.size) {
     context_->storage->mutable_heap_profile_allocation_table()->Insert(
         free_delta);
   }
@@ -359,20 +381,20 @@ void HeapProfileTracker::StoreAllocation(uint32_t seq_id,
 
 void HeapProfileTracker::CommitAllocations(
     uint32_t seq_id,
-    StackProfileTracker* stack_profile_tracker,
-    const StackProfileTracker::InternLookup* intern_lookup) {
+    SequenceStackProfileTracker* sequence_stack_profile_tracker,
+    const SequenceStackProfileTracker::InternLookup* intern_lookup) {
   SequenceState& sequence_state = sequence_state_[seq_id];
   for (const auto& p : sequence_state.pending_allocs)
-    AddAllocation(seq_id, stack_profile_tracker, p, intern_lookup);
+    AddAllocation(seq_id, sequence_stack_profile_tracker, p, intern_lookup);
   sequence_state.pending_allocs.clear();
 }
 
 void HeapProfileTracker::FinalizeProfile(
     uint32_t seq_id,
-    StackProfileTracker* stack_profile_tracker,
-    const StackProfileTracker::InternLookup* intern_lookup) {
-  CommitAllocations(seq_id, stack_profile_tracker, intern_lookup);
-  stack_profile_tracker->ClearIndices();
+    SequenceStackProfileTracker* sequence_stack_profile_tracker,
+    const SequenceStackProfileTracker::InternLookup* intern_lookup) {
+  CommitAllocations(seq_id, sequence_stack_profile_tracker, intern_lookup);
+  sequence_stack_profile_tracker->ClearIndices();
 }
 
 void HeapProfileTracker::NotifyEndOfFile() {

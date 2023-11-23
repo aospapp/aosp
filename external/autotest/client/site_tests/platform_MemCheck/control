@@ -14,7 +14,7 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'platform'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
-ATTRIBUTES = "suite:bvt-cq"
+ATTRIBUTES = "suite:bvt-perbuild"
 DEPENDENCIES = 'cleanup-reboot'
 DOC = """
 Verifies that memory levels look sane.

@@ -1,123 +1,1499 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
 #include <algorithm>
-#include <cfloat>
 #include <cmath>
-#include <functional>
-#include <random>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <iomanip>
+#include <ios>
 #include <vector>
 
-#include <benchmark/benchmark.h>
-#include <fp16/fp16.h>
+#include <gtest/gtest.h>
+
+#include <fp16.h>
 
 #include <xnnpack/AlignedAllocator.h>
 #include <xnnpack/common.h>
+#include <xnnpack/isa-checks.h>
 #include <xnnpack/math-stubs.h>
 
 
-static void ExpError(benchmark::State& state,
-  xnn_f32_unary_math_function exp,
-  size_t tile_size)
-{
-  // The smallest x for which expf(x) is non-zero (-0x1.9FE368p+6f).
-  const uint32_t min_input = 0xC2CFF1B4;
-  // The largest x for which expf(x) is finite (0x1.62E42Ep6f).
-  const uint32_t max_input = 0x42B17217;
-  // Number of tiles in one block of inputs/outputs. Combining multiple tiles in a block reduce function call overhead.
-  const size_t num_tiles = 100;
+constexpr int kBlockSize = 1024;
 
-  double max_ulp_error = 0.0;
-  std::vector<float, AlignedAllocator<float, 64>> x(tile_size * num_tiles);
-  std::vector<float, AlignedAllocator<float, 64>> y(tile_size * num_tiles);
-  for (auto _ : state) {
-    for (uint32_t n = min_input; int32_t(n) < 0; n -= tile_size * num_tiles) {
-      for (uint32_t i = 0; i < tile_size * num_tiles; i++) {
-        x[i] = fp32_from_bits(std::max<uint32_t>(n - i, 0x80000000));
-      }
-      std::fill(y.begin(), y.end(), std::nanf(""));
-
-      exp(tile_size * num_tiles * sizeof(float), x.data(), y.data());
-
-      for (uint32_t i = 0; i < tile_size * num_tiles; i++) {
-        const double y_ref = std::exp(double(x[i]));
-        const double abs_error = std::abs(y_ref - double(y[i]));
-        const float y_abs = std::abs(y_ref);
-        const float y_ulp = fp32_from_bits(fp32_to_bits(y_abs) + 1) - y_abs;
-        max_ulp_error = std::max<double>(max_ulp_error, abs_error / y_ulp);
-      }
-    }
-    for (uint32_t n = 0; n < max_input; n += tile_size * num_tiles) {
-      for (uint32_t i = 0; i < tile_size * num_tiles; i++) {
-        x[i] = fp32_from_bits(std::min<uint32_t>(n + i, max_input));
-      }
-      std::fill(y.begin(), y.end(), std::nanf(""));
-
-      exp(tile_size * num_tiles * sizeof(float), x.data(), y.data());
-
-      for (uint32_t i = 0; i < tile_size * num_tiles; i++) {
-        const double y_ref = std::exp(double(x[i]));
-        const double abs_error = std::abs(y_ref - double(y[i]));
-        const float y_abs = std::abs(y_ref);
-        const float y_ulp = fp32_from_bits(fp32_to_bits(y_abs) + 1) - y_abs;
-        max_ulp_error = std::max<double>(max_ulp_error, abs_error / y_ulp);
-      }
-    }
-  }
-
-  state.counters["ULPERROR"] = benchmark::Counter(max_ulp_error);
-}
-
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
-  static void f32_exp__sse2_p5(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__sse2_p5, 4);
-  }
-  static void f32_exp__avx2_perm_p3(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx2_perm_p3, 8);
-  }
-  static void f32_exp__avx2_perm_p4(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx2_perm_p4, 8);
-  }
-  static void f32_exp__avx2_p5(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx2_p5, 8);
-  }
-  static void f32_exp__avx512f_perm2_p2(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx512f_perm2_p2, 16);
-  }
-  static void f32_exp__avx512f_perm_p3(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx512f_perm_p3, 16);
-  }
-  static void f32_exp__avx512f_p5_scalef(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx512f_p5_scalef, 16);
-  }
-  static void f32_exp__avx512f_p5(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__avx512f_p5, 16);
-  }
-
-  BENCHMARK(f32_exp__sse2_p5)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx2_perm_p4)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx2_perm_p3)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx2_p5)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx512f_perm2_p2)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx512f_perm_p3)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx512f_p5_scalef)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__avx512f_p5)->Unit(benchmark::kMillisecond)->Iterations(1);
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
-  static void f32_exp__neonfma_lut64_p2(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__neonfma_lut64_p2, 4);
-  }
-  static void f32_exp__neonfma_p5(benchmark::State& state) {
-    ExpError(state, xnn_math_f32_exp__neonfma_p5, 4);
+  TEST(EXP__NEONFMA_RR2_LUT64_P2, negative_zero) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__neonfma_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
   }
 
-  BENCHMARK(f32_exp__neonfma_lut64_p2)->Unit(benchmark::kMillisecond)->Iterations(1);
-  BENCHMARK(f32_exp__neonfma_p5)->Unit(benchmark::kMillisecond)->Iterations(1);
+  TEST(EXP__NEONFMA_RR2_LUT64_P2, positive_zero) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__neonfma_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__NEONFMA_RR2_LUT64_P2, negative_saturation) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__neonfma_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__NEONFMA_RR2_LUT64_P2, positive_overflow) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__neonfma_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__NEONFMA_RR2_LUT64_P2, positive_nan) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__neonfma_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__NEONFMA_RR2_LUT64_P2, negative_nan) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__neonfma_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 
-#ifndef XNNPACK_BENCHMARK_NO_MAIN
-BENCHMARK_MAIN();
-#endif
+
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+  TEST(EXP__NEONFMA_RR2_P5, negative_zero) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__neonfma_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__NEONFMA_RR2_P5, positive_zero) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__neonfma_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__NEONFMA_RR2_P5, negative_saturation) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__neonfma_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__NEONFMA_RR2_P5, positive_overflow) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__neonfma_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__NEONFMA_RR2_P5, positive_nan) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__neonfma_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__NEONFMA_RR2_P5, negative_nan) {
+    TEST_REQUIRES_ARM_NEON_FMA;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__neonfma_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM, negative_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM, positive_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM, negative_saturation) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM, positive_overflow) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM, positive_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM, negative_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM_SCALEF, negative_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM_SCALEF, positive_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM_SCALEF, negative_saturation) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM_SCALEF, positive_overflow) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM_SCALEF, positive_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT16_P3_PERM_SCALEF, negative_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut16_p3_perm_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2, negative_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2, positive_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2, negative_saturation) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2, positive_overflow) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2, positive_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2, negative_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2_SCALEF, negative_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2_SCALEF, positive_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2_SCALEF, negative_saturation) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2_SCALEF, positive_overflow) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2_SCALEF, positive_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_LUT32_P2_PERM2_SCALEF, negative_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_lut32_p2_perm2_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX512F_RR2_P5, negative_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx512f_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_P5, positive_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx512f_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_P5, negative_saturation) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_P5, positive_overflow) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_P5, positive_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_P5, negative_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX512F_RR2_P5_SCALEF, negative_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx512f_rr2_p5_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_P5_SCALEF, positive_zero) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx512f_rr2_p5_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX512F_RR2_P5_SCALEF, negative_saturation) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_P5_SCALEF, positive_overflow) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_P5_SCALEF, positive_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX512F_RR2_P5_SCALEF, negative_nan) {
+    TEST_REQUIRES_X86_AVX512F;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx512f_rr2_p5_scalef(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX2_RR2_LUT8_P3_PERM, negative_zero) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx2_rr2_lut8_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P3_PERM, positive_zero) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx2_rr2_lut8_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P3_PERM, negative_saturation) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P3_PERM, positive_overflow) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P3_PERM, positive_nan) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P3_PERM, negative_nan) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p3_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX2_RR2_LUT8_P4_PERM, negative_zero) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx2_rr2_lut8_p4_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P4_PERM, positive_zero) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx2_rr2_lut8_p4_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P4_PERM, negative_saturation) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p4_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P4_PERM, positive_overflow) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p4_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P4_PERM, positive_nan) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p4_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_LUT8_P4_PERM, negative_nan) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx2_rr2_lut8_p4_perm(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX2_RR2_P5, negative_zero) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX2_RR2_P5, positive_zero) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX2_RR2_P5, negative_saturation) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_P5, positive_overflow) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_P5, positive_nan) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX2_RR2_P5, negative_nan) {
+    TEST_REQUIRES_X86_AVX2;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__AVX_RR2_P5, negative_zero) {
+    TEST_REQUIRES_X86_AVX;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__avx_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX_RR2_P5, positive_zero) {
+    TEST_REQUIRES_X86_AVX;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__avx_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__AVX_RR2_P5, negative_saturation) {
+    TEST_REQUIRES_X86_AVX;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__avx_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX_RR2_P5, positive_overflow) {
+    TEST_REQUIRES_X86_AVX;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__avx_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX_RR2_P5, positive_nan) {
+    TEST_REQUIRES_X86_AVX;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__avx_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__AVX_RR2_P5, negative_nan) {
+    TEST_REQUIRES_X86_AVX;
+
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__avx_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__SSE2_RR2_LUT64_P2, negative_zero) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__sse2_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__SSE2_RR2_LUT64_P2, positive_zero) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__sse2_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__SSE2_RR2_LUT64_P2, negative_saturation) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__sse2_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__SSE2_RR2_LUT64_P2, positive_overflow) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__sse2_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__SSE2_RR2_LUT64_P2, positive_nan) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__sse2_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__SSE2_RR2_LUT64_P2, negative_nan) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__sse2_rr2_lut64_p2(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  TEST(EXP__SSE2_RR2_P5, negative_zero) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), -0.0f);
+    xnn_math_f32_exp__sse2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__SSE2_RR2_P5, positive_zero) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    std::fill(inputs.begin(), inputs.end(), +0.0f);
+    xnn_math_f32_exp__sse2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+    const float reference_output = 1.0f;
+    ASSERT_EQ(reference_output, outputs[0])
+      << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[0])
+      << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(reference_output)
+      << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[0]);
+  }
+
+  TEST(EXP__SSE2_RR2_P5, negative_saturation) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0xC2CFF1B5); n <= UINT32_C(0xFF800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0xFF800000)));
+      }
+      xnn_math_f32_exp__sse2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x00000000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__SSE2_RR2_P5, positive_overflow) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x42B17218); n <= UINT32_C(0x7F800000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(n + i, UINT32_C(0x7F800000)));
+      }
+      xnn_math_f32_exp__sse2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        const uint32_t reference_output = UINT32_C(0x7F800000);
+        ASSERT_EQ(reference_output, fp32_to_bits(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", reference = 0x" << std::hex << std::setw(8) << std::setfill('0') << reference_output
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__SSE2_RR2_P5, positive_nan) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), n + i));
+      }
+      xnn_math_f32_exp__sse2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+
+  TEST(EXP__SSE2_RR2_P5, negative_nan) {
+    std::vector<float, AlignedAllocator<float, 64>> inputs(kBlockSize);
+    std::vector<float, AlignedAllocator<float, 64>> outputs(kBlockSize);
+    for (uint32_t n = UINT32_C(0x7F800001); n < UINT32_C(0x80000000); n += kBlockSize) {
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        inputs[i] = fp32_from_bits(std::min(UINT32_C(0x7FFFFFFF), UINT32_C(0x80000000) | (n + i)));
+      }
+      xnn_math_f32_exp__sse2_rr2_p5(kBlockSize * sizeof(float), inputs.data(), outputs.data());
+      for (uint32_t i = 0; i < kBlockSize; i++) {
+        ASSERT_TRUE(std::isnan(outputs[i]))
+          << "input = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(inputs[i])
+          << ", optimized = 0x" << std::hex << std::setw(8) << std::setfill('0') << fp32_to_bits(outputs[i]);
+      }
+    }
+  }
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64

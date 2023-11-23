@@ -1,10 +1,16 @@
+# Lint as: python2, python3
 # Copyright (c) 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 
 from autotest_lib.server.cros import cfm_jmidata_helper_base
+from six.moves import range
 
 # Start index in the JSON object that contains Audio/Video streams related info.
 AV_INDEX = 4

@@ -30,6 +30,7 @@ class graphics_LibDRM(graphics_utils.GraphicsTest):
         # Determine which tests to run based on the architecture type.
         tests_exynos5 = ['kmstest']
         tests_mediatek = ['kmstest']
+        tests_qualcomm = ['kmstest']
         tests_rockchip = ['kmstest']
         arch_tests = {
             'amd': [],
@@ -37,6 +38,7 @@ class graphics_LibDRM(graphics_utils.GraphicsTest):
             'exynos5': tests_exynos5,
             'i386': [],
             'mediatek': tests_mediatek,
+            'qualcomm': tests_qualcomm,
             'rockchip': tests_rockchip,
             'tegra': [],
             'x86_64': []

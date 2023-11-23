@@ -1,7 +1,7 @@
 JCommander
 ==========
 
-This is an annotation based parameter parsing framework for Java.
+This is an annotation based parameter parsing framework for Java 8.
 
 Here is a quick example:
 
@@ -40,4 +40,11 @@ Assert.assertEquals("value", jct.dynamicParams.get("option"));
 Assert.assertEquals(Arrays.asList("a", "b", "c"), jct.parameters);
 ```
 
-The full doc is available at http://beust.com/jcommander
+The full doc is available at [http://jcommander.org](http://jcommander.org).
+
+## Building JCommander
+
+```
+./kobaltw assemble
+```
+

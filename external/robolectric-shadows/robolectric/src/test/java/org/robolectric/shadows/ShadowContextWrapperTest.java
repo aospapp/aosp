@@ -423,17 +423,17 @@ public class ShadowContextWrapperTest {
   @Test
   public void shouldReturnSameApplicationEveryTime() throws Exception {
     Activity activity = new Activity();
-    assertThat(activity.getApplication()).isSameAs(activity.getApplication());
+    assertThat(activity.getApplication()).isSameInstanceAs(activity.getApplication());
 
-    assertThat(activity.getApplication()).isSameAs(new Activity().getApplication());
+    assertThat(activity.getApplication()).isSameInstanceAs(new Activity().getApplication());
   }
 
   @Test
   public void shouldReturnSameApplicationContextEveryTime() throws Exception {
     Activity activity = Robolectric.setupActivity(Activity.class);
-    assertThat(activity.getApplicationContext()).isSameAs(activity.getApplicationContext());
+    assertThat(activity.getApplicationContext()).isSameInstanceAs(activity.getApplicationContext());
 
-    assertThat(activity.getApplicationContext()).isSameAs(Robolectric.setupActivity(Activity.class).getApplicationContext());
+    assertThat(activity.getApplicationContext()).isSameInstanceAs(Robolectric.setupActivity(Activity.class).getApplicationContext());
   }
 
   @Test
@@ -449,9 +449,9 @@ public class ShadowContextWrapperTest {
   @Test
   public void shouldReturnSameContentResolverEveryTime() throws Exception {
     Activity activity = Robolectric.setupActivity(Activity.class);
-    assertThat(activity.getContentResolver()).isSameAs(activity.getContentResolver());
+    assertThat(activity.getContentResolver()).isSameInstanceAs(activity.getContentResolver());
 
-    assertThat(activity.getContentResolver()).isSameAs(Robolectric.setupActivity(Activity.class).getContentResolver());
+    assertThat(activity.getContentResolver()).isSameInstanceAs(Robolectric.setupActivity(Activity.class).getContentResolver());
   }
 
   @Test
@@ -539,8 +539,8 @@ public class ShadowContextWrapperTest {
   private void assertSameInstanceEveryTime(String serviceName) {
     Activity activity1 = buildActivity(Activity.class).create().get();
     Activity activity2 = buildActivity(Activity.class).create().get();
-    assertThat(activity1.getSystemService(serviceName)).isSameAs(activity1.getSystemService(serviceName));
-    assertThat(activity1.getSystemService(serviceName)).isSameAs(activity2.getSystemService(serviceName));
+    assertThat(activity1.getSystemService(serviceName)).isSameInstanceAs(activity1.getSystemService(serviceName));
+    assertThat(activity1.getSystemService(serviceName)).isSameInstanceAs(activity2.getSystemService(serviceName));
   }
 
   @Test
@@ -635,7 +635,7 @@ public class ShadowContextWrapperTest {
     final SharedPreferences pref1 = contextWrapper.getSharedPreferences("pref", Context.MODE_PRIVATE);
     final SharedPreferences pref2 = contextWrapper.getSharedPreferences("pref", Context.MODE_PRIVATE);
 
-    assertThat(pref1).isSameAs(pref2);
+    assertThat(pref1).isSameInstanceAs(pref2);
   }
 
   @Test
@@ -643,7 +643,7 @@ public class ShadowContextWrapperTest {
     final SharedPreferences pref1 = contextWrapper.getSharedPreferences("pref1", Context.MODE_PRIVATE);
     final SharedPreferences pref2 = contextWrapper.getSharedPreferences("pref2", Context.MODE_PRIVATE);
 
-    assertThat(pref1).isNotSameAs(pref2);
+    assertThat(pref1).isNotSameInstanceAs(pref2);
   }
 
   @Test

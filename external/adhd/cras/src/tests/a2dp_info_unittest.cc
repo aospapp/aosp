@@ -80,7 +80,7 @@ TEST(A2dpInfoInit, DestroyA2dp) {
   ASSERT_EQ(1, get_sbc_codec_destroy_called());
 }
 
-TEST(A2dpInfoInit, DrainA2dp) {
+TEST(A2dpInfoInit, ResetA2dp) {
   ResetStubData();
   init_a2dp(&a2dp, &sbc);
   a2dp.a2dp_buf_used = 99;
@@ -88,7 +88,7 @@ TEST(A2dpInfoInit, DrainA2dp) {
   a2dp.seq_num = 11;
   a2dp.frame_count = 12;
 
-  a2dp_drain(&a2dp);
+  a2dp_reset(&a2dp);
 
   ASSERT_EQ(a2dp.a2dp_buf_used, 13);
   ASSERT_EQ(a2dp.frame_count, 0);

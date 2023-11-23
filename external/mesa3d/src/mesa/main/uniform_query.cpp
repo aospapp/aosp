@@ -1043,10 +1043,12 @@ copy_uniforms_to_storage(gl_constant_value *storage,
                          const unsigned offset, const unsigned components,
                          enum glsl_base_type basicType)
 {
-   if (!uni->type->is_boolean() && !uni->is_bindless) {
+   bool copy_as_uint64 = uni->is_bindless &&
+                         (uni->type->is_sampler() || uni->type->is_image());
+   if (!uni->type->is_boolean() && !copy_as_uint64) {
       memcpy(storage, values,
              sizeof(storage[0]) * components * count * size_mul);
-   } else if (uni->is_bindless) {
+   } else if (copy_as_uint64) {
       const union gl_constant_value *src =
          (const union gl_constant_value *) values;
       GLuint64 *dst = (GLuint64 *)&storage->i;
@@ -1179,6 +1181,10 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
                /* Mark this bindless sampler as bound to a texture unit.
                 */
                if (sampler->unit != value || !sampler->bound) {
+                  if (!flushed) {
+                     FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT | _NEW_PROGRAM);
+                     flushed = true;
+                  }
                   sampler->unit = value;
                   changed = true;
                }
@@ -1186,6 +1192,10 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
                sh->Program->sh.HasBoundBindlessSampler = true;
             } else {
                if (sh->Program->SamplerUnits[unit] != value) {
+                  if (!flushed) {
+                     FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT | _NEW_PROGRAM);
+                     flushed = true;
+                  }
                   sh->Program->SamplerUnits[unit] = value;
                   changed = true;
                }
@@ -1193,11 +1203,6 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
          }
 
          if (changed) {
-            if (!flushed) {
-               FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT | _NEW_PROGRAM);
-               flushed = true;
-            }
-
             struct gl_program *const prog = sh->Program;
             _mesa_update_shader_textures_used(shProg, prog);
             if (ctx->Driver.SamplerUniformChange)
@@ -1594,7 +1599,7 @@ _mesa_sampler_uniforms_are_valid(const struct gl_shader_program *shProg,
       return true;
 
    if (!shProg->SamplersValidated) {
-      _mesa_snprintf(errMsg, errMsgLength,
+      snprintf(errMsg, errMsgLength,
                      "active samplers with a different type "
                      "refer to the same texture image unit");
       return false;

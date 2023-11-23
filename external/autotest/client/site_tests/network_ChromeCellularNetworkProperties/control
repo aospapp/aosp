@@ -5,7 +5,6 @@
 AUTHOR = "ChromeOS Team"
 NAME = "network_ChromeCellularNetworkProperties"
 PURPOSE = "Verify that Chrome sees the correct cellular service properties."
-ATTRIBUTES = "suite:network_ui"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

@@ -6,6 +6,8 @@
 # to make sure it works as expected. The most robust implementations is
 # based on real HW but it doesn't have to be.
 
+from __future__ import print_function
+
 import logging
 
 # http://docs.python.org/2/library/errno.html
@@ -25,7 +27,7 @@ class platform_HWwatchdog(test.test):
         # HW watchdog is open and closed "properly".
         try:
             client.run('echo "V" > %s' % wd_dev)
-        except error.AutoservRunError, e:
+        except error.AutoservRunError as e:
             raise error.TestError('write to %s failed (%s)' %
                                   (wd_dev, errno.errorcode[e.errno]))
 
@@ -33,7 +35,8 @@ class platform_HWwatchdog(test.test):
         tester = WatchdogTester(host)
         # If watchdog not present, just skip this test
         if not tester.is_supported():
-            logging.info("INFO: %s not present. Skipping test." % tester.WD_DEV)
+            error.TestNAError('%s or %s not present. Skipping test.' %
+                              (tester.WD_DEV, tester.DAISYDOG_PATH))
             return
 
         with tester:

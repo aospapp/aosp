@@ -37,7 +37,7 @@ class BRILLO_EXPORT DBusDaemon : public Daemon {
 
   // A reference to the |dbus_connection_| bus object often used by derived
   // classes.
-  scoped_refptr<dbus::Bus> bus_;
+  scoped_refptr<::dbus::Bus> bus_;
 
  private:
   DBusConnection dbus_connection_;
@@ -59,7 +59,7 @@ class BRILLO_EXPORT DBusServiceDaemon : public DBusDaemon {
   // not created and is not available as part of the D-Bus service.
   explicit DBusServiceDaemon(const std::string& service_name);
   DBusServiceDaemon(const std::string& service_name,
-                    const dbus::ObjectPath& object_manager_path);
+                    const ::dbus::ObjectPath& object_manager_path);
   DBusServiceDaemon(const std::string& service_name,
                     base::StringPiece object_manager_path);
 
@@ -76,7 +76,7 @@ class BRILLO_EXPORT DBusServiceDaemon : public DBusDaemon {
       dbus_utils::AsyncEventSequencer* sequencer);
 
   std::string service_name_;
-  dbus::ObjectPath object_manager_path_;
+  ::dbus::ObjectPath object_manager_path_;
   std::unique_ptr<dbus_utils::ExportedObjectManager> object_manager_;
 
  private:

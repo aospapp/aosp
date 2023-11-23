@@ -224,10 +224,10 @@ setup_point_coefficients( struct lp_setup_context *setup,
       boolean perspective = !!(interp == LP_INTERP_PERSPECTIVE);
       unsigned i;
 
-      if (perspective & usage_mask) {
+      if (perspective && usage_mask) {
          fragcoord_usage_mask |= TGSI_WRITEMASK_W;
       }
-      
+
       switch (interp) {
       case LP_INTERP_POSITION:
          /*
@@ -241,27 +241,35 @@ setup_point_coefficients( struct lp_setup_context *setup,
       case LP_INTERP_LINEAR:
          /* Sprite tex coords may use linear interpolation someday */
          /* fall-through */
-      case LP_INTERP_PERSPECTIVE:
+      case LP_INTERP_PERSPECTIVE: {
          /* check if the sprite coord flag is set for this attribute.
           * If so, set it up so it up so x and y vary from 0 to 1.
           */
-         if (shader->info.base.input_semantic_name[slot] == TGSI_SEMANTIC_GENERIC) {
+         bool do_texcoord_coef = false;
+         if (shader->info.base.input_semantic_name[slot] == TGSI_SEMANTIC_PCOORD) {
+            do_texcoord_coef = true;
+         }
+         else if (shader->info.base.input_semantic_name[slot] == TGSI_SEMANTIC_TEXCOORD) {
             unsigned semantic_index = shader->info.base.input_semantic_index[slot];
             /* Note that sprite_coord enable is a bitfield of
              * PIPE_MAX_SHADER_OUTPUTS bits.
              */
             if (semantic_index < PIPE_MAX_SHADER_OUTPUTS &&
                 (setup->sprite_coord_enable & (1u << semantic_index))) {
-               for (i = 0; i < NUM_CHANNELS; i++) {
-                  if (usage_mask & (1 << i)) {
-                     texcoord_coef(setup, info, slot + 1, i,
-                                   setup->sprite_coord_origin,
-                                   perspective);
-                  }
-               }
-               break;
+               do_texcoord_coef = true;
             }
          }
+         if (do_texcoord_coef) {
+            for (i = 0; i < NUM_CHANNELS; i++) {
+               if (usage_mask & (1 << i)) {
+                  texcoord_coef(setup, info, slot + 1, i,
+                                setup->sprite_coord_origin,
+                                perspective);
+               }
+            }
+            break;
+         }
+      }
          /* fall-through */
       case LP_INTERP_CONSTANT:
          for (i = 0; i < NUM_CHANNELS; i++) {
@@ -329,9 +337,12 @@ try_setup_point( struct lp_setup_context *setup,
    /* x/y positions in fixed point */
    const struct lp_setup_variant_key *key = &setup->setup.variant->key;
    const int sizeAttr = setup->psize_slot;
-   const float size
+   float size
       = (setup->point_size_per_vertex && sizeAttr > 0) ? v0[sizeAttr][0]
       : setup->point_size;
+
+   if (size > LP_MAX_POINT_WIDTH)
+      size = LP_MAX_POINT_WIDTH;
 
    /* Yes this is necessary to accurately calculate bounding boxes
     * with the two fill-conventions we support.  GL (normally) ends
@@ -339,7 +350,7 @@ try_setup_point( struct lp_setup_context *setup,
     * slightly different rounding.
     */
    int adj = (setup->bottom_edge_rule != 0) ? 1 : 0;
-
+   float pixel_offset = setup->multisample ? 0.0 : setup->pixel_offset;
    struct lp_scene *scene = setup->scene;
    struct lp_rast_triangle *point;
    unsigned bytes;
@@ -374,8 +385,8 @@ try_setup_point( struct lp_setup_context *setup,
        */
       fixed_width = MAX2(FIXED_ONE, subpixel_snap(size));
 
-      x0 = subpixel_snap(v0[0][0] - setup->pixel_offset) - fixed_width/2;
-      y0 = subpixel_snap(v0[0][1] - setup->pixel_offset) - fixed_width/2;
+      x0 = subpixel_snap(v0[0][0] - pixel_offset) - fixed_width/2;
+      y0 = subpixel_snap(v0[0][1] - pixel_offset) - fixed_width/2;
 
       bbox.x0 = (x0 + (FIXED_ONE-1)) >> FIXED_ORDER;
       bbox.x1 = (x0 + fixed_width + (FIXED_ONE-1)) >> FIXED_ORDER;
@@ -436,6 +447,10 @@ try_setup_point( struct lp_setup_context *setup,
                    bbox.x1, bbox.y1);
    }
 
+   if (lp_context->active_statistics_queries) {
+      lp_context->pipeline_statistics.c_primitives++;
+   }
+
    if (!u_rect_test_intersection(&setup->draw_regions[viewport_index], &bbox)) {
       if (0) debug_printf("offscreen\n");
       LP_COUNT(nr_culled_tris);
@@ -457,10 +472,6 @@ try_setup_point( struct lp_setup_context *setup,
 #endif
 
    LP_COUNT(nr_tris);
-
-   if (lp_context->active_statistics_queries) {
-      lp_context->pipeline_statistics.c_primitives++;
-   }
 
    if (draw_will_inject_frontface(lp_context->draw) &&
        setup->face_slot > 0) {
@@ -491,7 +502,7 @@ try_setup_point( struct lp_setup_context *setup,
    {
       struct lp_rast_plane *plane = GET_PLANES(point);
 
-      plane[0].dcdx = -1 << 8;
+      plane[0].dcdx = ~0U << 8;
       plane[0].dcdy = 0;
       plane[0].c = (1-bbox.x0) << 8;
       plane[0].eo = 1 << 8;
@@ -507,7 +518,7 @@ try_setup_point( struct lp_setup_context *setup,
       plane[2].eo = 1 << 8;
 
       plane[3].dcdx = 0;
-      plane[3].dcdy = -1 << 8;
+      plane[3].dcdy = ~0U << 8;
       plane[3].c = (bbox.y1+1) << 8;
       plane[3].eo = 0;
    }

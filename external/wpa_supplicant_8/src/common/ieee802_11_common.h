@@ -113,6 +113,10 @@ struct ieee802_11_elems {
 	const u8 *he_capabilities;
 	const u8 *he_operation;
 	const u8 *short_ssid_list;
+	const u8 *he_6ghz_band_cap;
+	const u8 *sae_pk;
+	const u8 *s1g_capab;
+	const u8 *pasn_params;
 
 	u8 ssid_len;
 	u8 supp_rates_len;
@@ -165,6 +169,8 @@ struct ieee802_11_elems {
 	u8 he_capabilities_len;
 	u8 he_operation_len;
 	u8 short_ssid_list_len;
+	u8 sae_pk_len;
+	u8 pasn_params_len;
 
 	struct mb_ies_info mb_ies;
 	struct frag_ies_info frag_ies;
@@ -191,6 +197,18 @@ struct hostapd_wmm_ac_params {
 
 int hostapd_config_wmm_ac(struct hostapd_wmm_ac_params wmm_ac_params[],
 			  const char *name, const char *val);
+
+struct hostapd_tx_queue_params {
+	int aifs;
+	int cwmin;
+	int cwmax;
+	int burst; /* maximum burst time in 0.1 ms, i.e., 10 = 1 ms */
+};
+
+#define NUM_TX_QUEUES 4
+
+int hostapd_config_tx_queue(struct hostapd_tx_queue_params queue[],
+			    const char *name, const char *val);
 enum hostapd_hw_mode ieee80211_freq_to_chan(int freq, u8 *channel);
 int ieee80211_chan_to_freq(const char *country, u8 op_class, u8 chan);
 enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
@@ -217,8 +235,8 @@ struct oper_class_map {
 	u8 min_chan;
 	u8 max_chan;
 	u8 inc;
-	enum { BW20, BW40PLUS, BW40MINUS, BW80, BW2160, BW160, BW80P80, BW4320,
-	       BW6480, BW8640} bw;
+	enum { BW20, BW40PLUS, BW40MINUS, BW40, BW80, BW2160, BW160, BW80P80,
+	       BW4320, BW6480, BW8640} bw;
 	enum { P2P_SUPP, NO_P2P_SUPP } p2p;
 };
 
@@ -243,9 +261,9 @@ u8 country_to_global_op_class(const char *country, u8 op_class);
 const struct oper_class_map * get_oper_class(const char *country, u8 op_class);
 int oper_class_bw_to_int(const struct oper_class_map *map);
 int center_idx_to_bw_6ghz(u8 idx);
-int is_6ghz_freq(int freq);
-int is_6ghz_op_class(u8 op_class);
-int is_6ghz_psc_frequency(int freq);
+bool is_6ghz_freq(int freq);
+bool is_6ghz_op_class(u8 op_class);
+bool is_6ghz_psc_frequency(int freq);
 
 int ieee802_11_parse_candidate_list(const char *pos, u8 *nei_rep,
 				    size_t nei_rep_len);

@@ -75,7 +75,7 @@ class Settings(object):
     prefix = 'remote'
     l = logger.GetLogger()
     if (path_str.find('trybot') < 0 and path_str.find('toolchain') < 0 and
-        path_str.find(board) < 0):
+        path_str.find(board) < 0 and path_str.find(board.replace('_', '-'))):
       xbuddy_path = '%s/%s/%s' % (prefix, board, path_str)
     else:
       xbuddy_path = '%s/%s' % (prefix, path_str)

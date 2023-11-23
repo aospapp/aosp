@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_python_parse_type_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-MIT
+    default_applicable_licenses: ["external_python_parse_type_license"],
+}
+
 python_library {
     name: "py-parse_type",
     host_supported: true,
@@ -27,4 +36,3 @@ python_library {
         },
     },
 }
-

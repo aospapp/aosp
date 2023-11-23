@@ -1,7 +1,6 @@
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
 from fontTools.misc.testTools import parseXML
 from fontTools.misc.xmlWriter import XMLWriter
+from io import BytesIO
 import os
 import struct
 import unittest

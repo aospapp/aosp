@@ -50,6 +50,10 @@ Tokenizer::Tokenizer(
 
   SortCodepointRanges(internal_tokenizer_codepoint_ranges,
                       &internal_tokenizer_codepoint_ranges_);
+  if (type_ == TokenizationType_MIXED && split_on_script_change) {
+    TC3_LOG(ERROR) << "The option `split_on_script_change` is unavailable for "
+                      "the selected tokenizer type (mixed).";
+  }
 }
 
 const TokenizationCodepointRangeT* Tokenizer::FindTokenizationRange(
@@ -234,18 +238,20 @@ bool Tokenizer::ICUTokenize(const UnicodeText& context_unicode,
   if (!break_iterator) {
     return false;
   }
-  int last_break_index = 0;
-  int break_index = 0;
+  const int context_unicode_size = context_unicode.size_codepoints();
   int last_unicode_index = 0;
   int unicode_index = 0;
   auto token_begin_it = context_unicode.begin();
-  while ((break_index = break_iterator->Next()) !=
+  while ((unicode_index = break_iterator->Next()) !=
          UniLib::BreakIterator::kDone) {
-    const int token_length = break_index - last_break_index;
-    unicode_index = last_unicode_index + token_length;
+    const int token_length = unicode_index - last_unicode_index;
+    if (token_length + last_unicode_index > context_unicode_size) {
+      return false;
+    }
 
     auto token_end_it = token_begin_it;
     std::advance(token_end_it, token_length);
+    TC3_CHECK(token_end_it <= context_unicode.end());
 
     // Determine if the whole token is whitespace.
     bool is_whitespace = true;
@@ -264,7 +270,6 @@ bool Tokenizer::ICUTokenize(const UnicodeText& context_unicode,
                               /*is_padding=*/false, is_whitespace));
     }
 
-    last_break_index = break_index;
     last_unicode_index = unicode_index;
     token_begin_it = token_end_it;
   }

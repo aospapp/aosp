@@ -27,7 +27,7 @@ import android.util.Pair;
 import android.view.textclassifier.ConversationAction;
 import android.view.textclassifier.ConversationActions;
 import android.view.textclassifier.ConversationActions.Message;
-import com.android.textclassifier.ModelFileManager.ModelFile;
+import com.android.textclassifier.common.ModelFileManager.ModelFile;
 import com.android.textclassifier.common.base.TcLog;
 import com.android.textclassifier.common.intent.LabeledIntent;
 import com.android.textclassifier.common.intent.TemplateIntentFactory;
@@ -147,6 +147,9 @@ final class ActionsSuggestionsHelper {
   public static LabeledIntent.TitleChooser createTitleChooser(String actionType) {
     if (ConversationAction.TYPE_OPEN_URL.equals(actionType)) {
       return (labeledIntent, resolveInfo) -> {
+        if (resolveInfo == null) {
+          return labeledIntent.titleWithEntity;
+        }
         if (resolveInfo.handleAllWebDataURI) {
           return labeledIntent.titleWithEntity;
         }

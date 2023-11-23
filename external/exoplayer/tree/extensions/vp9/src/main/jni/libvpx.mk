@@ -20,6 +20,9 @@ CONFIG_DIR := $(LOCAL_PATH)/libvpx_android_configs/$(TARGET_ARCH_ABI)
 libvpx_source_dir := $(LOCAL_PATH)/libvpx
 
 LOCAL_MODULE := libvpx
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CFLAGS := -DHAVE_CONFIG_H=vpx_config.h
 LOCAL_ARM_MODE := arm

@@ -6,7 +6,6 @@ import logging
 import os
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.update_engine import nebraska_wrapper
@@ -103,28 +102,23 @@ class autoupdate_UserData(update_engine_test.UpdateEngineTest):
                                      'automatic.')
 
 
-    def run_once(self, image_url=None):
+    def run_once(self, payload_url=None):
         """
         Tests that user settings are not reset by update.
 
-        @param image_url: The payload url to use.
+        @param payload_url: The payload url to use.
 
         """
-        if image_url:
-            metadata_dir = autotemp.tempdir()
-            self._get_payload_properties_file(image_url, metadata_dir.name)
-            base_url = ''.join(image_url.rpartition('/')[0:2])
+        if payload_url:
             with nebraska_wrapper.NebraskaWrapper(
-                    log_dir=self.resultsdir,
-                    update_metadata_dir=metadata_dir.name,
-                    update_payloads_address=base_url) as nebraska:
+                log_dir=self.resultsdir, payload_url=payload_url) as nebraska:
                 with chrome.Chrome(autotest_ext=True) as cr:
                     self._cr = cr
-                    utils.run('echo hello > %s' % self._TEST_FILE)
+                    utils.run(['echo', 'hello', '>', self._TEST_FILE])
                     self._modify_input_methods()
                     self._modify_time_zone()
-                    self._check_for_update(port=nebraska.get_port(),
-                                           critical_update=True)
+                    self._check_for_update(
+                        nebraska.get_update_url(critical_update=True))
                 # Sign out of Chrome and wait for the update to complete.
                 # If we waited for the update to complete and then logged out
                 # the DUT will auto-reboot and the client test cannot return.

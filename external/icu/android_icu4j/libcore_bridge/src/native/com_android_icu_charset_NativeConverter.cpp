@@ -28,7 +28,6 @@
 #include <nativehelper/ScopedStringChars.h>
 #include <nativehelper/ScopedUtfChars.h>
 #include <nativehelper/jni_macros.h>
-#include <nativehelper/toStringArray.h>
 
 #include "IcuUtilities.h"
 #include "JniConstants.h"
@@ -635,9 +634,21 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
     if (!collectStandardNames(env, icuCanonicalName, "WINDOWS", aliases)) {
         return NULL;
     }
-    jobjectArray javaAliases = toStringArray(env, aliases);
-    if (env->ExceptionCheck()) {
+
+    jobjectArray javaAliases =
+        env->NewObjectArray(aliases.size(), JniConstants::GetStringClass(env), NULL);
+    if (javaAliases == NULL) {
         return NULL;
+    }
+    for (size_t i = 0; i < aliases.size(); ++i) {
+        ScopedLocalRef<jstring> s(env, env->NewStringUTF(aliases[i].c_str()));
+        if (env->ExceptionCheck()) {
+            return NULL;
+        }
+        env->SetObjectArrayElement(javaAliases, i, s.get());
+        if (env->ExceptionCheck()) {
+            return NULL;
+        }
     }
 
     // Construct the CharsetICU object.

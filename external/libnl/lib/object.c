@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/object.c		Generic Cacheable Object
  *
@@ -131,7 +132,7 @@ struct nl_object *nl_object_clone(struct nl_object *obj)
 	new->ce_mask = obj->ce_mask;
 
 	if (size)
-		memcpy((void *)new + doff, (void *)obj + doff, size);
+		memcpy((char *)new + doff, (char *)obj + doff, size);
 
 	if (ops->oo_clone) {
 		if (ops->oo_clone(new, obj) < 0) {
@@ -295,12 +296,12 @@ void nl_object_dump(struct nl_object *obj, struct nl_dump_params *params)
 
 void nl_object_dump_buf(struct nl_object *obj, char *buf, size_t len)
 {
-        struct nl_dump_params dp = {
-                .dp_buf = buf,
-                .dp_buflen = len,
-        };
+	struct nl_dump_params dp = {
+		.dp_buf = buf,
+		.dp_buflen = len,
+	};
 
-        return nl_object_dump(obj, &dp);
+	nl_object_dump(obj, &dp);
 }
 
 /**
@@ -343,7 +344,7 @@ int nl_object_identical(struct nl_object *a, struct nl_object *b)
 	if (ops->oo_compare == NULL)
 		return 0;
 
-	return !(ops->oo_compare(a, b, req_attrs, 0));
+	return !(ops->oo_compare(a, b, req_attrs, ID_COMPARISON));
 }
 
 /**
@@ -358,14 +359,39 @@ int nl_object_identical(struct nl_object *a, struct nl_object *b)
  *
  * @return Bitmask describing differences or 0 if they are completely identical.
  */
-uint32_t nl_object_diff(struct nl_object *a, struct nl_object *b)
+uint64_t nl_object_diff64(struct nl_object *a, struct nl_object *b)
 {
 	struct nl_object_ops *ops = obj_ops(a);
 
 	if (ops != obj_ops(b) || ops->oo_compare == NULL)
-		return UINT_MAX;
+		return UINT64_MAX;
 
 	return ops->oo_compare(a, b, ~0, 0);
+}
+
+/**
+ * Compute 32-bit bitmask representing difference in attribute values
+ * @arg a		an object
+ * @arg b		another object of same type
+ *
+ * The bitmask returned is specific to an object type, each bit set represents
+ * an attribute which mismatches in either of the two objects. Unavailability
+ * of an attribute in one object and presence in the other is regarded a
+ * mismatch as well.
+ *
+ * @return Bitmask describing differences or 0 if they are completely identical.
+ *	   32nd bit indicates if higher bits from the 64-bit compare were
+ *	   different.
+ */
+uint32_t nl_object_diff(struct nl_object *a, struct nl_object *b)
+{
+	uint64_t  diff;
+
+	diff = nl_object_diff64(a, b);
+
+	return (diff & ~((uint64_t) 0xFFFFFFFF))
+		? (uint32_t) diff | (1 << 31)
+		: (uint32_t) diff;
 }
 
 /**
@@ -383,7 +409,7 @@ int nl_object_match_filter(struct nl_object *obj, struct nl_object *filter)
 
 	if (ops != obj_ops(filter) || ops->oo_compare == NULL)
 		return 0;
-	
+
 	return !(ops->oo_compare(obj, filter, filter->ce_mask,
 				 LOOSE_COMPARISON));
 }

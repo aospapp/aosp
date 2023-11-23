@@ -24,6 +24,7 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 
 import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.DERNull;
@@ -31,6 +32,8 @@ import org.bouncycastle.asn1.DERNull;
 // import org.bouncycastle.asn1.bsi.BSIObjectIdentifiers;
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 // import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
+// import org.bouncycastle.asn1.edec.EdECObjectIdentifiers;
+// import org.bouncycastle.asn1.isara.IsaraObjectIdentifiers;
 import org.bouncycastle.asn1.kisa.KISAObjectIdentifiers;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.ntt.NTTObjectIdentifiers;
@@ -70,6 +73,8 @@ class OperatorHelper
         oids.put(PKCSObjectIdentifiers.sha512WithRSAEncryption, "SHA512WITHRSA");
         // BEGIN Android-removed: Unsupported algorithms
         /*
+        oids.put(EdECObjectIdentifiers.id_Ed25519, "Ed25519");
+        oids.put(EdECObjectIdentifiers.id_Ed448, "Ed448");
         oids.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_94, "GOST3411WITHGOST3410");
         oids.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_2001, "GOST3411WITHECGOST3410");
         oids.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_256, "GOST3411-2012-256WITHECGOST3410-2012-256");
@@ -85,6 +90,8 @@ class OperatorHelper
         oids.put(EACObjectIdentifiers.id_TA_ECDSA_SHA_256, "SHA256WITHCVC-ECDSA");
         oids.put(EACObjectIdentifiers.id_TA_ECDSA_SHA_384, "SHA384WITHCVC-ECDSA");
         oids.put(EACObjectIdentifiers.id_TA_ECDSA_SHA_512, "SHA512WITHCVC-ECDSA");
+        oids.put(IsaraObjectIdentifiers.id_alg_xmss, "XMSS");
+        oids.put(IsaraObjectIdentifiers.id_alg_xmssmt, "XMSSMT");
         */
         // END Android-removed: Unsupported algorithms
 
@@ -353,7 +360,14 @@ class OperatorHelper
 
         try
         {
-            dig = helper.createDigest(MessageDigestUtils.getDigestName(digAlgId.getAlgorithm()));
+            if (digAlgId.getAlgorithm().equals(NISTObjectIdentifiers.id_shake256_len))
+            {
+                dig = helper.createMessageDigest("SHAKE256-" + ASN1Integer.getInstance(digAlgId.getParameters()).getValue());
+            }
+            else
+            {
+                dig = helper.createMessageDigest(MessageDigestUtils.getDigestName(digAlgId.getAlgorithm()));
+            }
         }
         catch (NoSuchAlgorithmException e)
         {
@@ -364,7 +378,7 @@ class OperatorHelper
             {
                 String digestAlgorithm = (String)oids.get(digAlgId.getAlgorithm());
 
-                dig = helper.createDigest(digestAlgorithm);
+                dig = helper.createMessageDigest(digestAlgorithm);
             }
             else
             {
@@ -378,18 +392,26 @@ class OperatorHelper
     Signature createSignature(AlgorithmIdentifier sigAlgId)
         throws GeneralSecurityException
     {
+        String sigName = getSignatureName(sigAlgId);
         Signature sig;
 
         try
         {
-            sig = helper.createSignature(getSignatureName(sigAlgId));
+            sig = helper.createSignature(sigName);
         }
         catch (NoSuchAlgorithmException e)
         {
             //
             // try an alternate
             //
-            if (oids.get(sigAlgId.getAlgorithm()) != null)
+            if (sigName.endsWith("WITHRSAANDMGF1"))
+            {
+                String signatureAlgorithm =
+                    sigName.substring(0, sigName.indexOf('W')) + "WITHRSASSA-PSS";
+
+                sig = helper.createSignature(signatureAlgorithm);
+            }
+            else if (oids.get(sigAlgId.getAlgorithm()) != null)
             {
                 String signatureAlgorithm = (String)oids.get(sigAlgId.getAlgorithm());
 

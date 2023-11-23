@@ -635,6 +635,13 @@ void cpuinfo_arm_decode_cache(
 								break;
 						}
 						break;
+					case cpuinfo_arm_chipset_series_broadcom_bcm:
+						switch (chipset->model) {
+							case 2837: /* BCM2837 */
+								l2_size = 512 * 1024;
+								break;
+						}
+						break;
 					case cpuinfo_arm_chipset_series_samsung_exynos:
 						l1_size = 32 * 1024;
 						break;
@@ -659,6 +666,7 @@ void cpuinfo_arm_decode_cache(
 				};
 			}
 			break;
+		case cpuinfo_uarch_cortex_a55r0:
 		case cpuinfo_uarch_cortex_a55:
 			/*
 			 * ARM Cortex-A55 Core Technical Reference Manual
@@ -921,11 +929,13 @@ void cpuinfo_arm_decode_cache(
 			 *  | MediaTek Helio X23  | 2(+4+4) |     ?     |     ?     |     ?      |           |
 			 *  | MediaTek Helio X25  | 2(+4+4) |     ?     |     ?     |     ?      |           |
 			 *  | MediaTek Helio X27  | 2(+4+4) |     ?     |     ?     |     ?      |           |
+			 *  | Broadcom BCM2711    |    4    |    32K    |    48K    |     1M     |    [4]    |
 			 *  +---------------------+---------+-----------+-----------+------------+-----------+
 			 *
 			 * [1] http://pdadb.net/index.php?m=processor&id=578&c=qualcomm_snapdragon_618_msm8956__snapdragon_650
 			 * [2] http://pdadb.net/index.php?m=processor&id=667&c=qualcomm_snapdragon_620_apq8076__snapdragon_652
 			 * [3] http://pdadb.net/index.php?m=processor&id=692&c=qualcomm_snapdragon_653_msm8976sg__msm8976_pro
+			 * [4] https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2711/README.md
 			 */
 			uint32_t l2_size;
 			switch (chipset->series) {
@@ -1105,7 +1115,6 @@ void cpuinfo_arm_decode_cache(
 			break;
 		}
 		case cpuinfo_uarch_cortex_a76:
-		case cpuinfo_uarch_cortex_a76ae:
 		{
 			/*
 			 * ARM Cortex-A76 Core Technical Reference Manual
@@ -1445,6 +1454,47 @@ void cpuinfo_arm_decode_cache(
 				.size = 16 * 1024 * 1024,
 				.associativity = 8 /* assumption */,
 				.line_size = 64 /* assumption */
+			};
+			break;
+		case cpuinfo_uarch_taishan_v110:
+			/*
+			 * It features private 64 KiB L1 instruction and data caches as well as 512 KiB of private L2. [1]
+			 *
+			 *  +------------------+-------+-----------+-----------+-----------+----------+-----------+
+			 *  | Processor model  | Cores | L1D cache | L1I cache | L2 cache  | L3 cache | Reference |
+			 *  +------------------+-------+-----------+-----------+-----------+----------+-----------+
+			 *  | Kunpeng 920-3226 |  32   |    64K    |    64K    |    512K   |    32M   |     [2]   |
+			 *  +------------------+-------+-----------+-----------+-----------+----------+-----------+
+			 *  | Kunpeng 920-4826 |  48   |    64K    |    64K    |    512K   |    48M   |     [3]   |
+			 *  +------------------+-------+-----------+-----------+-----------+----------+-----------+
+			 *  | Kunpeng 920-6426 |  64   |    64K    |    64K    |    512K   |    64M   |     [4]   |
+			 *  +------------------+-------+-----------+-----------+-----------+----------+-----------+
+			 *
+			 * [1] https://en.wikichip.org/wiki/hisilicon/microarchitectures/taishan_v110
+			 * [2] https://en.wikichip.org/wiki/hisilicon/kunpeng/920-3226
+			 * [3] https://en.wikichip.org/wiki/hisilicon/kunpeng/920-4826
+			 * [4] https://en.wikichip.org/wiki/hisilicon/kunpeng/920-6426
+			 */
+			*l1i = (struct cpuinfo_cache) {
+				.size = 64 * 1024,
+				.associativity = 4 /* assumption */,
+				.line_size = 128 /* assumption */,
+			};
+			*l1d = (struct cpuinfo_cache) {
+				.size = 64 * 1024,
+				.associativity = 4 /* assumption */,
+				.line_size = 128 /* assumption */,
+			};
+			*l2 = (struct cpuinfo_cache) {
+				.size = 512 * 1024,
+				.associativity = 8 /* assumption */,
+				.line_size = 128 /* assumption */,
+				.flags = CPUINFO_CACHE_INCLUSIVE /* assumption */,
+			};
+			*l3 = (struct cpuinfo_cache) {
+				.size = cluster_cores * 1024 * 1024,
+				.associativity = 16 /* assumption */,
+				.line_size = 128 /* assumption */,
 			};
 			break;
 #endif

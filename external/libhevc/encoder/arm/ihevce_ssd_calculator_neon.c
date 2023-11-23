@@ -54,21 +54,22 @@
 /* Function Definitions                                                      */
 /*****************************************************************************/
 static INLINE uint32x4_t ihevce_4x4_ssd_computer_neon(
-    UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 src_strd, WORD32 pred_strd, WORD32 is_chroma)
+    UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 src_strd, WORD32 pred_strd,
+    CHROMA_PLANE_ID_T chroma_plane)
 {
     uint32x4_t ssd_low, ssd_high;
     uint8x16_t src, pred, abs;
     uint16x8_t sqabs_low, sqabs_high;
 
-    if(!is_chroma)
+    if(chroma_plane == NULL_PLANE)
     {
         src = load_unaligned_u8q(pu1_src, src_strd);
         pred = load_unaligned_u8q(pu1_pred, pred_strd);
     }
     else
     {
-        src = load_unaligned_u8qi(pu1_src, src_strd);
-        pred = load_unaligned_u8qi(pu1_pred, pred_strd);
+        src = load_unaligned_u8qi(pu1_src + chroma_plane, src_strd);
+        pred = load_unaligned_u8qi(pu1_pred + chroma_plane, pred_strd);
     }
     abs = vabdq_u8(src, pred);
     sqabs_low = vmull_u8(vget_low_u8(abs), vget_low_u8(abs));
@@ -80,21 +81,22 @@ static INLINE uint32x4_t ihevce_4x4_ssd_computer_neon(
 }
 
 static INLINE uint32x4_t
-    ihevce_1x8_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 is_chroma)
+    ihevce_1x8_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred,
+    CHROMA_PLANE_ID_T chroma_plane)
 {
     uint32x4_t ssd_val;
     uint8x8_t src, pred, abs;
     uint16x8_t sqabs;
 
-    if(!is_chroma)
+    if(chroma_plane == NULL_PLANE)
     {
         src = vld1_u8(pu1_src);
         pred = vld1_u8(pu1_pred);
     }
     else
     {
-        src = vld2_u8(pu1_src).val[0];
-        pred = vld2_u8(pu1_pred).val[0];
+        src = vld2_u8(pu1_src).val[chroma_plane];
+        pred = vld2_u8(pu1_pred).val[chroma_plane];
     }
     abs = vabd_u8(src, pred);
     sqabs = vmull_u8(abs, abs);
@@ -104,21 +106,22 @@ static INLINE uint32x4_t
 }
 
 static INLINE uint32x4_t
-    ihevce_1x16_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 is_chroma)
+    ihevce_1x16_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred,
+    CHROMA_PLANE_ID_T chroma_plane)
 {
     uint32x4_t ssd_low, ssd_high;
     uint8x16_t src, pred, abs;
     uint16x8_t sqabs_low, sqabs_high;
 
-    if(!is_chroma)
+    if(chroma_plane == NULL_PLANE)
     {
         src = vld1q_u8(pu1_src);
         pred = vld1q_u8(pu1_pred);
     }
     else
     {
-        src = vld2q_u8(pu1_src).val[0];
-        pred = vld2q_u8(pu1_pred).val[0];
+        src = vld2q_u8(pu1_src).val[chroma_plane];
+        pred = vld2q_u8(pu1_pred).val[chroma_plane];
     }
     abs = vabdq_u8(src, pred);
     sqabs_low = vmull_u8(vget_low_u8(abs), vget_low_u8(abs));
@@ -130,13 +133,14 @@ static INLINE uint32x4_t
 }
 
 static INLINE uint32x4_t
-    ihevce_1x32_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 is_chroma)
+    ihevce_1x32_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred,
+    CHROMA_PLANE_ID_T chroma_plane)
 {
     uint32x4_t ssd_0, ssd_1, ssd_2, ssd_3;
     uint8x16_t src_0, pred_0, src_1, pred_1, abs_0, abs_1;
     uint16x8_t sqabs_0, sqabs_1, sqabs_2, sqabs_3;
 
-    if(!is_chroma)
+    if(chroma_plane == NULL_PLANE)
     {
         src_0 = vld1q_u8(pu1_src);
         pred_0 = vld1q_u8(pu1_pred);
@@ -145,10 +149,10 @@ static INLINE uint32x4_t
     }
     else
     {
-        src_0 = vld2q_u8(pu1_src).val[0];
-        pred_0 = vld2q_u8(pu1_pred).val[0];
-        src_1 = vld2q_u8(pu1_src + 32).val[0];
-        pred_1 = vld2q_u8(pu1_pred + 32).val[0];
+        src_0 = vld2q_u8(pu1_src).val[chroma_plane];
+        pred_0 = vld2q_u8(pu1_pred).val[chroma_plane];
+        src_1 = vld2q_u8(pu1_src + 32).val[chroma_plane];
+        pred_1 = vld2q_u8(pu1_pred + 32).val[chroma_plane];
     }
     abs_0 = vabdq_u8(src_0, pred_0);
     abs_1 = vabdq_u8(src_1, pred_1);
@@ -167,7 +171,8 @@ static INLINE uint32x4_t
 }
 
 static INLINE uint32x4_t
-    ihevce_1x64_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 is_chroma)
+    ihevce_1x64_ssd_computer_neon(UWORD8 *pu1_src, UWORD8 *pu1_pred,
+    CHROMA_PLANE_ID_T chroma_plane)
 {
     uint32x4_t ssd_0, ssd_1, ssd_2, ssd_3;
     uint32x4_t ssd_4, ssd_5, ssd_6, ssd_7;
@@ -177,7 +182,7 @@ static INLINE uint32x4_t
     uint16x8_t sqabs_0, sqabs_1, sqabs_2, sqabs_3;
     uint16x8_t sqabs_4, sqabs_5, sqabs_6, sqabs_7;
 
-    if(!is_chroma)
+    if(chroma_plane == NULL_PLANE)
     {
         src_0 = vld1q_u8(pu1_src);
         pred_0 = vld1q_u8(pu1_pred);
@@ -190,14 +195,14 @@ static INLINE uint32x4_t
     }
     else
     {
-        src_0 = vld2q_u8(pu1_src).val[0];
-        pred_0 = vld2q_u8(pu1_pred).val[0];
-        src_1 = vld2q_u8(pu1_src + 32).val[0];
-        pred_1 = vld2q_u8(pu1_pred + 32).val[0];
-        src_2 = vld2q_u8(pu1_src + 64).val[0];
-        pred_2 = vld2q_u8(pu1_pred + 64).val[0];
-        src_3 = vld2q_u8(pu1_src + 96).val[0];
-        pred_3 = vld2q_u8(pu1_pred + 96).val[0];
+        src_0 = vld2q_u8(pu1_src).val[chroma_plane];
+        pred_0 = vld2q_u8(pu1_pred).val[chroma_plane];
+        src_1 = vld2q_u8(pu1_src + 32).val[chroma_plane];
+        pred_1 = vld2q_u8(pu1_pred + 32).val[chroma_plane];
+        src_2 = vld2q_u8(pu1_src + 64).val[chroma_plane];
+        pred_2 = vld2q_u8(pu1_pred + 64).val[chroma_plane];
+        src_3 = vld2q_u8(pu1_src + 96).val[chroma_plane];
+        pred_3 = vld2q_u8(pu1_pred + 96).val[chroma_plane];
     }
     abs_0 = vabdq_u8(src_0, pred_0);
     abs_1 = vabdq_u8(src_1, pred_1);
@@ -236,7 +241,7 @@ static LWORD64 ihevce_ssd_calculator_plane_neon(
     UWORD32 ref_stride,
     UWORD32 wd,
     UWORD32 ht,
-    WORD32 is_chroma)
+    CHROMA_PLANE_ID_T chroma_plane)
 {
     uint32x4_t ssd = vdupq_n_u32(0);
     uint32x2_t sum;
@@ -248,13 +253,13 @@ static LWORD64 ihevce_ssd_calculator_plane_neon(
         for(row = ht; row > 0; row--)
         {
             if(wd == 8)
-                ssd = vaddq_u32(ssd, ihevce_1x8_ssd_computer_neon(pu1_inp, pu1_ref, is_chroma));
+                ssd = vaddq_u32(ssd, ihevce_1x8_ssd_computer_neon(pu1_inp, pu1_ref, chroma_plane));
             else if(wd == 16)
-                ssd = vaddq_u32(ssd, ihevce_1x16_ssd_computer_neon(pu1_inp, pu1_ref, is_chroma));
+                ssd = vaddq_u32(ssd, ihevce_1x16_ssd_computer_neon(pu1_inp, pu1_ref, chroma_plane));
             else if(wd == 32)
-                ssd = vaddq_u32(ssd, ihevce_1x32_ssd_computer_neon(pu1_inp, pu1_ref, is_chroma));
+                ssd = vaddq_u32(ssd, ihevce_1x32_ssd_computer_neon(pu1_inp, pu1_ref, chroma_plane));
             else if(wd == 64)
-                ssd = vaddq_u32(ssd, ihevce_1x64_ssd_computer_neon(pu1_inp, pu1_ref, is_chroma));
+                ssd = vaddq_u32(ssd, ihevce_1x64_ssd_computer_neon(pu1_inp, pu1_ref, chroma_plane));
             else if(wd % 8 == 0)
             {
                 UWORD32 col;
@@ -262,7 +267,7 @@ static LWORD64 ihevce_ssd_calculator_plane_neon(
 
                 for(col = 0; col < wd; col += 8)
                 {
-                    ssd = vaddq_u32(ssd, ihevce_1x8_ssd_computer_neon(inp, ref, is_chroma));
+                    ssd = vaddq_u32(ssd, ihevce_1x8_ssd_computer_neon(inp, ref, chroma_plane));
                     ref = ref + 8;
                     inp = inp + 8;
                 }
@@ -275,7 +280,7 @@ static LWORD64 ihevce_ssd_calculator_plane_neon(
     else if(wd == 4)
     {
         assert(ht == 4);
-        ssd = ihevce_4x4_ssd_computer_neon(pu1_inp, pu1_ref, inp_stride, ref_stride, is_chroma);
+        ssd = ihevce_4x4_ssd_computer_neon(pu1_inp, pu1_ref, inp_stride, ref_stride, chroma_plane);
     }
 
     sum = vadd_u32(vget_low_u32(ssd), vget_high_u32(ssd));
@@ -283,13 +288,17 @@ static LWORD64 ihevce_ssd_calculator_plane_neon(
 }
 
 LWORD64 ihevce_ssd_calculator_neon(
-    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd, UWORD32 ht)
+    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd,
+    UWORD32 ht, CHROMA_PLANE_ID_T chroma_plane)
 {
-    return ihevce_ssd_calculator_plane_neon(pu1_inp, pu1_ref, inp_stride, ref_stride, wd, ht, 0);
+    return ihevce_ssd_calculator_plane_neon(pu1_inp, pu1_ref, inp_stride, ref_stride, wd, ht,
+                                            chroma_plane);
 }
 
 LWORD64 ihevce_chroma_interleave_ssd_calculator_neon(
-    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd, UWORD32 ht)
+    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd,
+    UWORD32 ht, CHROMA_PLANE_ID_T chroma_plane)
 {
-    return ihevce_ssd_calculator_plane_neon(pu1_inp, pu1_ref, inp_stride, ref_stride, wd, ht, 1);
+    return ihevce_ssd_calculator_plane_neon(pu1_inp, pu1_ref, inp_stride, ref_stride, wd, ht,
+                                            chroma_plane);
 }

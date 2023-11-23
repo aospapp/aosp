@@ -19,6 +19,7 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
     recovery boot.
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     def ensure_kernel_on_non_recovery(self, part):
         """Ensure the requested kernel part on normal/dev boot path.

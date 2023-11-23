@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_tensorflow_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_tensorflow_license"],
+}
+
 java_library_static {
     name: "tensorflowlite_java",
     sdk_version: "current",
@@ -36,18 +45,20 @@ cc_library_shared {
         "src/main/native/*.cc",
     ],
     header_libs: [
-        "tensorflow_headers",
         "flatbuffer_headers",
+        "jni_headers",
+        "tensorflow_headers",
     ],
     static_libs: [
+        "libruy_static",
         "libtflite_static",
     ],
     shared_libs: [
         "liblog",
     ],
     cflags: [
-        "-Wno-unused-parameter",
         "-Wno-unused-function",
+        "-Wno-unused-parameter",
     ],
     stl: "libc++_static",
 }

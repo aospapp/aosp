@@ -100,14 +100,14 @@ void* Initialize(TfLiteContext* context, const char* buffer, size_t length) {
       config->add_dummy_prefix(), config->remove_extra_whitespaces(),
       config->escape_whitespaces()));
 
-  const int num_pieces = config->pieces_scores()->Length();
+  const int num_pieces = config->pieces_scores()->size();
 
   switch (config->matcher_type()) {
     case SentencePieceMatcherType_MAPPED_TRIE: {
       const TrieNode* pieces_trie_nodes =
           reinterpret_cast<const TrieNode*>(config->pieces()->Data());
       const int pieces_trie_nodes_length =
-          config->pieces()->Length() / sizeof(TrieNode);
+          config->pieces()->size() / sizeof(TrieNode);
       encoder_op->matcher.reset(
           new DoubleArrayTrie(pieces_trie_nodes, pieces_trie_nodes_length));
       break;
@@ -115,7 +115,7 @@ void* Initialize(TfLiteContext* context, const char* buffer, size_t length) {
     case SentencePieceMatcherType_SORTED_STRING_TABLE: {
       encoder_op->matcher.reset(new SortedStringsTable(
           num_pieces, config->pieces_offsets()->data(),
-          StringPiece(config->pieces()->data(), config->pieces()->Length())));
+          StringPiece(config->pieces()->data(), config->pieces()->size())));
       break;
     }
     default: {

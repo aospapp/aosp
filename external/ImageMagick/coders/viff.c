@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -223,16 +223,16 @@ static Image *ReadVIFFImage(const ImageInfo *image_info,
   MagickSizeType
     number_pixels;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register unsigned char
+  unsigned char
     *p;
 
   size_t
@@ -950,16 +950,16 @@ static MagickBooleanType WriteVIFFImage(const ImageInfo *image_info,
   MemoryInfo
     *pixel_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register unsigned char
+  unsigned char
     *q;
 
   size_t
@@ -997,9 +997,7 @@ static MagickBooleanType WriteVIFFImage(const ImageInfo *image_info,
       Initialize VIFF image structure.
     */
     (void) TransformImageColorspace(image,sRGBColorspace,exception);
-DisableMSCWarning(4310)
-    viff_info.identifier=(char) 0xab;
-RestoreMSCWarning
+    viff_info.identifier=(char) -85;
     viff_info.file_type=1;
     viff_info.release=1;
     viff_info.version=3;
@@ -1177,7 +1175,7 @@ RestoreMSCWarning
               break;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
-              *q++=(unsigned char) GetPixelIndex(image,p);
+              *q++=(unsigned char) ((ssize_t) GetPixelIndex(image,p));
               p+=GetPixelChannels(image);
             }
             if (image->previous == (Image *) NULL)
@@ -1192,11 +1190,7 @@ RestoreMSCWarning
       else
         if (image->colors <= 2)
           {
-            ssize_t
-              x,
-              y;
-
-            register unsigned char
+            unsigned char
               bit,
               byte;
 

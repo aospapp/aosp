@@ -29,7 +29,10 @@
 package com.android.service.ims;
 
 import android.net.Uri;
+import android.telephony.ims.RcsContactPresenceTuple;
+import android.telephony.ims.RcsContactPresenceTuple.ServiceCapabilities;
 import android.telephony.ims.RcsContactUceCapability;
+import android.telephony.ims.RcsContactUceCapability.PresenceBuilder;
 
 import java.lang.String;
 import java.util.ArrayList;
@@ -274,36 +277,57 @@ public class PresenceInfoParser{
     }
 
     public static RcsContactUceCapability getUceCapability(RcsPresenceInfo info) {
-        RcsContactUceCapability.Builder result = new RcsContactUceCapability.Builder(
-                PresenceUtils.convertContactNumber(info.getContactNumber()));
+        boolean volteCapable = false;
         if (ServiceState.ONLINE == info.getServiceState(ServiceType.VOLTE_CALL)) {
-            result.add(RcsContactUceCapability.CAPABILITY_IP_VOICE_CALL,
-                    PresenceUtils.convertContactNumber(
-                            info.getServiceContact(ServiceType.VOLTE_CALL)));
+            volteCapable = true;
         }
+
+        boolean vtCapable = false;
         if (ServiceState.ONLINE == info.getServiceState(ServiceType.VT_CALL)) {
-            result.add(RcsContactUceCapability.CAPABILITY_IP_VIDEO_CALL,
-                    PresenceUtils.convertContactNumber(
-                            info.getServiceContact(ServiceType.VT_CALL)));
+            vtCapable = true;
         }
-        return result.build();
+
+        ServiceCapabilities.Builder servCapsBuilder = new ServiceCapabilities.Builder(
+            volteCapable, vtCapable);
+        servCapsBuilder.addSupportedDuplexMode(ServiceCapabilities.DUPLEX_MODE_FULL);
+
+        Uri contactUri = PresenceUtils.convertContactNumber(info.getContactNumber());
+
+        RcsContactPresenceTuple.Builder tupleBuilder = new RcsContactPresenceTuple.Builder(
+                RcsContactPresenceTuple.TUPLE_BASIC_STATUS_OPEN,
+                RcsContactPresenceTuple.SERVICE_ID_MMTEL, "1.0");
+        tupleBuilder.setContactUri(contactUri).setServiceCapabilities(servCapsBuilder.build());
+
+        PresenceBuilder presenceBuilder = new PresenceBuilder(contactUri,
+                RcsContactUceCapability.SOURCE_TYPE_CACHED,
+                RcsContactUceCapability.REQUEST_RESULT_FOUND);
+        presenceBuilder.addCapabilityTuple(tupleBuilder.build());
+
+        return presenceBuilder.build();
     }
 
     public static RcsPresenceInfo getRcsPresenceInfo(RcsContactUceCapability capability) {
-        int volteCapable = capability.isCapable(RcsContactUceCapability.CAPABILITY_IP_VOICE_CALL) ?
-                ServiceState.ONLINE : ServiceState.OFFLINE;
-        int vtCapable = capability.isCapable(RcsContactUceCapability.CAPABILITY_IP_VIDEO_CALL) ?
-                ServiceState.ONLINE : ServiceState.OFFLINE;
+        int volteCapable = ServiceState.OFFLINE;
+        int vtCapable = ServiceState.OFFLINE;
+        RcsContactPresenceTuple presenceTuple = capability.getCapabilityTuple(
+                RcsContactPresenceTuple.SERVICE_ID_MMTEL);
+        if (presenceTuple != null) {
+            ServiceCapabilities serviceCaps = presenceTuple.getServiceCapabilities();
+            if (serviceCaps != null && serviceCaps.isAudioCapable()) {
+                volteCapable = ServiceState.ONLINE;
+            }
+            if (serviceCaps != null && serviceCaps.isVideoCapable()) {
+                vtCapable = ServiceState.ONLINE;
+            }
+        }
         return new RcsPresenceInfo(capability.getContactUri().getSchemeSpecificPart(),
                 // Not sure what the difference is, just track voice capable.
                 (volteCapable == ServiceState.ONLINE) ? RcsPresenceInfo.VolteStatus.VOLTE_ENABLED :
                         RcsPresenceInfo.VolteStatus.VOLTE_DISABLED, volteCapable,
-                PresenceUtils.getNumber(capability.getServiceUri(
-                        RcsContactUceCapability.CAPABILITY_IP_VOICE_CALL)),
+                PresenceUtils.getNumber(capability.getContactUri()),
                 // We always use system current time instead of time from server
                 System.currentTimeMillis(), vtCapable,
-                PresenceUtils.getNumber(capability.getServiceUri(
-                        RcsContactUceCapability.CAPABILITY_IP_VIDEO_CALL)),
+                PresenceUtils.getNumber(capability.getContactUri()),
                 // We always use system current time instead of time from server
                 System.currentTimeMillis());
     }

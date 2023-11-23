@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2018 The Amber Authors.
+
+# Copyright (C) 2020 The Amber Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,73 +13,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Linux Build Script.
 
-set -e  # fail on error
-set -x  # show commands
+set -e # Fail on any error.
 
-BUILD_ROOT=$PWD
-SRC=$PWD/github/amber
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd )"
+ROOT_DIR="$( cd "${SCRIPT_DIR}/../../.." >/dev/null 2>&1 && pwd )"
+
 CONFIG=$1
-shift
-COMPILER=$1
-shift
-EXTRA_CONFIG=$@
+COMPILER=$2
+EXTRA_CONFIG=${@:3}
 
-BUILD_TYPE="Debug"
+docker run --rm -i \
+  --volume "${ROOT_DIR}:${ROOT_DIR}" \
+  --volume "${KOKORO_ARTIFACTS_DIR}:${KOKORO_ARTIFACTS_DIR}" \
+  --workdir "${ROOT_DIR}" \
+  --env ROOT_DIR="${ROOT_DIR}" \
+  --env SCRIPT_DIR="${SCRIPT_DIR}" \
+  --env CONFIG="${CONFIG}" \
+  --env COMPILER="${COMPILER}" \
+  --env EXTRA_CONFIG="${EXTRA_CONFIG}" \
+  --env KOKORO_ARTIFACTS_DIR="${KOKORO_ARTIFACTS_DIR}" \
+  --entrypoint "${SCRIPT_DIR}/build-docker.sh" \
+  "gcr.io/shaderc-build/radial-build:latest"
 
-CMAKE_C_CXX_COMPILER=""
-if [ $COMPILER = "clang" ]
-then
-  CMAKE_C_CXX_COMPILER="-DCMAKE_C_COMPILER=/usr/bin/clang-5.0 -DCMAKE_CXX_COMPILER=/usr/bin/clang++-5.0"
-else
-  # Use newer gcc than default.
-  CMAKE_C_CXX_COMPILER="-DCMAKE_C_COMPILER=/usr/bin/gcc-5 -DCMAKE_CXX_COMPILER=/usr/bin/g++-5"
-fi
-
-# Possible configurations are:
-# DEBUG, RELEASE
-
-if [ $CONFIG = "RELEASE" ]
-then
-  BUILD_TYPE="RelWithDebInfo"
-fi
-
-# removing the old version
-echo y | sudo apt-get purge --auto-remove cmake
-
-# Installing the 3.10.2 version
-wget http://www.cmake.org/files/v3.10/cmake-3.10.2.tar.gz
-tar -xvzf cmake-3.10.2.tar.gz
-cd cmake-3.10.2/
-./configure
-make
-sudo make install
-
-echo $(date): $(cmake --version)
-
-# Get ninja
-wget -q https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-linux.zip
-unzip -q ninja-linux.zip
-export PATH="$PWD:$PATH"
-
-cd $SRC
-./tools/git-sync-deps
-
-mkdir build && cd $SRC/build
-
-# Invoke the build.
-BUILD_SHA=${KOKORO_GITHUB_COMMIT:-$KOKORO_GITHUB_PULL_REQUEST_COMMIT}
-echo $(date): Starting build...
-cmake -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE $CMAKE_C_CXX_COMPILER -DAMBER_USE_LOCAL_VULKAN=1 $EXTRA_CONFIG ..
-
-echo $(date): Build everything...
-ninja
-echo $(date): Build completed.
-
-echo $(date): Starting amber_unittests...
-./amber_unittests
-echo $(date): amber_unittests completed.
-
-#echo $(date): Starting integration tests..
-#../../test/run_tests.py
-#echo $(date): integration tests completed.
+sudo chown -R "$(id -u):$(id -g)" "${ROOT_DIR}/build"

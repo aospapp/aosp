@@ -12,6 +12,9 @@
 
 """ Playback input events on a linux input device. """
 
+from __future__ import division
+from __future__ import print_function
+
 import glob
 import os.path
 import re
@@ -84,19 +87,19 @@ if __name__ == '__main__':
             if device.is_touchpad():
                 break
         else:
-            print 'Can not find a touchpad device'
+            print('Can not find a touchpad device')
             exit()
     elif not os.path.exists(options.devpath):
-        print 'Can not find the input device "%s".' % options.devpath
+        print('Can not find the input device "%s".' % options.devpath)
         exit()
     else:
         device = InputDevice(options.devpath)
     if not options.gesture_file:
-        print 'Gesture file is not specified.'
+        print('Gesture file is not specified.')
         exit()
     if not os.path.exists(options.gesture_file):
-        print 'Can not find the gesture file %s.' % options.gesture_file
+        print('Can not find the gesture file %s.' % options.gesture_file)
         exit()
 
     InputEventPlayer().playback(device, options.gesture_file)
-    print 'Gesture file %s has been played.' % options.gesture_file
+    print('Gesture file %s has been played.' % options.gesture_file)

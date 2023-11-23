@@ -34,6 +34,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES)
 
 LOCAL_C_INCLUDES += \
 	$(intermediates)/nir \
+	$(intermediates)/spirv \
 	$(MESA_TOP)/src/compiler/nir
 
 LOCAL_EXPORT_C_INCLUDE_DIRS += \
@@ -75,6 +76,10 @@ $(intermediates)/spirv/spirv_info.c: $(prebuilt_intermediates)/spirv/spirv_info.
 	@cp -f $< $@
 
 $(intermediates)/spirv/vtn_gather_types.c: $(prebuilt_intermediates)/spirv/vtn_gather_types.c
+	@mkdir -p $(dir $@)
+	@cp -f $< $@
+
+$(intermediates)/spirv/vtn_generator_ids.h: $(prebuilt_intermediates)/spirv/vtn_generator_ids.h
 	@mkdir -p $(dir $@)
 	@cp -f $< $@
 

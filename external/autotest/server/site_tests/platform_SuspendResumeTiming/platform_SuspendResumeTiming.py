@@ -23,7 +23,6 @@ _TIME_TO_SUSPEND_BAR = 3
 _SLEEP_AFTER_RESUME = 60
 _SLEEP_AFTER_REBOOT = 30
 
-
 class platform_SuspendResumeTiming(test.test):
     """Checks suspend and resume happen in reasonable timelines."""
     version = 1
@@ -141,6 +140,9 @@ class platform_SuspendResumeTiming(test.test):
         time.sleep(_SLEEP_AFTER_RESUME)
         self.host.run('sync')
 
+        # powerd log output for debug log
+        self.host.run('cat %s' % _POWERD_LOG_PATH,
+                                   ignore_status=True).stdout.strip()
 
         errors = []
         time_to_suspend, time_to_resume = self.get_suspend_resume_time()

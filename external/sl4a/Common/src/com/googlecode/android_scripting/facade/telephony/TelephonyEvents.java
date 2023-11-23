@@ -20,6 +20,7 @@ import android.telephony.DataConnectionRealTimeInfo;
 import android.telephony.PhysicalChannelConfig;
 import android.telephony.PreciseCallState;
 import android.telephony.ServiceState;
+import android.telephony.TelephonyDisplayInfo;
 
 import com.googlecode.android_scripting.jsonrpc.JsonSerializable;
 
@@ -267,6 +268,52 @@ public class TelephonyEvents {
         }
     }
 
+    public static class DisplayInfoChangedEvent implements JsonSerializable {
+        private TelephonyDisplayInfo mDisplayInfoString;
+        private int mSubscriptionId;
+        private String mOverrideDataNetworkType;
+        private String mDataNetworkType;
+
+        DisplayInfoChangedEvent(TelephonyDisplayInfo DisplayInfoString, int subscriptionId) {
+            mDisplayInfoString = DisplayInfoString;
+            mSubscriptionId = subscriptionId;
+            mOverrideDataNetworkType = TelephonyUtils.getDisplayInfoString(
+                    DisplayInfoString.getOverrideNetworkType());
+            mDataNetworkType = TelephonyUtils.getNetworkTypeString(
+                    DisplayInfoString.getNetworkType());
+        }
+
+        public String getOverrideDataNetworkType() {
+            return mOverrideDataNetworkType;
+        }
+
+        public int getSubscriptionId() {
+            return mSubscriptionId;
+        }
+
+        public String getDataNetworkType() {
+            return mDataNetworkType;
+        }
+
+        public JSONObject toJSON() throws JSONException {
+            JSONObject displayInfoState = new JSONObject();
+
+            displayInfoState.put(
+                    TelephonyConstants.DisplayInfoContainer.OVERRIDE,
+                    mOverrideDataNetworkType);
+
+            displayInfoState.put(
+                    TelephonyConstants.DisplayInfoContainer.NETWORK,
+                    mDataNetworkType);
+
+            displayInfoState.put(
+                    TelephonyConstants.DisplayInfoContainer.SUBSCRIPTION_ID,
+                    mSubscriptionId);
+
+            return displayInfoState;
+        }
+    }
+
     public static class PhysicalChannelConfigChangedEvent implements JsonSerializable {
         private final List<PhysicalChannelConfig> mConfigs;
 
@@ -284,7 +331,7 @@ public class TelephonyEvents {
                 JSONObject cfg  = new JSONObject();
                 cfg.put(
                         TelephonyConstants.PhysicalChannelConfigContainer.CELL_BANDWIDTH_DOWNLINK,
-                        c.getCellBandwidthDownlink());
+                        c.getCellBandwidthDownlinkKhz());
                 cfg.put(
                         TelephonyConstants.PhysicalChannelConfigContainer.CONNECTION_STATUS,
                         c.getConnectionStatus());

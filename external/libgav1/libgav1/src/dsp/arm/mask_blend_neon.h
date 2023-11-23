@@ -17,8 +17,8 @@
 #ifndef LIBGAV1_SRC_DSP_ARM_MASK_BLEND_NEON_H_
 #define LIBGAV1_SRC_DSP_ARM_MASK_BLEND_NEON_H_
 
-#include "src/dsp/cpu.h"
 #include "src/dsp/dsp.h"
+#include "src/utils/cpu.h"
 
 namespace libgav1 {
 namespace dsp {
@@ -30,12 +30,12 @@ void MaskBlendInit_NEON();
 }  // namespace libgav1
 
 #if LIBGAV1_ENABLE_NEON
-#define LIBGAV1_Dsp8bpp_MaskBlend444 LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_MaskBlend422 LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_MaskBlend420 LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_MaskBlendInterIntra444 LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_MaskBlendInterIntra422 LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_MaskBlendInterIntra420 LIBGAV1_DSP_NEON
+#define LIBGAV1_Dsp8bpp_MaskBlend444 LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_MaskBlend422 LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_MaskBlend420 LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_InterIntraMaskBlend8bpp444 LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_InterIntraMaskBlend8bpp422 LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_InterIntraMaskBlend8bpp420 LIBGAV1_CPU_NEON
 #endif  // LIBGAV1_ENABLE_NEON
 
 #endif  // LIBGAV1_SRC_DSP_ARM_MASK_BLEND_NEON_H_

@@ -418,8 +418,8 @@ class TextResultsReport(ResultsReport):
       cpu_info = experiment.machine_manager.GetAllCPUInfo(experiment.labels)
       sections.append(self._MakeSection('CPUInfo', cpu_info))
 
-      totaltime = (
-          time.time() - experiment.start_time) if experiment.start_time else 0
+      totaltime = (time.time() -
+                   experiment.start_time) if experiment.start_time else 0
       totaltime_str = 'Total experiment time:\n%d min' % (totaltime // 60)
       cooldown_waittime_list = ['Cooldown wait time:']
       # When running experiment on multiple DUTs cooldown wait time may vary
@@ -430,8 +430,9 @@ class TextResultsReport(ResultsReport):
         cooldown_waittime_list.append('DUT %s: %d min' % (dut, waittime // 60))
       cooldown_waittime_str = '\n'.join(cooldown_waittime_list)
       sections.append(
-          self._MakeSection('Duration', '\n\n'.join(
-              [totaltime_str, cooldown_waittime_str])))
+          self._MakeSection('Duration',
+                            '\n\n'.join([totaltime_str,
+                                         cooldown_waittime_str])))
 
     return '\n'.join(sections)
 
@@ -505,7 +506,7 @@ class HTMLResultsReport(ResultsReport):
     experiment_file = ''
     if self.experiment is not None:
       experiment_file = self.experiment.experiment_file
-    # Use kwargs for sanity, and so that testing is a bit easier.
+    # Use kwargs for code readability, and so that testing is a bit easier.
     return templates.GenerateHTMLPage(
         perf_table=perf_table,
         chart_js=chart_javascript,

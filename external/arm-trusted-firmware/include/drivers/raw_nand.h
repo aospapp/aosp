@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2019-2020, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,6 +7,7 @@
 #ifndef DRIVERS_RAW_NAND_H
 #define DRIVERS_RAW_NAND_H
 
+#include <cdefs.h>
 #include <stdint.h>
 
 #include <drivers/nand.h>
@@ -168,7 +169,7 @@ struct rawnand_device {
 };
 
 int nand_raw_init(unsigned long long *size, unsigned int *erase_size);
-int nand_wait_ready(unsigned long delay);
+int nand_wait_ready(unsigned int delay_ms);
 int nand_read_page_cmd(unsigned int page, unsigned int offset,
 		       uintptr_t buffer, unsigned int len);
 int nand_change_read_column_cmd(unsigned int offset, uintptr_t buffer,

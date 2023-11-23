@@ -29,7 +29,7 @@
 
 #include "draw_fs.h"
 #include "draw_gs.h"
-
+#include "draw_tess.h"
 #include "util/u_debug.h"
 #include "util/u_memory.h"
 #include "util/u_prim.h"
@@ -59,8 +59,14 @@ needs_primid(const struct draw_context *draw)
 {
    const struct draw_fragment_shader *fs = draw->fs.fragment_shader;
    const struct draw_geometry_shader *gs = draw->gs.geometry_shader;
+   const struct draw_tess_eval_shader *tes = draw->tes.tess_eval_shader;
    if (fs && fs->info.uses_primid) {
-      return !gs || !gs->info.uses_primid;
+      if (gs)
+         return !gs->info.uses_primid;
+      else if (tes)
+         return !tes->info.uses_primid;
+      else
+         return TRUE;
    }
    return FALSE;
 }
@@ -70,6 +76,9 @@ draw_prim_assembler_is_required(const struct draw_context *draw,
                                 const struct draw_prim_info *prim_info,
                                 const struct draw_vertex_info *vert_info)
 {
+   /* viewport index requires primitive boundaries to get correct vertex */
+   if (draw_current_shader_uses_viewport_index(draw))
+      return TRUE;
    switch (prim_info->prim) {
    case PIPE_PRIM_LINES_ADJACENCY:
    case PIPE_PRIM_LINE_STRIP_ADJACENCY:

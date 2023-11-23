@@ -34,6 +34,8 @@
 #include "perfetto/ext/base/file_utils.h"
 #include "perfetto/ext/base/metatrace.h"
 #include "perfetto/ext/tracing/core/trace_writer.h"
+#include "src/kallsyms/kernel_symbol_map.h"
+#include "src/kallsyms/lazy_kernel_symbolizer.h"
 #include "src/traced/probes/ftrace/atrace_hal_wrapper.h"
 #include "src/traced/probes/ftrace/cpu_reader.h"
 #include "src/traced/probes/ftrace/cpu_stats_parser.h"
@@ -95,14 +97,6 @@ void ClearFile(const char* path) {
 
 }  // namespace
 
-const char* const FtraceController::kTracingPaths[] = {
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID)
-    "/sys/kernel/tracing/", "/sys/kernel/debug/tracing/", nullptr,
-#else
-    "/sys/kernel/debug/tracing/", nullptr,
-#endif
-};
-
 // Method of last resort to reset ftrace state.
 // We don't know what state the rest of the system and process is so as far
 // as possible avoid allocations.
@@ -121,15 +115,11 @@ void HardResetFtraceState() {
 }
 
 // static
-// TODO(taylori): Add a test for tracing paths in integration tests.
 std::unique_ptr<FtraceController> FtraceController::Create(
     base::TaskRunner* runner,
     Observer* observer) {
-  size_t index = 0;
-  std::unique_ptr<FtraceProcfs> ftrace_procfs = nullptr;
-  while (!ftrace_procfs && kTracingPaths[index]) {
-    ftrace_procfs = FtraceProcfs::Create(kTracingPaths[index++]);
-  }
+  std::unique_ptr<FtraceProcfs> ftrace_procfs =
+      FtraceProcfs::CreateGuessingMountPoint();
 
   if (!ftrace_procfs)
     return nullptr;
@@ -158,6 +148,7 @@ FtraceController::FtraceController(std::unique_ptr<FtraceProcfs> ftrace_procfs,
                                    Observer* observer)
     : task_runner_(task_runner),
       observer_(observer),
+      symbolizer_(new LazyKernelSymbolizer()),
       ftrace_procfs_(std::move(ftrace_procfs)),
       table_(std::move(table)),
       ftrace_config_muxer_(std::move(model)),
@@ -192,7 +183,8 @@ void FtraceController::StartIfNeeded() {
   size_t period_page_quota = ftrace_config_muxer_->GetPerCpuBufferSizePages();
   for (size_t cpu = 0; cpu < ftrace_procfs_->NumberOfCpus(); cpu++) {
     auto reader = std::unique_ptr<CpuReader>(
-        new CpuReader(cpu, table_.get(), ftrace_procfs_->OpenPipeForCpu(cpu)));
+        new CpuReader(cpu, table_.get(), symbolizer_.get(),
+                      ftrace_procfs_->OpenPipeForCpu(cpu)));
     per_cpu_.emplace_back(std::move(reader), period_page_quota);
   }
 
@@ -237,6 +229,16 @@ void FtraceController::ReadTick(int generation) {
   if (started_data_sources_.empty() || generation != generation_) {
     return;
   }
+
+#if PERFETTO_DCHECK_IS_ON()
+  // The OnFtraceDataWrittenIntoDataSourceBuffers() below is supposed to clear
+  // all metadata, including the |kernel_addrs| map for symbolization.
+  for (FtraceDataSource* ds : started_data_sources_) {
+    FtraceMetadata* ftrace_metadata = ds->mutable_metadata();
+    PERFETTO_DCHECK(ftrace_metadata->kernel_addrs.empty());
+    PERFETTO_DCHECK(ftrace_metadata->last_kernel_addr_index_written == 0);
+  }
+#endif
 
   // Read all cpu buffers with remaining per-period quota.
   bool all_cpus_done = true;
@@ -343,6 +345,7 @@ void FtraceController::StopIfNeeded() {
   // non-graceful stop.
 
   per_cpu_.clear();
+  symbolizer_->Destroy();
 
   if (parsing_mem_.IsValid()) {
     parsing_mem_.AdviseDontNeed(parsing_mem_.Get(), parsing_mem_.size());
@@ -376,6 +379,23 @@ bool FtraceController::StartDataSource(FtraceDataSource* data_source) {
 
   started_data_sources_.insert(data_source);
   StartIfNeeded();
+
+  // If the config is requesting to symbolize kernel addresses, create the
+  // symbolizer and parse /proc/kallsyms (it will take 200-300 ms). This is not
+  // strictly required here but is to avoid hitting the parsing cost while
+  // processing the first ftrace event batch in CpuReader.
+  if (data_source->config().symbolize_ksyms()) {
+    if (data_source->config().initialize_ksyms_synchronously_for_testing()) {
+      symbolizer_->GetOrCreateKernelSymbolMap();
+    } else {
+      auto weak_this = weak_factory_.GetWeakPtr();
+      task_runner_->PostTask([weak_this] {
+        if (weak_this)
+          weak_this->symbolizer_->GetOrCreateKernelSymbolMap();
+      });
+    }
+  }
+
   return true;
 }
 
@@ -390,6 +410,13 @@ void FtraceController::RemoveDataSource(FtraceDataSource* data_source) {
 
 void FtraceController::DumpFtraceStats(FtraceStats* stats) {
   DumpAllCpuStats(ftrace_procfs_.get(), stats);
+  if (symbolizer_ && symbolizer_->is_valid()) {
+    auto* symbol_map = symbolizer_->GetOrCreateKernelSymbolMap();
+    stats->kernel_symbols_parsed =
+        static_cast<uint32_t>(symbol_map->num_syms());
+    stats->kernel_symbols_mem_kb =
+        static_cast<uint32_t>(symbol_map->size_bytes() / 1024);
+  }
 }
 
 FtraceController::Observer::~Observer() = default;

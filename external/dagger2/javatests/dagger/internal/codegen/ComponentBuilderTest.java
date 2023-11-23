@@ -17,13 +17,14 @@
 package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
-import static dagger.internal.codegen.Compilers.daggerCompiler;
-import static dagger.internal.codegen.ComponentCreatorAnnotation.COMPONENT_BUILDER;
-import static dagger.internal.codegen.ErrorMessages.creatorMessagesFor;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_CODE_ANNOTATIONS;
+import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.COMPONENT_BUILDER;
+import static dagger.internal.codegen.binding.ErrorMessages.creatorMessagesFor;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
+import dagger.internal.codegen.binding.ErrorMessages;
 import java.util.Collection;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -87,7 +88,7 @@ public class ComponentBuilderTest {
             "",
             "import dagger.internal.Preconditions;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
             "  private static final class Builder implements TestComponent.Builder {",
             "    private TestModule testModule;",
@@ -108,7 +109,7 @@ public class ComponentBuilderTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(moduleFile, componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(moduleFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
         .generatedSourceFile("test.DaggerTestComponent")
@@ -135,7 +136,7 @@ public class ComponentBuilderTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(MSGS.setterMethodsMustTakeOneArg())
@@ -168,7 +169,7 @@ public class ComponentBuilderTest {
             "  interface Builder extends Parent {}",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
@@ -198,7 +199,7 @@ public class ComponentBuilderTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(MSGS.setterMethodsMustReturnVoidOrBuilder())
@@ -227,7 +228,7 @@ public class ComponentBuilderTest {
             "  interface Builder extends Parent {}",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
@@ -256,7 +257,7 @@ public class ComponentBuilderTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(MSGS.methodsMayNotHaveTypeParameters())
@@ -285,7 +286,7 @@ public class ComponentBuilderTest {
             "  interface Builder extends Parent {}",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(
@@ -318,7 +319,7 @@ public class ComponentBuilderTest {
             "}");
 
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(MSGS.bindsInstanceNotAllowedOnBothSetterMethodAndParameter())
@@ -352,7 +353,7 @@ public class ComponentBuilderTest {
             "}");
 
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining(

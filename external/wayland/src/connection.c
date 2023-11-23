@@ -644,8 +644,12 @@ wl_closure_marshal(struct wl_object *sender, uint32_t opcode,
 		case 'h':
 			fd = args[i].h;
 			dup_fd = wl_os_dupfd_cloexec(fd, 0);
-			if (dup_fd < 0)
-				wl_abort("dup failed: %s\n", strerror(errno));
+			if (dup_fd < 0) {
+				wl_closure_destroy(closure);
+				wl_log("error marshalling arguments for %s: dup failed: %s\n",
+				       message->name, strerror(errno));
+				return NULL;
+			}
 			closure->args[i].h = dup_fd;
 			break;
 		default:
@@ -1251,44 +1255,19 @@ wl_closure_queue(struct wl_closure *closure, struct wl_connection *connection)
 	return result;
 }
 
-struct closure_buffer_info {
-	char *buffer;
-	size_t buffer_size;
-	size_t offset;
-};
-
-static void
-asnprintf(struct closure_buffer_info *buffer_info, const char *fmt, ...)
-{
-	va_list args;
-	int written;
-	char *buffer = buffer_info->buffer + buffer_info->offset;
-	size_t size = 0;
-
-	if (buffer_info->buffer_size)
-		size = buffer_info->buffer_size - buffer_info->offset;
-
-	va_start(args, fmt);
-	written = vsnprintf(buffer, size, fmt, args);
-	va_end(args);
-
-	if (buffer_info->buffer_size && (size_t) written > size)
-		written = (int) size;
-
-	if (written > 0)
-		buffer_info->offset += written;
-}
-
-static size_t
-wl_closure_format_to_buffer(struct closure_buffer_info *buffer_info,
-		struct wl_closure *closure, struct wl_object *target, int send,
-		unsigned int time)
+void
+wl_closure_print(struct wl_closure *closure, struct wl_object *target, int send)
 {
 	int i;
 	struct argument_details arg;
 	const char *signature = closure->message->signature;
+	struct timespec tp;
+	unsigned int time;
 
-	asnprintf(buffer_info, "[%10.3f] %s%s@%u.%s(",
+	clock_gettime(CLOCK_REALTIME, &tp);
+	time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
+
+	fprintf(stderr, "[%10.3f] %s%s@%u.%s(",
 		time / 1000.0,
 		send ? " -> " : "",
 		target->interface->name, target->id,
@@ -1297,89 +1276,53 @@ wl_closure_format_to_buffer(struct closure_buffer_info *buffer_info,
 	for (i = 0; i < closure->count; i++) {
 		signature = get_next_argument(signature, &arg);
 		if (i > 0)
-			asnprintf(buffer_info, ", ");
+			fprintf(stderr, ", ");
 
 		switch (arg.type) {
 		case 'u':
-			asnprintf(buffer_info, "%u", closure->args[i].u);
+			fprintf(stderr, "%u", closure->args[i].u);
 			break;
 		case 'i':
-			asnprintf(buffer_info, "%d", closure->args[i].i);
+			fprintf(stderr, "%d", closure->args[i].i);
 			break;
 		case 'f':
-			asnprintf(buffer_info, "%f",
+			fprintf(stderr, "%f",
 				wl_fixed_to_double(closure->args[i].f));
 			break;
 		case 's':
 			if (closure->args[i].s)
-				asnprintf(buffer_info, "\"%s\"", closure->args[i].s);
+				fprintf(stderr, "\"%s\"", closure->args[i].s);
 			else
-				asnprintf(buffer_info, "nil");
+				fprintf(stderr, "nil");
 			break;
 		case 'o':
 			if (closure->args[i].o)
-				asnprintf(buffer_info, "%s@%u",
-						closure->args[i].o->interface->name,
-						closure->args[i].o->id);
+				fprintf(stderr, "%s@%u",
+					closure->args[i].o->interface->name,
+					closure->args[i].o->id);
 			else
-				asnprintf(buffer_info, "nil");
+				fprintf(stderr, "nil");
 			break;
 		case 'n':
-			asnprintf(buffer_info, "new id %s@",
-					(closure->message->types[i]) ?
-					closure->message->types[i]->name :
-					"[unknown]");
+			fprintf(stderr, "new id %s@",
+				(closure->message->types[i]) ?
+				 closure->message->types[i]->name :
+				  "[unknown]");
 			if (closure->args[i].n != 0)
-				asnprintf(buffer_info, "%u", closure->args[i].n);
+				fprintf(stderr, "%u", closure->args[i].n);
 			else
-				asnprintf(buffer_info, "nil");
+				fprintf(stderr, "nil");
 			break;
 		case 'a':
-			asnprintf(buffer_info, "array");
+			fprintf(stderr, "array");
 			break;
 		case 'h':
-			asnprintf(buffer_info, "fd %d", closure->args[i].h);
+			fprintf(stderr, "fd %d", closure->args[i].h);
 			break;
 		}
 	}
 
-	asnprintf(buffer_info, ")\n");
-	return buffer_info->offset;
-}
-
-void
-wl_closure_print(struct wl_closure *closure, struct wl_object *target, int send)
-{
-	struct timespec tp;
-	unsigned int time;
-	char *buffer;
-	size_t buffer_size;
-	struct closure_buffer_info buffer_info;
-
-	clock_gettime(CLOCK_REALTIME, &tp);
-	time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
-	// For the first call, pass NULL for the buffer and zero for the size.
-	buffer_info.buffer = NULL;
-	buffer_info.buffer_size = 0;
-	buffer_info.offset = 0;
-	buffer_size = wl_closure_format_to_buffer(&buffer_info, closure, target,
-		send, time);
-	buffer = malloc(buffer_size * sizeof(char));
-	if (buffer == NULL) {
-		wl_log("[%10.3f] %s%s@%u.%s(%s)\n",
-			time / 1000.0,
-			send ? " -> " : "",
-			target->interface->name, target->id,
-			closure->message->name,
-			"Error allocating buffer for the log message");
-		return;
-	}
-	buffer_info.buffer = buffer;
-	buffer_info.buffer_size = buffer_size;
-	buffer_info.offset = 0;
-	wl_closure_format_to_buffer(&buffer_info, closure, target, send, time);
-	wl_log("%s", buffer);
-	free(buffer);
+	fprintf(stderr, ")\n");
 }
 
 static int

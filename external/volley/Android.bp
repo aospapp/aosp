@@ -14,12 +14,38 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_volley_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "external_volley_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_library {
 
     name: "volley",
-    sdk_version: "17",
+    sdk_version: "28",
+    min_sdk_version: "8",
     srcs: ["src/main/java/**/*.java"],
 
-    // Only needed at compile-time.
-    libs: ["androidx.annotation_annotation"],
+    // Exclude Cronet support for now. Can be enabled later if/when Cronet is made available as a
+    // compilation dependency for Volley clients.
+    exclude_srcs: ["src/main/java/com/android/volley/cronet/**/*"],
+
+    libs: [
+        // Only needed at compile-time.
+        "androidx.annotation_annotation",
+
+        "org.apache.http.legacy",
+    ],
 }

@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,11 +42,17 @@
 #include <parse.h>
 #include <lang.h>
 #include <num.h>
+#include <rand.h>
 
 #define BC_PROG_GLOBALS_IBASE (0)
 #define BC_PROG_GLOBALS_OBASE (1)
 #define BC_PROG_GLOBALS_SCALE (2)
-#define BC_PROG_GLOBALS_LEN (3)
+
+#if BC_ENABLE_EXTRA_MATH
+#define BC_PROG_MAX_RAND (3)
+#endif // BC_ENABLE_EXTRA_MATH
+
+#define BC_PROG_GLOBALS_LEN (3 + BC_ENABLE_EXTRA_MATH)
 
 #define BC_PROG_ONE_CAP (1)
 
@@ -55,13 +61,18 @@ typedef struct BcProgram {
 	BcBigDig globals[BC_PROG_GLOBALS_LEN];
 	BcVec globals_v[BC_PROG_GLOBALS_LEN];
 
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BcRNG rng;
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+
 	BcVec results;
 	BcVec stack;
 
+	BcVec *consts;
+	BcVec *strs;
+
 	BcVec fns;
-#if BC_ENABLED
 	BcVec fn_map;
-#endif // BC_ENABLED
 
 	BcVec vars;
 	BcVec var_map;
@@ -70,12 +81,15 @@ typedef struct BcProgram {
 	BcVec arr_map;
 
 #if DC_ENABLED
+	BcVec strs_v;
+
 	BcVec tail_calls;
 
 	BcBigDig strm;
 	BcNum strmb;
 #endif // DC_ENABLED
 
+	BcNum zero;
 	BcNum one;
 
 #if BC_ENABLED
@@ -88,6 +102,7 @@ typedef struct BcProgram {
 	BcDig strmb_num[BC_NUM_BIGDIG_LOG10];
 #endif // DC_ENABLED
 
+	BcDig zero_num[BC_PROG_ONE_CAP];
 	BcDig one_num[BC_PROG_ONE_CAP];
 
 } BcProgram;
@@ -103,6 +118,9 @@ typedef struct BcProgram {
 
 #define BC_PROG_MAIN (0)
 #define BC_PROG_READ (1)
+
+#define bc_program_retire(p, nres, nops) \
+	(bc_vec_npopAt(&(p)->results, (nops), (p)->results.len - (nres + nops)))
 
 #if DC_ENABLED
 #define BC_PROG_REQ_FUNCS (2)
@@ -141,15 +159,14 @@ void bc_program_free(BcProgram *p);
 void bc_program_code(const BcProgram *p);
 void bc_program_printInst(const BcProgram *p, const char *code,
                           size_t *restrict bgn);
-BcStatus bc_program_printStackDebug(BcProgram* p);
+void bc_program_printStackDebug(BcProgram* p);
 #endif // BC_ENABLED && DC_ENABLED
 #endif // BC_DEBUG_CODE
 
-size_t bc_program_search(BcProgram *p, char* id, bool var);
-void bc_program_addFunc(BcProgram *p, BcFunc *f, const char* name);
-size_t bc_program_insertFunc(BcProgram *p, char *name);
-BcStatus bc_program_reset(BcProgram *p, BcStatus s);
-BcStatus bc_program_exec(BcProgram *p);
+size_t bc_program_search(BcProgram *p, const char* id, bool var);
+size_t bc_program_insertFunc(BcProgram *p, const char *name);
+void bc_program_reset(BcProgram *p);
+void bc_program_exec(BcProgram *p);
 
 void bc_program_negate(BcResult *r, BcNum *n);
 void bc_program_not(BcResult *r, BcNum *n);
@@ -162,10 +179,8 @@ extern const BcNumBinaryOpReq bc_program_opReqs[];
 extern const BcProgramUnary bc_program_unarys[];
 extern const char bc_program_exprs_name[];
 extern const char bc_program_stdin_name[];
-#if BC_ENABLE_SIGNALS
 extern const char bc_program_ready_msg[];
 extern const size_t bc_program_ready_msg_len;
-#endif // BC_ENABLE_SIGNALS
 extern const char bc_program_esc_chars[];
 extern const char bc_program_esc_seqs[];
 

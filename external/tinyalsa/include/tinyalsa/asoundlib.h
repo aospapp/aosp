@@ -153,6 +153,31 @@ enum mixer_ctl_type {
     MIXER_CTL_TYPE_MAX,
 };
 
+#define CTL_ELEM_ID_NAME_MAXLEN 44
+
+typedef int ctl_elem_iface_t;
+
+struct ctl_elem_id {
+  unsigned int numid;
+  ctl_elem_iface_t iface;
+  unsigned int device;
+  unsigned int subdevice;
+  unsigned char name[CTL_ELEM_ID_NAME_MAXLEN];
+  unsigned int index;
+};
+
+
+struct ctl_event {
+  int type;
+  union {
+    struct {
+      unsigned int mask;
+      struct ctl_elem_id id;
+    } elem;
+    unsigned char data8[60];
+  } data;
+};
+
 /* Open and close a stream */
 struct pcm *pcm_open(unsigned int card, unsigned int device,
                      unsigned int flags, struct pcm_config *config);
@@ -164,13 +189,13 @@ struct pcm_params *pcm_params_get(unsigned int card, unsigned int device,
                                   unsigned int flags);
 void pcm_params_free(struct pcm_params *pcm_params);
 
-struct pcm_mask *pcm_params_get_mask(struct pcm_params *pcm_params,
+struct pcm_mask *pcm_params_get_mask(const struct pcm_params *pcm_params,
                                      enum pcm_param param);
-unsigned int pcm_params_get_min(struct pcm_params *pcm_params,
+unsigned int pcm_params_get_min(const struct pcm_params *pcm_params,
                                 enum pcm_param param);
 void pcm_params_set_min(struct pcm_params *pcm_params,
                                 enum pcm_param param, unsigned int val);
-unsigned int pcm_params_get_max(struct pcm_params *pcm_params,
+unsigned int pcm_params_get_max(const struct pcm_params *pcm_params,
                                 enum pcm_param param);
 void pcm_params_set_max(struct pcm_params *pcm_params,
                                 enum pcm_param param, unsigned int val);
@@ -317,6 +342,7 @@ int mixer_ctl_get_range_max(struct mixer_ctl *ctl);
 int mixer_subscribe_events(struct mixer *mixer, int subscribe);
 int mixer_wait_event(struct mixer *mixer, int timeout);
 int mixer_consume_event(struct mixer *mixer);
+int mixer_read_event(struct mixer *mixer, struct ctl_event *ev);
 
 #if defined(__cplusplus)
 }  /* extern "C" */

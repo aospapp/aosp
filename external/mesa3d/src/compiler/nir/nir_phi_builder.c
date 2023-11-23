@@ -132,8 +132,7 @@ nir_phi_builder_add_value(struct nir_phi_builder *pb, unsigned num_components,
 
    pb->iter_count++;
 
-   BITSET_WORD tmp;
-   BITSET_FOREACH_SET(i, tmp, defs, pb->num_blocks) {
+   BITSET_FOREACH_SET(i, defs, pb->num_blocks) {
       if (pb->work[i] < pb->iter_count)
          pb->W[w_end++] = pb->blocks[i];
       pb->work[i] = pb->iter_count;
@@ -277,7 +276,7 @@ void
 nir_phi_builder_finish(struct nir_phi_builder *pb)
 {
    const unsigned num_blocks = pb->num_blocks;
-   NIR_VLA(nir_block *, preds, num_blocks);
+   nir_block **preds = rzalloc_array(pb, nir_block *, num_blocks);
 
    foreach_list_typed(struct nir_phi_builder_value, val, node, &pb->values) {
       /* We treat the linked list of phi nodes like a worklist.  The list is

@@ -9,7 +9,7 @@
 #include "angle_gl.h"
 #include "compiler/translator/BuiltInFunctionEmulatorGLSL.h"
 #include "compiler/translator/OutputESSL.h"
-#include "compiler/translator/tree_ops/RecordConstantPrecision.h"
+#include "compiler/translator/tree_ops/gl/RecordConstantPrecision.h"
 
 namespace sh
 {
@@ -21,7 +21,7 @@ TranslatorESSL::TranslatorESSL(sh::GLenum type, ShShaderSpec spec)
 void TranslatorESSL::initBuiltInFunctionEmulator(BuiltInFunctionEmulator *emu,
                                                  ShCompileOptions compileOptions)
 {
-    if (compileOptions & SH_EMULATE_ATAN2_FLOAT_FUNCTION)
+    if ((compileOptions & SH_EMULATE_ATAN2_FLOAT_FUNCTION) != 0)
     {
         InitBuiltInAtanFunctionEmulatorForGLSLWorkarounds(emu);
     }
@@ -44,7 +44,7 @@ bool TranslatorESSL::translate(TIntermBlock *root,
 
     // Write pragmas after extensions because some drivers consider pragmas
     // like non-preprocessor tokens.
-    writePragma(compileOptions);
+    WritePragma(sink, compileOptions, getPragma());
 
     bool precisionEmulation = false;
     if (!emulatePrecisionIfNeeded(root, sink, &precisionEmulation, SH_ESSL_OUTPUT))
@@ -76,9 +76,6 @@ bool TranslatorESSL::translate(TIntermBlock *root,
         sink << "// END: Generated code for built-in function emulation\n\n";
     }
 
-    // Write array bounds clamping emulation if needed.
-    getArrayBoundsClamper().OutputClampingFunctionDefinition(sink);
-
     if (getShaderType() == GL_FRAGMENT_SHADER)
     {
         EmitEarlyFragmentTestsGLSL(*this, sink);
@@ -97,9 +94,8 @@ bool TranslatorESSL::translate(TIntermBlock *root,
     }
 
     // Write translated shader.
-    TOutputESSL outputESSL(sink, getArrayIndexClampingStrategy(), getHashFunction(), getNameMap(),
-                           &getSymbolTable(), getShaderType(), shaderVer, precisionEmulation,
-                           compileOptions);
+    TOutputESSL outputESSL(sink, getHashFunction(), getNameMap(), &getSymbolTable(),
+                           getShaderType(), shaderVer, precisionEmulation, compileOptions);
 
     root->traverse(&outputESSL);
 
@@ -151,7 +147,8 @@ void TranslatorESSL::writeExtensionBehavior(ShCompileOptions compileOptions)
                     EmitMultiviewGLSL(*this, compileOptions, iter->first, iter->second, sink);
                 }
             }
-            else if (iter->first == TExtension::EXT_geometry_shader)
+            else if (iter->first == TExtension::EXT_geometry_shader ||
+                     iter->first == TExtension::OES_geometry_shader)
             {
                 sink << "#ifdef GL_EXT_geometry_shader\n"
                      << "#extension GL_EXT_geometry_shader : " << GetBehaviorString(iter->second)

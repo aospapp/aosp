@@ -449,12 +449,14 @@ tcu::TestStatus testPrimitivesInside (Context& context, const VkPrimitiveTopolog
 	{
 		log << tcu::TestLog::Message << cases[caseNdx].desc << tcu::TestLog::EndMessage;
 
-		const std::vector<Vec4> vertices = genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 0.0f);
-		DrawState			drawState		(topology, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-		DrawCallData		drawCallData	(vertices);
-		VulkanProgram		vulkanProgram	(shaders);
+		const std::vector<Vec4>		vertices			= genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 0.0f);
+		FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+		PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+		DrawCallData				drawCallData		(topology, vertices);
+		VulkanProgram				vulkanProgram		(shaders);
 
-		VulkanDrawContext	drawContext(context, drawState, drawCallData, vulkanProgram);
+		VulkanDrawContext			drawContext			(context, framebufferState);
+		drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 		drawContext.draw();
 
 		const int numBlackPixels = countPixels(drawContext.getColorPixels(), Vec4(0.0f, 0.0f, 0.0f, 1.0f), Vec4());
@@ -503,12 +505,14 @@ tcu::TestStatus testPrimitivesOutside (Context& context, const VkPrimitiveTopolo
 	{
 		log << tcu::TestLog::Message << cases[caseNdx].desc << tcu::TestLog::EndMessage;
 
-		const std::vector<Vec4> vertices = genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 0.0f);
-		DrawState				drawState		(topology, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-		DrawCallData			drawCallData	(vertices);
-		VulkanProgram			vulkanProgram	(shaders);
+		const std::vector<Vec4>		vertices			= genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 0.0f);
+		FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+		PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+		DrawCallData				drawCallData		(topology, vertices);
+		VulkanProgram				vulkanProgram		(shaders);
 
-		VulkanDrawContext		drawContext(context, drawState, drawCallData, vulkanProgram);
+		VulkanDrawContext			drawContext			(context, framebufferState);
+		drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 		drawContext.draw();
 
 		// All pixels must be black -- nothing is drawn.
@@ -591,14 +595,15 @@ tcu::TestStatus testPrimitivesDepthClamp (Context& context, const VkPrimitiveTop
 	{
 		log << tcu::TestLog::Message << cases[caseNdx].desc << tcu::TestLog::EndMessage;
 
-		const std::vector<Vec4> vertices = genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 1.0f);
+		const std::vector<Vec4>		vertices			= genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 1.0f);
+		FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+		PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+		pipelineState.depthClampEnable					= cases[caseNdx].depthClampEnable;
+		DrawCallData				drawCallData		(topology, vertices);
+		VulkanProgram				vulkanProgram		(shaders);
 
-		DrawState					drawState		(topology, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-		DrawCallData				drawCallData	(vertices);
-		VulkanProgram				vulkanProgram	(shaders);
-		drawState.depthClampEnable = cases[caseNdx].depthClampEnable;
-
-		VulkanDrawContext			drawContext(context, drawState, drawCallData, vulkanProgram);
+		VulkanDrawContext			drawContext			(context, framebufferState);
+		drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 		drawContext.draw();
 
 		const int numPixels = countPixels(drawContext.getColorPixels(), cases[caseNdx].regionOffset, regionSize, cases[caseNdx].color, Vec4());
@@ -680,16 +685,17 @@ tcu::TestStatus testPrimitivesDepthClip (Context& context, const VkPrimitiveTopo
 	{
 		log << tcu::TestLog::Message << cases[caseNdx].desc << tcu::TestLog::EndMessage;
 
-		const std::vector<Vec4> vertices = genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 1.0f);
+		const std::vector<Vec4>		vertices			= genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 1.0f);
+		FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+		PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+		pipelineState.depthClampEnable					= false;
+		pipelineState.explicitDepthClipEnable			= true;
+		pipelineState.depthClipEnable					= cases[caseNdx].depthClipEnable;
+		DrawCallData				drawCallData		(topology, vertices);
+		VulkanProgram				vulkanProgram		(shaders);
 
-		DrawState					drawState		(topology, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-		DrawCallData				drawCallData	(vertices);
-		VulkanProgram				vulkanProgram	(shaders);
-		drawState.depthClampEnable = false;
-		drawState.explicitDepthClipEnable = true;
-		drawState.depthClipEnable = cases[caseNdx].depthClipEnable;
-
-		VulkanDrawContext			drawContext(context, drawState, drawCallData, vulkanProgram);
+		VulkanDrawContext			drawContext(context, framebufferState);
+		drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 		drawContext.draw();
 
 		const int numPixels = countPixels(drawContext.getColorPixels(), cases[caseNdx].regionOffset, regionSize, cases[caseNdx].color, Vec4());
@@ -709,16 +715,17 @@ tcu::TestStatus testPrimitivesDepthClip (Context& context, const VkPrimitiveTopo
 		{
 			log << tcu::TestLog::Message << cases[caseNdx].desc << tcu::TestLog::EndMessage;
 
-			const std::vector<Vec4> vertices = genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 1.0f);
+			const std::vector<Vec4>		vertices			= genVertices(topology, Vec4(0.0f, 0.0f, cases[caseNdx].zPos, 0.0f), 1.0f);
+			FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+			PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+			pipelineState.depthClampEnable					= true;
+			pipelineState.explicitDepthClipEnable			= true;
+			pipelineState.depthClipEnable					= cases[caseNdx].depthClipEnable;
+			DrawCallData				drawCallData		(topology, vertices);
+			VulkanProgram				vulkanProgram		(shaders);
 
-			DrawState					drawState		(topology, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-			DrawCallData				drawCallData	(vertices);
-			VulkanProgram				vulkanProgram	(shaders);
-			drawState.depthClampEnable = true;
-			drawState.explicitDepthClipEnable = true;
-			drawState.depthClipEnable = cases[caseNdx].depthClipEnable;
-
-			VulkanDrawContext			drawContext(context, drawState, drawCallData, vulkanProgram);
+			VulkanDrawContext			drawContext(context, framebufferState);
+			drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 			drawContext.draw();
 
 			const int numPixels = countPixels(drawContext.getColorPixels(), cases[caseNdx].regionOffset, regionSize, cases[caseNdx].color, Vec4());
@@ -782,11 +789,13 @@ tcu::TestStatus testLargePoints (Context& context)
 
 	log << tcu::TestLog::Message << "Drawing several large points just outside the clip volume. Expecting an empty image or all points rendered." << tcu::TestLog::EndMessage;
 
-	DrawState			drawState		(VK_PRIMITIVE_TOPOLOGY_POINT_LIST, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-	DrawCallData		drawCallData	(vertices);
-	VulkanProgram		vulkanProgram	(shaders);
+	FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+	PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+	DrawCallData				drawCallData		(VK_PRIMITIVE_TOPOLOGY_POINT_LIST, vertices);
+	VulkanProgram				vulkanProgram		(shaders);
 
-	VulkanDrawContext	drawContext(context, drawState, drawCallData, vulkanProgram);
+	VulkanDrawContext			drawContext(context, framebufferState);
+	drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 	drawContext.draw();
 
 	// Popful case: All pixels must be black -- nothing is drawn.
@@ -912,12 +921,13 @@ tcu::TestStatus testWideLines (Context& context, const LineOrientation lineOrien
 		<< tcu::TestLog::Message << "Line width is " << lineWidth << "." << tcu::TestLog::EndMessage
 		<< tcu::TestLog::Message << "strictLines is " << (strictLines ? "VK_TRUE." : "VK_FALSE.") << tcu::TestLog::EndMessage;
 
-	DrawState					drawState		(VK_PRIMITIVE_TOPOLOGY_LINE_LIST, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-	DrawCallData				drawCallData	(vertices);
-	VulkanProgram				vulkanProgram	(shaders);
-	drawState.lineWidth			= lineWidth;
+	FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+	PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+	DrawCallData				drawCallData		(VK_PRIMITIVE_TOPOLOGY_LINE_LIST, vertices);
+	VulkanProgram				vulkanProgram		(shaders);
 
-	VulkanDrawContext			drawContext(context, drawState, drawCallData, vulkanProgram);
+	VulkanDrawContext			drawContext(context, framebufferState);
+	drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 	drawContext.draw();
 
 	// Popful case: All pixels must be black -- nothing is drawn.
@@ -961,14 +971,14 @@ tcu::TestStatus testWideLines (Context& context, const LineOrientation lineOrien
 			refVertices.push_back(wideLineVertices[3]);
 		}
 
-		WideLineVertexShader		vertexShader;
-		WideLineFragmentShader		fragmentShader;
+		std::shared_ptr<rr::VertexShader>	vertexShader	= std::make_shared<WideLineVertexShader>();
+		std::shared_ptr<rr::FragmentShader>	fragmentShader	= std::make_shared<WideLineFragmentShader>();
 
 		// Draw wide line was two triangles
-		DrawState					refDrawState	(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-		DrawCallData				refCallData		(refVertices);
-		ReferenceDrawContext		refDrawContext	(refDrawState, refCallData, vertexShader, fragmentShader);
+		DrawCallData				refCallData			(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, refVertices);
 
+		ReferenceDrawContext		refDrawContext		(framebufferState);
+		refDrawContext.registerDrawObject( pipelineState, vertexShader, fragmentShader, refCallData );
 		refDrawContext.draw();
 
 		if (tcu::intThresholdCompare(log, "Compare", "Result comparsion", refDrawContext.getColorPixels(), drawContext.getColorPixels(), tcu::UVec4(1), tcu::COMPARE_LOG_ON_ERROR))
@@ -1315,14 +1325,15 @@ tcu::TestStatus testClipDistance (Context& context, const CaseDefinition caseDef
 		<< tcu::TestLog::Message << "Using " << caseDef.numClipDistances << " ClipDistance(s) and " << caseDef.numCullDistances << " CullDistance(s)" << tcu::TestLog::EndMessage
 		<< tcu::TestLog::Message << "Expecting upper half of the clipped bars to be black." << tcu::TestLog::EndMessage;
 
-	DrawState			drawState		(caseDef.topology, RENDER_SIZE, RENDER_SIZE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-	DrawCallData		drawCallData	(vertices);
-	VulkanProgram		vulkanProgram	(shaders);
-
+	FrameBufferState			framebufferState	(RENDER_SIZE, RENDER_SIZE);
+	PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
 	if (caseDef.enableTessellation)
-		drawState.numPatchControlPoints = NUM_PATCH_CONTROL_POINTS;
+		pipelineState.numPatchControlPoints = NUM_PATCH_CONTROL_POINTS;
+	DrawCallData				drawCallData		(caseDef.topology, vertices);
+	VulkanProgram				vulkanProgram		(shaders);
 
-	VulkanDrawContext	drawContext(context, drawState, drawCallData, vulkanProgram);
+	VulkanDrawContext			drawContext			(context, framebufferState);
+	drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 	drawContext.draw();
 
 	// Count black pixels in the whole image.
@@ -1444,12 +1455,14 @@ tcu::TestStatus testComplementarity (Context& context, const int numClipDistance
 		<< tcu::TestLog::Message << "Using " << numClipDistances << " clipping plane(s), one of them possibly having negative values." << tcu::TestLog::EndMessage
 		<< tcu::TestLog::Message << "Expecting a uniform gray area, no missing (black) nor overlapped (white) pixels." << tcu::TestLog::EndMessage;
 
-	DrawState					drawState		(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, RENDER_SIZE_LARGE, RENDER_SIZE_LARGE, context.getDeviceProperties().limits.subPixelPrecisionBits);
-	DrawCallData				drawCallData	(vertices);
-	VulkanProgram				vulkanProgram	(shaders);
-	drawState.blendEnable		= true;
+	FrameBufferState			framebufferState	(RENDER_SIZE_LARGE, RENDER_SIZE_LARGE);
+	PipelineState				pipelineState		(context.getDeviceProperties().limits.subPixelPrecisionBits);
+	pipelineState.blendEnable	= true;
+	DrawCallData				drawCallData		(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, vertices);
+	VulkanProgram				vulkanProgram		(shaders);
 
-	VulkanDrawContext			drawContext(context, drawState, drawCallData, vulkanProgram);
+	VulkanDrawContext			drawContext			(context, framebufferState);
+	drawContext.registerDrawObject(pipelineState, vulkanProgram, drawCallData);
 	drawContext.draw();
 
 	const int numGrayPixels		= countPixels(drawContext.getColorPixels(), Vec4(0.5f, 0.5f, 0.5f, 1.0f), Vec4(0.02f, 0.02f, 0.02f, 0.0f));
@@ -1459,6 +1472,16 @@ tcu::TestStatus testComplementarity (Context& context, const int numClipDistance
 }
 
 } // ClipDistanceComplementarity ns
+
+void checkTopologySupport(Context& context, const VkPrimitiveTopology topology)
+{
+	if (topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN &&
+		context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+		!context.getPortabilitySubsetFeatures().triangleFans)
+	{
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Triangle fans are not supported by this implementation");
+	}
+}
 
 void addClippingTests (tcu::TestCaseGroup* clippingTestsGroup)
 {
@@ -1490,7 +1513,7 @@ void addClippingTests (tcu::TestCaseGroup* clippingTestsGroup)
 
 			for (int caseNdx = 0; caseNdx < DE_LENGTH_OF_ARRAY(cases); ++caseNdx)
 				addFunctionCaseWithPrograms<VkPrimitiveTopology>(
-					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", initPrograms, testPrimitivesInside, cases[caseNdx]);
+					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", checkTopologySupport, initPrograms, testPrimitivesInside, cases[caseNdx]);
 
 			clipVolumeGroup->addChild(group.release());
 		}
@@ -1501,7 +1524,7 @@ void addClippingTests (tcu::TestCaseGroup* clippingTestsGroup)
 
 			for (int caseNdx = 0; caseNdx < DE_LENGTH_OF_ARRAY(cases); ++caseNdx)
 				addFunctionCaseWithPrograms<VkPrimitiveTopology>(
-					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", initPrograms, testPrimitivesOutside, cases[caseNdx]);
+					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", checkTopologySupport, initPrograms, testPrimitivesOutside, cases[caseNdx]);
 
 			clipVolumeGroup->addChild(group.release());
 		}
@@ -1512,7 +1535,7 @@ void addClippingTests (tcu::TestCaseGroup* clippingTestsGroup)
 
 			for (int caseNdx = 0; caseNdx < DE_LENGTH_OF_ARRAY(cases); ++caseNdx)
 				addFunctionCaseWithPrograms<VkPrimitiveTopology>(
-					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", initPrograms, testPrimitivesDepthClamp, cases[caseNdx]);
+					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", checkTopologySupport, initPrograms, testPrimitivesDepthClamp, cases[caseNdx]);
 
 			clipVolumeGroup->addChild(group.release());
 		}
@@ -1523,7 +1546,7 @@ void addClippingTests (tcu::TestCaseGroup* clippingTestsGroup)
 
 			for (int caseNdx = 0; caseNdx < DE_LENGTH_OF_ARRAY(cases); ++caseNdx)
 				addFunctionCaseWithPrograms<VkPrimitiveTopology>(
-					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", initPrograms, testPrimitivesDepthClip, cases[caseNdx]);
+					group.get(), getPrimitiveTopologyShortName(cases[caseNdx]), "", checkTopologySupport, initPrograms, testPrimitivesDepthClip, cases[caseNdx]);
 
 			clipVolumeGroup->addChild(group.release());
 		}

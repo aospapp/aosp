@@ -3,6 +3,8 @@
 # found in the LICENSE file.
 """Autotest for Aver VC520/CAM520 camera firmware updater."""
 
+from __future__ import print_function
+
 import logging
 import os
 import re
@@ -278,8 +280,8 @@ class enterprise_CFM_Aver520Updater(test.test):
         """Pretty print Aver 520 camera firmware version."""
 
         if info_str:
-            print info_str,
-        print ' Firmware version:', version
+            print(info_str, end="")
+        print(' Firmware version:', version)
 
     def is_device_firmware_equal_to(self, expected_ver):
         """Check that the device fw version is equal to given version."""

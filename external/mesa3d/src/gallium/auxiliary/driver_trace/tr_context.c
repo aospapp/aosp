@@ -167,13 +167,13 @@ trace_context_destroy_query(struct pipe_context *_pipe,
 }
 
 
-static boolean
+static bool
 trace_context_begin_query(struct pipe_context *_pipe,
                           struct pipe_query *query)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
    struct pipe_context *pipe = tr_ctx->pipe;
-   boolean ret;
+   bool ret;
 
    query = trace_query_unwrap(query);
 
@@ -211,17 +211,17 @@ trace_context_end_query(struct pipe_context *_pipe,
 }
 
 
-static boolean
+static bool
 trace_context_get_query_result(struct pipe_context *_pipe,
                                struct pipe_query *_query,
-                               boolean wait,
+                               bool wait,
                                union pipe_query_result *result)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
    struct pipe_context *pipe = tr_ctx->pipe;
    struct trace_query *tr_query = trace_query(_query);
    struct pipe_query *query = tr_query->query;
-   boolean ret;
+   bool ret;
 
    trace_dump_call_begin("pipe_context", "get_query_result");
 
@@ -248,7 +248,7 @@ trace_context_get_query_result(struct pipe_context *_pipe,
 
 static void
 trace_context_set_active_query_state(struct pipe_context *_pipe,
-                                     boolean enable)
+                                     bool enable)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
    struct pipe_context *pipe = tr_ctx->pipe;
@@ -1175,6 +1175,7 @@ trace_context_flush_resource(struct pipe_context *_pipe,
 static void
 trace_context_clear(struct pipe_context *_pipe,
                     unsigned buffers,
+                    const struct pipe_scissor_state *scissor_state,
                     const union pipe_color_union *color,
                     double depth,
                     unsigned stencil)
@@ -1186,6 +1187,9 @@ trace_context_clear(struct pipe_context *_pipe,
 
    trace_dump_arg(ptr, pipe);
    trace_dump_arg(uint, buffers);
+   trace_dump_arg_begin("scissor_state");
+   trace_dump_scissor_state(scissor_state);
+   trace_dump_arg_end();
    trace_dump_arg_begin("color");
    if (color)
       trace_dump_array(float, color->f, 4);
@@ -1195,7 +1199,7 @@ trace_context_clear(struct pipe_context *_pipe,
    trace_dump_arg(float, depth);
    trace_dump_arg(uint, stencil);
 
-   pipe->clear(pipe, buffers, color, depth, stencil);
+   pipe->clear(pipe, buffers, scissor_state, color, depth, stencil);
 
    trace_dump_call_end();
 }
@@ -1356,7 +1360,7 @@ trace_context_fence_server_sync(struct pipe_context *_pipe,
 }
 
 
-static inline boolean
+static inline bool
 trace_context_generate_mipmap(struct pipe_context *_pipe,
                               struct pipe_resource *res,
                               enum pipe_format format,
@@ -1367,7 +1371,7 @@ trace_context_generate_mipmap(struct pipe_context *_pipe,
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
    struct pipe_context *pipe = tr_ctx->pipe;
-   boolean ret;
+   bool ret;
 
    trace_dump_call_begin("pipe_context", "generate_mipmap");
 
@@ -1436,7 +1440,7 @@ trace_context_transfer_map(struct pipe_context *_context,
    *transfer = trace_transfer_create(tr_context, resource, result);
 
    if (map) {
-      if (usage & PIPE_TRANSFER_WRITE) {
+      if (usage & PIPE_MAP_WRITE) {
          trace_transfer(*transfer)->map = map;
       }
    }
@@ -1640,7 +1644,7 @@ trace_context_set_context_param(struct pipe_context *_context,
 static void
 trace_context_render_condition(struct pipe_context *_context,
                                struct pipe_query *query,
-                               boolean condition,
+                               bool condition,
                                enum pipe_render_cond_flag mode)
 {
    struct trace_context *tr_context = trace_context(_context);
@@ -2034,6 +2038,6 @@ error1:
 void
 trace_context_check(const struct pipe_context *pipe)
 {
-   MAYBE_UNUSED struct trace_context *tr_ctx = (struct trace_context *) pipe;
+   ASSERTED struct trace_context *tr_ctx = (struct trace_context *) pipe;
    assert(tr_ctx->base.destroy == trace_context_destroy);
 }

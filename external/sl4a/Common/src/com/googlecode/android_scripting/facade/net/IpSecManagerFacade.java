@@ -18,6 +18,7 @@ package com.googlecode.android_scripting.facade.net;
 
 import android.app.Service;
 import android.content.Context;
+import android.net.InetAddresses;
 import android.net.IpSecAlgorithm;
 import android.net.IpSecManager;
 import android.net.IpSecManager.ResourceUnavailableException;
@@ -26,7 +27,6 @@ import android.net.IpSecManager.SpiUnavailableException;
 import android.net.IpSecManager.UdpEncapsulationSocket;
 import android.net.IpSecTransform;
 import android.net.IpSecTransform.Builder;
-import android.net.NetworkUtils;
 
 import com.google.common.io.BaseEncoding;
 import com.googlecode.android_scripting.Log;
@@ -315,7 +315,7 @@ public class IpSecManagerFacade extends RpcReceiver {
             String addr,
             String udpEncapSockId) {
         IpSecTransform transform = null;
-        InetAddress inetAddr = NetworkUtils.numericToInetAddress(addr);
+        InetAddress inetAddr = InetAddresses.parseNumericAddress(addr);
         UdpEncapsulationSocket udpEncapSocket = sUdpEncapHashMap.get(udpEncapSockId);
         SecurityParameterIndex spi = sSpiHashMap.get(spiId);
         if (spi == null) {
@@ -385,7 +385,7 @@ public class IpSecManagerFacade extends RpcReceiver {
     public String ipSecAllocateSecurityParameterIndex(
             @RpcParameter(name = "addr") String addr,
             @RpcParameter(name = "requestedSpi") @RpcOptional Integer requestedSpi) {
-        InetAddress inetAddr = NetworkUtils.numericToInetAddress(addr);
+        InetAddress inetAddr = InetAddresses.parseNumericAddress(addr);
         SecurityParameterIndex spi = null;
         if (requestedSpi == null) {
             spi = allocateSpi(inetAddr);

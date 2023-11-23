@@ -46,7 +46,7 @@
 
 #include "tgsi/tgsi_scan.h"
 
-#ifdef HAVE_LLVM
+#ifdef LLVM_AVAILABLE
 struct gallivm_state;
 #endif
 
@@ -71,7 +71,7 @@ struct tgsi_buffer;
 struct draw_pt_front_end;
 struct draw_assembler;
 struct draw_llvm;
-
+struct lp_cached_code;
 
 /**
  * Represents the mapped vertex buffer.
@@ -122,6 +122,7 @@ struct draw_context
       struct draw_stage *flatshade;
       struct draw_stage *clip;
       struct draw_stage *cull;
+      struct draw_stage *user_cull;
       struct draw_stage *twoside;
       struct draw_stage *offset;
       struct draw_stage *unfilled;
@@ -157,7 +158,7 @@ struct draw_context
       unsigned prim;
       unsigned opt;     /**< bitmask of PT_x flags */
       unsigned eltSize; /* saved eltSize for flushing */
-
+      ubyte vertices_per_patch;
       boolean rebind_parameters;
 
       struct {
@@ -196,6 +197,7 @@ struct draw_context
          int eltBias;         
          unsigned min_index;
          unsigned max_index;
+         unsigned drawid;
          
          /** vertex arrays */
          struct draw_vertex_buffer vbuffer[PIPE_MAX_ATTRIBS];
@@ -205,7 +207,21 @@ struct draw_context
          unsigned vs_constants_size[PIPE_MAX_CONSTANT_BUFFERS];
          const void *gs_constants[PIPE_MAX_CONSTANT_BUFFERS];
          unsigned gs_constants_size[PIPE_MAX_CONSTANT_BUFFERS];
-         
+         const void *tcs_constants[PIPE_MAX_CONSTANT_BUFFERS];
+         unsigned tcs_constants_size[PIPE_MAX_CONSTANT_BUFFERS];
+         const void *tes_constants[PIPE_MAX_CONSTANT_BUFFERS];
+         unsigned tes_constants_size[PIPE_MAX_CONSTANT_BUFFERS];
+
+         /** shader buffers (for vertex/geometry shader) */
+         const void *vs_ssbos[PIPE_MAX_SHADER_BUFFERS];
+         unsigned vs_ssbos_size[PIPE_MAX_SHADER_BUFFERS];
+         const void *gs_ssbos[PIPE_MAX_SHADER_BUFFERS];
+         unsigned gs_ssbos_size[PIPE_MAX_SHADER_BUFFERS];
+         const void *tcs_ssbos[PIPE_MAX_SHADER_BUFFERS];
+         unsigned tcs_ssbos_size[PIPE_MAX_SHADER_BUFFERS];
+         const void *tes_ssbos[PIPE_MAX_SHADER_BUFFERS];
+         unsigned tes_ssbos_size[PIPE_MAX_SHADER_BUFFERS];
+
          /* pointer to planes */
          float (*planes)[DRAW_TOTAL_CLIP_PLANES][4]; 
       } user;
@@ -249,7 +265,7 @@ struct draw_context
    void *rast_handle;
 
    /** Rasterizer CSOs without culling/stipple/etc */
-   void *rasterizer_no_cull[2][2];
+   void *rasterizer_no_cull[2][2][2];
 
    struct pipe_viewport_state viewports[PIPE_MAX_VIEWPORTS];
    boolean identity_viewport;
@@ -296,6 +312,34 @@ struct draw_context
 
    } gs;
 
+   /* Tessellation state */
+   struct {
+      struct draw_tess_ctrl_shader *tess_ctrl_shader;
+
+      /** Fields for TGSI interpreter / execution */
+      struct {
+         struct tgsi_exec_machine *machine;
+
+         struct tgsi_sampler *sampler;
+         struct tgsi_image *image;
+         struct tgsi_buffer *buffer;
+      } tgsi;
+   } tcs;
+
+   struct {
+      struct draw_tess_eval_shader *tess_eval_shader;
+      uint position_output;
+
+      /** Fields for TGSI interpreter / execution */
+      struct {
+         struct tgsi_exec_machine *machine;
+
+         struct tgsi_sampler *sampler;
+         struct tgsi_image *image;
+         struct tgsi_buffer *buffer;
+      } tgsi;
+   } tes;
+
    /** Fragment shader state */
    struct {
       struct draw_fragment_shader *fragment_shader;
@@ -323,7 +367,7 @@ struct draw_context
    unsigned instance_id;
    unsigned start_instance;
    unsigned start_index;
-
+   unsigned constant_buffer_stride;
    struct draw_llvm *llvm;
 
    /** Texture sampler and sampler view state.
@@ -336,10 +380,25 @@ struct draw_context
    const struct pipe_sampler_state *samplers[PIPE_SHADER_TYPES][PIPE_MAX_SAMPLERS];
    unsigned num_samplers[PIPE_SHADER_TYPES];
 
+   struct pipe_image_view *images[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+   unsigned num_images[PIPE_SHADER_TYPES];
+
    struct pipe_query_data_pipeline_statistics statistics;
    boolean collect_statistics;
 
+   float default_outer_tess_level[4];
+   float default_inner_tess_level[2];
+   bool collect_primgen;
+
    struct draw_assembler *ia;
+
+   void *disk_cache_cookie;
+   void (*disk_cache_find_shader)(void *cookie,
+                                  struct lp_cached_code *cache,
+                                  unsigned char ir_sha1_cache_key[20]);
+   void (*disk_cache_insert_shader)(void *cookie,
+                                    struct lp_cached_code *cache,
+                                    unsigned char ir_sha1_cache_key[20]);
 
    void *driver_private;
 };
@@ -477,8 +536,7 @@ void draw_do_flush( struct draw_context *draw, unsigned flags );
 
 void *
 draw_get_rasterizer_no_cull( struct draw_context *draw,
-                             boolean scissor,
-                             boolean flatshade );
+                             const struct pipe_rasterizer_state *rast );
 
 void
 draw_stats_clipper_primitives(struct draw_context *draw,

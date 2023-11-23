@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #  Copyright 2011 Sybren A. Stüvel <sybren@stuvel.eu>
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,24 +17,25 @@
 These scripts are called by the executables defined in setup.py.
 """
 
-from __future__ import with_statement, print_function
-
 import abc
 import sys
-from optparse import OptionParser
+import typing
+import optparse
 
 import rsa
+import rsa.key
 import rsa.pkcs1
 
 HASH_METHODS = sorted(rsa.pkcs1.HASH_METHODS.keys())
+Indexable = typing.Union[typing.Tuple, typing.List[str]]
 
 
-def keygen():
+def keygen() -> None:
     """Key generator."""
 
     # Parse the CLI options
-    parser = OptionParser(usage='usage: %prog [options] keysize',
-                          description='Generates a new RSA keypair of "keysize" bits.')
+    parser = optparse.OptionParser(usage='usage: %prog [options] keysize',
+                                   description='Generates a new RSA keypair of "keysize" bits.')
 
     parser.add_option('--pubout', type='string',
                       help='Output filename for the public key. The public key is '
@@ -83,17 +82,15 @@ def keygen():
             outfile.write(data)
     else:
         print('Writing private key to stdout', file=sys.stderr)
-        rsa._compat.write_to_stdout(data)
+        sys.stdout.buffer.write(data)
 
 
-class CryptoOperation(object):
+class CryptoOperation(metaclass=abc.ABCMeta):
     """CLI callable that operates with input, output, and a key."""
-
-    __metaclass__ = abc.ABCMeta
 
     keyname = 'public'  # or 'private'
     usage = 'usage: %%prog [options] %(keyname)s_key'
-    description = None
+    description = ''
     operation = 'decrypt'
     operation_past = 'decrypted'
     operation_progressive = 'decrypting'
@@ -104,15 +101,16 @@ class CryptoOperation(object):
     expected_cli_args = 1
     has_output = True
 
-    key_class = rsa.PublicKey
+    key_class = rsa.PublicKey  # type: typing.Type[rsa.key.AbstractKey]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.usage = self.usage % self.__class__.__dict__
         self.input_help = self.input_help % self.__class__.__dict__
         self.output_help = self.output_help % self.__class__.__dict__
 
     @abc.abstractmethod
-    def perform_operation(self, indata, key, cli_args):
+    def perform_operation(self, indata: bytes, key: rsa.key.AbstractKey,
+                          cli_args: Indexable) -> typing.Any:
         """Performs the program's operation.
 
         Implement in a subclass.
@@ -120,7 +118,7 @@ class CryptoOperation(object):
         :returns: the data to write to the output.
         """
 
-    def __call__(self):
+    def __call__(self) -> None:
         """Runs the program."""
 
         (cli, cli_args) = self.parse_cli()
@@ -135,13 +133,13 @@ class CryptoOperation(object):
         if self.has_output:
             self.write_outfile(outdata, cli.output)
 
-    def parse_cli(self):
+    def parse_cli(self) -> typing.Tuple[optparse.Values, typing.List[str]]:
         """Parse the CLI options
 
         :returns: (cli_opts, cli_args)
         """
 
-        parser = OptionParser(usage=self.usage, description=self.description)
+        parser = optparse.OptionParser(usage=self.usage, description=self.description)
 
         parser.add_option('-i', '--input', type='string', help=self.input_help)
 
@@ -160,7 +158,7 @@ class CryptoOperation(object):
 
         return cli, cli_args
 
-    def read_key(self, filename, keyform):
+    def read_key(self, filename: str, keyform: str) -> rsa.key.AbstractKey:
         """Reads a public or private key."""
 
         print('Reading %s key from %s' % (self.keyname, filename), file=sys.stderr)
@@ -169,7 +167,7 @@ class CryptoOperation(object):
 
         return self.key_class.load_pkcs1(keydata, keyform)
 
-    def read_infile(self, inname):
+    def read_infile(self, inname: str) -> bytes:
         """Read the input file"""
 
         if inname:
@@ -178,9 +176,9 @@ class CryptoOperation(object):
                 return infile.read()
 
         print('Reading input from stdin', file=sys.stderr)
-        return sys.stdin.read()
+        return sys.stdin.buffer.read()
 
-    def write_outfile(self, outdata, outname):
+    def write_outfile(self, outdata: bytes, outname: str) -> None:
         """Write the output file"""
 
         if outname:
@@ -189,7 +187,7 @@ class CryptoOperation(object):
                 outfile.write(outdata)
         else:
             print('Writing output to stdout', file=sys.stderr)
-            rsa._compat.write_to_stdout(outdata)
+            sys.stdout.buffer.write(outdata)
 
 
 class EncryptOperation(CryptoOperation):
@@ -202,9 +200,10 @@ class EncryptOperation(CryptoOperation):
     operation_past = 'encrypted'
     operation_progressive = 'encrypting'
 
-    def perform_operation(self, indata, pub_key, cli_args=None):
+    def perform_operation(self, indata: bytes, pub_key: rsa.key.AbstractKey,
+                          cli_args: Indexable = ()) -> bytes:
         """Encrypts files."""
-
+        assert isinstance(pub_key, rsa.key.PublicKey)
         return rsa.encrypt(indata, pub_key)
 
 
@@ -219,9 +218,10 @@ class DecryptOperation(CryptoOperation):
     operation_progressive = 'decrypting'
     key_class = rsa.PrivateKey
 
-    def perform_operation(self, indata, priv_key, cli_args=None):
+    def perform_operation(self, indata: bytes, priv_key: rsa.key.AbstractKey,
+                          cli_args: Indexable = ()) -> bytes:
         """Decrypts files."""
-
+        assert isinstance(priv_key, rsa.key.PrivateKey)
         return rsa.decrypt(indata, priv_key)
 
 
@@ -241,8 +241,10 @@ class SignOperation(CryptoOperation):
     output_help = ('Name of the file to write the signature to. Written '
                    'to stdout if this option is not present.')
 
-    def perform_operation(self, indata, priv_key, cli_args):
+    def perform_operation(self, indata: bytes, priv_key: rsa.key.AbstractKey,
+                          cli_args: Indexable) -> bytes:
         """Signs files."""
+        assert isinstance(priv_key, rsa.key.PrivateKey)
 
         hash_method = cli_args[1]
         if hash_method not in HASH_METHODS:
@@ -266,8 +268,10 @@ class VerifyOperation(CryptoOperation):
     expected_cli_args = 2
     has_output = False
 
-    def perform_operation(self, indata, pub_key, cli_args):
+    def perform_operation(self, indata: bytes, pub_key: rsa.key.AbstractKey,
+                          cli_args: Indexable) -> None:
         """Verifies files."""
+        assert isinstance(pub_key, rsa.key.PublicKey)
 
         signature_file = cli_args[1]
 

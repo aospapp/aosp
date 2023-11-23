@@ -239,19 +239,19 @@ static bool r600_is_zs_format_supported(enum pipe_format format)
 	return r600_translate_dbformat(format) != ~0U;
 }
 
-boolean evergreen_is_format_supported(struct pipe_screen *screen,
-				      enum pipe_format format,
-				      enum pipe_texture_target target,
-				      unsigned sample_count,
-				      unsigned storage_sample_count,
-				      unsigned usage)
+bool evergreen_is_format_supported(struct pipe_screen *screen,
+				   enum pipe_format format,
+				   enum pipe_texture_target target,
+				   unsigned sample_count,
+				   unsigned storage_sample_count,
+				   unsigned usage)
 {
 	struct r600_screen *rscreen = (struct r600_screen*)screen;
 	unsigned retval = 0;
 
 	if (target >= PIPE_MAX_TEXTURE_TYPES) {
 		R600_ERR("r600: unsupported texture type %d\n", target);
-		return FALSE;
+		return false;
 	}
 
 	if (MAX2(1, sample_count) != MAX2(1, storage_sample_count))
@@ -259,7 +259,7 @@ boolean evergreen_is_format_supported(struct pipe_screen *screen,
 
 	if (sample_count > 1) {
 		if (!rscreen->has_msaa)
-			return FALSE;
+			return false;
 
 		switch (sample_count) {
 		case 2:
@@ -267,7 +267,7 @@ boolean evergreen_is_format_supported(struct pipe_screen *screen,
 		case 8:
 			break;
 		default:
-			return FALSE;
+			return false;
 		}
 	}
 
@@ -514,15 +514,13 @@ static void *evergreen_create_rs_state(struct pipe_context *ctx,
 	}
 
 	spi_interp = S_0286D4_FLAT_SHADE_ENA(1);
-	if (state->sprite_coord_enable) {
-		spi_interp |= S_0286D4_PNT_SPRITE_ENA(1) |
-			      S_0286D4_PNT_SPRITE_OVRD_X(2) |
-			      S_0286D4_PNT_SPRITE_OVRD_Y(3) |
-			      S_0286D4_PNT_SPRITE_OVRD_Z(0) |
-			      S_0286D4_PNT_SPRITE_OVRD_W(1);
-		if (state->sprite_coord_mode != PIPE_SPRITE_COORD_UPPER_LEFT) {
-			spi_interp |= S_0286D4_PNT_SPRITE_TOP_1(1);
-		}
+	spi_interp |= S_0286D4_PNT_SPRITE_ENA(1) |
+		S_0286D4_PNT_SPRITE_OVRD_X(2) |
+		S_0286D4_PNT_SPRITE_OVRD_Y(3) |
+		S_0286D4_PNT_SPRITE_OVRD_Z(0) |
+		S_0286D4_PNT_SPRITE_OVRD_W(1);
+	if (state->sprite_coord_mode != PIPE_SPRITE_COORD_UPPER_LEFT) {
+		spi_interp |= S_0286D4_PNT_SPRITE_TOP_1(1);
 	}
 
 	r600_store_context_reg_seq(&rs->buffer, R_028A00_PA_SU_POINT_SIZE, 3);
@@ -576,6 +574,8 @@ static void *evergreen_create_sampler_state(struct pipe_context *ctx,
 	unsigned max_aniso = rscreen->force_aniso >= 0 ? rscreen->force_aniso
 						       : state->max_anisotropy;
 	unsigned max_aniso_ratio = r600_tex_aniso_filter(max_aniso);
+	bool trunc_coord = state->min_img_filter == PIPE_TEX_FILTER_NEAREST &&
+			   state->mag_img_filter == PIPE_TEX_FILTER_NEAREST;
 	float max_lod = state->max_lod;
 
 	if (!ss) {
@@ -610,6 +610,7 @@ static void *evergreen_create_sampler_state(struct pipe_context *ctx,
 	ss->tex_sampler_words[2] =
 		S_03C008_LOD_BIAS(S_FIXED(CLAMP(state->lod_bias, -16, 16), 8)) |
 		(state->seamless_cube_map ? 0 : S_03C008_DISABLE_CUBE_WRAP(1)) |
+		S_03C008_TRUNCATE_COORD(trunc_coord) |
 		S_03C008_TYPE(1);
 
 	if (ss->border_color_use) {
@@ -698,7 +699,7 @@ texture_buffer_sampler_view(struct r600_context *rctx,
 	view->tex_resource = &tmp->resource;
 
 	if (tmp->resource.gpu_address)
-		LIST_ADDTAIL(&view->list, &rctx->texture_buffers);
+		list_addtail(&view->list, &rctx->texture_buffers);
 	return &view->base;
 }
 
@@ -1308,7 +1309,7 @@ void evergreen_init_color_surface_rat(struct r600_context *rctx,
 	surf->cb_color_view = 0;
 
 	/* Set the buffer range the GPU will have access to: */
-	util_range_add(&r600_resource(pipe_buffer)->valid_buffer_range,
+	util_range_add(pipe_buffer, &r600_resource(pipe_buffer)->valid_buffer_range,
 		       0, pipe_buffer->width0);
 }
 
@@ -3364,6 +3365,12 @@ void evergreen_update_ps_state(struct pipe_context *ctx, struct r600_pipe_shader
 				spi_baryc_cntl |= spi_baryc_enable_bit[k];
 				have_perspective |= k < 3;
 				have_linear |= !(k < 3);
+				if (rshader->input[i].uses_interpolate_at_centroid) {
+					k = eg_get_interpolator_index(
+						rshader->input[i].interpolate,
+						TGSI_INTERPOLATE_LOC_CENTROID);
+					spi_baryc_cntl |= spi_baryc_enable_bit[k];
+				}
 			}
 		}
 
@@ -3383,8 +3390,9 @@ void evergreen_update_ps_state(struct pipe_context *ctx, struct r600_pipe_shader
 				tmp |= S_028644_FLAT_SHADE(1);
 			}
 
-			if (rshader->input[i].name == TGSI_SEMANTIC_GENERIC &&
-			    (sprite_coord_enable & (1 << rshader->input[i].sid))) {
+			if (rshader->input[i].name == TGSI_SEMANTIC_PCOORD ||
+			    (rshader->input[i].name == TGSI_SEMANTIC_TEXCOORD &&
+			     (sprite_coord_enable & (1 << rshader->input[i].sid)))) {
 				tmp |= S_028644_PT_SPRITE_TEX(1);
 			}
 

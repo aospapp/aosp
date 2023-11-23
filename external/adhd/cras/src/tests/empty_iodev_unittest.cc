@@ -13,7 +13,7 @@ extern "C" {
 
 static struct timespec clock_gettime_retspec;
 static struct cras_audio_format fake_format;
-static cras_audio_area dummy_audio_area;
+static cras_audio_area mock_audio_area;
 
 namespace {
 
@@ -57,7 +57,7 @@ int cras_iodev_default_no_stream_playback(struct cras_iodev* odev, int enable) {
 }
 
 void cras_iodev_init_audio_area(struct cras_iodev* iodev, int num_channels) {
-  iodev->area = &dummy_audio_area;
+  iodev->area = &mock_audio_area;
 }
 
 void cras_iodev_free_audio_area(struct cras_iodev* iodev) {}

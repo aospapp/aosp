@@ -49,6 +49,8 @@ struct another_intf;
 struct intf_A;
 struct intf_not_here;
 
+#ifndef INTF_A_INTERFACE
+#define INTF_A_INTERFACE
 /**
  * @page page_iface_intf_A intf_A
  * @section page_iface_intf_A_desc Description
@@ -63,6 +65,7 @@ struct intf_not_here;
  * A useless example trying to tickle the scanner.
  */
 extern const struct wl_interface intf_A_interface;
+#endif
 
 #ifndef INTF_A_FOO_ENUM
 #define INTF_A_FOO_ENUM

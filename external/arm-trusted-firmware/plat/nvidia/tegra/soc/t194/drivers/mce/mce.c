@@ -116,25 +116,6 @@ int32_t mce_update_gsc_tzdram(void)
 }
 
 /*******************************************************************************
- * Handler to update carveout values for TZ SysRAM aperture
- ******************************************************************************/
-int32_t mce_update_gsc_tzram(void)
-{
-	int32_t ret;
-
-	/*
-	 * MCE firmware is not running on simulation platforms.
-	 */
-	if (mce_firmware_not_supported()) {
-		ret = -EINVAL;
-	} else {
-		ret = nvg_update_ccplex_gsc((uint32_t)TEGRA_NVG_CHANNEL_UPDATE_GSC_TZRAM);
-	}
-
-	return ret;
-}
-
-/*******************************************************************************
  * Handler to issue the UPDATE_CSTATE_INFO request
  ******************************************************************************/
 void mce_update_cstate_info(const mce_cstate_info_t *cstate)
@@ -236,6 +217,15 @@ void mce_enable_strict_checking(void)
 		nvg_enable_strict_checking_mode();
 	}
 }
+void mce_verify_strict_checking(void)
+{
+	bool is_silicon = tegra_platform_is_silicon();
+	bool is_fpga = tegra_platform_is_fpga();
+
+	if (is_silicon || is_fpga) {
+		nvg_verify_strict_checking_mode();
+	}
+}
 #endif
 
 /*******************************************************************************
@@ -252,4 +242,12 @@ void mce_system_shutdown(void)
 void mce_system_reboot(void)
 {
 	nvg_system_reboot();
+}
+
+/*******************************************************************************
+ * Handler to clear CCPLEX->HSM correctable RAS error signal.
+ ******************************************************************************/
+void mce_clear_hsm_corr_status(void)
+{
+	nvg_clear_hsm_corr_status();
 }

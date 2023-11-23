@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,23 +9,25 @@ Convenience functions for use by tests or whomever.
 
 # pylint: disable=missing-docstring
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import base64
 import collections
-import commands
 import errno
-import fnmatch
 import glob
 import json
 import logging
 import math
 import multiprocessing
 import os
-import pickle
 import platform
 import re
 import shutil
 import signal
 import string
+import subprocess
 import tempfile
 import time
 import uuid
@@ -35,6 +38,10 @@ from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import cros_config
 
 from autotest_lib.client.common_lib.utils import *
+import six
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 
 
 def grep(pattern, file):
@@ -47,15 +54,6 @@ def grep(pattern, file):
     command = 'grep "%s" > /dev/null' % pattern
     ret = cat_file_to_cmd(file, command, ignore_status=True)
     return not ret
-
-
-def difflist(list1, list2):
-    """returns items in list2 that are not in list1"""
-    diff = [];
-    for x in list2:
-        if x not in list1:
-            diff.append(x)
-    return diff
 
 
 def cat_file_to_cmd(file, command, ignore_status=0, return_output=False):
@@ -131,11 +129,6 @@ def force_copy(src, dest):
         dest = os.path.join(dest, os.path.basename(src))
     shutil.copyfile(src, dest)
     return dest
-
-
-def force_link(src, dest):
-    """Link src to dest, overwriting it if it exists"""
-    return utils.system("ln -sf %s %s" % (src, dest))
 
 
 def file_contains_pattern(file, pattern):
@@ -365,6 +358,9 @@ INTEL_UARCH_TABLE = {
     '06_55': 'Skylake',
     '06_8C': 'Tiger Lake',
     '06_8D': 'Tiger Lake',
+    '06_86': 'Tremont',
+    '06_96': 'Tremont',
+    '06_9C': 'Tremont',
     '06_25': 'Westmere',
     '06_2C': 'Westmere',
     '06_2F': 'Westmere',
@@ -411,14 +407,6 @@ def get_current_kernel_arch():
     return os.popen('uname -m').read().rstrip()
 
 
-def get_file_arch(filename):
-    # -L means follow symlinks
-    file_data = utils.system_output('file -L ' + filename)
-    if file_data.count('80386'):
-        return 'i386'
-    return None
-
-
 def count_cpus():
     """number of CPUs in the local machine according to /proc/cpuinfo"""
     try:
@@ -440,29 +428,6 @@ def cpu_online_map():
     for cpu in cpuinfo:
         cpus.append(cpu['processor'])  # grab cpu number
     return cpus
-
-
-def get_cpu_family():
-    cpuinfo = get_cpuinfo()[0]
-    return int(cpuinfo['cpu_family'])
-
-
-def get_cpu_vendor():
-    cpuinfo = get_cpuinfo()
-    vendors = [cpu['vendor_id'] for cpu in cpuinfo]
-    for v in vendors[1:]:
-        if v != vendors[0]:
-            raise error.TestError('multiple cpu vendors found: ' + str(vendors))
-    return vendors[0]
-
-
-def probe_cpus():
-    """
-    This routine returns a list of cpu devices found under
-    /sys/devices/system/cpu.
-    """
-    cmd = 'find /sys/devices/system/cpu/ -maxdepth 1 -type d -name cpu*'
-    return utils.system_output(cmd).splitlines()
 
 
 # Returns total memory in kb
@@ -539,7 +504,7 @@ def get_meminfo():
                 else:
                     name = m.group(1)
                 info[name] = int(m.group(3))
-    return collections.namedtuple('MemInfo', info.keys())(**info)
+    return collections.namedtuple('MemInfo', list(info.keys()))(**info)
 
 
 def sysctl(key, value=None):
@@ -567,21 +532,6 @@ def sysctl_kernel(key, value=None):
         return int(re.search(r'\d+', out).group(0))
 
 
-def _convert_exit_status(sts):
-    if os.WIFSIGNALED(sts):
-        return -os.WTERMSIG(sts)
-    elif os.WIFEXITED(sts):
-        return os.WEXITSTATUS(sts)
-    else:
-        # impossible?
-        raise RuntimeError("Unknown exit status %d!" % sts)
-
-
-def where_art_thy_filehandles():
-    """Dump the current list of filehandles"""
-    os.system("ls -l /proc/%d/fd >> /dev/tty" % os.getpid())
-
-
 def get_num_allocated_file_handles():
     """
     Returns the number of currently allocated file handles.
@@ -595,18 +545,14 @@ def get_num_allocated_file_handles():
     allocated_handles = int(line.split()[0])
     return allocated_handles
 
-def print_to_tty(string):
-    """Output string straight to the tty"""
-    open('/dev/tty', 'w').write(string + '\n')
-
 
 def dump_object(object):
     """Dump an object's attributes and methods
 
     kind of like dir()
     """
-    for item in object.__dict__.iteritems():
-        print item
+    for item in six.iteritems(object.__dict__):
+        print(item)
         try:
             (key, value) = item
             dump_object(value)
@@ -616,7 +562,7 @@ def dump_object(object):
 
 def environ(env_key):
     """return the requested environment variable, or '' if unset"""
-    if (os.environ.has_key(env_key)):
+    if (env_key in os.environ):
         return os.environ[env_key]
     else:
         return ''
@@ -643,30 +589,6 @@ _TIME_OUTPUT_RE = re.compile(
         r'(\d*):([\d\.]*)elapsed (\d*)%CPU')
 
 
-def avgtime_print(dir):
-    """ Calculate some benchmarking statistics.
-        Input is a directory containing a file called 'time'.
-        File contains one-per-line results of /usr/bin/time.
-        Output is average Elapsed, User, and System time in seconds,
-          and average CPU percentage.
-    """
-    user = system = elapsed = cpu = count = 0
-    with open(dir + "/time") as f:
-        for line in f:
-            try:
-                m = _TIME_OUTPUT_RE.match(line);
-                user += float(m.group(1))
-                system += float(m.group(2))
-                elapsed += (float(m.group(3)) * 60) + float(m.group(4))
-                cpu += float(m.group(5))
-                count += 1
-            except:
-                raise ValueError("badly formatted times")
-
-    return "Elapsed: %0.2fs User: %0.2fs System: %0.2fs CPU: %0.0f%%" % \
-          (elapsed / count, user / count, system / count, cpu / count)
-
-
 def to_seconds(time_string):
     """Converts a string in M+:SS.SS format to S+.SS"""
     elts = time_string.split(':')
@@ -676,14 +598,6 @@ def to_seconds(time_string):
 
 
 _TIME_OUTPUT_RE_2 = re.compile(r'(.*?)user (.*?)system (.*?)elapsed')
-
-
-def extract_all_time_results(results_string):
-    """Extract user, system, and elapsed times into a list of tuples"""
-    results = []
-    for result in _TIME_OUTPUT_RE_2.findall(results_string):
-        results.append(tuple([to_seconds(elt) for elt in result]))
-    return results
 
 
 def running_config():
@@ -716,7 +630,13 @@ def check_for_kernel_feature(feature):
 
 
 def check_glibc_ver(ver):
-    glibc_ver = commands.getoutput('ldd --version').splitlines()[0]
+    try:
+        glibc_ver = subprocess.check_output("ldd --version", shell=True)
+    except subprocess.CalledProcessError:
+        # To mimic previous behavior, if the command errors set the result to
+        # an empty str
+        glibc_ver = ''
+    glibc_ver = glibc_ver.splitlines()[0].decode()
     glibc_ver = re.search(r'(\d+\.\d+(\.\d+)?)', glibc_ver).group()
     if utils.compare_versions(glibc_ver, ver) == -1:
         raise error.TestError("Glibc too old (%s). Glibc >= %s is needed." %
@@ -731,33 +651,10 @@ def check_kernel_ver(ver):
                               (kernel_ver, ver))
 
 
-def human_format(number):
-    # Convert number to kilo / mega / giga format.
-    if number < 1024:
-        return "%d" % number
-    kilo = float(number) / 1024.0
-    if kilo < 1024:
-        return "%.2fk" % kilo
-    meg = kilo / 1024.0
-    if meg < 1024:
-        return "%.2fM" % meg
-    gig = meg / 1024.0
-    return "%.2fG" % gig
-
-
 def numa_nodes():
     node_paths = glob.glob('/sys/devices/system/node/node*')
     nodes = [int(re.sub(r'.*node(\d+)', r'\1', x)) for x in node_paths]
     return (sorted(nodes))
-
-
-def node_size():
-    nodes = max(len(numa_nodes()), 1)
-    return ((memtotal() * 1024) / nodes)
-
-
-def pickle_load(filename):
-    return pickle.load(open(filename, 'r'))
 
 
 # Return the kernel version and build timestamp.
@@ -770,35 +667,13 @@ def running_os_ident():
     return version + '::' + timestamp
 
 
-def running_os_full_version():
-    (version, timestamp) = running_os_release()
-    return version
-
-
-# much like find . -name 'pattern'
-def locate(pattern, root=os.getcwd()):
-    for path, dirs, files in os.walk(root):
-        for f in files:
-            if fnmatch.fnmatch(f, pattern):
-                yield os.path.abspath(os.path.join(path, f))
-
-
 def freespace(path):
     """Return the disk free space, in bytes"""
     s = os.statvfs(path)
     return s.f_bavail * s.f_bsize
 
 
-def disk_block_size(path):
-    """Return the disk block size, in bytes"""
-    return os.statvfs(path).f_bsize
-
-
 _DISK_PARTITION_3_RE = re.compile(r'^(/dev/hd[a-z]+)3', re.M)
-
-def get_disks():
-    df_output = utils.system_output('df')
-    return _DISK_PARTITION_3_RE.findall(df_output)
 
 
 def get_disk_size(disk_name):
@@ -808,7 +683,9 @@ def get_disk_size(disk_name):
     @param disk_name: disk name to find size
     """
     device = os.path.basename(disk_name)
-    for line in file('/proc/partitions'):
+    with open('/proc/partitions') as f:
+        lines = f.readlines()
+    for line in lines:
         try:
             _, _, blocks, name = re.split(r' +', line.strip())
         except ValueError:
@@ -1024,7 +901,7 @@ def get_storage_statistics(device=None):
     match = _IOSTAT_RE.search(output)
     if not match:
         raise ValueError('Unable to get iostat for %s' % device)
-    return dict(zip(_IOSTAT_FIELDS, map(float, match.groups())))
+    return dict(list(zip(_IOSTAT_FIELDS, list(map(float, match.groups())))))
 
 
 def load_module(module_name, params=None):
@@ -1046,6 +923,7 @@ def unload_module(module_name):
 
     @param module_name: Name of the module we want to remove.
     """
+    module_name = module_name.replace('-', '_')
     l_raw = utils.system_output("/bin/lsmod").splitlines()
     lsmod = [x for x in l_raw if x.split()[0] == module_name]
     if len(lsmod) > 0:
@@ -1069,25 +947,6 @@ def module_is_loaded(module_name):
     return False
 
 
-def get_loaded_modules():
-    lsmod_output = utils.system_output('/bin/lsmod').splitlines()[1:]
-    return [line.split(None, 1)[0] for line in lsmod_output]
-
-
-def get_huge_page_size():
-    output = utils.system_output('grep Hugepagesize /proc/meminfo')
-    return int(output.split()[1]) # Assumes units always in kB. :(
-
-
-def get_num_huge_pages():
-    raw_hugepages = utils.system_output('/sbin/sysctl vm.nr_hugepages')
-    return int(raw_hugepages.split()[2])
-
-
-def set_num_huge_pages(num):
-    utils.system('/sbin/sysctl vm.nr_hugepages=%d' % num)
-
-
 def ping_default_gateway():
     """Ping the default gateway."""
 
@@ -1108,16 +967,6 @@ def drop_caches():
     # We ignore failures here as this will fail on 2.6.11 kernels.
     utils.system("echo 3 > /proc/sys/vm/drop_caches", ignore_status=True)
 
-
-def process_is_alive(name_pattern):
-    """
-    'pgrep name' misses all python processes and also long process names.
-    'pgrep -f name' gets all shell commands with name in args.
-    So look only for command whose initial pathname ends with name.
-    Name itself is an egrep pattern, so it can use | etc for variations.
-    """
-    return utils.system("pgrep -f '^([^ /]*/)*(%s)([ ]|$)'" % name_pattern,
-                        ignore_status=True) == 0
 
 def set_hwclock(time='system',
                 utc=True,
@@ -1148,60 +997,11 @@ def set_hwclock(time='system',
         cmd += ' --noadjfile'
     return utils.system(cmd, ignore_status=ignore_status)
 
-def get_hwclock_seconds(utc=True):
-    """
-    Return the hardware clock in seconds as a floating point value.
-    Use Coordinated Universal Time if utc is True, local time otherwise.
-    Raise a ValueError if unable to read the hardware clock.
-    """
-    cmd = '/sbin/hwclock --debug'
-    if utc:
-        cmd += ' --utc'
-    hwclock_output = utils.system_output(cmd, ignore_status=True)
-    match = re.search(r'= ([0-9]+) seconds since .+ (-?[0-9.]+) seconds$',
-                      hwclock_output, re.DOTALL)
-    if match:
-        seconds = int(match.group(1)) + float(match.group(2))
-        logging.debug('hwclock seconds = %f', seconds)
-        return seconds
-
-    raise ValueError('Unable to read the hardware clock -- ' +
-                     hwclock_output)
-
-
 def set_wake_alarm(alarm_time):
     """
     Set the hardware RTC-based wake alarm to 'alarm_time'.
     """
     utils.write_one_line('/sys/class/rtc/rtc0/wakealarm', str(alarm_time))
-
-
-def set_power_state(state):
-    """
-    Set the system power state to 'state'.
-    """
-    utils.write_one_line('/sys/power/state', state)
-
-
-def standby():
-    """
-    Power-on suspend (S1)
-    """
-    set_power_state('standby')
-
-
-def suspend_to_ram():
-    """
-    Suspend the system to RAM (S3)
-    """
-    set_power_state('mem')
-
-
-def suspend_to_disk():
-    """
-    Suspend the system to disk (S4)
-    """
-    set_power_state('disk')
 
 
 _AUTOTEST_CLIENT_PATH = os.path.join(os.path.dirname(__file__), '..')
@@ -1376,31 +1176,6 @@ def nuke_process_by_name(name, with_prejudice=False):
         utils.nuke_pid(pid)
 
 
-def ensure_processes_are_dead_by_name(name, timeout_sec=10):
-    """Terminate all processes specified by name and ensure they're gone.
-
-    Arguments:
-      name: process name specifier, as understood by pgrep.
-      timeout_sec: maximum number of seconds to wait for processes to die.
-
-    Raises:
-      error.AutoservPidAlreadyDeadError: no existing process matches name.
-      utils.TimeoutError: if processes still exist after timeout_sec.
-    """
-
-    def list_and_kill_processes(name):
-        process_list = get_process_list(name)
-        try:
-            for pid in [int(str_pid) for str_pid in process_list]:
-                utils.nuke_pid(pid)
-        except error.AutoservPidAlreadyDeadError:
-            pass
-        return process_list
-
-    utils.poll_for_condition(lambda: list_and_kill_processes(name) == [],
-                             timeout=timeout_sec)
-
-
 def is_virtual_machine():
     if 'QEMU' in platform.processor():
         return True
@@ -1437,123 +1212,11 @@ def save_vm_state(checkpoint):
         logging.info('Done saving VM state "%s"', checkpoint)
 
 
-def check_raw_dmesg(dmesg, message_level, whitelist):
-    """Checks dmesg for unexpected warnings.
-
-    This function parses dmesg for message with message_level <= message_level
-    which do not appear in the whitelist.
-
-    Arguments:
-      dmesg - string containing raw dmesg buffer
-      message_level - minimum message priority to check
-      whitelist - messages to ignore
-
-    Returns:
-      List of unexpected warnings
-    """
-    whitelist_re = re.compile(r'(%s)' % '|'.join(whitelist))
-    unexpected = []
-    for line in dmesg.splitlines():
-        if int(line[1]) <= message_level:
-            stripped_line = line.split('] ', 1)[1]
-            if whitelist_re.search(stripped_line):
-                continue
-            unexpected.append(stripped_line)
-    return unexpected
-
-
-def verify_mesg_set(mesg, regex, whitelist):
-    """Verifies that the exact set of messages are present in a text.
-
-    This function finds all strings in the text matching a certain regex, and
-    then verifies that all expected strings are present in the set, and no
-    unexpected strings are there.
-
-    Arguments:
-      mesg - the mutiline text to be scanned
-      regex - regular expression to match
-      whitelist - messages to find in the output, a list of strings
-          (potentially regexes) to look for in the filtered output. All these
-          strings must be there, and no other strings should be present in the
-          filtered output.
-
-    Returns:
-      string of inconsistent findings (i.e. an empty string on success).
-    """
-
-    rv = []
-
-    missing_strings = []
-    present_strings = []
-    for line in mesg.splitlines():
-        if not re.search(r'%s' % regex, line):
-            continue
-        present_strings.append(line.split('] ', 1)[1])
-
-    for string in whitelist:
-        for present_string in list(present_strings):
-            if re.search(r'^%s$' % string, present_string):
-                present_strings.remove(present_string)
-                break
-        else:
-            missing_strings.append(string)
-
-    if present_strings:
-        rv.append('unexpected strings:')
-        rv.extend(present_strings)
-    if missing_strings:
-        rv.append('missing strings:')
-        rv.extend(missing_strings)
-
-    return '\n'.join(rv)
-
-
-def target_is_pie():
-    """Returns whether the toolchain produces a PIE (position independent
-    executable) by default.
-
-    Arguments:
-      None
-
-    Returns:
-      True if the target toolchain produces a PIE by default.
-      False otherwise.
-    """
-
-    command = 'echo | ${CC} -E -dD -P - | grep -i pie'
-    result = utils.system_output(command,
-                                 retain_output=True,
-                                 ignore_status=True)
-    if re.search('#define __PIE__', result):
-        return True
-    else:
-        return False
-
-
-def target_is_x86():
-    """Returns whether the toolchain produces an x86 object
-
-    Arguments:
-      None
-
-    Returns:
-      True if the target toolchain produces an x86 object
-      False otherwise.
-    """
-
-    command = 'echo | ${CC} -E -dD -P - | grep -i 86'
-    result = utils.system_output(command,
-                                 retain_output=True,
-                                 ignore_status=True)
-    if re.search('__i386__', result) or re.search('__x86_64__', result):
-        return True
-    else:
-        return False
-
-
 def mounts():
     ret = []
-    for line in file('/proc/mounts'):
+    with open('/proc/mounts') as f:
+        lines = f.readlines()
+    for line in lines:
         m = re.match(
             r'(?P<src>\S+) (?P<dest>\S+) (?P<type>\S+) (?P<opts>\S+).*', line)
         if m:
@@ -1691,9 +1354,9 @@ def compute_active_cpu_time(cpu_usage_start, cpu_usage_end):
     to calculate usage given two /proc/stat snapshots.
     """
     idle_cols = ('idle', 'iowait')  # All other cols are calculated as active.
-    time_active_start = sum([x[1] for x in cpu_usage_start.iteritems()
+    time_active_start = sum([x[1] for x in six.iteritems(cpu_usage_start)
                              if x[0] not in idle_cols])
-    time_active_end = sum([x[1] for x in cpu_usage_end.iteritems()
+    time_active_end = sum([x[1] for x in six.iteritems(cpu_usage_end)
                            if x[0] not in idle_cols])
     total_time_start = sum(cpu_usage_start.values())
     total_time_end = sum(cpu_usage_end.values())
@@ -1956,14 +1619,12 @@ def get_ec_temperatures():
             matched = pattern.match(line)
             temperature = int(matched.group(1)) - 273
             temperatures.append(temperature)
-    except Exception:
-        logging.warning('Unable to read temperature sensors using ectool.')
-    for temperature in temperatures:
-        # Sanity check for real world values.
-        assert ((temperature > 10.0) and
-                (temperature < 150.0)), ('Unreasonable temperature %.1fC.' %
-                                         temperature)
-
+    except Exception as e:
+        logging.warning('Unable to read temperature sensors using ectool %s.',
+                        e)
+    # Sanity check for real world values.
+    if not all(10.0 <= temperature <= 150.0 for temperature in temperatures):
+        logging.warning('Unreasonable EC temperatures: %s.', temperatures)
     return temperatures
 
 
@@ -1983,25 +1644,6 @@ def get_current_temperature_max():
             (temperature < 150.0)), ('Unreasonable temperature %.1fC.' %
                                      temperature)
     return temperature
-
-
-def get_cpu_cache_size():
-    """
-    Returns the last level CPU cache size in kBytes.
-    """
-    cache_size = _get_int_from_file(_CPUINFO, 'cache size', ': ', ' KB')
-    # Sanity check.
-    assert cache_size >= 64, 'Unreasonably small cache.'
-    return cache_size
-
-
-def get_cpu_model_frequency():
-    """
-    Returns the model frequency from the CPU model name on Intel only. This
-    might be redundant with get_cpu_max_frequency. Unit is Hz.
-    """
-    frequency = _get_float_from_file(_CPUINFO, 'model name', ' @ ', 'GHz')
-    return 1.e9 * frequency
 
 
 def get_cpu_max_frequency():
@@ -2024,24 +1666,6 @@ def get_cpu_max_frequency():
     assert max_frequency > 1e8, ('Unreasonably low CPU frequency: %.1f' %
             max_frequency)
     return max_frequency
-
-
-def get_cpu_model():
-    """
-    Returns the CPU model.
-    Only works on Intel.
-    """
-    cpu_model = _get_int_from_file(_CPUINFO, 'model\t', ': ', None)
-    return cpu_model
-
-
-def get_cpu_family_intel():
-    """
-    Returns the CPU family.
-    Only works on Intel.
-    """
-    cpu_family = _get_int_from_file(_CPUINFO, 'cpu family\t', ': ', None)
-    return cpu_family
 
 
 def get_board_property(key):
@@ -2223,7 +1847,7 @@ def get_mem_total():
     mem_total = _get_float_from_file(_MEMINFO, 'MemTotal:', 'MemTotal:', ' kB')
     # Sanity check, all Chromebooks have at least 1GB of memory.
     assert mem_total > 256 * 1024, 'Unreasonable amount of memory.'
-    return mem_total / 1024
+    return int(mem_total / 1024)
 
 
 def get_mem_total_gb():
@@ -2238,7 +1862,7 @@ def get_mem_free():
     Returns the currently free memory in the system in MBytes.
     """
     mem_free = _get_float_from_file(_MEMINFO, 'MemFree:', 'MemFree:', ' kB')
-    return mem_free / 1024
+    return int(mem_free / 1024)
 
 def get_mem_free_plus_buffers_and_cached():
     """
@@ -2256,15 +1880,6 @@ def get_mem_free_plus_buffers_and_cached():
     buffers_mb = (_get_float_from_file(
         _MEMINFO, 'Buffers:', 'Buffers:', ' kB') / 1024)
     return free_mb + buffers_mb + cached_mb
-
-def get_kernel_max():
-    """
-    Returns content of kernel_max.
-    """
-    kernel_max = _get_int_from_file(_KERNEL_MAX, 0, None, None)
-    # Sanity check.
-    assert ((kernel_max > 0) and (kernel_max < 257)), 'Unreasonable kernel_max.'
-    return kernel_max
 
 
 def get_dirty_writeback_centisecs():
@@ -2313,10 +1928,9 @@ def get_gpu_family():
         wflinfo = utils.system_output(cmd,
                                       retain_output=True,
                                       ignore_status=False)
-        version = re.findall(r'OpenGL renderer string: '
-                             r'Mali-T([0-9]+)', wflinfo)
-        if version:
-            return 'mali-t%s' % version[0]
+        m = re.findall(r'OpenGL renderer string: (Mali-\w+)', wflinfo)
+        if m:
+            return m[0].lower()
         return 'mali-unrecognized'
     if socfamily == 'tegra':
         return 'tegra'
@@ -2394,7 +2008,7 @@ def get_other_device():
     Will return a list of other block devices, that are not the root device.
     """
 
-    cmd = 'lsblk -dpn -o NAME | grep -v loop | grep -v zram'
+    cmd = 'lsblk -dpn -o NAME | grep -v -E "(loop|zram|boot|rpmb)"'
     devs = utils.system_output(cmd).splitlines()
 
     for dev in devs[:]:
@@ -2666,7 +2280,7 @@ def base64_recursive_encode(obj):
 
     @return: the base64 encoded object.
     """
-    encode_types = (basestring, bytearray)
+    encode_types = (six.string_types, bytearray)
     return recursive_func(obj, base64.standard_b64encode, encode_types)
 
 
@@ -2677,6 +2291,6 @@ def base64_recursive_decode(obj):
 
     @return: the base64 decoded object.
     """
-    decode_types = (basestring,)
+    decode_types = (six.string_types,)
     return recursive_func(obj, base64.standard_b64decode, decode_types,
                           fix_num_key=True)

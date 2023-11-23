@@ -58,11 +58,6 @@ struct clat_config Global_Clatd_Config;
 
 volatile sig_atomic_t running = 1;
 
-/* function: stop_loop
- * signal handler: stop the event loop
- */
-void stop_loop() { running = 0; }
-
 /* function: configure_packet_socket
  * Binds the packet socket and attaches the receive filter to it.
  *   sock - the socket to configure
@@ -426,7 +421,8 @@ void event_loop(struct tun_data *tunnel) {
     }
 
     time_t now = time(NULL);
-    if (last_interface_poll < (now - INTERFACE_POLL_FREQUENCY)) {
+    if (now >= (last_interface_poll + INTERFACE_POLL_FREQUENCY)) {
+      last_interface_poll = now;
       if (ipv6_address_changed(Global_Clatd_Config.native_ipv6_interface)) {
         break;
       }

@@ -19,6 +19,7 @@
 #include "Pipeline/PixelProgram.hpp"
 #include "System/Debug.hpp"
 #include "Vulkan/VkImageView.hpp"
+#include "Vulkan/VkPipelineLayout.hpp"
 
 #include <cstring>
 
@@ -44,106 +45,107 @@ bool PixelProcessor::State::operator==(const State &state) const
 		return false;
 	}
 
-	static_assert(is_memcmparable<State>::value, "Cannot memcmp State");
-	return memcmp(static_cast<const States *>(this), static_cast<const States *>(&state), sizeof(States)) == 0;
+	return *static_cast<const States *>(this) == static_cast<const States &>(state);
 }
 
 PixelProcessor::PixelProcessor()
 {
-	routineCache = nullptr;
 	setRoutineCacheSize(1024);
 }
 
-PixelProcessor::~PixelProcessor()
-{
-	delete routineCache;
-	routineCache = nullptr;
-}
-
-void PixelProcessor::setBlendConstant(const Color<float> &blendConstant)
+void PixelProcessor::setBlendConstant(const float4 &blendConstant)
 {
 	// TODO(b/140935644): Check if clamp is required
-	factor.blendConstant4W[0] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.r)));
-	factor.blendConstant4W[1] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.g)));
-	factor.blendConstant4W[2] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.b)));
-	factor.blendConstant4W[3] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.a)));
+	factor.blendConstant4W[0] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.x)));
+	factor.blendConstant4W[1] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.y)));
+	factor.blendConstant4W[2] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.z)));
+	factor.blendConstant4W[3] = word4(static_cast<uint16_t>(iround(0xFFFFu * blendConstant.w)));
 
 	factor.invBlendConstant4W[0] = word4(0xFFFFu - factor.blendConstant4W[0][0]);
 	factor.invBlendConstant4W[1] = word4(0xFFFFu - factor.blendConstant4W[1][0]);
 	factor.invBlendConstant4W[2] = word4(0xFFFFu - factor.blendConstant4W[2][0]);
 	factor.invBlendConstant4W[3] = word4(0xFFFFu - factor.blendConstant4W[3][0]);
 
-	factor.blendConstant4F[0] = float4(blendConstant.r);
-	factor.blendConstant4F[1] = float4(blendConstant.g);
-	factor.blendConstant4F[2] = float4(blendConstant.b);
-	factor.blendConstant4F[3] = float4(blendConstant.a);
+	factor.blendConstant4F[0] = float4(blendConstant.x);
+	factor.blendConstant4F[1] = float4(blendConstant.y);
+	factor.blendConstant4F[2] = float4(blendConstant.z);
+	factor.blendConstant4F[3] = float4(blendConstant.w);
 
-	factor.invBlendConstant4F[0] = float4(1 - blendConstant.r);
-	factor.invBlendConstant4F[1] = float4(1 - blendConstant.g);
-	factor.invBlendConstant4F[2] = float4(1 - blendConstant.b);
-	factor.invBlendConstant4F[3] = float4(1 - blendConstant.a);
+	factor.invBlendConstant4F[0] = float4(1 - blendConstant.x);
+	factor.invBlendConstant4F[1] = float4(1 - blendConstant.y);
+	factor.invBlendConstant4F[2] = float4(1 - blendConstant.z);
+	factor.invBlendConstant4F[3] = float4(1 - blendConstant.w);
 }
 
 void PixelProcessor::setRoutineCacheSize(int cacheSize)
 {
-	delete routineCache;
-	routineCache = new RoutineCacheType(clamp(cacheSize, 1, 65536));
+	routineCache = std::make_unique<RoutineCacheType>(clamp(cacheSize, 1, 65536));
 }
 
-const PixelProcessor::State PixelProcessor::update(const Context *context) const
+const PixelProcessor::State PixelProcessor::update(const vk::GraphicsState &pipelineState, const sw::SpirvShader *fragmentShader, const sw::SpirvShader *vertexShader, const vk::Attachments &attachments, bool occlusionEnabled) const
 {
 	State state;
 
-	state.numClipDistances = context->vertexShader->getNumOutputClipDistances();
-	state.numCullDistances = context->vertexShader->getNumOutputCullDistances();
+	state.numClipDistances = vertexShader->getNumOutputClipDistances();
+	state.numCullDistances = vertexShader->getNumOutputCullDistances();
 
-	if(context->pixelShader)
+	if(fragmentShader)
 	{
-		state.shaderID = context->pixelShader->getSerialID();
+		state.shaderID = fragmentShader->getSerialID();
+		state.pipelineLayoutIdentifier = pipelineState.getPipelineLayout()->identifier;
 	}
 	else
 	{
 		state.shaderID = 0;
+		state.pipelineLayoutIdentifier = 0;
 	}
 
-	state.alphaToCoverage = context->alphaToCoverage;
-	state.depthWriteEnable = context->depthWriteActive();
+	state.alphaToCoverage = pipelineState.hasAlphaToCoverage();
+	state.depthWriteEnable = pipelineState.depthWriteActive(attachments);
 
-	if(context->stencilActive())
+	if(pipelineState.stencilActive(attachments))
 	{
 		state.stencilActive = true;
-		state.frontStencil = context->frontStencil;
-		state.backStencil = context->backStencil;
+		state.frontStencil = pipelineState.getFrontStencil();
+		state.backStencil = pipelineState.getBackStencil();
 	}
 
-	if(context->depthBufferActive())
+	if(pipelineState.depthBufferActive(attachments))
 	{
 		state.depthTestActive = true;
-		state.depthCompareMode = context->depthCompareMode;
-		state.depthFormat = context->depthBuffer->getFormat();
+		state.depthCompareMode = pipelineState.getDepthCompareMode();
+		state.depthFormat = attachments.depthBuffer->getFormat();
+
+		state.depthBias = (pipelineState.getConstantDepthBias() != 0.0f) || (pipelineState.getSlopeDepthBias() != 0.0f);
+
+		// "For fixed-point depth buffers, fragment depth values are always limited to the range [0,1] by clamping after depth bias addition is performed.
+		//  Unless the VK_EXT_depth_range_unrestricted extension is enabled, fragment depth values are clamped even when the depth buffer uses a floating-point representation."
+		state.depthClamp = !state.depthFormat.isFloatFormat() || !pipelineState.hasDepthRangeUnrestricted();
 	}
 
-	state.occlusionEnabled = context->occlusionEnabled;
-	state.depthClamp = (context->depthBias != 0.0f) || (context->slopeDepthBias != 0.0f);
+	state.occlusionEnabled = occlusionEnabled;
 
+	bool fragmentContainsKill = (fragmentShader && fragmentShader->getModes().ContainsKill);
 	for(int i = 0; i < RENDERTARGETS; i++)
 	{
-		state.colorWriteMask |= context->colorWriteActive(i) << (4 * i);
-		state.targetFormat[i] = context->renderTargetInternalFormat(i);
-		state.blendState[i] = context->getBlendState(i);
+		state.colorWriteMask |= pipelineState.colorWriteActive(i, attachments) << (4 * i);
+		state.targetFormat[i] = attachments.renderTargetInternalFormat(i);
+		state.blendState[i] = pipelineState.getBlendState(i, attachments, fragmentContainsKill);
 	}
 
-	state.multiSampleCount = static_cast<unsigned int>(context->sampleCount);
-	state.multiSampleMask = context->multiSampleMask;
+	state.multiSampleCount = static_cast<unsigned int>(pipelineState.getSampleCount());
+	state.multiSampleMask = pipelineState.getMultiSampleMask();
 	state.enableMultiSampling = (state.multiSampleCount > 1) &&
-	                            !(context->isDrawLine(true) && (context->lineRasterizationMode == VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT));
+	                            !(pipelineState.isDrawLine(true) && (pipelineState.getLineRasterizationMode() == VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT));
+	state.sampleShadingEnabled = pipelineState.hasSampleShadingEnabled();
+	state.minSampleShading = pipelineState.getMinSampleShading();
 
-	if(state.enableMultiSampling && context->pixelShader)
+	if(state.enableMultiSampling && fragmentShader)
 	{
-		state.centroid = context->pixelShader->getModes().NeedsCentroid;
+		state.centroid = fragmentShader->getModes().NeedsCentroid;
 	}
 
-	state.frontFace = context->frontFace;
+	state.frontFace = pipelineState.getFrontFace();
 
 	state.hash = state.computeHash();
 
@@ -151,11 +153,11 @@ const PixelProcessor::State PixelProcessor::update(const Context *context) const
 }
 
 PixelProcessor::RoutineType PixelProcessor::routine(const State &state,
-                                                    vk::PipelineLayout const *pipelineLayout,
-                                                    SpirvShader const *pixelShader,
+                                                    const vk::PipelineLayout *pipelineLayout,
+                                                    const SpirvShader *pixelShader,
                                                     const vk::DescriptorSet::Bindings &descriptorSets)
 {
-	auto routine = routineCache->query(state);
+	auto routine = routineCache->lookup(state);
 
 	if(!routine)
 	{

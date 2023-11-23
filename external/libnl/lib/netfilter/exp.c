@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/exp.c	Conntrack Expectation
  *
@@ -305,6 +306,13 @@ static int exp_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 	return err;
 }
 
+/**
+ * Send nfnl exp dump request
+ * @arg sk    Netlink socket.
+ *
+ * @return 0 on success or a negative error code. Due to a bug, this function
+ * returns the number of bytes sent. Treat any non-negative number as success.
+ */
 int nfnl_exp_dump_request(struct nl_sock *sk)
 {
 	return nfnl_send_simple(sk, NFNL_SUBSYS_CTNETLINK_EXP, IPCTNL_MSG_EXP_GET,
@@ -345,15 +353,16 @@ static int nfnl_exp_build_tuple(struct nl_msg *msg, const struct nfnl_exp *exp,
 	struct nlattr *tuple, *ip, *proto;
 	struct nl_addr *addr;
 	int family;
+	int type;
 
 	family = nfnl_exp_get_family(exp);
 
-	int type = exp_get_tuple_attr(cta);
+	type = exp_get_tuple_attr(cta);
 
-    if (cta == CTA_EXPECT_NAT)
-        tuple = nla_nest_start(msg, CTA_EXPECT_NAT_TUPLE);
-    else
-        tuple = nla_nest_start(msg, cta);
+	if (cta == CTA_EXPECT_NAT)
+		tuple = nla_nest_start(msg, CTA_EXPECT_NAT_TUPLE);
+	else
+		tuple = nla_nest_start(msg, cta);
 
 	if (!tuple)
 		goto nla_put_failure;
@@ -483,6 +492,8 @@ static int nfnl_exp_build_message(const struct nfnl_exp *exp, int cmd, int flags
 	return 0;
 
 nla_put_failure:
+	err = -NLE_NOMEM;
+
 err_out:
 	nlmsg_free(msg);
 	return err;

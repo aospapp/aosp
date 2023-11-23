@@ -67,9 +67,9 @@ class TableMacrosUnittest : public ::testing::Test {
 };
 
 TEST_F(TableMacrosUnittest, Name) {
-  ASSERT_EQ(event_.table_name(), "event");
-  ASSERT_EQ(slice_.table_name(), "slice");
-  ASSERT_EQ(cpu_slice_.table_name(), "cpu_slice");
+  ASSERT_STREQ(event_.table_name(), "event");
+  ASSERT_STREQ(slice_.table_name(), "slice");
+  ASSERT_STREQ(cpu_slice_.table_name(), "cpu_slice");
 }
 
 TEST_F(TableMacrosUnittest, InsertParent) {
@@ -326,7 +326,7 @@ TEST_F(TableMacrosUnittest, NullableDoubleCompareWithLong) {
   row.value = 99.9999;
   counter_.Insert(row);
 
-  row.value = std::numeric_limits<int64_t>::min();
+  row.value = static_cast<double>(std::numeric_limits<int64_t>::min());
   counter_.Insert(row);
 
   Table out = counter_.Filter({counter_.value().eq_value(SqlValue::Long(100))});

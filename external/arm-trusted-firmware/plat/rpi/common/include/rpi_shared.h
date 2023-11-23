@@ -14,7 +14,7 @@
  ******************************************************************************/
 
 /* Utility functions */
-void rpi3_console_init(unsigned int base_clk_rate);
+void rpi3_console_init(void);
 void rpi3_setup_page_tables(uintptr_t total_base, size_t total_size,
 			    uintptr_t code_start, uintptr_t code_limit,
 			    uintptr_t rodata_start, uintptr_t rodata_limit
@@ -35,5 +35,7 @@ void plat_rpi3_io_setup(void);
 
 /* VideoCore firmware commands */
 int rpi3_vc_hardware_get_board_revision(uint32_t *revision);
+
+int plat_rpi_get_model(void);
 
 #endif /* RPI3_PRIVATE_H */

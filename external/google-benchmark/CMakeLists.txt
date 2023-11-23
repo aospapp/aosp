@@ -194,6 +194,7 @@ else()
   # Link time optimisation
   if (BENCHMARK_ENABLE_LTO)
     add_cxx_compiler_flag(-flto)
+    add_cxx_compiler_flag(-Wno-lto-type-mismatch)
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
       find_program(GCC_AR gcc-ar)
       if (GCC_AR)
@@ -245,11 +246,17 @@ if (BENCHMARK_USE_LIBCXX)
   endif()
 endif(BENCHMARK_USE_LIBCXX)
 
+set(EXTRA_CXX_FLAGS "")
+if (WIN32 AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+  # Clang on Windows fails to compile the regex feature check under C++11
+  set(EXTRA_CXX_FLAGS "-DCMAKE_CXX_STANDARD=14")
+endif()
+
 # C++ feature checks
 # Determine the correct regular expression engine to use
-cxx_feature_check(STD_REGEX)
-cxx_feature_check(GNU_POSIX_REGEX)
-cxx_feature_check(POSIX_REGEX)
+cxx_feature_check(STD_REGEX ${EXTRA_CXX_FLAGS})
+cxx_feature_check(GNU_POSIX_REGEX ${EXTRA_CXX_FLAGS})
+cxx_feature_check(POSIX_REGEX ${EXTRA_CXX_FLAGS})
 if(NOT HAVE_STD_REGEX AND NOT HAVE_GNU_POSIX_REGEX AND NOT HAVE_POSIX_REGEX)
   message(FATAL_ERROR "Failed to determine the source files for the regular expression backend")
 endif()
@@ -257,6 +264,7 @@ if (NOT BENCHMARK_ENABLE_EXCEPTIONS AND HAVE_STD_REGEX
         AND NOT HAVE_GNU_POSIX_REGEX AND NOT HAVE_POSIX_REGEX)
   message(WARNING "Using std::regex with exceptions disabled is not fully supported")
 endif()
+
 cxx_feature_check(STEADY_CLOCK)
 # Ensure we have pthreads
 set(THREADS_PREFER_PTHREAD_FLAG ON)

@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import datetime
 import dbus
 import logging
 import os
@@ -12,6 +13,7 @@ import time
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.audio import cras_utils
 
@@ -30,6 +32,8 @@ class audio_CrasDevSwitchStress(test.test):
     _CHECK_PERIOD_TIME_SECS = 0.5
     _SILENT_OUTPUT_DEV_ID = 2
     _STREAM_BLOCK_SIZE = 480
+    _AUDIO_LOG_TIME_FMT = '%Y-%m-%dT%H:%M:%S.%f'
+    _last_audio_log = ''
 
     """
     Buffer level of input device should stay between 0 and block size.
@@ -40,6 +44,10 @@ class audio_CrasDevSwitchStress(test.test):
     _INPUT_BUFFER_DRIFT_CRITERIA = 3 * _STREAM_BLOCK_SIZE
     _OUTPUT_BUFFER_DRIFT_CRITERIA = 3 * _STREAM_BLOCK_SIZE
 
+    def initialize(self):
+        """Initialize the test"""
+        upstart.stop_job('ui')
+
     def cleanup(self):
         """Remove all streams for testing."""
         if self._streams:
@@ -47,7 +55,7 @@ class audio_CrasDevSwitchStress(test.test):
             while len(self._streams) > 0:
                 self._streams[0].kill()
                 self._streams.remove(self._streams[0])
-
+        upstart.restart_job('ui')
         super(audio_CrasDevSwitchStress, self).cleanup()
 
     def _new_stream(self, stream_type, node_pinned):
@@ -78,6 +86,28 @@ class audio_CrasDevSwitchStress(test.test):
 
         return subprocess.Popen(cmd)
 
+    def _get_time(self, s):
+        """
+        Parse timespec from the audio log. The format is like
+        2020-07-16T00:36:40.819094632 cras ...
+
+        Args:
+            s: A string to parse.
+
+        Returns:
+            The datetime object created from the given string.
+        """
+        return datetime.datetime.strptime(
+                s.split(' ')[0][:-3], self._AUDIO_LOG_TIME_FMT)
+
+    def _update_last_log_time(self):
+        """Save the time of the last audio thread logs."""
+
+        proc = subprocess.Popen(['cras_test_client', '--dump_a'],
+                                stdout=subprocess.PIPE)
+        output, err = proc.communicate()
+        self._last_log_time = self._get_time(output.split('\n')[-2])
+
     def _get_buffer_level(self, match_str, dev_id):
         """
         Gets a rough number about current buffer level.
@@ -93,7 +123,18 @@ class audio_CrasDevSwitchStress(test.test):
                                 stdout=subprocess.PIPE)
         output, err = proc.communicate()
         buffer_level = 0
-        for line in output.split('\n'):
+        lines = output.split('\n')
+        start = False
+        for line in lines:
+            if not line or not start:
+                # The timestamp shows up in later lines.
+                if 'start at' in line:
+                    start = True
+                continue
+            time = self._get_time(line)
+            # Filter logs which appeared earlier than the test run.
+            if time <= self._last_log_time:
+                continue
             search = re.match(match_str, line)
             if search:
                 if dev_id != int(search.group(1)):
@@ -164,6 +205,9 @@ class audio_CrasDevSwitchStress(test.test):
         node_pinned = None
         self._streams = []
 
+        """Store the selected nodes at the start of the test."""
+        (output_type, input_type) = cras_utils.get_selected_node_types()
+
         cras_pid = self._get_cras_pid()
 
         try:
@@ -184,6 +228,7 @@ class audio_CrasDevSwitchStress(test.test):
         if not (node_a and node_b):
             raise error.TestNAError("No output nodes pair to switch.")
 
+        self._update_last_log_time();
         if node_pinned:
             if node_pinned['IsInput']:
                 self._streams.append(
@@ -221,3 +266,6 @@ class audio_CrasDevSwitchStress(test.test):
         except dbus.DBusException as e:
             logging.exception(e)
             raise error.TestFail("CRAS may have crashed.")
+        finally:
+            """Restore the nodes at the end of the test."""
+            cras_utils.set_selected_node_types(output_type, input_type)

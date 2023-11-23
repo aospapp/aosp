@@ -26,7 +26,7 @@ group("all") {
 
 pkg_config("target_defaults") {
   pkg_deps = [
-    "libchrome-${libbase_ver}",
+    "libchrome",
   ]
   if (use.fuzzer) {
     # Link against protobuf for fuzzers so we can use libprotobuf-mutator.
@@ -104,7 +104,7 @@ static_library("libpuffdiff") {
 
 pkg_config("libbrillo") {
   pkg_deps = [
-    "libbrillo-${libbase_ver}",
+    "libbrillo",
   ]
 }
 

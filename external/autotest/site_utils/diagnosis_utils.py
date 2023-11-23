@@ -11,10 +11,8 @@ from datetime import datetime
 import common
 
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import time_utils
 from autotest_lib.server import utils
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
-from autotest_lib.server.lib import status_history
 
 CONFIG = global_config.global_config
 
@@ -72,30 +70,6 @@ class NotEnoughDutsError(utils.TestLabException):
         if self.build is not None:
             msg_parts.append('build: {this.build}')
         return ', '.join(msg_parts).format(**format_dict)
-
-
-    def add_bug_id(self, bug_id):
-        """Add crbug id associated with this exception.
-
-        @param bug_id  crbug id whose str() value is used in a crbug URL.
-        """
-        self.bug_id = bug_id
-
-
-    def add_suite_name(self, suite_name):
-        """Add name of test suite that needed the DUTs.
-
-        @param suite_name  Name of test suite.
-        """
-        self.suite_name = suite_name
-
-
-    def add_build(self, build):
-        """Add name of build of job that needed the DUTs.
-
-        @param build  Name of build.
-        """
-        self.build = build
 
 
 class SimpleTimer(object):
@@ -215,56 +189,6 @@ class RPCHelper(object):
         @param rpc_interface: An rpc object, eg: A RetryingAFE instance.
         """
         self.rpc_interface = rpc_interface
-
-
-    def diagnose_pool(self, labels, time_delta_hours, limit=10):
-        """Log diagnostic information about a timeout for a board/pool.
-
-        @param labels: DUT label dependencies, including board and pool
-                       labels.
-        @param time_delta_hours: The time from which we should log information.
-            This is a datetime.timedelta object, as stored by the JobTimer.
-        @param limit: The maximum number of jobs per host, to log.
-
-        @raises proxy.JSONRPCException: For exceptions thrown across the wire.
-        """
-        end_time = datetime.now()
-        start_time = end_time - time_delta_hours
-        host_histories = status_history.HostJobHistory.get_multiple_histories(
-                self.rpc_interface,
-                time_utils.to_epoch_time(start_time),
-                time_utils.to_epoch_time(end_time),
-                labels,
-        )
-        if not host_histories:
-            logging.error('No hosts found for labels %r', labels)
-            return
-        status_map = {
-            status_history.UNUSED: 'Unused',
-            status_history.UNKNOWN: 'No job history',
-            status_history.WORKING: 'Working',
-            status_history.BROKEN: 'Failed repair'
-        }
-        for history in host_histories:
-            count = 0
-            job_info =''
-            for job in history:
-                start_time = (
-                        time_utils.epoch_time_to_date_string(job.start_time))
-                job_info += ('%s %s started on: %s status %s\n' %
-                        (job.id, job.name, start_time, job.job_status))
-                count += 1
-                if count >= limit:
-                    break
-            host = history.host
-            logging.error('host: %s, status: %s, locked: %s '
-                          'diagnosis: %s\n'
-                          'labels: %s\nLast %s jobs within %s:\n'
-                          '%s',
-                          history.hostname, host.status, host.locked,
-                          status_map[history.last_diagnosis()[0]],
-                          host.labels, limit, time_delta_hours,
-                          job_info)
 
 
     def check_dut_availability(self, labels, minimum_duts=0,

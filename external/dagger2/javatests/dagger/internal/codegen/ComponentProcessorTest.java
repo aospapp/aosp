@@ -20,11 +20,10 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 import static dagger.internal.codegen.CompilerMode.DEFAULT_MODE;
 import static dagger.internal.codegen.CompilerMode.FAST_INIT_MODE;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_CODE_ANNOTATIONS;
 import static dagger.internal.codegen.GeneratedLines.IMPORT_GENERATED_ANNOTATION;
-import static dagger.internal.codegen.GeneratedLines.NPE_FROM_COMPONENT_METHOD;
-import static dagger.internal.codegen.GeneratedLines.NPE_FROM_PROVIDES_METHOD;
 
 import com.google.auto.common.MoreElements;
 import com.google.common.base.Predicate;
@@ -107,16 +106,15 @@ public class ComponentProcessorTest {
         "}");
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(parent, child, another, componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
-        .hadErrorContaining("java.util.List<java.lang.Integer> is bound multiple times");
+        .hadErrorContaining("List<Integer> is bound multiple times");
     assertThat(compilation)
-        .hadErrorContaining("@Provides List<Integer> test.ChildNumberModule.provideListB(Integer)");
+        .hadErrorContaining("@Provides List<Integer> ChildNumberModule.provideListB(Integer)");
     assertThat(compilation)
-        .hadErrorContaining("@Provides List<Integer> test.AnotherModule.provideListOfInteger()");
+        .hadErrorContaining("@Provides List<Integer> AnotherModule.provideListOfInteger()");
   }
 
   @Test public void privateNestedClassWithWarningThatIsAnErrorInComponent() {
@@ -142,8 +140,7 @@ public class ComponentProcessorTest {
         "  OuterClass outerClass();",
         "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(
+        compilerWithOptions(
                 compilerMode.javacopts().append("-Adagger.privateMemberValidation=WARNING"))
             .compile(outerClass, componentFile);
     assertThat(compilation).failed();
@@ -185,7 +182,7 @@ public class ComponentProcessorTest {
                 IMPORT_GENERATED_ANNOTATION,
                 "import javax.inject.Provider;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerSimpleComponent implements SimpleComponent {")
             .addLinesIn(
                 FAST_INIT_MODE,
@@ -261,8 +258,7 @@ public class ComponentProcessorTest {
             .build();
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectableTypeFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -302,7 +298,7 @@ public class ComponentProcessorTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerSimpleComponent implements SimpleComponent {")
             .addLinesIn(
                 FAST_INIT_MODE,
@@ -387,8 +383,7 @@ public class ComponentProcessorTest {
                 "  }")
             .build();
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectableTypeFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -422,7 +417,7 @@ public class ComponentProcessorTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerOuterType_SimpleComponent",
                 "    implements OuterType.SimpleComponent {",
                 "  private DaggerOuterType_SimpleComponent() {}",
@@ -446,7 +441,7 @@ public class ComponentProcessorTest {
             .build();
 
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(nestedTypesFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(nestedTypesFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
         .generatedSourceFile("test.DaggerOuterType_SimpleComponent")
@@ -506,7 +501,7 @@ public class ComponentProcessorTest {
                 "import dagger.internal.Preconditions;",
                 IMPORT_GENERATED_ANNOTATION,
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {",
                 "  private final TestModule testModule;",
                 "",
@@ -514,13 +509,13 @@ public class ComponentProcessorTest {
                 "    this.testModule = testModuleParam;",
                 "  }",
                 "",
-                "  private B getB() {",
+                "  private B b() {",
                 "    return TestModule_BFactory.b(testModule, new C());",
                 "  }",
                 "",
                 "  @Override",
                 "  public A a() {",
-                "    return new A(getB());",
+                "    return new A(b());",
                 "  }",
                 "",
                 "  static final class Builder {",
@@ -542,8 +537,7 @@ public class ComponentProcessorTest {
             .build();
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(aFile, bFile, cFile, moduleFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -610,22 +604,21 @@ public class ComponentProcessorTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {",
-                "  private B getB() {",
+                "  private B b() {",
                 "    return TestModule_BFactory.b(new C());",
                 "  }",
                 "",
                 "  @Override",
                 "  public A a() {",
-                "    return new A(getB());",
+                "    return new A(b());",
                 "  }",
                 "}")
             .build();
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(aFile, bFile, cFile, moduleFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -708,7 +701,7 @@ public class ComponentProcessorTest {
         "import dagger.internal.Preconditions;",
         IMPORT_GENERATED_ANNOTATION,
         "",
-        GENERATED_ANNOTATION,
+        GENERATED_CODE_ANNOTATIONS,
         "final class DaggerTestComponent implements TestComponent {",
         "  static final class Builder {",
         "",
@@ -754,8 +747,7 @@ public class ComponentProcessorTest {
         "  }",
         "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(
                 always,
                 testModule,
@@ -789,7 +781,7 @@ public class ComponentProcessorTest {
         "@Component(modules = RootModule.class)",
         "interface TestComponent {}");
     assertThat(
-            daggerCompiler().withOptions(compilerMode.javacopts()).compile(rootModule, component))
+            compilerWithOptions(compilerMode.javacopts()).compile(rootModule, component))
         .failed();
     assertThat(
             daggerCompiler(
@@ -828,7 +820,7 @@ public class ComponentProcessorTest {
             "  ChildComponent childComponent();",
             "}");
     assertThat(
-            daggerCompiler().withOptions(compilerMode.javacopts()).compile(subcomponent, component))
+            compilerWithOptions(compilerMode.javacopts()).compile(subcomponent, component))
         .failed();
     assertThat(
             daggerCompiler(
@@ -893,7 +885,7 @@ public class ComponentProcessorTest {
             "import dagger.internal.Preconditions;",
             IMPORT_GENERATED_ANNOTATION,
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerParent implements Parent {",
             "",
             "  private DaggerParent() {}",
@@ -927,8 +919,7 @@ public class ComponentProcessorTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(component, module, subcomponent);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -962,8 +953,7 @@ public class ComponentProcessorTest {
         "  BClass bClass();",
         "}");
     assertThat(
-            daggerCompiler()
-                .withOptions(compilerMode.javacopts())
+            compilerWithOptions(compilerMode.javacopts())
                 .compile(aModule, aClass, bClass, component))
         .succeeded();
   }
@@ -1007,7 +997,7 @@ public class ComponentProcessorTest {
                 "",
                 "import com.google.errorprone.annotations.CanIgnoreReturnValue;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerSimpleComponent implements SimpleComponent {",
                 "  @Override",
                 "  public void inject(SomeInjectedType instance) {",
@@ -1029,8 +1019,7 @@ public class ComponentProcessorTest {
             .build();
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectableTypeFile, injectedTypeFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1064,7 +1053,7 @@ public class ComponentProcessorTest {
             "test.DaggerSimpleComponent",
             "package test;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerSimpleComponent implements SimpleComponent {",
             "  private Provider<SimpleComponent> simpleComponentProvider;",
             "",
@@ -1084,8 +1073,7 @@ public class ComponentProcessorTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectableTypeFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1129,7 +1117,7 @@ public class ComponentProcessorTest {
                 "",
                 "import com.google.errorprone.annotations.CanIgnoreReturnValue;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerSimpleComponent implements SimpleComponent {",
                 "  @Override",
                 "  public SomeInjectedType createAndInject() {",
@@ -1147,8 +1135,7 @@ public class ComponentProcessorTest {
             .build();
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectableTypeFile, injectedTypeFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1198,11 +1185,9 @@ public class ComponentProcessorTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerBComponent implements BComponent {")
-            .addLinesIn(
-                DEFAULT_MODE,
-                "  private Provider<A> aProvider;")
+            .addLinesIn(DEFAULT_MODE, "  private Provider<A> aProvider;")
             .addLinesIn(
                 FAST_INIT_MODE,
                 "  private final AComponent aComponent;",
@@ -1212,7 +1197,7 @@ public class ComponentProcessorTest {
                 "    this.aComponent = aComponentParam;",
                 "  }",
                 "",
-                "  private Provider<A> getAProvider() {",
+                "  private Provider<A> aProvider() {",
                 "    Object local = aProvider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(0);",
@@ -1226,16 +1211,9 @@ public class ComponentProcessorTest {
                 "  private void initialize(final AComponent aComponentParam) {",
                 "    this.aProvider = new test_AComponent_a(aComponentParam);",
                 "  }")
-            .addLines(
-                "",
-                "  @Override",
-                "  public B b() {")
-            .addLinesIn(
-                DEFAULT_MODE,
-                "    return new B(aProvider);")
-            .addLinesIn(
-                FAST_INIT_MODE,
-                "    return new B(getAProvider());")
+            .addLines("", "  @Override", "  public B b() {")
+            .addLinesIn(DEFAULT_MODE, "    return new B(aProvider);")
+            .addLinesIn(FAST_INIT_MODE, "    return new B(aProvider());")
             .addLines(
                 "  }",
                 "",
@@ -1263,8 +1241,7 @@ public class ComponentProcessorTest {
                 "    ",
                 "    @Override()",
                 "    public A get() {",
-                "      return Preconditions.checkNotNull(",
-                "          aComponent.a(), " + NPE_FROM_COMPONENT_METHOD + ");",
+                "      return Preconditions.checkNotNullFromComponent(aComponent.a());",
                 "    }",
                 "  }",
                 "}")
@@ -1277,9 +1254,8 @@ public class ComponentProcessorTest {
                 "      switch (id) {",
                 "        case 0:",
                 "          return (T)",
-                "              Preconditions.checkNotNull(",
-                "                  DaggerBComponent.this.aComponent.a(),",
-                "                  " + NPE_FROM_COMPONENT_METHOD + ");",
+                "              Preconditions.checkNotNullFromComponent(",
+                "                  DaggerBComponent.this.aComponent.a());",
                 "        default:",
                 "          throw new AssertionError(id);",
                 "      }",
@@ -1287,8 +1263,7 @@ public class ComponentProcessorTest {
                 "  }")
             .build();
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(aFile, bFile, aComponentFile, bComponentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1343,7 +1318,7 @@ public class ComponentProcessorTest {
             "test.DaggerTestComponent",
             "package test;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
             "  private final TestModule testModule;",
             "  private final other.test.TestModule testModule2;",
@@ -1391,8 +1366,7 @@ public class ComponentProcessorTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(aFile, otherAFile, moduleFile, otherModuleFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1469,7 +1443,7 @@ public class ComponentProcessorTest {
             "import dagger.internal.Preconditions;",
             IMPORT_GENERATED_ANNOTATION,
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerBComponent implements BComponent {",
             "  private final AComponent aComponent;",
             "",
@@ -1480,20 +1454,17 @@ public class ComponentProcessorTest {
             "  @Override",
             "  public InjectedType injectedType() {",
             "    return new InjectedType(",
-            "        Preconditions.checkNotNull(",
-            "            aComponent.someStringInjection(),",
-            "            \"Cannot return null from a non-@Nullable component method\"),",
+            "        Preconditions.checkNotNullFromComponent(",
+            "            aComponent.someStringInjection()),",
             "        aComponent.someIntInjection(),",
             "        aComponent,",
-            "        Preconditions.checkNotNull(",
-            "            aComponent.someClassInjection(),",
-            "            \"Cannot return null from a non-@Nullable component method\"));",
+            "        Preconditions.checkNotNullFromComponent(",
+            "            aComponent.someClassInjection()));",
             "  }",
             "}");
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectedTypeFile, aComponentFile, bComponentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1556,15 +1527,15 @@ public class ComponentProcessorTest {
                 "",
                 IMPORT_GENERATED_ANNOTATION,
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {",
-                "  private B getB() {",
+                "  private B b() {",
                 "    return new B(new C());",
                 "  }",
                 "",
                 "  @Override",
                 "  public A a() {",
-                "    return new A(getB());",
+                "    return new A(b());",
                 "  }",
                 "",
                 "  @Override",
@@ -1580,8 +1551,7 @@ public class ComponentProcessorTest {
             .build();
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(aFile, bFile, cFile, xFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1637,7 +1607,7 @@ public class ComponentProcessorTest {
             "",
             IMPORT_GENERATED_ANNOTATION,
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerSimpleComponent implements SimpleComponent {",
             "  private DaggerSimpleComponent() {}",
             "",
@@ -1663,8 +1633,7 @@ public class ComponentProcessorTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(
                 injectableTypeFile,
                 componentSupertypeAFile,
@@ -1707,7 +1676,7 @@ public class ComponentProcessorTest {
             "test.DaggerSimpleComponent",
             "package test;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerSimpleComponent implements SimpleComponent {",
             "  @Override",
             "  public SomeInjectableType someInjectableType() {",
@@ -1715,8 +1684,7 @@ public class ComponentProcessorTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(injectableTypeFile, componentSupertype, depComponentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -1763,8 +1731,7 @@ public class ComponentProcessorTest {
         "  C c();",
         "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(aFile, bFile, cFile, componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
@@ -1787,7 +1754,7 @@ public class ComponentProcessorTest {
             "  String[] array();",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(component);
+        compilerWithOptions(compilerMode.javacopts()).compile(component);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining("String[] cannot be provided without an @Provides-annotated method");
@@ -2013,7 +1980,7 @@ public class ComponentProcessorTest {
             "  @Inject @AScope AClass() {}",
             "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(aScope, aClass);
+        compilerWithOptions(compilerMode.javacopts()).compile(aScope, aClass);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining("@Scope annotations are not allowed on @Inject constructors")
@@ -2082,7 +2049,7 @@ public class ComponentProcessorTest {
             "import dagger.internal.Preconditions;",
             IMPORT_GENERATED_ANNOTATION,
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerParent implements Parent {",
             "  private DaggerParent() {",
             "  }",
@@ -2111,8 +2078,7 @@ public class ComponentProcessorTest {
             "}");
 
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(foo, module, component, prunedSubcomponent);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -2175,7 +2141,7 @@ public class ComponentProcessorTest {
     assertThat(compilation).failed();
     assertThat(compilation).hadErrorCount(1);
     assertThat(compilation)
-        .hadErrorContaining("java.lang.String is bound multiple times")
+        .hadErrorContaining("String is bound multiple times")
         .inFile(component)
         .onLineContaining("interface TestComponent");
   }
@@ -2183,8 +2149,7 @@ public class ComponentProcessorTest {
   @Test
   public void nullIncorrectlyReturnedFromNonNullableInlinedProvider() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(
                 JavaFileObjects.forSourceLines(
                     "test.TestModule",
@@ -2225,7 +2190,7 @@ public class ComponentProcessorTest {
                 "test.TestModule_NonNullableStringFactory",
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "public final class TestModule_NonNullableStringFactory",
                 "    implements Factory<String> {",
                 "  @Override",
@@ -2234,8 +2199,8 @@ public class ComponentProcessorTest {
                 "  }",
                 "",
                 "  public static String nonNullableString() {",
-                "    return Preconditions.checkNotNull(",
-                "        TestModule.nonNullableString(), " + NPE_FROM_PROVIDES_METHOD + ");",
+                "    return Preconditions.checkNotNullFromProvides(",
+                "        TestModule.nonNullableString());",
                 "  }",
                 "}"));
 
@@ -2245,7 +2210,7 @@ public class ComponentProcessorTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {",
                 "  @Override",
                 "  public String nonNullableString() {",
@@ -2274,8 +2239,7 @@ public class ComponentProcessorTest {
   @Test
   public void nullCheckingIgnoredWhenProviderReturnsPrimitive() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(
                 JavaFileObjects.forSourceLines(
                     "test.TestModule",
@@ -2316,7 +2280,7 @@ public class ComponentProcessorTest {
                 "test.TestModule_PrimitiveIntegerFactory",
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "public final class TestModule_PrimitiveIntegerFactory",
                 "    implements Factory<Integer> {",
                 "",
@@ -2336,7 +2300,7 @@ public class ComponentProcessorTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {",
                 "  @Override",
                 "  public Integer nonNullableInteger() {",
@@ -2412,9 +2376,9 @@ public class ComponentProcessorTest {
         JavaFileObjects.forSourceLines(
             "test.DaggerParent",
             "package test;",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerParent implements Parent {",
-            "  private String getString() {",
+            "  private String string() {",
             "    return TestModule_StringFactory.string(numberProvider.get());",
             "  }",
             "}");
@@ -2482,7 +2446,7 @@ public class ComponentProcessorTest {
         JavaFileObjects.forSourceLines(
             "test.DaggerParent",
             "package test;",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerParent implements Parent {",
             "  private final class ChildImpl implements Child {",
             "    @Override",
@@ -2549,7 +2513,7 @@ public class ComponentProcessorTest {
             "test.DaggerTestComponent",
             "package test;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
             "  @Override",
             "  public Injected injected() {",
@@ -2622,7 +2586,7 @@ public class ComponentProcessorTest {
             "test.DaggerTestComponent",
             "package test;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
             "  @Override",
             "  public String unqualified() {",
@@ -2676,7 +2640,7 @@ public class ComponentProcessorTest {
                 "",
                 IMPORT_GENERATED_ANNOTATION,
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "public final class DaggerPublicComponent implements PublicComponent {",
                 "  private DaggerPublicComponent() {}",
                 "",

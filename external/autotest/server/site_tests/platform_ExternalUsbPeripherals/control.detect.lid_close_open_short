@@ -5,7 +5,7 @@
 from autotest_lib.server import utils
 
 AUTHOR = "Chrome OS Team"
-NAME = "platform_ExternalUsbPeripherals.detect.lid_close_open_short"
+NAME = "platform_ExternalUsbPeripherals.detect.lid_close_open"
 PURPOSE = "Servo based USB boot stress test"
 CRITERIA = "This test will fail if any of the actions or checks fail."
 TIME = "SHORT"
@@ -13,7 +13,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:usb_detect"
-DEPENDENCIES = "servo, use_lid"
+DEPENDENCIES = "servo_state:WORKING"
 JOB_RETRIES = 1
 DOC = """
 This test uses servo to connect/disconnect servo USB hub before and
@@ -42,7 +42,7 @@ def run(machine):
 
     repeat = int(args_dict.get("repeat", 1))
 
-    default_actions = str("plug,unplug,login,plug,"
+    default_actions = str("plug,unplug,login,plug,unplug,closelid,openlid,plug,"
                           "closelid,unplug,openlid,"
                           "closelid,plug,openlid,unplug")
 
@@ -73,6 +73,6 @@ def run(machine):
     job.run_test("platform_ExternalUsbPeripherals", host=host,
                  disable_sysinfo=True, client_autotest="desktopui_SimpleLogin",
                  action_sequence=action_sequence, repeat=repeat,
-                 usb_list=usb_list, usb_checks=usb_checks, tag="detect.lid_close_open_short")
+                 usb_list=usb_list, usb_checks=usb_checks, tag="detect.lid_close_open")
 
 parallel_simple(run, machines)

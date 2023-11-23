@@ -44,6 +44,8 @@ def get_x86_cpu_arch():
 
     if re.search(r'AMD.*[AE][269]-9[0-9][0-9][0-9].*RADEON.*R[245]', cpuinfo):
         return 'Stoney'
+    if re.search(r'AMD.*Ryzen.*Radeon.*', cpuinfo):
+        return 'Ryzen'
     if re.search(r'Intel.*Atom.*[NZ][2-6]', cpuinfo):
         return 'Atom'
     if re.search(r'Intel.*Celeron.*N2[89][0-9][0-9]', cpuinfo):
@@ -76,7 +78,8 @@ def has_rapl_support():
         Boolean, True if RAPL supported, False otherwise.
     """
     rapl_set = set(["Haswell", "Haswell-E", "Broadwell", "Skylake", "Goldmont",
-                    "Kaby Lake", "Comet Lake", "Ice Lake", "Tiger Lake"])
+                    "Kaby Lake", "Comet Lake", "Ice Lake", "Tiger Lake",
+                    "Tremont"])
     cpu_uarch = utils.get_intel_cpu_uarch()
     if (cpu_uarch in rapl_set):
         return True
@@ -237,10 +240,10 @@ def _charge_control_by_ectool(is_charge, ignore_status):
     ec_cmd_discharge = 'ectool chargecontrol discharge'
     ec_cmd_normal = 'ectool chargecontrol normal'
     try:
-       if is_charge:
-           utils.run(ec_cmd_normal)
-       else:
-           utils.run(ec_cmd_discharge)
+        if is_charge:
+            utils.run(ec_cmd_normal)
+        else:
+            utils.run(ec_cmd_discharge)
     except error.CmdError as e:
         logging.warning('Unable to use ectool: %s', e)
         if ignore_status:
@@ -799,7 +802,7 @@ class USBDevicePower(object):
     Public attributes:
         vid: string of USB Vendor ID
         pid: string of USB Product ID
-        whitelisted: Boolean if USB device is whitelisted for USB auto-suspend
+        allowlisted: Boolean if USB device is allowlisted for USB auto-suspend
 
     Private attributes:
        path: string to path of the USB devices in sysfs ( /sys/bus/usb/... )
@@ -808,10 +811,10 @@ class USBDevicePower(object):
     beneficial if it doesn't parse power/control
     """
 
-    def __init__(self, vid, pid, whitelisted, path):
+    def __init__(self, vid, pid, allowlisted, path):
         self.vid = vid
         self.pid = pid
-        self.whitelisted = whitelisted
+        self.allowlisted = allowlisted
         self._path = path
 
     def autosuspend(self):
@@ -830,65 +833,67 @@ class USBPower(object):
     """Class to expose USB related power functionality.
 
     Initially that includes the policy around USB auto-suspend and our
-    whitelisting of devices that are internal to CrOS system.
+    allowlisting of devices that are internal to CrOS system.
 
     Example code:
        usbdev_power = power_utils.USBPower()
        for device in usbdev_power.devices
-           if device.is_whitelisted()
+           if device.is_allowlisted()
                ...
 
     Public attributes:
         devices: list of USBDevicePower instances
 
     Private functions:
-        _is_whitelisted: Returns Boolean if USB device is whitelisted for USB
+        _is_allowlisted: Returns Boolean if USB device is allowlisted for USB
                          auto-suspend
-        _load_whitelist: Reads whitelist and stores int _whitelist attribute
+        _load_allowlist: Reads allowlist and stores int _allowlist attribute
 
     Private attributes:
-        _wlist_file: path to laptop-mode-tools (LMT) USB autosuspend
+        _alist_file: path to laptop-mode-tools (LMT) USB autosuspend
                          conf file.
-        _wlist_vname: string name of LMT USB autosuspend whitelist
+        _alist_vname: string name of LMT USB autosuspend allowlist
                           variable
-        _whitelisted: list of USB device vid:pid that are whitelisted.
+        _allowlisted: list of USB device vid:pid that are allowlisted.
                         May be regular expressions.  See LMT for details.
     """
 
     def __init__(self):
-        self._wlist_file = \
+        self._alist_file = \
             '/etc/laptop-mode/conf.d/board-specific/usb-autosuspend.conf'
-        self._wlist_vname = '$AUTOSUSPEND_USBID_WHITELIST'
-        self._whitelisted = None
+        # TODO b:169251326 terms below are set outside of this codebase
+        # and should be updated when possible. ("WHITELIST" -> "ALLOWLIST")
+        self._alist_vname = '$AUTOSUSPEND_USBID_WHITELIST'
+        self._allowlisted = None
         self.devices = []
 
-    def _load_whitelist(self):
-        """Load USB device whitelist for enabling USB autosuspend
+    def _load_allowlist(self):
+        """Load USB device allowlist for enabling USB autosuspend
 
-        CrOS whitelists only internal USB devices to enter USB auto-suspend mode
+        CrOS allowlist only internal USB devices to enter USB auto-suspend mode
         via laptop-mode tools.
         """
-        cmd = "source %s && echo %s" % (self._wlist_file,
-                                        self._wlist_vname)
+        cmd = "source %s && echo %s" % (self._alist_file,
+                                        self._alist_vname)
         out = utils.system_output(cmd, ignore_status=True)
-        logging.debug('USB whitelist = %s', out)
-        self._whitelisted = out.split()
+        logging.debug('USB allowlist = %s', out)
+        self._allowlisted = out.split()
 
-    def _is_whitelisted(self, vid, pid):
-        """Check to see if USB device vid:pid is whitelisted.
+    def _is_allowlisted(self, vid, pid):
+        """Check to see if USB device vid:pid is allowlisted.
 
         Args:
           vid: string of USB vendor ID
           pid: string of USB product ID
 
         Returns:
-          True if vid:pid in whitelist file else False
+          True if vid:pid in allowlist file else False
         """
-        if self._whitelisted is None:
-            self._load_whitelist()
+        if self._allowlisted is None:
+            self._load_allowlist()
 
         match_str = "%s:%s" % (vid, pid)
-        for re_str in self._whitelisted:
+        for re_str in self._allowlisted:
             if re.match(re_str, match_str):
                 return True
         return False
@@ -909,8 +914,8 @@ class USBPower(object):
                 continue
             vid = utils.read_one_line(vid_path)
             pid = utils.read_one_line(pid_path)
-            whitelisted = self._is_whitelisted(vid, pid)
-            self.devices.append(USBDevicePower(vid, pid, whitelisted, dirpath))
+            allowlisted = self._is_allowlisted(vid, pid)
+            self.devices.append(USBDevicePower(vid, pid, allowlisted, dirpath))
 
 
 class DisplayPanelSelfRefresh(object):
@@ -998,6 +1003,7 @@ class BaseActivitySimulator(object):
     # TODO(coconutruben): check when next wave of detachables come out if this
     # structure still holds, or if we need to replace it by querying input
     # devices.
+    _BASE_INIT_CMD = 'cros_config /detachable-base usb-path'
     _BASE_INIT_FILE = '/etc/init/hammerd.override'
     _BASE_WAKE_TIME_MS = 10000
 
@@ -1010,30 +1016,39 @@ class BaseActivitySimulator(object):
         at most _BASE_WAKE_TIME_MS.
 
         """
-        self._should_run = os.path.exists(self._BASE_INIT_FILE)
-        base_power_path = ''
+        self._should_run = False
+
+        if os.path.exists(self._BASE_INIT_FILE):
+            # Try hammerd.override first.
+            init_file_content = utils.read_file(self._BASE_INIT_FILE)
+            try:
+                # The string can be like: env USB_PATH="1-1.1"
+                path = re.search(r'env USB_PATH=\"?([0-9.-]+)\"?',
+                                 init_file_content).group(1)
+            except AttributeError:
+                logging.warning('Failed to read USB path from hammerd file.')
+            else:
+                self._should_run = self._set_base_power_path(path)
+                if not self._should_run:
+                    logging.warning('Device has hammerd file, but base USB'
+                                    ' device not found.')
+
+        if not self._should_run:
+            # Try cros_config.
+            result = utils.run(self._BASE_INIT_CMD, ignore_status=True)
+            if result.exit_status:
+                logging.warning('Command failed: %s', self._BASE_INIT_CMD)
+            else:
+                self._should_run = self._set_base_power_path(result.stdout)
+                if not self._should_run:
+                    logging.warning('cros_config has base info, but base USB'
+                                    ' device not found.')
+
         if self._should_run:
-            with open(self._BASE_INIT_FILE, 'r') as init_file:
-                init_file_content = init_file.read()
-                try:
-                    bus = re.search('env USB_BUS=([0-9]+)',
-                                    init_file_content).group(1)
-                    port = re.search('env USB_PORT=([0-9]+)',
-                                    init_file_content).group(1)
-                except AttributeError:
-                    raise BaseActivityException("Failed to read usb bus "
-                                                "or port from hammerd file.")
-                base_power_path = ('/sys/bus/usb/devices/%s-%s/power/'
-                                   % (bus, port))
-                if not os.path.exists(base_power_path):
-                    logging.warn("Device has hammerd file, but base usb device"
-                                 " not found.")
-                    self._should_run = False
-        if self._should_run:
-            self._base_control_path =  os.path.join(base_power_path,
-                                                    'control')
-            self._autosuspend_delay_path = os.path.join(base_power_path,
-                                                       'autosuspend_delay_ms')
+            self._base_control_path = os.path.join(self._base_power_path,
+                                                   'control')
+            self._autosuspend_delay_path = os.path.join(self._base_power_path,
+                                                        'autosuspend_delay_ms')
             logging.debug("base activity simulator will be running.")
             with open(self._base_control_path, 'r+') as f:
                 self._default_control = f.read()
@@ -1044,6 +1059,23 @@ class BaseActivitySimulator(object):
             with open(self._autosuspend_delay_path, 'r+') as f:
                 self._default_autosuspend_delay_ms = f.read().rstrip('\n')
                 f.write(str(self._BASE_WAKE_TIME_MS))
+        else:
+            logging.info('No base USB device found, base activity simulator'
+                         ' will NOT be running.')
+
+    def _set_base_power_path(self, usb_path):
+        """Set base power path and check if it exists.
+
+        Args:
+          usb_path: the USB device path under /sys/bus/usb/devices/.
+
+        Returns:
+          True if the base power path exists, or False otherwise.
+        """
+        self._base_power_path = '/sys/bus/usb/devices/%s/power/' % usb_path
+        if not os.path.exists(self._base_power_path):
+            logging.warning('Path not found: %s', self._base_power_path)
+        return os.path.exists(self._base_power_path)
 
     def wake_base(self, wake_time_ms=_BASE_WAKE_TIME_MS):
         """Wake up the base to simulate user activity.

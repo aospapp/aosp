@@ -4,7 +4,9 @@ to a stand alone file for readability/maintainability. Source is
 policy_templates.json, and this file will need to be periodically updated if new
 device policies are added to the proto.
 """
-
+# TODO b:169251326 terms below are set outside of this codebase
+# and should be updated when possible.
+# ("whitelist" -> "allowlist", "blacklist" --> "blocklist" or "denylist")
 DEVICE_POLICY_DICT = {
     'DeviceGuestModeEnabled': 'guest_mode_enabled.guest_mode_enabled',
     'DeviceRebootOnShutdown': 'reboot_on_shutdown.reboot_on_shutdown',
@@ -126,5 +128,8 @@ DEVICE_POLICY_DICT = {
     'DeviceBatteryChargeCustomStartCharging': 'device_battery_charge_mode.custom_charge_start',
     'DeviceBatteryChargeCustomStopCharging': 'device_battery_charge_mode.custom_charge_stop',
     'DeviceScheduledUpdateCheck': 'device_scheduled_update_check.device_scheduled_update_check_settings',
-    'DevicePowerwashAllowed': 'device_powerwash_allowed.device_powerwash_allowed'
-  }
+    'DevicePrinters': 'device_printers.external_policy',
+    'DevicePrintersAccessMode': 'device_printers_access_mode.access_mode',
+    'DevicePrintersBlocklist': 'device_printers_blocklist.blocklist',
+    'DevicePrintersAllowlist': 'device_printers_allowlist.allowlist'
+}

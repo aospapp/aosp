@@ -70,6 +70,10 @@ public class Illustration extends FrameLayout {
   // All the constructors delegate to this init method. The 3-argument constructor is not
   // available in FrameLayout before v11, so call super with the exact same arguments.
   private void init(AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
+
     if (attrs != null) {
       TypedArray a =
           getContext().obtainStyledAttributes(attrs, R.styleable.SudIllustration, defStyleAttr, 0);

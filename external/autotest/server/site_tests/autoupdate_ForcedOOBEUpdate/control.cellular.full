@@ -9,7 +9,8 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:cellular_au"
+# Disable this test until it can be fixed: https://crbug.com/969207
+# ATTRIBUTES = "suite:cellular_au"
 DOC = """
 This tests the forced autoupdate flow at OOBE using cellular.
 

@@ -1,3 +1,31 @@
+$ $
+$ SPDX-License-Identifier: BSD-2-Clause
+$ $
+$ Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+$ $
+$ Redistribution and use in source and binary forms, with or without
+$ modification, are permitted provided that the following conditions are met:
+$ $
+$ * Redistributions of source code must retain the above copyright notice, this
+$   list of conditions and the following disclaimer.
+$ $
+$ * Redistributions in binary form must reproduce the above copyright notice,
+$   this list of conditions and the following disclaimer in the documentation
+$   and/or other materials provided with the distribution.
+$ $
+$ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+$ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+$ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+$ ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+$ LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+$ CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+$ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+$ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+$ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+$ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+$ POSSIBILITY OF SUCH DAMAGE.
+$ $
+
 $quote "
 
 $ Headers for printing errors/warnings.
@@ -34,7 +62,7 @@ $set 4
 7 "leerer Ausdruck"
 8 "Ungültige Druckanweisung"
 9 "Ungültige Funktionsdefinition"
-10 "Ungültige Zuweisung: Die linke Seite muss \"scale\", \"ibase\", \"obase\", \"last\", \"var\" oder \"array element\" sein"
+10 "Ungültige Zuweisung: Die linke Seite muss \"scale\", \"ibase\", \"obase\", \"seed\", \"last\", \"var\" oder \"array element\" sein"
 11 "keine automatische Variable gefunden"
 12 "Funktionsparameter oder Variable \"%s%s\" existiert bereits"
 13 "Blockende konnte nicht gefunden werden"
@@ -75,4 +103,6 @@ $set 6
 3 "konnte die Datei nicht öffnen: %s"
 4 "Datei ist nicht ASCII: %s"
 5 "Pfad ist ein Verzeichnis: %s"
-6 "ungültige Befehlszeilenoption: '%c' (\"%s\")"
+6 "ungültige Befehlszeilenoption: \"%s\""
+7 "Option erfordert ein Argument: '%c' (\"%s\")"
+8 "Option benutzt keine Argumente: '%c' (\"%s\")"

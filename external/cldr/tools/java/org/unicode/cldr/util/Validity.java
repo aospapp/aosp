@@ -50,13 +50,14 @@ public class Validity {
         Map<LstrType, Map<Status, Set<String>>> data = new EnumMap<>(LstrType.class);
         Map<LstrType, Map<String, Status>> codeToStatus = new EnumMap<>(LstrType.class);
         final String basePath = validityDirectory;
+
         for (String file : new File(basePath).list()) {
             if (!file.endsWith(".xml")) {
                 continue;
             }
             LstrType type = null;
             try {
-                type = LstrType.valueOf(file.substring(0, file.length() - 4));
+                type = LstrType.fromString(file.substring(0, file.length() - 4));
             } catch (Exception e) {
                 continue;
             }
@@ -76,7 +77,7 @@ public class Validity {
                 if (!"id".equals(parts.getElement(-1))) {
                     continue;
                 }
-                LstrType typeAttr = LstrType.valueOf(parts.getAttributeValue(-1, "type"));
+                LstrType typeAttr = LstrType.fromString(parts.getAttributeValue(-1, "type"));
                 if (typeAttr != type) {
                     throw new IllegalArgumentException("Corrupt value for " + type);
                 }
@@ -101,14 +102,18 @@ public class Validity {
                 }
             }
         }
+        if (data.keySet().size() < 5) {
+            throw new IllegalArgumentException("Bad directory for validity files");
+        }
         typeToStatusToCodes = CldrUtility.protectCollectionX(data);
         typeToCodeToStatus = CldrUtility.protectCollectionX(codeToStatus);
     }
 
     /**
-     * 
+     *
      * @deprecated Use {@link #getStatusToCodes(LstrType)}
      */
+    @Deprecated
     public Map<LstrType, Map<Status, Set<String>>> getData() {
         return typeToStatusToCodes;
     }

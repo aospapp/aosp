@@ -23,7 +23,7 @@
 %                                March 2002                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -50,6 +50,7 @@
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/magick-wand-private.h"
 #include "MagickWand/wand.h"
+#include "MagickCore/image-private.h"
 #include "MagickCore/string-private.h"
 
 /*
@@ -441,7 +442,7 @@ WandExport void ClearDrawingWand(DrawingWand *wand)
   wand->pattern_bounds.width=0;
   wand->pattern_bounds.height=0;
   wand->index=0;
-  wand->graphic_context=(DrawInfo **) AcquireMagickMemory(
+  wand->graphic_context=(DrawInfo **) AcquireQuantumMemory(1,
     sizeof(*wand->graphic_context));
   if (wand->graphic_context == (DrawInfo **) NULL)
     {
@@ -487,7 +488,7 @@ WandExport DrawingWand *CloneDrawingWand(const DrawingWand *wand)
   DrawingWand
     *clone_wand;
 
-  register ssize_t
+  ssize_t
     i;
 
   assert(wand != (DrawingWand *) NULL);
@@ -1013,10 +1014,10 @@ WandExport MagickBooleanType DrawComposite(DrawingWand *wand,
     *clone_image,
     *image;
 
-  register char
+  char
     *p;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -1617,8 +1618,8 @@ WandExport MagickBooleanType DrawGetFontResolution(const DrawingWand *wand,
   assert(wand->signature == MagickWandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  *x=72.0;
-  *y=72.0;
+  *x=DefaultResolution;
+  *y=DefaultResolution;
   if (CurrentContext->density != (char *) NULL)
     {
       GeometryInfo
@@ -1931,13 +1932,13 @@ WandExport double *DrawGetStrokeDashArray(const DrawingWand *wand,
   double
     *dasharray;
 
-  register const double
+  const double
     *p;
 
-  register double
+  double
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -2538,7 +2539,7 @@ WandExport char *DrawGetVectorGraphics(DrawingWand *wand)
   PixelInfo
     pixel;
 
-  register ssize_t
+  ssize_t
     i;
 
   XMLTreeInfo
@@ -4284,10 +4285,10 @@ WandExport MagickBooleanType DrawPushPattern(DrawingWand *wand,
     x,y,width,height);
   wand->indent_depth++;
   wand->pattern_id=AcquireString(pattern_id);
-  wand->pattern_bounds.x=(ssize_t) ceil(x-0.5);
-  wand->pattern_bounds.y=(ssize_t) ceil(y-0.5);
-  wand->pattern_bounds.width=(size_t) floor(width+0.5);
-  wand->pattern_bounds.height=(size_t) floor(height+0.5);
+  wand->pattern_bounds.x=CastDoubleToLong(ceil(x-0.5));
+  wand->pattern_bounds.y=CastDoubleToLong(ceil(y-0.5));
+  wand->pattern_bounds.width=(size_t) CastDoubleToLong(floor(width+0.5));
+  wand->pattern_bounds.height=(size_t) CastDoubleToLong(floor(height+0.5));
   wand->pattern_offset=wand->mvg_length;
   return(MagickTrue);
 }
@@ -5532,13 +5533,13 @@ WandExport MagickBooleanType DrawSetStrokeDashArray(DrawingWand *wand,
   MagickBooleanType
     update;
 
-  register const double
+  const double
     *p;
 
-  register double
+  double
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -6444,7 +6445,7 @@ WandExport MagickBooleanType DrawSetVectorGraphics(DrawingWand *wand,
       const char
         *q;
 
-      register ssize_t
+      ssize_t
         x;
 
       ssize_t

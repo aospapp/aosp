@@ -72,14 +72,26 @@ void DrawPlayer(int player_number) {
 }
 
 void DrawGame() {
-  TRACE_EVENT("rendering", "DrawGame");
+  // This is an example of an unscoped slice, which begins and ends at specific
+  // points (instead of at the end of the current block scope).
+  TRACE_EVENT_BEGIN("rendering", "DrawGame");
   DrawPlayer(1);
   DrawPlayer(2);
+  TRACE_EVENT_END("rendering");
+
+  // Record the rendering framerate as a counter sample.
+  TRACE_COUNTER("rendering", "Framerate", 120);
 }
 
 int main(int, const char**) {
   InitializePerfetto();
   auto tracing_session = StartTracing();
+
+  // Give a custom name for the traced process.
+  perfetto::ProcessTrack process_track = perfetto::ProcessTrack::Current();
+  perfetto::protos::gen::TrackDescriptor desc = process_track.Serialize();
+  desc.mutable_process()->set_process_name("Example");
+  perfetto::TrackEvent::SetTrackDescriptor(process_track, desc);
 
   // Simulate some work that emits trace events.
   DrawGame();

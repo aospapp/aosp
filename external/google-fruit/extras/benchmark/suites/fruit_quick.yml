@@ -19,8 +19,8 @@ global:
 # These values are ignored, they are here just to be referenced below.
 constants:
   compilers: &compilers
-    - "g++-6"
-    - "clang++-4.0"
+    - "g++-9"
+    - "clang++-10"
   num_classes: &num_classes
     - 100
 
@@ -38,9 +38,13 @@ benchmarks:
 
   - name:
       - "fruit_compile_time"
+      - "fruit_compile_memory"
       - "fruit_incremental_compile_time"
       - "fruit_run_time"
+      - "fruit_startup_time"
+      - "fruit_startup_time_with_normalized_component"
       - "fruit_executable_size"
+      - "fruit_executable_size_without_exceptions_and_rtti"
     loop_factor: 1.0
     num_classes: *num_classes
     compiler: *compilers

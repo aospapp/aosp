@@ -8,7 +8,6 @@ mod vcpu;
 use std::fmt::{self, Display};
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixDatagram;
 use std::path::Path;
 use std::result;
@@ -20,21 +19,22 @@ use std::time::{Duration, Instant};
 use libc::{
     c_int, c_ulong, fcntl, ioctl, socketpair, AF_UNIX, EAGAIN, EBADF, EDEADLK, EEXIST, EINTR,
     EINVAL, ENOENT, EOVERFLOW, EPERM, FIOCLEX, F_SETPIPE_SZ, MS_NODEV, MS_NOEXEC, MS_NOSUID,
-    SIGCHLD, SOCK_SEQPACKET,
+    MS_RDONLY, SIGCHLD, SOCK_SEQPACKET,
 };
 
 use protobuf::ProtobufError;
 use remain::sorted;
 
-use io_jail::{self, Minijail};
-use kvm::{Datamatch, IoeventAddress, Kvm, Vcpu, VcpuExit, Vm};
-use net_util::{Error as TapError, Tap, TapT};
-use sys_util::{
+use base::{
     block_signal, clear_signal, drop_capabilities, error, getegid, geteuid, info, pipe,
-    register_signal_handler, validate_raw_fd, warn, Error as SysError, EventFd, GuestMemory,
-    Killable, MmapError, PollContext, PollToken, Result as SysResult, SignalFd, SignalFdError,
-    SIGRTMIN,
+    register_rt_signal_handler, validate_raw_descriptor, warn, AsRawDescriptor, Error as SysError,
+    Event, FromRawDescriptor, Killable, MmapError, PollToken, Result as SysResult, SignalFd,
+    SignalFdError, WaitContext, SIGRTMIN,
 };
+use kvm::{Cap, Datamatch, IoeventAddress, Kvm, Vcpu, VcpuExit, Vm};
+use minijail::{self, Minijail};
+use net_util::{Error as TapError, Tap, TapT};
+use vm_memory::{GuestMemory, MemoryPolicy};
 
 use self::process::*;
 use self::vcpu::*;
@@ -46,38 +46,39 @@ const MAX_VCPU_DATAGRAM_SIZE: usize = 0x40000;
 /// An error that occurs during the lifetime of a plugin process.
 #[sorted]
 pub enum Error {
-    CloneEventFd(SysError),
+    CloneEvent(SysError),
     CloneVcpuPipe(io::Error),
-    CreateEventFd(SysError),
+    CreateEvent(SysError),
     CreateIrqChip(SysError),
-    CreateJail(io_jail::Error),
+    CreateJail(minijail::Error),
     CreateKvm(SysError),
     CreateMainSocket(SysError),
     CreatePIT(SysError),
-    CreatePollContext(SysError),
     CreateSignalFd(SignalFdError),
     CreateSocketPair(io::Error),
     CreateTapFd(TapError),
     CreateVcpu(SysError),
     CreateVcpuSocket(SysError),
     CreateVm(SysError),
+    CreateWaitContext(SysError),
     DecodeRequest(ProtobufError),
     DropCapabilities(SysError),
     EncodeResponse(ProtobufError),
-    Mount(io_jail::Error),
-    MountDev(io_jail::Error),
-    MountLib(io_jail::Error),
-    MountLib64(io_jail::Error),
-    MountPlugin(io_jail::Error),
-    MountPluginLib(io_jail::Error),
-    MountRoot(io_jail::Error),
+    Mount(minijail::Error),
+    MountDev(minijail::Error),
+    MountLib(minijail::Error),
+    MountLib64(minijail::Error),
+    MountPlugin(minijail::Error),
+    MountPluginLib(minijail::Error),
+    MountProc(minijail::Error),
+    MountRoot(minijail::Error),
     NoRootDir,
-    ParsePivotRoot(io_jail::Error),
-    ParseSeccomp(io_jail::Error),
+    ParsePivotRoot(minijail::Error),
+    ParseSeccomp(minijail::Error),
     PluginFailed(i32),
     PluginKill(SysError),
     PluginKilled(i32),
-    PluginRunJail(io_jail::Error),
+    PluginRunJail(minijail::Error),
     PluginSocketHup,
     PluginSocketPoll(SysError),
     PluginSocketRecv(SysError),
@@ -86,11 +87,10 @@ pub enum Error {
     PluginTimeout,
     PluginWait(SysError),
     Poll(SysError),
-    PollContextAdd(SysError),
     RootNotAbsolute,
     RootNotDir,
-    SetGidMap(io_jail::Error),
-    SetUidMap(io_jail::Error),
+    SetGidMap(minijail::Error),
+    SetUidMap(minijail::Error),
     SigChild {
         pid: u32,
         signo: u32,
@@ -105,6 +105,7 @@ pub enum Error {
     TapSetMacAddress(TapError),
     TapSetNetmask(TapError),
     ValidateTapFd(SysError),
+    WaitContextAdd(SysError),
 }
 
 impl Display for Error {
@@ -114,26 +115,28 @@ impl Display for Error {
 
         #[sorted]
         match self {
-            CloneEventFd(e) => write!(f, "failed to clone eventfd: {}", e),
+            CloneEvent(e) => write!(f, "failed to clone event: {}", e),
             CloneVcpuPipe(e) => write!(f, "failed to clone vcpu pipe: {}", e),
-            CreateEventFd(e) => write!(f, "failed to create eventfd: {}", e),
+            CreateEvent(e) => write!(f, "failed to create event: {}", e),
             CreateIrqChip(e) => write!(f, "failed to create kvm irqchip: {}", e),
             CreateJail(e) => write!(f, "failed to create jail: {}", e),
             CreateKvm(e) => write!(f, "error creating Kvm: {}", e),
             CreateMainSocket(e) => write!(f, "error creating main request socket: {}", e),
             CreatePIT(e) => write!(f, "failed to create kvm PIT: {}", e),
-            CreatePollContext(e) => write!(f, "failed to create poll context: {}", e),
             CreateSignalFd(e) => write!(f, "failed to create signalfd: {}", e),
             CreateSocketPair(e) => write!(f, "failed to create socket pair: {}", e),
             CreateTapFd(e) => write!(f, "failed to create tap device from raw fd: {}", e),
             CreateVcpu(e) => write!(f, "error creating vcpu: {}", e),
             CreateVcpuSocket(e) => write!(f, "error creating vcpu request socket: {}", e),
             CreateVm(e) => write!(f, "error creating vm: {}", e),
+            CreateWaitContext(e) => write!(f, "failed to create wait context: {}", e),
             DecodeRequest(e) => write!(f, "failed to decode plugin request: {}", e),
             DropCapabilities(e) => write!(f, "failed to drop process capabilities: {}", e),
             EncodeResponse(e) => write!(f, "failed to encode plugin response: {}", e),
             Mount(e) | MountDev(e) | MountLib(e) | MountLib64(e) | MountPlugin(e)
-            | MountPluginLib(e) | MountRoot(e) => write!(f, "failed to mount: {}", e),
+            | MountPluginLib(e) | MountProc(e) | MountRoot(e) => {
+                write!(f, "failed to mount: {}", e)
+            }
             NoRootDir => write!(f, "no root directory for jailed process to pivot root into"),
             ParsePivotRoot(e) => write!(f, "failed to set jail pivot root: {}", e),
             ParseSeccomp(e) => write!(f, "failed to parse jail seccomp filter: {}", e),
@@ -149,7 +152,6 @@ impl Display for Error {
             PluginTimeout => write!(f, "plugin did not exit within timeout"),
             PluginWait(e) => write!(f, "error waiting for plugin to exit: {}", e),
             Poll(e) => write!(f, "failed to poll all FDs: {}", e),
-            PollContextAdd(e) => write!(f, "failed to add fd to poll context: {}", e),
             RootNotAbsolute => write!(f, "path to the root directory must be absolute"),
             RootNotDir => write!(f, "specified root directory is not a directory"),
             SetGidMap(e) => write!(f, "failed to set gidmap for jail: {}", e),
@@ -172,15 +174,12 @@ impl Display for Error {
             TapSetMacAddress(e) => write!(f, "error setting tap mac address: {}", e),
             TapSetNetmask(e) => write!(f, "error setting tap netmask: {}", e),
             ValidateTapFd(e) => write!(f, "failed to validate raw tap fd: {}", e),
+            WaitContextAdd(e) => write!(f, "failed to add descriptor to wait context: {}", e),
         }
     }
 }
 
 type Result<T> = result::Result<T, Error>;
-
-fn downcast_file<F: IntoRawFd>(f: F) -> File {
-    unsafe { File::from_raw_fd(f.into_raw_fd()) }
-}
 
 fn new_seqpacket_pair() -> SysResult<(UnixDatagram, UnixDatagram)> {
     let mut fds = [0, 0];
@@ -189,8 +188,8 @@ fn new_seqpacket_pair() -> SysResult<(UnixDatagram, UnixDatagram)> {
         if ret == 0 {
             ioctl(fds[0], FIOCLEX);
             Ok((
-                UnixDatagram::from_raw_fd(fds[0]),
-                UnixDatagram::from_raw_fd(fds[1]),
+                UnixDatagram::from_raw_descriptor(fds[0]),
+                UnixDatagram::from_raw_descriptor(fds[1]),
             ))
         } else {
             Err(SysError::last())
@@ -213,7 +212,7 @@ fn new_pipe_pair() -> SysResult<VcpuPipe> {
     // though it's not necessary a hard requirement for things to work.
     let flags = unsafe {
         fcntl(
-            to_crosvm.0.as_raw_fd(),
+            to_crosvm.0.as_raw_descriptor(),
             F_SETPIPE_SZ,
             MAX_VCPU_DATAGRAM_SIZE as c_int,
         )
@@ -227,7 +226,7 @@ fn new_pipe_pair() -> SysResult<VcpuPipe> {
     }
     let flags = unsafe {
         fcntl(
-            to_plugin.0.as_raw_fd(),
+            to_plugin.0.as_raw_descriptor(),
             F_SETPIPE_SZ,
             MAX_VCPU_DATAGRAM_SIZE as c_int,
         )
@@ -265,7 +264,7 @@ fn mmap_to_sys_err(e: MmapError) -> SysError {
     }
 }
 
-fn create_plugin_jail(root: &Path, seccomp_policy: &Path) -> Result<Minijail> {
+fn create_plugin_jail(root: &Path, log_failures: bool, seccomp_policy: &Path) -> Result<Minijail> {
     // All child jails run in a new user namespace without any users mapped,
     // they run as nobody unless otherwise configured.
     let mut j = Minijail::new().map_err(Error::CreateJail)?;
@@ -284,13 +283,28 @@ fn create_plugin_jail(root: &Path, seccomp_policy: &Path) -> Result<Minijail> {
     // Run in an empty network namespace.
     j.namespace_net();
     j.no_new_privs();
-    // Use TSYNC only for the side effect of it using SECCOMP_RET_TRAP, which will correctly kill
-    // the entire plugin process if a worker thread commits a seccomp violation.
-    j.set_seccomp_filter_tsync();
-    #[cfg(debug_assertions)]
-    j.log_seccomp_filter_failures();
-    j.parse_seccomp_filters(seccomp_policy)
-        .map_err(Error::ParseSeccomp)?;
+    // By default we'll prioritize using the pre-compiled .bpf over the .policy
+    // file (the .bpf is expected to be compiled using "trap" as the failure
+    // behavior instead of the default "kill" behavior).
+    // Refer to the code comment for the "seccomp-log-failures"
+    // command-line parameter for an explanation about why the |log_failures|
+    // flag forces the use of .policy files (and the build-time alternative to
+    // this run-time flag).
+    let bpf_policy_file = seccomp_policy.with_extension("bpf");
+    if bpf_policy_file.exists() && !log_failures {
+        j.parse_seccomp_program(&bpf_policy_file)
+            .map_err(Error::ParseSeccomp)?;
+    } else {
+        // Use TSYNC only for the side effect of it using SECCOMP_RET_TRAP,
+        // which will correctly kill the entire device process if a worker
+        // thread commits a seccomp violation.
+        j.set_seccomp_filter_tsync();
+        if log_failures {
+            j.log_seccomp_filter_failures();
+        }
+        j.parse_seccomp_filters(&seccomp_policy.with_extension("policy"))
+            .map_err(Error::ParseSeccomp)?;
+    }
     j.use_seccomp_filter();
     // Don't do init setup.
     j.run_as_init();
@@ -305,6 +319,16 @@ fn create_plugin_jail(root: &Path, seccomp_policy: &Path) -> Result<Minijail> {
         "size=67108864",
     )
     .map_err(Error::MountRoot)?;
+
+    // Because we requested to "run as init", minijail will not mount /proc for us even though
+    // plugin will be running in its own PID namespace, so we have to mount it ourselves.
+    j.mount(
+        Path::new("proc"),
+        Path::new("/proc"),
+        "proc",
+        (MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RDONLY) as usize,
+    )
+    .map_err(Error::MountProc)?;
 
     Ok(j)
 }
@@ -321,15 +345,15 @@ fn create_plugin_jail(root: &Path, seccomp_policy: &Path) -> Result<Minijail> {
 /// These variant methods must be done by matching the variant to the expected type for that method.
 /// For example, getting the dirty log from a `Memory` object starting with an ID:
 ///
-/// ```
+/// ```ignore
 /// match objects.get(&request_id) {
-///    Some(&PluginObject::Memory { slot, length }) => vm.get_dirty_log(slot, &mut dirty_log[..])
+///    Some(&PluginObject::Memory { slot, length }) => vm.get_dirty_log(slot, &mut dirty_log[..]),
 ///    _ => return Err(SysError::new(ENOENT)),
 /// }
 /// ```
 enum PluginObject {
     IoEvent {
-        evt: EventFd,
+        evt: Event,
         addr: IoeventAddress,
         length: u32,
         datamatch: u64,
@@ -340,7 +364,7 @@ enum PluginObject {
     },
     IrqEvent {
         irq_id: u32,
-        evt: EventFd,
+        evt: Event,
     },
 }
 
@@ -360,7 +384,7 @@ impl PluginObject {
                 8 => vm.unregister_ioevent(&evt, addr, Datamatch::U64(Some(datamatch as u64))),
                 _ => Err(SysError::new(EINVAL)),
             },
-            PluginObject::Memory { slot, .. } => vm.remove_device_memory(slot).and(Ok(())),
+            PluginObject::Memory { slot, .. } => vm.remove_memory_region(slot).and(Ok(())),
             PluginObject::IrqEvent { irq_id, evt } => vm.unregister_irqfd(&evt, irq_id),
         }
     }
@@ -372,14 +396,52 @@ pub fn run_vcpus(
     plugin: &Process,
     vcpu_count: u32,
     kill_signaled: &Arc<AtomicBool>,
-    exit_evt: &EventFd,
+    exit_evt: &Event,
     vcpu_handles: &mut Vec<thread::JoinHandle<()>>,
 ) -> Result<()> {
     let vcpu_thread_barrier = Arc::new(Barrier::new((vcpu_count) as usize));
+    let use_kvm_signals = !kvm.check_extension(Cap::ImmediateExit);
+
+    // If we need to force a vcpu to exit from a VM then a SIGRTMIN signal is sent
+    // to that vcpu's thread.  If KVM is running the VM then it'll return -EINTR.
+    // An issue is what to do when KVM isn't running the VM (where we could be
+    // in the kernel or in the app).
+    //
+    // If KVM supports "immediate exit" then we set a signal handler that will
+    // set the |immediate_exit| flag that tells KVM to return -EINTR before running
+    // the VM.
+    //
+    // If KVM doesn't support immediate exit then we'll block SIGRTMIN in the app
+    // and tell KVM to unblock SIGRTMIN before running the VM (at which point a blocked
+    // signal might get asserted).  There's overhead to have KVM unblock and re-block
+    // SIGRTMIN each time it runs the VM, so this mode should be avoided.
+
+    if use_kvm_signals {
+        unsafe {
+            extern "C" fn handle_signal(_: c_int) {}
+            // Our signal handler does nothing and is trivially async signal safe.
+            // We need to install this signal handler even though we do block
+            // the signal below, to ensure that this signal will interrupt
+            // execution of KVM_RUN (this is implementation issue).
+            register_rt_signal_handler(SIGRTMIN() + 0, handle_signal)
+                .expect("failed to register vcpu signal handler");
+        }
+        // We do not really want the signal handler to run...
+        block_signal(SIGRTMIN() + 0).expect("failed to block signal");
+    } else {
+        unsafe {
+            extern "C" fn handle_signal(_: c_int) {
+                Vcpu::set_local_immediate_exit(true);
+            }
+            register_rt_signal_handler(SIGRTMIN() + 0, handle_signal)
+                .expect("failed to register vcpu signal handler");
+        }
+    }
+
     for cpu_id in 0..vcpu_count {
         let kill_signaled = kill_signaled.clone();
         let vcpu_thread_barrier = vcpu_thread_barrier.clone();
-        let vcpu_exit_evt = exit_evt.try_clone().map_err(Error::CloneEventFd)?;
+        let vcpu_exit_evt = exit_evt.try_clone().map_err(Error::CloneEvent)?;
         let vcpu_plugin = plugin.create_vcpu(cpu_id)?;
         let vcpu = Vcpu::new(cpu_id as c_ulong, kvm, vm).map_err(Error::CreateVcpu)?;
 
@@ -387,22 +449,21 @@ pub fn run_vcpus(
             thread::Builder::new()
                 .name(format!("crosvm_vcpu{}", cpu_id))
                 .spawn(move || {
-                    unsafe {
-                        extern "C" fn handle_signal() {}
-                        // Our signal handler does nothing and is trivially async signal safe.
-                        // We need to install this signal handler even though we do block
-                        // the signal below, to ensure that this signal will interrupt
-                        // execution of KVM_RUN (this is implementation issue).
-                        register_signal_handler(SIGRTMIN() + 0, handle_signal)
-                            .expect("failed to register vcpu signal handler");
+                    if use_kvm_signals {
+                        // Tell KVM to not block anything when entering kvm run
+                        // because we will be using first RT signal to kick the VCPU.
+                        vcpu.set_signal_mask(&[])
+                            .expect("failed to set up KVM VCPU signal mask");
                     }
 
-                    // We do not really want the signal handler to run...
-                    block_signal(SIGRTMIN() + 0).expect("failed to block signal");
-                    // Tell KVM to not block anything when entering kvm run
-                    // because we will be using first RT signal to kick the VCPU.
-                    vcpu.set_signal_mask(&[])
-                        .expect("failed to set up KVM VCPU signal mask");
+                    #[cfg(feature = "chromeos")]
+                    if let Err(e) = base::sched::enable_core_scheduling() {
+                        error!("Failed to enable core scheduling: {}", e);
+                    }
+
+                    let vcpu = vcpu
+                        .to_runnable(Some(SIGRTMIN() + 0))
+                        .expect("Failed to set thread id");
 
                     let res = vcpu_plugin.init(&vcpu);
                     vcpu_thread_barrier.wait();
@@ -457,6 +518,21 @@ pub fn run_vcpus(
                                             &vcpu,
                                         );
                                     }
+                                    VcpuExit::HypervHcall { input, params } => {
+                                        let mut data = [0; 8];
+                                        vcpu_plugin.hyperv_call(input, params, &mut data, &vcpu);
+                                        // Setting data for hyperv call can not fail.
+                                        let _ = vcpu.set_data(&data);
+                                    }
+                                    VcpuExit::HypervSynic {
+                                        msr,
+                                        control,
+                                        evt_page,
+                                        msg_page,
+                                    } => {
+                                        vcpu_plugin
+                                            .hyperv_synic(msr, control, evt_page, msg_page, &vcpu);
+                                    }
                                     VcpuExit::Hlt => break,
                                     VcpuExit::Shutdown => break,
                                     VcpuExit::InternalError => {
@@ -478,22 +554,33 @@ pub fn run_vcpus(
                                 break;
                             }
 
-                            // Try to clear the signal that we use to kick VCPU if it is
-                            // pending before attempting to handle pause requests.
+                            // Only handle the pause request if kvm reported that it was
+                            // interrupted by a signal.  This helps to entire that KVM has had a chance
+                            // to finish emulating any IO that may have immediately happened.
+                            // If we eagerly check pre_run() then any IO that we
+                            // just reported to the plugin won't have been processed yet by KVM.
+                            // Not eagerly calling pre_run() also helps to reduce
+                            // any overhead from checking if a pause request is pending.
+                            // The assumption is that pause requests aren't common
+                            // or frequent so it's better to optimize for the non-pause execution paths.
                             if interrupted_by_signal {
-                                clear_signal(SIGRTMIN() + 0)
-                                    .expect("failed to clear pending signal");
-                            }
+                                if use_kvm_signals {
+                                    clear_signal(SIGRTMIN() + 0)
+                                        .expect("failed to clear pending signal");
+                                } else {
+                                    vcpu.set_immediate_exit(false);
+                                }
 
-                            if let Err(e) = vcpu_plugin.pre_run(&vcpu) {
-                                error!("failed to process pause on vcpu {}: {}", cpu_id, e);
-                                break;
+                                if let Err(e) = vcpu_plugin.pre_run(&vcpu) {
+                                    error!("failed to process pause on vcpu {}: {}", cpu_id, e);
+                                    break;
+                                }
                             }
                         }
                     }
                     vcpu_exit_evt
                         .write(1)
-                        .expect("failed to signal vcpu exit eventfd");
+                        .expect("failed to signal vcpu exit event");
                 })
                 .map_err(Error::SpawnVcpu)?,
         );
@@ -524,7 +611,7 @@ pub fn run_config(cfg: Config) -> Result<()> {
         // An empty directory for jailed plugin pivot root.
         let root_path = match &cfg.plugin_root {
             Some(dir) => dir,
-            None => Path::new("/var/empty"),
+            None => Path::new(option_env!("DEFAULT_PIVOT_ROOT").unwrap_or("/var/empty")),
         };
 
         if root_path.is_relative() {
@@ -539,8 +626,8 @@ pub fn run_config(cfg: Config) -> Result<()> {
             return Err(Error::RootNotDir);
         }
 
-        let policy_path = cfg.seccomp_policy_dir.join("plugin.policy");
-        let mut jail = create_plugin_jail(root_path, &policy_path)?;
+        let policy_path = cfg.seccomp_policy_dir.join("plugin");
+        let mut jail = create_plugin_jail(root_path, cfg.seccomp_log_failures, &policy_path)?;
 
         // Update gid map of the jail if caller provided supplemental groups.
         if !cfg.plugin_gid_maps.is_empty() {
@@ -576,7 +663,7 @@ pub fn run_config(cfg: Config) -> Result<()> {
     if let Some(host_ip) = cfg.host_ip {
         if let Some(netmask) = cfg.netmask {
             if let Some(mac_address) = cfg.mac_address {
-                let tap = Tap::new(false).map_err(Error::TapOpen)?;
+                let tap = Tap::new(false, false).map_err(Error::TapOpen)?;
                 tap.set_ip_addr(host_ip).map_err(Error::TapSetIp)?;
                 tap.set_netmask(netmask).map_err(Error::TapSetNetmask)?;
                 tap.set_mac_address(mac_address)
@@ -590,7 +677,7 @@ pub fn run_config(cfg: Config) -> Result<()> {
     for tap_fd in cfg.tap_fd {
         // Safe because we ensure that we get a unique handle to the fd.
         let tap = unsafe {
-            Tap::from_raw_fd(validate_raw_fd(tap_fd).map_err(Error::ValidateTapFd)?)
+            Tap::from_raw_descriptor(validate_raw_descriptor(tap_fd).map_err(Error::ValidateTapFd)?)
                 .map_err(Error::CreateTapFd)?
         };
         tap_interfaces.push(tap);
@@ -602,9 +689,14 @@ pub fn run_config(cfg: Config) -> Result<()> {
         Some(Executable::Plugin(ref plugin_path)) => plugin_path.as_path(),
         _ => panic!("Executable was not a plugin"),
     };
-    let vcpu_count = cfg.vcpu_count.unwrap_or(1);
+    let vcpu_count = cfg.vcpu_count.unwrap_or(1) as u32;
     let mem = GuestMemory::new(&[]).unwrap();
-    let kvm = Kvm::new().map_err(Error::CreateKvm)?;
+    let mut mem_policy = MemoryPolicy::empty();
+    if cfg.hugepages {
+        mem_policy |= MemoryPolicy::USE_HUGEPAGES;
+    }
+    mem.set_memory_policy(mem_policy);
+    let kvm = Kvm::new_with_path(&cfg.kvm_device_path).map_err(Error::CreateKvm)?;
     let mut vm = Vm::new(&kvm, mem).map_err(Error::CreateVm)?;
     vm.create_irq_chip().map_err(Error::CreateIrqChip)?;
     vm.create_pit().map_err(Error::CreatePIT)?;
@@ -619,25 +711,21 @@ pub fn run_config(cfg: Config) -> Result<()> {
     let mut dying_instant: Option<Instant> = None;
     let duration_to_die = Duration::from_millis(1000);
 
-    let exit_evt = EventFd::new().map_err(Error::CreateEventFd)?;
+    let exit_evt = Event::new().map_err(Error::CreateEvent)?;
     let kill_signaled = Arc::new(AtomicBool::new(false));
     let mut vcpu_handles = Vec::with_capacity(vcpu_count as usize);
 
-    let poll_ctx = PollContext::new().map_err(Error::CreatePollContext)?;
-    poll_ctx
-        .add(&exit_evt, Token::Exit)
-        .map_err(Error::PollContextAdd)?;
-    poll_ctx
-        .add(&sigchld_fd, Token::ChildSignal)
-        .map_err(Error::PollContextAdd)?;
+    let wait_ctx =
+        WaitContext::build_with(&[(&exit_evt, Token::Exit), (&sigchld_fd, Token::ChildSignal)])
+            .map_err(Error::WaitContextAdd)?;
 
     let mut sockets_to_drop = Vec::new();
-    let mut redo_poll_ctx_sockets = true;
+    let mut redo_wait_ctx_sockets = true;
     // In this loop, make every attempt to not return early. If an error is encountered, set `res`
     // to the error, set `dying_instant` to now, and signal the plugin that it will be killed soon.
     // If the plugin cannot be signaled because it is dead of `signal_kill` failed, simply break
     // from the poll loop so that the VCPU threads can be cleaned up.
-    'poll: loop {
+    'wait: loop {
         // After we have waited long enough, it's time to give up and exit.
         if dying_instant
             .map(|i| i.elapsed() >= duration_to_die)
@@ -646,19 +734,19 @@ pub fn run_config(cfg: Config) -> Result<()> {
             break;
         }
 
-        if redo_poll_ctx_sockets {
+        if redo_wait_ctx_sockets {
             for (index, socket) in plugin.sockets().iter().enumerate() {
-                poll_ctx
+                wait_ctx
                     .add(socket, Token::Plugin { index })
-                    .map_err(Error::PollContextAdd)?;
+                    .map_err(Error::WaitContextAdd)?;
             }
         }
 
         let plugin_socket_count = plugin.sockets().len();
         let events = {
             let poll_res = match dying_instant {
-                Some(inst) => poll_ctx.wait_timeout(duration_to_die - inst.elapsed()),
-                None => poll_ctx.wait(),
+                Some(inst) => wait_ctx.wait_timeout(duration_to_die - inst.elapsed()),
+                None => wait_ctx.wait(),
             };
             match poll_res {
                 Ok(v) => v,
@@ -671,11 +759,11 @@ pub fn run_config(cfg: Config) -> Result<()> {
                 }
             }
         };
-        for event in events.iter_readable() {
-            match event.token() {
+        for event in events.iter().filter(|e| e.is_readable) {
+            match event.token {
                 Token::Exit => {
                     // No need to check the exit event if we are already doing cleanup.
-                    let _ = poll_ctx.delete(&exit_evt);
+                    let _ = wait_ctx.delete(&exit_evt);
                     dying_instant.get_or_insert(Instant::now());
                     let sig_res = plugin.signal_kill();
                     if res.is_ok() && sig_res.is_err() {
@@ -690,7 +778,7 @@ pub fn run_config(cfg: Config) -> Result<()> {
                                 // If the plugin process has ended, there is no need to continue
                                 // processing plugin connections, so we break early.
                                 if siginfo.ssi_pid == plugin.pid() as u32 {
-                                    break 'poll;
+                                    break 'wait;
                                 }
                                 // Because SIGCHLD is not expected from anything other than the
                                 // plugin process, report it as an error.
@@ -757,7 +845,7 @@ pub fn run_config(cfg: Config) -> Result<()> {
             }
         }
 
-        redo_poll_ctx_sockets =
+        redo_wait_ctx_sockets =
             !sockets_to_drop.is_empty() || plugin.sockets().len() != plugin_socket_count;
 
         // Cleanup all of the sockets that we have determined were disconnected or suffered some
@@ -765,9 +853,9 @@ pub fn run_config(cfg: Config) -> Result<()> {
         plugin.drop_sockets(&mut sockets_to_drop);
         sockets_to_drop.clear();
 
-        if redo_poll_ctx_sockets {
+        if redo_wait_ctx_sockets {
             for socket in plugin.sockets() {
-                let _ = poll_ctx.delete(socket);
+                let _ = wait_ctx.delete(socket);
             }
         }
     }

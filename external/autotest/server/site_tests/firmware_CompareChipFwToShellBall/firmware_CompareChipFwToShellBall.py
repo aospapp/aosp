@@ -157,13 +157,14 @@ class firmware_CompareChipFwToShellBall(FirmwareTest):
                 # must be an unfamiliar chip
                 continue
 
-            if not self.faft_client.updater.cbfs_extract_chip(chip.fw_name):
+            if not self.faft_client.updater.cbfs_extract_chip(
+                    chip.fw_name, chip.extension, chip.hash_extension):
                 logging.warning('%s firmware not bundled in %s',
                                 chip.chip_name, self.BIOS)
                 continue
 
             hashblob = self.faft_client.updater.cbfs_get_chip_hash(
-                chip.fw_name)
+                    chip.fw_name, chip.hash_extension)
             if not hashblob:
                 logging.warning('%s firmware hash not extracted from %s',
                                 chip.chip_name, self.BIOS)

@@ -26,13 +26,13 @@ P2P_FILE_SIZE_KB = 80 * 1000
 # for the test to conclude.
 P2P_SERVING_TIMEOUT_SECS = 600
 
-# The file is initialy shared by the master in two parts. The first part is
+# The file is initialy shared by the main in two parts. The first part is
 # available at the beginning of the test, while the second part of the file
-# becomes ready in the master after P2P_SHARING_GAP_SECS seconds.
+# becomes ready in the main after P2P_SHARING_GAP_SECS seconds.
 P2P_SHARING_GAP_SECS = 90
 
-# The master and clients have to initialize the p2p service and, in the case
-# of the master, generate the first part of the file on disk.
+# The main and clients have to initialize the p2p service and, in the case
+# of the main, generate the first part of the file on disk.
 P2P_INITIALIZE_TIMEOUT_SECS = 90
 
 class p2p_EndToEndTest(test.test):
@@ -40,7 +40,7 @@ class p2p_EndToEndTest(test.test):
     version = 1
 
 
-    def run_once(self, dut, file_id, is_master, peers, barrier):
+    def run_once(self, dut, file_id, is_main, peers, barrier):
         self._dut = dut
 
         file_id = '%s-%s' % (P2P_TEST_PREFIX, file_id)
@@ -57,14 +57,14 @@ class p2p_EndToEndTest(test.test):
                 % (P2P_FILE_SIZE_KB * 1000, file_temp_name))
         dut.run('mv %s %s' % (file_temp_name, file_shared_name))
 
-        if is_master:
-            # The master generates a file and shares a part of it but announces
+        if is_main:
+            # The main generates a file and shares a part of it but announces
             # the total size via the "user.cros-p2p-filesize" attribute.
             # To ensure that the clients are retrieving this first shared part
             # and hopefully blocking until the rest of the file is available,
-            # a sleep is included in the master side.
+            # a sleep is included in the main side.
 
-            logging.info('Master process running.')
+            logging.info('Main process running.')
 
             first_part_size_kb = P2P_FILE_SIZE_KB / 3
             dut.run('dd if=/dev/urandom of=%s bs=1000 count=%d'
@@ -74,10 +74,10 @@ class p2p_EndToEndTest(test.test):
             # by avahi daemon.
             time.sleep(5)
 
-            # At this point, the master is sharing a non-empty file, signal all
+            # At this point, the main is sharing a non-empty file, signal all
             # the clients that they can start the test. The clients should not
             # take more and a few seconds to launch.
-            barrier.master_barrier(timeout=P2P_INITIALIZE_TIMEOUT_SECS)
+            barrier.main_barrier(timeout=P2P_INITIALIZE_TIMEOUT_SECS)
 
             # Wait some time to allow clients download a partial file.
             time.sleep(P2P_SHARING_GAP_SECS)
@@ -85,11 +85,11 @@ class p2p_EndToEndTest(test.test):
                     ' conv=notrunc oflag=append'
                     % (file_shared_name, P2P_FILE_SIZE_KB - first_part_size_kb))
         else:
-            # On the client side, first wait until the master is sharing
+            # On the client side, first wait until the main is sharing
             # a non-empty file, otherwise p2p-client will ignore the file.
-            # The master should not take more than a few seconds to generate
+            # The main should not take more than a few seconds to generate
             # the file.
-            barrier.slave_barrier(timeout=P2P_INITIALIZE_TIMEOUT_SECS)
+            barrier.node_barrier(timeout=P2P_INITIALIZE_TIMEOUT_SECS)
 
             # Wait a random time in order to not launch all the downloads
             # at the same time, otherwise all devices would be seeing
@@ -118,9 +118,9 @@ class p2p_EndToEndTest(test.test):
         logging.info('SHA1 is %s', sha1)
 
         # Wait for all the clients to finish and check the received SHA1.
-        if is_master:
+        if is_main:
             try:
-                client_sha1s = barrier.master_barrier(
+                client_sha1s = barrier.main_barrier(
                         timeout=P2P_SERVING_TIMEOUT_SECS)
             except queue_barrier.QueueBarrierTimeout:
                 raise error.TestFail("Test failed to complete in %d seconds."
@@ -130,10 +130,10 @@ class p2p_EndToEndTest(test.test):
                 if client_sha1 != sha1:
                     # Wrong SHA1 received.
                     raise error.TestFail("Received SHA1 (%s) doesn't match "
-                            "master's SHA1 (%s)." % (client_sha1, sha1))
+                            "main's SHA1 (%s)." % (client_sha1, sha1))
         else:
             try:
-                barrier.slave_barrier(sha1, timeout=P2P_SERVING_TIMEOUT_SECS)
+                barrier.node_barrier(sha1, timeout=P2P_SERVING_TIMEOUT_SECS)
             except queue_barrier.QueueBarrierTimeout:
                 raise error.TestFail("Test failed to complete in %d seconds."
                                      % P2P_SERVING_TIMEOUT_SECS)

@@ -406,6 +406,7 @@ enum TLayoutFormat {
     ElfRg8i,
     ElfR16i,
     ElfR8i,
+    ElfR64i,
 
     ElfIntGuard,       // to help with comparisons
 
@@ -423,6 +424,7 @@ enum TLayoutFormat {
     ElfRg8ui,
     ElfR16ui,
     ElfR8ui,
+    ElfR64ui,
 
     ElfCount
 };
@@ -497,6 +499,7 @@ public:
         declaredBuiltIn = EbvNone;
 #ifndef GLSLANG_WEB
         noContraction = false;
+        nullInit = false;
 #endif
     }
 
@@ -510,6 +513,7 @@ public:
         clearMemory();
         specConstant = false;
         nonUniform = false;
+        nullInit = false;
         clearLayout();
     }
 
@@ -586,6 +590,8 @@ public:
     bool isNoContraction() const { return false; }
     void setNoContraction() { }
     bool isPervertexNV() const { return false; }
+    void setNullInit() { }
+    bool isNullInit() const { return false; }
 #else
     bool noContraction: 1; // prevent contraction and reassociation, e.g., for 'precise' keyword, and expressions it affects
     bool nopersp      : 1;
@@ -607,6 +613,7 @@ public:
     bool subgroupcoherent  : 1;
     bool shadercallcoherent : 1;
     bool nonprivate   : 1;
+    bool nullInit : 1;
     bool isWriteOnly() const { return writeonly; }
     bool isReadOnly() const { return readonly; }
     bool isRestrict() const { return restrict; }
@@ -642,6 +649,8 @@ public:
     bool isNoContraction() const { return noContraction; }
     void setNoContraction() { noContraction = true; }
     bool isPervertexNV() const { return pervertexNV; }
+    void setNullInit() { nullInit = true; }
+    bool isNullInit() const { return nullInit; }
 #endif
 
     bool isPipeInput() const
@@ -755,6 +764,12 @@ public:
     bool isPerPrimitive() const { return perPrimitiveNV; }
     bool isPerView() const { return perViewNV; }
     bool isTaskMemory() const { return perTaskNV; }
+    bool isAnyPayload() const {
+        return storage == EvqPayload || storage == EvqPayloadIn;
+    }
+    bool isAnyCallable() const {
+        return storage == EvqCallableData || storage == EvqCallableDataIn;
+    }
 
     // True if this type of IO is supposed to be arrayed with extra level for per-vertex data
     bool isArrayedIo(EShLanguage language) const
@@ -1117,6 +1132,8 @@ public:
         case ElfR32ui:        return "r32ui";
         case ElfR16ui:        return "r16ui";
         case ElfR8ui:         return "r8ui";
+        case ElfR64ui:        return "r64ui";
+        case ElfR64i:         return "r64i";
         default:              return "none";
         }
     }
@@ -1235,6 +1252,7 @@ struct TShaderQualifiers {
     bool layoutDerivativeGroupQuads;    // true if layout derivative_group_quadsNV set
     bool layoutDerivativeGroupLinear;   // true if layout derivative_group_linearNV set
     int primitives;                     // mesh shader "max_primitives"DerivativeGroupLinear;   // true if layout derivative_group_linearNV set
+    bool layoutPrimitiveCulling;        // true if layout primitive_culling set
     TLayoutDepth getDepth() const { return layoutDepth; }
 #else
     TLayoutDepth getDepth() const { return EldNone; }
@@ -1268,6 +1286,7 @@ struct TShaderQualifiers {
         layoutOverrideCoverage      = false;
         layoutDerivativeGroupQuads  = false;
         layoutDerivativeGroupLinear = false;
+        layoutPrimitiveCulling      = false;
         primitives                  = TQualifier::layoutNotSet;
         interlockOrdering = EioNone;
 #endif
@@ -1331,6 +1350,8 @@ struct TShaderQualifiers {
             primitives = src.primitives;
         if (src.interlockOrdering != EioNone)
             interlockOrdering = src.interlockOrdering;
+        if (src.layoutPrimitiveCulling)
+            layoutPrimitiveCulling = src.layoutPrimitiveCulling;
 #endif
     }
 };
@@ -1982,6 +2003,7 @@ public:
         case EbtAccStruct:         return "accelerationStructureNV";
         case EbtRayQuery:          return "rayQueryEXT";
         case EbtReference:         return "reference";
+        case EbtString:            return "string";
 #endif
         default:                   return "unknown type";
         }
@@ -2149,6 +2171,8 @@ public:
             appendStr(" specialization-constant");
         if (qualifier.nonUniform)
             appendStr(" nonuniform");
+        if (qualifier.isNullInit())
+            appendStr(" null-init");
         appendStr(" ");
         appendStr(getStorageQualifierString());
         if (isArray()) {

@@ -6,10 +6,16 @@
 
 """Unit tests for server/cros/dynamic_suite/tools.py."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import mox
+import six
 import unittest
 
 import common
+
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeHost
 from autotest_lib.server.cros.dynamic_suite.host_spec import HostSpec
 from autotest_lib.server.cros.dynamic_suite import host_spec
@@ -33,7 +39,7 @@ class DynamicSuiteToolsTest(mox.MoxTestBase):
         self.tko = self.mox.CreateMock(frontend.TKO)
         # Having these ordered by complexity is important!
         host_spec_list = [HostSpec([self._BOARD, self._POOL])]
-        for dep_list in self._DEPENDENCIES.itervalues():
+        for dep_list in six.itervalues(self._DEPENDENCIES):
             host_spec_list.append(
                 HostSpec([self._BOARD, self._POOL], dep_list))
         self.specs = host_spec.order_by_complexity(host_spec_list)
@@ -47,7 +53,7 @@ class DynamicSuiteToolsTest(mox.MoxTestBase):
             @param d: the variable dictionary to check.
             @param s: the control file string.
             """
-            for k, v in d.iteritems():
+            for k, v in six.iteritems(d):
                 if isinstance(v, str):
                     if "%s='%s'\n" % (k, v) not in s:
                         return False

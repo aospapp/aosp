@@ -30,7 +30,7 @@
 
 #include "amdgpu_bo.h"
 #include "util/u_memory.h"
-#include <amdgpu_drm.h>
+#include "drm-uapi/amdgpu_drm.h"
 
 struct amdgpu_ctx {
    struct amdgpu_winsys *ws;
@@ -56,7 +56,9 @@ struct amdgpu_cs_buffer {
 };
 
 enum ib_type {
+   IB_PREAMBLE,
    IB_MAIN,
+   IB_PARALLEL_COMPUTE,
    IB_NUM,
 };
 
@@ -113,14 +115,22 @@ struct amdgpu_cs_context {
    struct amdgpu_fence_list    syncobj_dependencies;
    struct amdgpu_fence_list    syncobj_to_signal;
 
+   /* The compute IB uses the dependencies above + these: */
+   struct amdgpu_fence_list    compute_fence_dependencies;
+   struct amdgpu_fence_list    compute_start_fence_dependencies;
+
    struct pipe_fence_handle    *fence;
 
    /* the error returned from cs_flush for non-async submissions */
    int                         error_code;
+
+   /* TMZ: will this command be submitted using the TMZ flag */
+   bool secure;
 };
 
 struct amdgpu_cs {
    struct amdgpu_ib main; /* must be first because this is inherited */
+   struct amdgpu_ib compute_ib; /* optional parallel compute IB */
    struct amdgpu_ctx *ctx;
    enum ring_type ring_type;
    struct drm_amdgpu_cs_chunk_fence fence_chunk;
@@ -142,6 +152,7 @@ struct amdgpu_cs {
 
    struct util_queue_fence flush_completed;
    struct pipe_fence_handle *next_fence;
+   struct pb_buffer *preamble_ib_bo;
 };
 
 struct amdgpu_fence {
@@ -220,6 +231,8 @@ amdgpu_cs_from_ib(struct amdgpu_ib *ib)
    switch (ib->ib_type) {
    case IB_MAIN:
       return get_container(ib, struct amdgpu_cs, main);
+   case IB_PARALLEL_COMPUTE:
+      return get_container(ib, struct amdgpu_cs, compute_ib);
    default:
       unreachable("bad ib_type");
    }
@@ -268,7 +281,6 @@ void amdgpu_add_fences(struct amdgpu_winsys_bo *bo,
                        unsigned num_fences,
                        struct pipe_fence_handle **fences);
 void amdgpu_cs_sync_flush(struct radeon_cmdbuf *rcs);
-void amdgpu_cs_init_functions(struct amdgpu_winsys *ws);
-void amdgpu_cs_submit_ib(void *job, int thread_index);
+void amdgpu_cs_init_functions(struct amdgpu_screen_winsys *ws);
 
 #endif

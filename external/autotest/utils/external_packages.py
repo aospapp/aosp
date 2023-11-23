@@ -1111,6 +1111,87 @@ class PyYAMLPackage(ExternalPackage):
             ExternalPackage._build_and_install_current_dir_noegg)
 
 
+class GoogleAuthPackage(ExternalPackage):
+    """Google Auth Client."""
+    version = '1.6.3'
+    local_filename = 'google-auth-%s.tar.gz' % version
+    urls = (_CHROMEOS_MIRROR + local_filename,)
+    hex_sum = 'a76f97686ebe42097d91e0996a72b26b54118f3b'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class CachetoolsPackage(ExternalPackage):
+    """Cachetools package."""
+    version = '3.1.1'
+    local_filename = 'cachetools-%s.tar.gz' % version
+    urls = (_CHROMEOS_MIRROR + local_filename,)
+    hex_sum = 'd030bfdfa91b0b1188993f5e8d7da077308c1eaf'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class GrpcioPackage(ExternalPackage):
+    """GrpcioPackage package."""
+    version = '1.26.0'
+    hex_sum = "b9a61f855bf3656d9b8ac305bd1e52442e120c48"
+    local_filename = 'grpcio-%s.tar.gz' % version
+    urls = (_CHROMEOS_MIRROR + local_filename,)
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class GrpcioToolsPackage(ExternalPackage):
+    """GrpcioPackage package."""
+    version = '1.26.0'
+    hex_sum = "298724d8704523c6ff443303e0c26fc1d54f9acb"
+    local_filename = 'grpcio-tools-%s.tar.gz' % version
+    urls = (_CHROMEOS_MIRROR + local_filename,)
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class Protobuf(ExternalPackage):
+    """GrpcioPackage package."""
+    version = '3.11.2'
+    hex_sum = "e1f3ffa028ece5a529149dd56a3d64aea4ae1b1a"
+    local_filename = 'protobuf-%s.tar.gz' % version
+    urls = (_CHROMEOS_MIRROR + local_filename,)
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+    def _build_and_install(self, install_dir):
+        """
+        This method may be used as a _build_and_install() implementation
+        for subclasses if they implement _build_and_install_current_dir().
+
+        Extracts the .tar.gz file, chdirs into the extracted directory
+        (which is assumed to match the tar filename) and calls
+        _build_and_isntall_current_dir from there.
+
+        Afterwards the build (regardless of failure) extracted .tar.gz
+        directory is cleaned up.
+
+        @returns True on success, False otherwise.
+
+        @raises OSError If the expected extraction directory does not exist.
+        """
+        self._extract_compressed_package()
+        extension = self._get_extension(self.verified_package)
+        os.chdir(os.path.dirname(self.verified_package))
+        os.chdir(os.path.join(self.extracted_package_path, "python"))
+        extracted_dir = os.getcwd()
+        try:
+            return self._build_and_install_current_dir(install_dir)
+        finally:
+            os.chdir(os.path.join(extracted_dir, '..'))
+            shutil.rmtree(extracted_dir)
+
+
 class _ExternalGitRepo(ExternalPackage):
     """
     Parent class for any package which needs to pull a git repo.

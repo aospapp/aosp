@@ -4,11 +4,13 @@
 
 #include "brillo/flag_helper.h"
 
-#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include <sysexits.h>
+
+#include <memory>
+#include <string>
+#include <utility>
 
 #include <base/base_switches.h>
 #include <base/command_line.h>
@@ -82,6 +84,22 @@ bool Int32Flag::SetValue(const std::string& value) {
 
 const char* Int32Flag::GetType() const {
   return "int";
+}
+
+UInt32Flag::UInt32Flag(const char* name,
+                       uint32_t* value,
+                       const char* default_value,
+                       const char* help,
+                       bool visible)
+    : Flag(name, default_value, help, visible), value_(value) {
+}
+
+bool UInt32Flag::SetValue(const std::string& value) {
+  return base::StringToUint(value, value_);
+}
+
+const char* UInt32Flag::GetType() const {
+  return "uint32";
 }
 
 Int64Flag::Int64Flag(const char* name,

@@ -13,13 +13,23 @@
 // limitations under the License.
 
 // Defaults shared between real and test versions of the APEX.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_conscrypt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_conscrypt_license"],
+}
+
 apex_defaults {
     name: "com.android.conscrypt-defaults",
     updatable: true,
     androidManifest: ":com.android.conscrypt-androidManifest",
     compile_multilib: "both",
-    java_libs: ["conscrypt"],
-    native_shared_libs: ["libjavacrypto"],
+    bootclasspath_fragments: ["com.android.conscrypt-bootclasspath-fragment"],
+    jni_libs: ["libjavacrypto"],
+    prebuilts: ["current_sdkinfo"],
     multilib: {
         both: {
             binaries: ["boringssl_self_test"],
@@ -71,4 +81,35 @@ apex {
     manifest: "apex_manifest.json",
     binaries: ["boringssl_self_test"],
     prebuilts: ["com.android.conscrypt.ld.config.txt"],
+}
+
+// Encapsulate the contributions made by the com.android.conscrypt to the bootclasspath.
+bootclasspath_fragment {
+    name: "com.android.conscrypt-bootclasspath-fragment",
+    contents: ["conscrypt"],
+    apex_available: ["com.android.conscrypt"],
+    // The bootclasspath_fragments that provide APIs on which this depends.
+    fragments: [
+        {
+            apex: "com.android.art",
+            module: "art-bootclasspath-fragment",
+        },
+    ],
+    // The APIs provided by this fragment.
+    api: {
+        stub_libs: [
+            "conscrypt.module.public.api",
+        ],
+    },
+    // The core platform APIs provided by this fragment.
+    core_platform_api: {
+        stub_libs: [
+            "conscrypt.module.platform.api",
+        ],
+    },
+    // Additional hidden API flags that override the default flags derived
+    // from the api stub libraries.
+    hidden_api: {
+        max_target_o_low_priority: ["hiddenapi/hiddenapi-max-target-o-low-priority.txt"],
+    },
 }

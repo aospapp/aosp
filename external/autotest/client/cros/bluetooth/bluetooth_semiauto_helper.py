@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,6 +7,7 @@ import json, logging, os, pwd, shutil, subprocess, time
 
 import dbus
 
+import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import semiauto_framework
@@ -198,8 +200,8 @@ class BluetoothSemiAutoHelper(semiauto_framework.semiauto_test):
         shutil.copyfile(music_file, self._added_music_file)
         uid = pwd.getpwnam('chronos').pw_uid
         gid = pwd.getpwnam('chronos').pw_gid
-        os.chmod(self._added_loop_file, 0755)
-        os.chmod(self._added_music_file, 0755)
+        os.chmod(self._added_loop_file, 0o755)
+        os.chmod(self._added_music_file, 0o755)
         os.chown(self._added_loop_file, uid, gid)
         os.chown(self._added_music_file, uid, gid)
 
@@ -321,7 +323,7 @@ class BluetoothSemiAutoHelper(semiauto_framework.semiauto_test):
         with open(path, 'a') as f:
             f.write('%s\n' % _SECTION_BREAK)
             f.write('%s: %s\n' % (time.strftime(_TIME_FORMAT), message))
-            f.write(json.dumps(self._get_objects().items(), indent=2))
+            f.write(json.dumps(list(self._get_objects().items()), indent=2))
             f.write('\n')
 
         logging.info('Collecting hciconfig info')

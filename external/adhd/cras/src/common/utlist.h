@@ -194,6 +194,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define DL_DELETE(head, del)                                                   \
 	do {                                                                   \
+		assert((head) != NULL);                                        \
 		assert((del)->prev != NULL);                                   \
 		if ((del)->prev == (del)) {                                    \
 			(head) = NULL;                                         \

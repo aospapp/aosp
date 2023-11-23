@@ -2,17 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::os::unix::io::RawFd;
+use std::collections::BTreeMap;
+use std::convert::TryInto;
+use std::fmt::{self, Display};
 use std::sync::Arc;
 
-use byteorder::{ByteOrder, LittleEndian};
+use base::RawDescriptor;
 use sync::Mutex;
 
 use crate::pci::pci_configuration::{
     PciBridgeSubclass, PciClassCode, PciConfiguration, PciHeaderType,
 };
-use crate::pci::pci_device::PciDevice;
-use crate::BusDevice;
+use crate::pci::pci_device::{Error, PciDevice};
+use crate::{BusAccessInfo, BusDevice};
+use resources::SystemAllocator;
 
 // A PciDevice that holds the root hub's configuration.
 struct PciRootConfiguration {
@@ -23,15 +26,23 @@ impl PciDevice for PciRootConfiguration {
     fn debug_label(&self) -> String {
         "pci root device".to_owned()
     }
-    fn keep_fds(&self) -> Vec<RawFd> {
+    fn allocate_address(&mut self, _resources: &mut SystemAllocator) -> Result<PciAddress, Error> {
+        // PCI root fixed address.
+        Ok(PciAddress {
+            bus: 0,
+            dev: 0,
+            func: 0,
+        })
+    }
+    fn keep_rds(&self) -> Vec<RawDescriptor> {
         Vec::new()
     }
-    fn config_registers(&self) -> &PciConfiguration {
-        &self.config
+    fn read_config_register(&self, reg_idx: usize) -> u32 {
+        self.config.read_reg(reg_idx)
     }
 
-    fn config_registers_mut(&mut self) -> &mut PciConfiguration {
-        &mut self.config
+    fn write_config_register(&mut self, reg_idx: usize, offset: u64, data: &[u8]) {
+        (&mut self.config).write_reg(reg_idx, offset, data)
     }
 
     fn read_bar(&mut self, _addr: u64, _data: &mut [u8]) {}
@@ -39,13 +50,86 @@ impl PciDevice for PciRootConfiguration {
     fn write_bar(&mut self, _addr: u64, _data: &[u8]) {}
 }
 
+/// PCI Device Address, AKA Bus:Device.Function
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PciAddress {
+    pub bus: u8,
+    pub dev: u8,  /* u5 */
+    pub func: u8, /* u3 */
+}
+
+impl Display for PciAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:04x}:{:02x}.{:0x}", self.bus, self.dev, self.func)
+    }
+}
+
+impl PciAddress {
+    const BUS_OFFSET: usize = 16;
+    const BUS_MASK: u32 = 0x00ff;
+    const DEVICE_OFFSET: usize = 11;
+    const DEVICE_MASK: u32 = 0x1f;
+    const FUNCTION_OFFSET: usize = 8;
+    const FUNCTION_MASK: u32 = 0x07;
+    const REGISTER_OFFSET: usize = 2;
+    const REGISTER_MASK: u32 = 0x3f;
+
+    /// Construct PciAddress and register tuple from CONFIG_ADDRESS value.
+    pub fn from_config_address(config_address: u32) -> (Self, usize) {
+        let bus = ((config_address >> Self::BUS_OFFSET) & Self::BUS_MASK) as u8;
+        let dev = ((config_address >> Self::DEVICE_OFFSET) & Self::DEVICE_MASK) as u8;
+        let func = ((config_address >> Self::FUNCTION_OFFSET) & Self::FUNCTION_MASK) as u8;
+        let register = ((config_address >> Self::REGISTER_OFFSET) & Self::REGISTER_MASK) as usize;
+
+        (PciAddress { bus, dev, func }, register)
+    }
+
+    /// Construct PciAddress from string domain:bus:device.function.
+    pub fn from_string(address: &str) -> Self {
+        let mut func_dev_bus_domain = address
+            .split(|c| c == ':' || c == '.')
+            .map(|v| u8::from_str_radix(v, 16).unwrap_or_default())
+            .rev()
+            .collect::<Vec<u8>>();
+        func_dev_bus_domain.resize(4, 0);
+        PciAddress {
+            bus: func_dev_bus_domain[2],
+            dev: func_dev_bus_domain[1],
+            func: func_dev_bus_domain[0],
+        }
+    }
+
+    /// Encode PciAddress into CONFIG_ADDRESS value.
+    pub fn to_config_address(&self, register: usize) -> u32 {
+        ((Self::BUS_MASK & self.bus as u32) << Self::BUS_OFFSET)
+            | ((Self::DEVICE_MASK & self.dev as u32) << Self::DEVICE_OFFSET)
+            | ((Self::FUNCTION_MASK & self.func as u32) << Self::FUNCTION_OFFSET)
+            | ((Self::REGISTER_MASK & register as u32) << Self::REGISTER_OFFSET)
+    }
+
+    /// Returns true if the address points to PCI root host-bridge.
+    fn is_root(&self) -> bool {
+        matches!(
+            &self,
+            PciAddress {
+                bus: 0,
+                dev: 0,
+                func: 0
+            }
+        )
+    }
+}
+
 /// Emulates the PCI Root bridge.
 pub struct PciRoot {
     /// Bus configuration for the root device.
     root_configuration: PciRootConfiguration,
     /// Devices attached to this bridge.
-    devices: Vec<Arc<Mutex<dyn BusDevice>>>,
+    devices: BTreeMap<PciAddress, Arc<Mutex<dyn BusDevice>>>,
 }
+
+const PCI_VENDOR_ID_INTEL: u16 = 0x8086;
+const PCI_DEVICE_ID_INTEL_82441: u16 = 0x1237;
 
 impl PciRoot {
     /// Create an empty PCI root bus.
@@ -53,54 +137,42 @@ impl PciRoot {
         PciRoot {
             root_configuration: PciRootConfiguration {
                 config: PciConfiguration::new(
-                    0,
-                    0,
+                    PCI_VENDOR_ID_INTEL,
+                    PCI_DEVICE_ID_INTEL_82441,
                     PciClassCode::BridgeDevice,
                     &PciBridgeSubclass::HostBridge,
                     None,
-                    PciHeaderType::Bridge,
+                    PciHeaderType::Device,
+                    0,
                     0,
                     0,
                 ),
             },
-            devices: Vec::new(),
+            devices: BTreeMap::new(),
         }
     }
 
     /// Add a `device` to this root PCI bus.
-    pub fn add_device(&mut self, device: Arc<Mutex<dyn BusDevice>>) {
-        self.devices.push(device);
+    pub fn add_device(&mut self, address: PciAddress, device: Arc<Mutex<dyn BusDevice>>) {
+        // Ignore attempt to replace PCI Root host bridge.
+        if !address.is_root() {
+            self.devices.insert(address, device);
+        }
     }
 
-    pub fn config_space_read(
-        &self,
-        bus: usize,
-        device: usize,
-        _function: usize,
-        register: usize,
-    ) -> u32 {
-        // Only support one bus.
-        if bus != 0 {
-            return 0xffff_ffff;
-        }
-
-        match device {
-            0 => {
-                // If bus and device are both zero, then read from the root config.
-                self.root_configuration.config_register_read(register)
-            }
-            dev_num => self
-                .devices
-                .get(dev_num - 1)
-                .map_or(0xffff_ffff, |d| d.lock().config_register_read(register)),
+    pub fn config_space_read(&self, address: PciAddress, register: usize) -> u32 {
+        if address.is_root() {
+            self.root_configuration.config_register_read(register)
+        } else {
+            self.devices
+                .get(&address)
+                .map_or(0xffff_ffff, |d| d.lock().config_register_read(register))
         }
     }
 
     pub fn config_space_write(
         &mut self,
-        bus: usize,
-        device: usize,
-        _function: usize,
+        address: PciAddress,
         register: usize,
         offset: u64,
         data: &[u8],
@@ -108,24 +180,11 @@ impl PciRoot {
         if offset as usize + data.len() > 4 {
             return;
         }
-
-        // Only support one bus.
-        if bus != 0 {
-            return;
-        }
-
-        match device {
-            0 => {
-                // If bus and device are both zero, then read from the root config.
-                self.root_configuration
-                    .config_register_write(register, offset, data);
-            }
-            dev_num => {
-                // dev_num is 1-indexed here.
-                if let Some(d) = self.devices.get(dev_num - 1) {
-                    d.lock().config_register_write(register, offset, data);
-                }
-            }
+        if address.is_root() {
+            self.root_configuration
+                .config_register_write(register, offset, data);
+        } else if let Some(d) = self.devices.get(&address) {
+            d.lock().config_register_write(register, offset, data);
         }
     }
 }
@@ -152,10 +211,8 @@ impl PciConfigIo {
             return 0xffff_ffff;
         }
 
-        let (bus, device, function, register) =
-            parse_config_address(self.config_address & !0x8000_0000);
-        self.pci_root
-            .config_space_read(bus, device, function, register)
+        let (address, register) = PciAddress::from_config_address(self.config_address);
+        self.pci_root.config_space_read(address, register)
     }
 
     fn config_space_write(&mut self, offset: u64, data: &[u8]) {
@@ -164,10 +221,9 @@ impl PciConfigIo {
             return;
         }
 
-        let (bus, device, function, register) =
-            parse_config_address(self.config_address & !0x8000_0000);
+        let (address, register) = PciAddress::from_config_address(self.config_address);
         self.pci_root
-            .config_space_write(bus, device, function, register, offset, data)
+            .config_space_write(address, register, offset, data)
     }
 
     fn set_config_address(&mut self, offset: u64, data: &[u8]) {
@@ -181,9 +237,9 @@ impl PciConfigIo {
             ),
             2 => (
                 0x0000_ffff << (offset * 16),
-                ((data[1] as u32) << 8 | data[0] as u32) << (offset * 16),
+                u32::from(u16::from_le_bytes(data.try_into().unwrap())) << (offset * 16),
             ),
-            4 => (0xffff_ffff, LittleEndian::read_u32(data)),
+            4 => (0xffff_ffff, u32::from_le_bytes(data.try_into().unwrap())),
             _ => return,
         };
         self.config_address = (self.config_address & !mask) | value;
@@ -195,16 +251,16 @@ impl BusDevice for PciConfigIo {
         format!("pci config io-port 0x{:03x}", self.config_address)
     }
 
-    fn read(&mut self, offset: u64, data: &mut [u8]) {
+    fn read(&mut self, info: BusAccessInfo, data: &mut [u8]) {
         // `offset` is relative to 0xcf8
-        let value = match offset {
-            0...3 => self.config_address,
-            4...7 => self.config_space_read(),
+        let value = match info.offset {
+            0..=3 => self.config_address,
+            4..=7 => self.config_space_read(),
             _ => 0xffff_ffff,
         };
 
         // Only allow reads to the register boundary.
-        let start = offset as usize % 4;
+        let start = info.offset as usize % 4;
         let end = start + data.len();
         if end <= 4 {
             for i in start..end {
@@ -217,11 +273,11 @@ impl BusDevice for PciConfigIo {
         }
     }
 
-    fn write(&mut self, offset: u64, data: &[u8]) {
+    fn write(&mut self, info: BusAccessInfo, data: &[u8]) {
         // `offset` is relative to 0xcf8
-        match offset {
-            o @ 0...3 => self.set_config_address(o, data),
-            o @ 4...7 => self.config_space_write(o - 4, data),
+        match info.offset {
+            o @ 0..=3 => self.set_config_address(o, data),
+            o @ 4..=7 => self.config_space_write(o - 4, data),
             _ => (),
         };
     }
@@ -239,15 +295,14 @@ impl PciConfigMmio {
     }
 
     fn config_space_read(&self, config_address: u32) -> u32 {
-        let (bus, device, function, register) = parse_config_address(config_address);
-        self.pci_root
-            .config_space_read(bus, device, function, register)
+        let (address, register) = PciAddress::from_config_address(config_address);
+        self.pci_root.config_space_read(address, register)
     }
 
     fn config_space_write(&mut self, config_address: u32, offset: u64, data: &[u8]) {
-        let (bus, device, function, register) = parse_config_address(config_address);
+        let (address, register) = PciAddress::from_config_address(config_address);
         self.pci_root
-            .config_space_write(bus, device, function, register, offset, data)
+            .config_space_write(address, register, offset, data)
     }
 }
 
@@ -256,48 +311,27 @@ impl BusDevice for PciConfigMmio {
         "pci config mmio".to_owned()
     }
 
-    fn read(&mut self, offset: u64, data: &mut [u8]) {
+    fn read(&mut self, info: BusAccessInfo, data: &mut [u8]) {
         // Only allow reads to the register boundary.
-        let start = offset as usize % 4;
+        let start = info.offset as usize % 4;
         let end = start + data.len();
-        if end > 4 || offset > u32::max_value() as u64 {
+        if end > 4 || info.offset > u32::max_value() as u64 {
             for d in data {
                 *d = 0xff;
             }
             return;
         }
 
-        let value = self.config_space_read(offset as u32);
+        let value = self.config_space_read(info.offset as u32);
         for i in start..end {
             data[i - start] = (value >> (i * 8)) as u8;
         }
     }
 
-    fn write(&mut self, offset: u64, data: &[u8]) {
-        if offset > u32::max_value() as u64 {
+    fn write(&mut self, info: BusAccessInfo, data: &[u8]) {
+        if info.offset > u32::max_value() as u64 {
             return;
         }
-        self.config_space_write(offset as u32, offset % 4, data)
+        self.config_space_write(info.offset as u32, info.offset % 4, data)
     }
-}
-
-// Parse the CONFIG_ADDRESS register to a (bus, device, function, register) tuple.
-fn parse_config_address(config_address: u32) -> (usize, usize, usize, usize) {
-    const BUS_NUMBER_OFFSET: usize = 16;
-    const BUS_NUMBER_MASK: u32 = 0x00ff;
-    const DEVICE_NUMBER_OFFSET: usize = 11;
-    const DEVICE_NUMBER_MASK: u32 = 0x1f;
-    const FUNCTION_NUMBER_OFFSET: usize = 8;
-    const FUNCTION_NUMBER_MASK: u32 = 0x07;
-    const REGISTER_NUMBER_OFFSET: usize = 2;
-    const REGISTER_NUMBER_MASK: u32 = 0x3f;
-
-    let bus_number = ((config_address >> BUS_NUMBER_OFFSET) & BUS_NUMBER_MASK) as usize;
-    let device_number = ((config_address >> DEVICE_NUMBER_OFFSET) & DEVICE_NUMBER_MASK) as usize;
-    let function_number =
-        ((config_address >> FUNCTION_NUMBER_OFFSET) & FUNCTION_NUMBER_MASK) as usize;
-    let register_number =
-        ((config_address >> REGISTER_NUMBER_OFFSET) & REGISTER_NUMBER_MASK) as usize;
-
-    (bus_number, device_number, function_number, register_number)
 }

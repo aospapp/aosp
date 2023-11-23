@@ -22,6 +22,7 @@
 
 #include <linux/securebits.h>
 
+#include "syscall_wrapper.h"
 #include "util.h"
 
 /*
@@ -47,6 +48,10 @@
 #if defined(__ANDROID__)
 _Static_assert(SECURE_ALL_BITS == 0x55, "SECURE_ALL_BITS == 0x55.");
 #endif
+
+/* Used by lookup_(user|group) functions. */
+#define MAX_PWENT_SZ (1 << 20)
+#define MAX_GRENT_SZ (1 << 20)
 
 int secure_noroot_set_and_locked(uint64_t mask)
 {
@@ -384,32 +389,45 @@ int lookup_user(const char *user, uid_t *uid, gid_t *gid)
 	char *buf = NULL;
 	struct passwd pw;
 	struct passwd *ppw = NULL;
+	/*
+	 * sysconf(_SC_GETPW_R_SIZE_MAX), under glibc, is documented to return
+	 * a suggested starting size for the buffer, so let's try getting this
+	 * size first, and fallback to a default othersise.
+	 */
 	ssize_t sz = sysconf(_SC_GETPW_R_SIZE_MAX);
 	if (sz == -1)
 		sz = 65536; /* your guess is as good as mine... */
 
-	/*
-	 * sysconf(_SC_GETPW_R_SIZE_MAX), under glibc, is documented to return
-	 * the maximum needed size of the buffer, so we don't have to search.
-	 */
-	buf = malloc(sz);
-	if (!buf)
-		return -ENOMEM;
-	getpwnam_r(user, &pw, buf, sz, &ppw);
-	/*
-	 * We're safe to free the buffer here. The strings inside |pw| point
-	 * inside |buf|, but we don't use any of them; this leaves the pointers
-	 * dangling but it's safe. |ppw| points at |pw| if getpwnam_r(3)
-	 * succeeded.
-	 */
-	free(buf);
-	/* getpwnam_r(3) does *not* set errno when |ppw| is NULL. */
-	if (!ppw)
-		return -1;
+	do {
+		buf = malloc(sz);
+		if (!buf)
+			return -ENOMEM;
+		int err = getpwnam_r(user, &pw, buf, sz, &ppw);
+		/*
+		 * We're safe to free the buffer here. The strings inside |pw|
+		 * point inside |buf|, but we don't use any of them; this leaves
+		 * the pointers dangling but it's safe.
+		 * |ppw| points at |pw| if getpwnam_r(3) succeeded.
+		 */
+		free(buf);
+		if (err == ERANGE) {
+			/* |buf| was too small, retry with a bigger one. */
+			sz <<= 1;
+		} else if (err != 0) {
+			/* We got an error not related to the size of |buf|. */
+			return -err;
+		} else if (!ppw) {
+			/* Not found. */
+			return -ENOENT;
+		} else {
+			*uid = ppw->pw_uid;
+			*gid = ppw->pw_gid;
+			return 0;
+		}
+	} while (sz <= MAX_PWENT_SZ);
 
-	*uid = ppw->pw_uid;
-	*gid = ppw->pw_gid;
-	return 0;
+	/* A buffer of size MAX_PWENT_SZ is still too small, return an error. */
+	return -ERANGE;
 }
 
 /*
@@ -420,33 +438,47 @@ int lookup_group(const char *group, gid_t *gid)
 	char *buf = NULL;
 	struct group gr;
 	struct group *pgr = NULL;
+	/*
+	 * sysconf(_SC_GETGR_R_SIZE_MAX), under glibc, is documented to return
+	 * a suggested starting size for the buffer, so let's try getting this
+	 * size first, and fallback to a default otherwise.
+	 */
 	ssize_t sz = sysconf(_SC_GETGR_R_SIZE_MAX);
 	if (sz == -1)
 		sz = 65536; /* and mine is as good as yours, really */
 
-	/*
-	 * sysconf(_SC_GETGR_R_SIZE_MAX), under glibc, is documented to return
-	 * the maximum needed size of the buffer, so we don't have to search.
-	 */
-	buf = malloc(sz);
-	if (!buf)
-		return -ENOMEM;
-	getgrnam_r(group, &gr, buf, sz, &pgr);
-	/*
-	 * We're safe to free the buffer here. The strings inside gr point
-	 * inside buf, but we don't use any of them; this leaves the pointers
-	 * dangling but it's safe. pgr points at gr if getgrnam_r succeeded.
-	 */
-	free(buf);
-	/* getgrnam_r(3) does *not* set errno when |pgr| is NULL. */
-	if (!pgr)
-		return -1;
+	do {
+		buf = malloc(sz);
+		if (!buf)
+			return -ENOMEM;
+		int err = getgrnam_r(group, &gr, buf, sz, &pgr);
+		/*
+		 * We're safe to free the buffer here. The strings inside |gr|
+		 * point inside |buf|, but we don't use any of them; this leaves
+		 * the pointers dangling but it's safe.
+		 * |pgr| points at |gr| if getgrnam_r(3) succeeded.
+		 */
+		free(buf);
+		if (err == ERANGE) {
+			/* |buf| was too small, retry with a bigger one. */
+			sz <<= 1;
+		} else if (err != 0) {
+			/* We got an error not related to the size of |buf|. */
+			return -err;
+		} else if (!pgr) {
+			/* Not found. */
+			return -ENOENT;
+		} else {
+			*gid = pgr->gr_gid;
+			return 0;
+		}
+	} while (sz <= MAX_GRENT_SZ);
 
-	*gid = pgr->gr_gid;
-	return 0;
+	/* A buffer of size MAX_GRENT_SZ is still too small, return an error. */
+	return -ERANGE;
 }
 
-static int seccomp_action_is_available(const char *wanted)
+static bool seccomp_action_is_available(const char *wanted)
 {
 	if (is_android()) {
 		/*
@@ -455,7 +487,7 @@ static int seccomp_action_is_available(const char *wanted)
 		 * TODO(crbug.com/978022, jorgelo): Remove once the denial is
 		 * fixed.
 		 */
-		return 0;
+		return false;
 	}
 	const char actions_avail_path[] =
 	    "/proc/sys/kernel/seccomp/actions_avail";
@@ -463,7 +495,7 @@ static int seccomp_action_is_available(const char *wanted)
 
 	if (!f) {
 		pwarn("fopen(%s) failed", actions_avail_path);
-		return 0;
+		return false;
 	}
 
 	char *actions_avail = NULL;
@@ -471,7 +503,7 @@ static int seccomp_action_is_available(const char *wanted)
 	if (getline(&actions_avail, &buf_size, f) < 0) {
 		pwarn("getline() failed");
 		free(actions_avail);
-		return 0;
+		return false;
 	}
 
 	/*
@@ -480,7 +512,9 @@ static int seccomp_action_is_available(const char *wanted)
 	 * seccomp actions which include other actions though, so we're good for
 	 * now. Eventually we might want to split the string by spaces.
 	 */
-	return strstr(actions_avail, wanted) != NULL;
+	bool available = strstr(actions_avail, wanted) != NULL;
+	free(actions_avail);
+	return available;
 }
 
 int seccomp_ret_log_available(void)
@@ -502,4 +536,10 @@ int seccomp_ret_kill_process_available(void)
 		    seccomp_action_is_available("kill_process");
 
 	return ret_kill_process_available;
+}
+
+bool seccomp_filter_flags_available(unsigned int flags)
+{
+	return sys_seccomp(SECCOMP_SET_MODE_FILTER, flags, NULL) != -1 ||
+	       errno != EINVAL;
 }

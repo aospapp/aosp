@@ -2,8 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import utils
-
+try:
+    from autotest_lib.server import utils
+except ImportError:
+    import logging
+    logging.warning("Could not import utils from autotest_lib.server. "
+                    "Reverting to simply: `import utils`.")
+    import utils
 
 class base_host_attributes(object):
     def __init__(self, host):

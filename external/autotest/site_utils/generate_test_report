@@ -49,7 +49,7 @@ class CrashWaiver:
 #     'crashy':CrashWaiver(
 #       ['sig 11'], '2011-Aug-18', 'http://crosbug/123456', 'developer'),
 
-_CRASH_WHITELIST = {
+_CRASH_ALLOWLIST = {
 }
 
 
@@ -58,21 +58,21 @@ class ResultCollector(object):
 
     def __init__(self, collect_perf=True, collect_attr=False,
                  collect_info=False, escape_error=False,
-                 whitelist_chrome_crashes=False):
+                 allow_chrome_crashes=False):
         """Initialize ResultsCollector class.
 
         @param collect_perf: Should perf keyvals be collected?
         @param collect_attr: Should attr keyvals be collected?
         @param collect_info: Should info keyvals be collected?
         @param escape_error: Escape error message text for tools.
-        @param whitelist_chrome_crashes: Treat Chrome crashes as non-fatal.
+        @param allow_chrome_crashes: Treat Chrome crashes as non-fatal.
 
         """
         self._collect_perf = collect_perf
         self._collect_attr = collect_attr
         self._collect_info = collect_info
         self._escape_error = escape_error
-        self._whitelist_chrome_crashes = whitelist_chrome_crashes
+        self._allow_chrome_crashes = allow_chrome_crashes
 
     def _CollectPerf(self, testdir):
         """Parses keyval file under testdir and return the perf keyval pairs.
@@ -142,8 +142,8 @@ class ResultCollector(object):
     def _CollectCrashes(self, status_raw):
         """Parses status_raw file for crashes.
 
-        Saves crash details if crashes are discovered.  If a whitelist is
-        present, only records whitelisted crashes.
+        Saves crash details if crashes are discovered.  If an allowlist is
+        present, only records allowed crashes.
 
         @param status_raw: The contents of the status.log or status file from
                 the test.
@@ -156,8 +156,8 @@ class ResultCollector(object):
                 'Received crash notification for ([-\w]+).+ (sig \d+)')
         chrome_regex = re.compile(r'^supplied_[cC]hrome|^chrome$')
         for match in regex.finditer(status_raw):
-            w = _CRASH_WHITELIST.get(match.group(1))
-            if (self._whitelist_chrome_crashes and
+            w = _CRASH_ALLOWLIST.get(match.group(1))
+            if (self._allow_chrome_crashes and
                     chrome_regex.match(match.group(1))):
                 print '@@@STEP_WARNINGS@@@'
                 print '%s crashed with %s' % (match.group(1), match.group(2))
@@ -426,7 +426,7 @@ class ReportGenerator(object):
                 collect_attr=self._options.attr,
                 collect_info=self._options.info,
                 escape_error=self._options.escape_error,
-                whitelist_chrome_crashes=self._options.whitelist_chrome_crashes)
+                allow_chrome_crashes=self._options.allow_chrome_crashes)
 
         for resdir in self._args:
             if not os.path.isdir(resdir):
@@ -911,8 +911,8 @@ def main():
     parser.add_option('--no-debug', dest='print_debug', action='store_false',
                       default=True,
                       help='Don\'t print out logs when tests fail.')
-    parser.add_option('--whitelist_chrome_crashes',
-                      dest='whitelist_chrome_crashes',
+    parser.add_option('--allow_chrome_crashes',
+                      dest='allow_chrome_crashes',
                       action='store_true', default=False,
                       help='Treat Chrome crashes as non-fatal.')
     parser.add_option('--ignore_experimental_tests',

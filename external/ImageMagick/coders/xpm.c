@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -159,7 +159,7 @@ static int CompareXPMColor(const void *target,const void *source)
 
 static ssize_t CopyXPMColor(char *destination,const char *source,size_t length)
 {
-  register const char
+  const char
     *p;
 
   p=source;
@@ -190,19 +190,21 @@ static char *ParseXPMColor(char *color,MagickBooleanType search_start)
 {
 #define NumberTargets  6
 
-  register char
+  char
     *p,
     *r;
 
-  register const char
+  const char
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
   static const char
     *const targets[NumberTargets] = { "c ", "g ", "g4 ", "m ", "b ", "s " };
 
+  if (*color == '\0')
+    return((char *) NULL);
   if (search_start != MagickFalse)
     {
       for (i=0; i < NumberTargets; i++)
@@ -261,15 +263,15 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     active,
     status;
 
-  register char
+  char
     *next,
     *p,
     *q;
 
-  register Quantum
+  Quantum
     *r;
 
-  register ssize_t
+  ssize_t
     x;
 
   size_t
@@ -409,10 +411,12 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Parse color.
     */
+    (void) memset(target,0,sizeof(target));
     (void) CopyMagickString(target,"gray",MagickPathExtent);
     q=(char *) NULL;
     if (strlen(p) > width)
       q=ParseXPMColor(p+width,MagickTrue);
+    (void) memset(symbolic,0,sizeof(symbolic));
     *symbolic='\0';
     if (q != (char *) NULL)
       {
@@ -476,9 +480,6 @@ static Image *ReadXPMImage(const ImageInfo *image_info,ExceptionInfo *exception)
           break;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          ssize_t
-            count;
-
           count=CopyXPMColor(key,p,MagickMin(width,MagickPathExtent-1));
           if (count != (ssize_t) width)
             break;
@@ -684,14 +685,14 @@ static MagickBooleanType WritePICONImage(const ImageInfo *image_info,
   RectangleInfo
     geometry;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register Quantum
+  Quantum
     *q;
 
   size_t
@@ -943,10 +944,10 @@ static MagickBooleanType WriteXPMImage(const ImageInfo *image_info,Image *image,
   PixelInfo
     pixel;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 

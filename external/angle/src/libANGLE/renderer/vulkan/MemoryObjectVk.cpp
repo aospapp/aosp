@@ -8,10 +8,10 @@
 #include "libANGLE/renderer/vulkan/MemoryObjectVk.h"
 
 #include "common/debug.h"
+#include "common/vulkan/vk_headers.h"
 #include "libANGLE/Context.h"
 #include "libANGLE/renderer/vulkan/ContextVk.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
-#include "volk.h"
 #include "vulkan/vulkan_fuchsia_ext.h"
 
 #if !defined(ANGLE_PLATFORM_WINDOWS)
@@ -66,7 +66,7 @@ VkExternalMemoryHandleTypeFlagBits ToVulkanHandleType(gl::HandleType handleType)
         case gl::HandleType::OpaqueFd:
             return VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
         case gl::HandleType::ZirconVmo:
-            return VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA;
+            return VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA;
         default:
             // Not a memory handle type.
             UNREACHABLE();
@@ -97,7 +97,7 @@ void MemoryObjectVk::onDestroy(const gl::Context *context)
 
 angle::Result MemoryObjectVk::setDedicatedMemory(const gl::Context *context, bool dedicatedMemory)
 {
-    UNIMPLEMENTED();
+    mDedicatedMemory = dedicatedMemory;
     return angle::Result::Continue;
 }
 
@@ -165,16 +165,20 @@ angle::Result MemoryObjectVk::createImage(ContextVk *contextVk,
                                           GLenum internalFormat,
                                           const gl::Extents &size,
                                           GLuint64 offset,
-                                          vk::ImageHelper *image)
+                                          vk::ImageHelper *image,
+                                          GLbitfield createFlags,
+                                          GLbitfield usageFlags)
 {
     RendererVk *renderer = contextVk->getRenderer();
 
     const vk::Format &vkFormat = renderer->getFormat(internalFormat);
 
-    // All supported usage flags must be specified.
-    // See EXT_external_objects issue 13.
-    VkImageUsageFlags imageUsageFlags =
-        vk::GetMaximalImageUsageFlags(renderer, vkFormat.vkImageFormat);
+    // EXT_external_objects issue 13 says that all supported usage flags must be specified.
+    // However, ANGLE_external_objects_flags allows these flags to be masked.  Note that the GL enum
+    // values constituting the bits of |usageFlags| are identical to their corresponding Vulkan
+    // value.
+    const VkImageUsageFlags imageUsageFlags =
+        vk::GetMaximalImageUsageFlags(renderer, vkFormat.actualImageFormatID) & usageFlags;
 
     VkExternalMemoryImageCreateInfo externalMemoryImageCreateInfo = {};
     externalMemoryImageCreateInfo.sType       = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
@@ -184,15 +188,40 @@ angle::Result MemoryObjectVk::createImage(ContextVk *contextVk,
     uint32_t layerCount;
     gl_vk::GetExtentsAndLayerCount(type, size, &vkExtents, &layerCount);
 
-    ANGLE_TRY(image->initExternal(
-        contextVk, type, vkExtents, vkFormat, 1, imageUsageFlags,
-        vk::ImageLayout::ExternalPreInitialized, &externalMemoryImageCreateInfo, 0,
-        static_cast<uint32_t>(levels) - 1, static_cast<uint32_t>(levels), layerCount));
+    // Initialize VkImage with initial layout of VK_IMAGE_LAYOUT_UNDEFINED.
+    //
+    // Binding a VkImage with an initial layout of VK_IMAGE_LAYOUT_UNDEFINED to external memory
+    // whose content has already been defined does not make the content undefined (see 11.7.1.
+    // External Resource Sharing).
+    //
+    // If the content is already defined, the ownership rules imply that the first operation on the
+    // texture must be a call to glWaitSemaphoreEXT that grants ownership of the image and informs
+    // us of the true layout.
+    //
+    // If the content is not already defined, the first operation may not be a glWaitSemaphore, but
+    // in this case undefined layout is appropriate.
+    //
+    // ANGLE_external_objects_flags allows create flags to be specified by the application instead
+    // of getting defaulted to zero.  Note that the GL enum values constituting the bits of
+    // |createFlags| are identical to their corresponding Vulkan value.
+    ANGLE_TRY(image->initExternal(contextVk, type, vkExtents, vkFormat, 1, imageUsageFlags,
+                                  createFlags, vk::ImageLayout::Undefined,
+                                  &externalMemoryImageCreateInfo, gl::LevelIndex(0),
+                                  static_cast<uint32_t>(levels), layerCount,
+                                  contextVk->isRobustResourceInitEnabled(), nullptr, false));
 
     VkMemoryRequirements externalMemoryRequirements;
     image->getImage().getMemoryRequirements(renderer->getDevice(), &externalMemoryRequirements);
 
-    void *importMemoryInfo                                             = nullptr;
+    void *importMemoryInfo                                    = nullptr;
+    VkMemoryDedicatedAllocateInfo memoryDedicatedAllocateInfo = {};
+    if (mDedicatedMemory)
+    {
+        memoryDedicatedAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR;
+        memoryDedicatedAllocateInfo.image = image->getImage().getHandle();
+        importMemoryInfo                  = &memoryDedicatedAllocateInfo;
+    }
+
     VkImportMemoryFdInfoKHR importMemoryFdInfo                         = {};
     VkImportMemoryZirconHandleInfoFUCHSIA importMemoryZirconHandleInfo = {};
     switch (mHandleType)
@@ -200,6 +229,7 @@ angle::Result MemoryObjectVk::createImage(ContextVk *contextVk,
         case gl::HandleType::OpaqueFd:
             ASSERT(mFd != kInvalidFd);
             importMemoryFdInfo.sType      = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR;
+            importMemoryFdInfo.pNext      = importMemoryInfo;
             importMemoryFdInfo.handleType = ToVulkanHandleType(mHandleType);
             importMemoryFdInfo.fd         = dup(mFd);
             importMemoryInfo              = &importMemoryFdInfo;
@@ -207,7 +237,8 @@ angle::Result MemoryObjectVk::createImage(ContextVk *contextVk,
         case gl::HandleType::ZirconVmo:
             ASSERT(mZirconHandle != ZX_HANDLE_INVALID);
             importMemoryZirconHandleInfo.sType =
-                VK_STRUCTURE_TYPE_TEMP_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA;
+                VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA;
+            importMemoryZirconHandleInfo.pNext      = importMemoryInfo;
             importMemoryZirconHandleInfo.handleType = ToVulkanHandleType(mHandleType);
             ANGLE_TRY(
                 DuplicateZirconVmo(contextVk, mZirconHandle, &importMemoryZirconHandleInfo.handle));
@@ -223,8 +254,8 @@ angle::Result MemoryObjectVk::createImage(ContextVk *contextVk,
 
     VkMemoryPropertyFlags flags = 0;
     ANGLE_TRY(image->initExternalMemory(contextVk, renderer->getMemoryProperties(),
-                                        externalMemoryRequirements, importMemoryInfo,
-                                        VK_QUEUE_FAMILY_EXTERNAL, flags));
+                                        externalMemoryRequirements, nullptr, importMemoryInfo,
+                                        renderer->getQueueFamilyIndex(), flags));
 
     return angle::Result::Continue;
 }

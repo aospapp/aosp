@@ -25,14 +25,14 @@
 
 #include <google/protobuf/descriptor.h>
 
-#include "src/traced/probes/ftrace/format_parser.h"
+#include "src/traced/probes/ftrace/format_parser/format_parser.h"
 
 namespace perfetto {
 
 class VerifyStream : public std::ostringstream {
  public:
   VerifyStream(std::string filename);
-  virtual ~VerifyStream();
+  ~VerifyStream() override;
 
  private:
   std::string filename_;

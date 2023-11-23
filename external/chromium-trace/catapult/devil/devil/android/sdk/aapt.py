@@ -1,13 +1,13 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """This module wraps the Android Asset Packaging Tool."""
+
+import six
 
 from devil.android.sdk import build_tools
 from devil.utils import cmd_helper
 from devil.utils import lazy
-
 
 _aapt_path = lazy.WeakConstant(lambda: build_tools.GetPath('aapt'))
 
@@ -38,6 +38,6 @@ def Dump(what, apk, assets=None):
     assets: List of assets in apk you want to dump information for.
   """
   assets = assets or []
-  if isinstance(assets, basestring):
+  if isinstance(assets, six.string_types):
     assets = [assets]
   return _RunAaptCmd(['dump', what, apk] + assets).splitlines()

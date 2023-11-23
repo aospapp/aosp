@@ -21,8 +21,12 @@
 
 #include "amber/amber.h"
 #include "amber/result.h"
+#if AMBER_ENABLE_CLSPV
+#include "spirv-tools/libspirv.h"
+#endif
 #include "src/pipeline.h"
 #include "src/shader.h"
+#include "src/virtual_file_store.h"
 
 namespace amber {
 
@@ -30,7 +34,9 @@ namespace amber {
 class ShaderCompiler {
  public:
   ShaderCompiler();
-  ShaderCompiler(const std::string& env, bool disable_spirv_validation);
+  ShaderCompiler(const std::string& env,
+                 bool disable_spirv_validation,
+                 VirtualFileStore* virtual_files);
   ~ShaderCompiler();
 
   /// Returns a result code and a compilation of the given shader.
@@ -41,19 +47,32 @@ class ShaderCompiler {
   /// If |shader_info| specifies shader optimizations to run and there is no
   /// entry in |shader_map| for that shader, then the SPIRV-Tools optimizer will
   /// be invoked to produce the shader binary.
+  ///
+  /// |pipeline| is the pipeline containing |shader_info|. The name is used to
+  /// prefix shaders used in multiple pipelines with different optimization
+  /// flags. The pipeline is used in OPENCL-C compiles to create the literal
+  /// sampler bindings.
   std::pair<Result, std::vector<uint32_t>> Compile(
+      Pipeline* pipeline,
       Pipeline::ShaderInfo* shader_info,
       const ShaderMap& shader_map) const;
 
  private:
   Result ParseHex(const std::string& data, std::vector<uint32_t>* result) const;
   Result CompileGlsl(const Shader* shader, std::vector<uint32_t>* result) const;
-  Result CompileHlsl(const Shader* shader, std::vector<uint32_t>* result) const;
+  Result CompileHlsl(const Shader* shader,
+                     bool emit_debug_info,
+                     std::vector<uint32_t>* result) const;
+#if AMBER_ENABLE_CLSPV
   Result CompileOpenCLC(Pipeline::ShaderInfo* shader,
+                        Pipeline* pipeline,
+                        spv_target_env env,
                         std::vector<uint32_t>* result) const;
+#endif
 
   std::string spv_env_;
   bool disable_spirv_validation_ = false;
+  VirtualFileStore* virtual_files_ = nullptr;
 };
 
 // Parses the SPIR-V environment string, and returns the corresponding

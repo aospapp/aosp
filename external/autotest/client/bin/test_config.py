@@ -1,13 +1,18 @@
+# Lint as: python2, python3
 """
 Wrapper around ConfigParser to manage testcases configuration.
 
 @author rsalveti@linux.vnet.ibm.com (Ricardo Salveti de Araujo)
 """
 
-from ConfigParser import ConfigParser
-from StringIO import StringIO
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from six.moves.configparser import ConfigParser
+from six.moves import range
+from six import StringIO
 from os import path
-import types, re, string
+import re, six, string
 from autotest_lib.client.common_lib import utils
 
 __all__ = ['config_loader']
@@ -36,7 +41,7 @@ class config_loader:
         if hasattr(cfg, 'read'):
             self.cfg = cfg
             self.parser.readfp(self.cfg)
-        elif isinstance(cfg, types.StringTypes):
+        elif isinstance(cfg, six.string_types):
             # Config file is a URL. Download it to a temp dir
             if cfg.startswith('http') or cfg.startswith('ftp'):
                 self.cfg = path.join(tmpdir, path.basename(cfg))
@@ -104,7 +109,7 @@ class config_loader:
         """
         if not self.cfg:
             return
-        fileobj = file(self.cfg, 'w')
+        fileobj = open(self.cfg, 'w')
         try:
             self.parser.write(fileobj)
         finally:
@@ -169,7 +174,7 @@ class config_loader:
     def __isint(self, parameter):
         try:
             int(parameter)
-        except Exception, e_stack:
+        except Exception as e_stack:
             return False
         return True
 
@@ -177,7 +182,7 @@ class config_loader:
     def __isfloat(self, parameter):
         try:
             float(parameter)
-        except Exception, e_stack:
+        except Exception as e_stack:
             return False
         return True
 
@@ -185,6 +190,6 @@ class config_loader:
     def __isstr(self, parameter):
         try:
             str(parameter)
-        except Exception, e_stack:
+        except Exception as e_stack:
             return False
         return True

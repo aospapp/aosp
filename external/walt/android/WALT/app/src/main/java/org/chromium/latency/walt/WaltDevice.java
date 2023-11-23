@@ -23,6 +23,7 @@ import android.os.Handler;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.Locale;
 
 /**
  * A singleton used as an interface for the physical WALT device.
@@ -31,7 +32,7 @@ public class WaltDevice implements WaltConnection.ConnectionStateListener {
 
     private static final int DEFAULT_DRIFT_LIMIT_US = 1500;
     private static final String TAG = "WaltDevice";
-    public static final String PROTOCOL_VERSION = "5";
+    public static final String PROTOCOL_VERSION = "6";
 
     // Teensy side commands. Each command is a single char
     // Based on #defines section in walt.ino
@@ -56,6 +57,7 @@ public class WaltDevice implements WaltConnection.ConnectionStateListener {
     static final char CMD_BEEP_STOP        = 'S'; // Stop generating tone
     static final char CMD_MIDI             = 'M'; // Start listening for a MIDI message
     static final char CMD_NOTE             = 'N'; // Generate a MIDI NoteOn message
+    static final char CMD_ACCELEROMETER    = 'O'; // Generate a MIDI NoteOn message
 
     private static final int BYTE_BUFFER_SIZE = 1024 * 4;
     private byte[] buffer = new byte[BYTE_BUFFER_SIZE];
@@ -221,6 +223,19 @@ public class WaltDevice implements WaltConnection.ConnectionStateListener {
         }
     }
 
+    public void ping() throws IOException {
+        if (!isConnected() || clock == null) {
+            throw new IOException("Not connected to WALT");
+        }
+
+        long t1 = clock.micros();
+        command(CMD_PING);
+        long dt = clock.micros() - t1;
+        logger.log(String.format(Locale.US,
+                "Ping reply in %.1fms", dt / 1000.
+        ));
+    }
+
     public void syncClock() throws IOException {
         clock = connection.syncClock();
     }
@@ -247,7 +262,7 @@ public class WaltDevice implements WaltConnection.ConnectionStateListener {
             return;
         }
         int drift = Math.abs(clock.getMeanLag());
-        String msg = String.format("Remote clock delayed between %d and %d us",
+        String msg = String.format(Locale.US, "Remote clock delayed between %d and %d us",
                 clock.minLag, clock.maxLag);
         // TODO: Convert the limit to user editable preference
         if (drift > DEFAULT_DRIFT_LIMIT_US) {

@@ -12,4 +12,4 @@ else
   dash_t=""
 fi
 
-exec adb shell $dash_t /data/local/tmp/bc-tests/tests/all.sh bc 0 1 0 1 bc
+exec adb shell $dash_t /data/local/tmp/bc-tests/tests/all.sh bc 0 1 0 0 bc

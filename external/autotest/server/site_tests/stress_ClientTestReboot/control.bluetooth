@@ -9,7 +9,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "Stress"
 TEST_TYPE = "server"
-ATTRIBUTES = 'suite:bluetooth_stress'
+ATTRIBUTES = 'suite:bluetooth_stress, suite:reboot_stress'
 
 DOC = """
 This test reboots the machine and checks whether the bluetooth adapter comes up.
@@ -17,6 +17,6 @@ This test reboots the machine and checks whether the bluetooth adapter comes up.
 
 def run_reboot_stress(machine):
     job.run_test('stress_ClientTestReboot', client_ip=machine,
-                 testname='bluetooth_AdapterSanity', loops=100)
+                 testname='bluetooth_AdapterHealth', loops=100)
 
 parallel_simple(run_reboot_stress, machines)

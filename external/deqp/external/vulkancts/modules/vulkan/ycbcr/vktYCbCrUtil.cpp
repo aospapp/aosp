@@ -226,9 +226,47 @@ void checkImageSupport (Context& context, VkFormat format, VkImageCreateFlags cr
 	}
 }
 
-void fillRandom (de::Random* randomGen, MultiPlaneImageData* imageData)
+// When noNan is true, fillRandom does not generate NaNs in float formats.
+// But as a side effect, it also takes out infinities as well as almost half of the largest-magnitude values.
+void fillRandom (de::Random* randomGen, MultiPlaneImageData* imageData, const vk::VkFormat format, const bool noNan)
 {
 	// \todo [pyry] Optimize, take into account bits that must be 0
+
+	deUint8 mask, maskStride;
+	const deUint8 noMask = 0xffu;
+
+	switch (format)
+	{
+		case vk::VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+			mask		= 0xbb;
+			maskStride	= 1;
+			break;
+		case vk::VK_FORMAT_R16_SFLOAT:
+		case vk::VK_FORMAT_R16G16_SFLOAT:
+		case vk::VK_FORMAT_R16G16B16_SFLOAT:
+		case vk::VK_FORMAT_R16G16B16A16_SFLOAT:
+			mask		= 0xbf;
+			maskStride	= 2;
+			break;
+		case vk::VK_FORMAT_R32_SFLOAT:
+		case vk::VK_FORMAT_R32G32_SFLOAT:
+		case vk::VK_FORMAT_R32G32B32_SFLOAT:
+		case vk::VK_FORMAT_R32G32B32A32_SFLOAT:
+			mask		= 0xbf;
+			maskStride	= 4;
+			break;
+		case vk::VK_FORMAT_R64_SFLOAT:
+		case vk::VK_FORMAT_R64G64_SFLOAT:
+		case vk::VK_FORMAT_R64G64B64_SFLOAT:
+		case vk::VK_FORMAT_R64G64B64A64_SFLOAT:
+			mask		= 0xbf;
+			maskStride	= 8;
+			break;
+		default:
+			mask		= 0xff;
+			maskStride	= 1;
+			break;
+	}
 
 	for (deUint32 planeNdx = 0; planeNdx < imageData->getDescription().numPlanes; ++planeNdx)
 	{
@@ -236,7 +274,11 @@ void fillRandom (de::Random* randomGen, MultiPlaneImageData* imageData)
 		deUint8* const	planePtr	= (deUint8*)imageData->getPlanePtr(planeNdx);
 
 		for (size_t ndx = 0; ndx < planeSize; ++ndx)
-			planePtr[ndx] = randomGen->getUint8();
+		{
+			const deUint8 finalMask = (noNan && ((ndx % static_cast<size_t>(maskStride)) == 0u)) ? mask : noMask;
+
+			planePtr[ndx] = randomGen->getUint8() & finalMask;
+		}
 	}
 }
 
@@ -321,33 +363,6 @@ void uploadImage (const DeviceInterface&		vkd,
 
 	beginCommandBuffer(vkd, *cmdBuffer);
 
-	{
-		const VkImageMemoryBarrier		preCopyBarrier	=
-		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			DE_NULL,
-			(VkAccessFlags)0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_QUEUE_FAMILY_IGNORED,
-			VK_QUEUE_FAMILY_IGNORED,
-			image,
-			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, arrayLayer, 1u }
-		};
-
-		vkd.cmdPipelineBarrier(*cmdBuffer,
-								(VkPipelineStageFlags)VK_PIPELINE_STAGE_HOST_BIT,
-								(VkPipelineStageFlags)VK_PIPELINE_STAGE_TRANSFER_BIT,
-								(VkDependencyFlags)0u,
-								0u,
-								(const VkMemoryBarrier*)DE_NULL,
-								0u,
-								(const VkBufferMemoryBarrier*)DE_NULL,
-								1u,
-								&preCopyBarrier);
-	}
-
 	for (deUint32 planeNdx = 0; planeNdx < imageData.getDescription().numPlanes; ++planeNdx)
 	{
 		const VkImageAspectFlagBits	aspect	= (formatDesc.numPlanes > 1)
@@ -365,34 +380,62 @@ void uploadImage (const DeviceInterface&		vkd,
 			planeExtent
 		};
 
-		vkd.cmdCopyBufferToImage(*cmdBuffer, **stagingBuffers[planeNdx], image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &copy);
-	}
-
-	{
-		const VkImageMemoryBarrier		postCopyBarrier	=
 		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			DE_NULL,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			nextAccess,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			finalLayout,
-			VK_QUEUE_FAMILY_IGNORED,
-			VK_QUEUE_FAMILY_IGNORED,
-			image,
-			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, arrayLayer, 1u }
-		};
+			const VkImageMemoryBarrier		preCopyBarrier	=
+				{
+					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+					DE_NULL,
+					(VkAccessFlags)0,
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_QUEUE_FAMILY_IGNORED,
+					VK_QUEUE_FAMILY_IGNORED,
+					image,
+					{ (VkImageAspectFlags)aspect, 0u, 1u, arrayLayer, 1u }
+				};
 
-		vkd.cmdPipelineBarrier(*cmdBuffer,
-								(VkPipelineStageFlags)VK_PIPELINE_STAGE_TRANSFER_BIT,
-								(VkPipelineStageFlags)VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-								(VkDependencyFlags)0u,
-								0u,
-								(const VkMemoryBarrier*)DE_NULL,
-								0u,
-								(const VkBufferMemoryBarrier*)DE_NULL,
-								1u,
-								&postCopyBarrier);
+			vkd.cmdPipelineBarrier(*cmdBuffer,
+								   (VkPipelineStageFlags)VK_PIPELINE_STAGE_HOST_BIT,
+								   (VkPipelineStageFlags)VK_PIPELINE_STAGE_TRANSFER_BIT,
+								   (VkDependencyFlags)0u,
+								   0u,
+								   (const VkMemoryBarrier*)DE_NULL,
+								   0u,
+								   (const VkBufferMemoryBarrier*)DE_NULL,
+								   1u,
+								   &preCopyBarrier);
+		}
+
+		vkd.cmdCopyBufferToImage(*cmdBuffer, **stagingBuffers[planeNdx], image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &copy);
+
+		{
+			const VkImageMemoryBarrier		postCopyBarrier	=
+				{
+					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+					DE_NULL,
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					nextAccess,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					finalLayout,
+					VK_QUEUE_FAMILY_IGNORED,
+					VK_QUEUE_FAMILY_IGNORED,
+					image,
+					{ (VkImageAspectFlags)aspect, 0u, 1u, arrayLayer, 1u }
+				};
+
+			vkd.cmdPipelineBarrier(*cmdBuffer,
+								   (VkPipelineStageFlags)VK_PIPELINE_STAGE_TRANSFER_BIT,
+								   (VkPipelineStageFlags)VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+								   (VkDependencyFlags)0u,
+								   0u,
+								   (const VkMemoryBarrier*)DE_NULL,
+								   0u,
+								   (const VkBufferMemoryBarrier*)DE_NULL,
+								   1u,
+								   &postCopyBarrier);
+		}
+
 	}
 
 	endCommandBuffer(vkd, *cmdBuffer);
@@ -1066,6 +1109,7 @@ tcu::UVec4 getYCbCrBitDepth (vk::VkFormat format)
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM:
 		case vk::VK_FORMAT_G8_B8R8_2PLANE_422_UNORM:
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:
+		case vk::VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT:
 			return tcu::UVec4(8, 8, 8, 0);
 
 		case vk::VK_FORMAT_R10X6_UNORM_PACK16:
@@ -1084,6 +1128,7 @@ tcu::UVec4 getYCbCrBitDepth (vk::VkFormat format)
 		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16:
 		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16:
 		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16:
+		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT:
 			return tcu::UVec4(10, 10, 10, 0);
 
 		case vk::VK_FORMAT_R12X4_UNORM_PACK16:
@@ -1100,6 +1145,7 @@ tcu::UVec4 getYCbCrBitDepth (vk::VkFormat format)
 		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16:
 		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16:
 		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16:
+		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT:
 			return tcu::UVec4(12, 12, 12, 12);
 
 		case vk::VK_FORMAT_G16B16G16R16_422_UNORM:
@@ -1109,6 +1155,7 @@ tcu::UVec4 getYCbCrBitDepth (vk::VkFormat format)
 		case vk::VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM:
 		case vk::VK_FORMAT_G16_B16R16_2PLANE_422_UNORM:
 		case vk::VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM:
+		case vk::VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT:
 			return tcu::UVec4(16, 16, 16, 0);
 
 		default:
@@ -1155,24 +1202,28 @@ deUint32 getYCbCrFormatChannelCount (vk::VkFormat format)
 		case vk::VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16:
 		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16:
 		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16:
+		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT:
 		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16:
 		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16:
 		case vk::VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16:
 		case vk::VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16:
 		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16:
 		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16:
+		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT:
 		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16:
 		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16:
 		case vk::VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16:
 		case vk::VK_FORMAT_G16B16G16R16_422_UNORM:
 		case vk::VK_FORMAT_G16_B16R16_2PLANE_420_UNORM:
 		case vk::VK_FORMAT_G16_B16R16_2PLANE_422_UNORM:
+		case vk::VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT:
 		case vk::VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM:
 		case vk::VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM:
 		case vk::VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM:
 		case vk::VK_FORMAT_G8B8G8R8_422_UNORM:
 		case vk::VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
 		case vk::VK_FORMAT_G8_B8R8_2PLANE_422_UNORM:
+		case vk::VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT:
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM:
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:

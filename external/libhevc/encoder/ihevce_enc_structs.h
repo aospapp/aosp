@@ -221,7 +221,8 @@ typedef UWORD32 (*pf_res_trans_luma)(
     WORD16 *pi2_dst,
     WORD32 src_strd,
     WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag);
+    WORD32 dst_strd,
+    CHROMA_PLANE_ID_T e_chroma_plane);
 
 typedef WORD32 (*pf_quant)(
     WORD16 *pi2_coeffs,

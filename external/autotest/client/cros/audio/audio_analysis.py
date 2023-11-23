@@ -1,12 +1,17 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """This module provides utilities to do audio data analysis."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import logging
 import numpy
 import operator
+from six.moves import range
 
 # Only peaks with coefficient greater than 0.01 of the first peak should be
 # considered. Note that this correspond to -40dB in the spectrum.
@@ -97,7 +102,7 @@ def spectral_analysis(signal, rate, min_peak_ratio=DEFAULT_MIN_PEAK_RATIO,
     threshold = max(abs_y_f) * min_peak_ratio
 
     # Suppresses all coefficients that are below threshold.
-    for i in xrange(len(abs_y_f)):
+    for i in range(len(abs_y_f)):
         if abs_y_f[i] < threshold:
             abs_y_f[i] = 0
 
@@ -148,7 +153,7 @@ def peak_detection(array, window_size):
               where the tuples are sorted by peak values.
 
     """
-    half_window_size = window_size / 2
+    half_window_size = window_size // 2
     length = len(array)
 
     def mid_is_peak(array, mid, left, right):
@@ -173,7 +178,7 @@ def peak_detection(array, window_size):
         next_peak_candidate_index = None
 
         # Check the left half window.
-        for index in xrange(left, mid):
+        for index in range(left, mid):
             if array[index] >= value_mid:
                 is_peak = False
                 break
@@ -184,7 +189,7 @@ def peak_detection(array, window_size):
 
         # Check the right half window and also record next candidate.
         # Favor the larger index for next_peak_candidate_index.
-        for index in xrange(right, mid, -1):
+        for index in range(right, mid, -1):
             if (next_peak_candidate_index is None or
                 array[index] > array[next_peak_candidate_index]):
                 next_peak_candidate_index = index
@@ -262,7 +267,7 @@ def anomaly_detection(signal, rate, freq,
 
     results = []
 
-    for start in xrange(0, len(signal), block_size / 2):
+    for start in range(0, len(signal), block_size // 2):
         end = start + block_size
         test_signal = signal[start:end]
         matched = _moving_pattern_matching(golden_y, test_signal, threshold)
@@ -326,7 +331,7 @@ def _moving_pattern_matching(golden_signal, test_signal, threshold):
     block_length = len(test_signal)
     number_of_movings = len(golden_signal) - block_length + 1
     correlation_indices = []
-    for moving_index in xrange(number_of_movings):
+    for moving_index in range(number_of_movings):
         # Cuts one block of golden signal from start index.
         # The block length is the same as test signal.
         start = moving_index

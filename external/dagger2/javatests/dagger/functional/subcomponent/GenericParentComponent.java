@@ -16,6 +16,7 @@
 
 package dagger.functional.subcomponent;
 
+
 interface GenericParentComponent<B> {  
   B subcomponent();
 }

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -165,10 +165,10 @@ static MagickBooleanType TraceEdges(Image *edge_image,CacheView *edge_view,
   MagickBooleanType
     status;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
   q=GetCacheViewAuthenticPixels(edge_view,x,y,1,1,exception);
@@ -315,10 +315,10 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
 #endif
   for (y=0; y < (ssize_t) edge_image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -339,7 +339,7 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
         dx,
         dy;
 
-      register const Quantum
+      const Quantum
         *magick_restrict kernel_pixels;
 
       ssize_t
@@ -427,10 +427,10 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
 #endif
   for (y=0; y < (ssize_t) edge_image->rows; y++)
   {
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -522,7 +522,7 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
   edge_view=AcquireAuthenticCacheView(edge_image,exception);
   for (y=0; y < (ssize_t) edge_image->rows; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -532,7 +532,7 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
       CannyInfo
         pixel;
 
-      register const Quantum
+      const Quantum
         *magick_restrict p;
 
       /*
@@ -586,7 +586,8 @@ MagickExport Image *CannyEdgeImage(const Image *image,const double radius,
 %  each of four directions (horizontal, vertical, left and right diagonals)
 %  for the specified distance.  The features include the angular second
 %  moment, contrast, correlation, sum of squares: variance, inverse difference
-%  moment, sum average, sum varience, sum entropy, entropy, difference variance,%  difference entropy, information measures of correlation 1, information
+%  moment, sum average, sum varience, sum entropy, entropy, difference variance,
+%  difference entropy, information measures of correlation 1, information
 %  measures of correlation 2, and maximum correlation coefficient.  You can
 %  access the red channel contrast, for example, like this:
 %
@@ -658,7 +659,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i,
     r;
 
@@ -709,10 +710,10 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 #endif
   for (r=0; r < (ssize_t) image->rows; r++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -780,12 +781,12 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
       number_grays=gray.alpha;
   cooccurrence=(ChannelStatistics **) AcquireQuantumMemory(number_grays,
     sizeof(*cooccurrence));
-  density_x=(ChannelStatistics *) AcquireQuantumMemory(2*(number_grays+1),
-    sizeof(*density_x));
-  density_xy=(ChannelStatistics *) AcquireQuantumMemory(2*(number_grays+1),
-    sizeof(*density_xy));
-  density_y=(ChannelStatistics *) AcquireQuantumMemory(2*(number_grays+1),
-    sizeof(*density_y));
+  density_x=(ChannelStatistics *) AcquireQuantumMemory(number_grays+1,
+    2*sizeof(*density_x));
+  density_xy=(ChannelStatistics *) AcquireQuantumMemory(number_grays+1,
+    2*sizeof(*density_xy));
+  density_y=(ChannelStatistics *) AcquireQuantumMemory(number_grays+1,
+    2*sizeof(*density_y));
   Q=(ChannelStatistics **) AcquireQuantumMemory(number_grays,sizeof(*Q));
   sum=(ChannelStatistics *) AcquireQuantumMemory(number_grays,sizeof(*sum));
   if ((cooccurrence == (ChannelStatistics **) NULL) ||
@@ -880,10 +881,10 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
   image_view=AcquireVirtualCacheView(image,exception);
   for (r=0; r < (ssize_t) image->rows; r++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     ssize_t
@@ -1013,7 +1014,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
     double
       normalize;
 
-    register ssize_t
+    ssize_t
       y;
 
     switch (i)
@@ -1055,7 +1056,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
     normalize=PerceptibleReciprocal(normalize);
     for (y=0; y < (ssize_t) number_grays; y++)
     {
-      register ssize_t
+      ssize_t
         x;
 
       for (x=0; x < (ssize_t) number_grays; x++)
@@ -1079,12 +1080,12 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 #endif
   for (i=0; i < 4; i++)
   {
-    register ssize_t
+    ssize_t
       y;
 
     for (y=0; y < (ssize_t) number_grays; y++)
     {
-      register ssize_t
+      ssize_t
         x;
 
       for (x=0; x < (ssize_t) number_grays; x++)
@@ -1264,7 +1265,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 #endif
   for (i=0; i < 4; i++)
   {
-    register ssize_t
+    ssize_t
       x;
 
     for (x=2; x < (ssize_t) (2*number_grays); x++)
@@ -1340,12 +1341,12 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 #endif
   for (i=0; i < 4; i++)
   {
-    register ssize_t
+    ssize_t
       y;
 
     for (y=0; y < (ssize_t) number_grays; y++)
     {
-      register ssize_t
+      ssize_t
         x;
 
       for (x=0; x < (ssize_t) number_grays; x++)
@@ -1455,7 +1456,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 #endif
   for (i=0; i < 4; i++)
   {
-    register ssize_t
+    ssize_t
       x;
 
     for (x=0; x < (ssize_t) number_grays; x++)
@@ -1612,7 +1613,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
 
     for (z=0; z < (ssize_t) number_grays; z++)
     {
-      register ssize_t
+      ssize_t
         y;
 
       ChannelStatistics
@@ -1621,7 +1622,7 @@ MagickExport ChannelFeatures *GetImageFeatures(const Image *image,
       (void) memset(&pixel,0,sizeof(pixel));
       for (y=0; y < (ssize_t) number_grays; y++)
       {
-        register ssize_t
+        ssize_t
           x;
 
         for (x=0; x < (ssize_t) number_grays; x++)
@@ -1819,7 +1820,7 @@ static Image *RenderHoughLines(const ImageInfo *image_info,const size_t columns,
     draw_info->primitive=FileToString(image->filename,~0UL,exception);
   else
     {
-      draw_info->primitive=(char *) AcquireMagickMemory((size_t)
+      draw_info->primitive=(char *) AcquireQuantumMemory(1,(size_t)
         GetBlobSize(image)+1);
       if (draw_info->primitive != (char *) NULL)
         {
@@ -1873,7 +1874,7 @@ MagickExport Image *HoughLineImage(const Image *image,const size_t width,
   PointInfo
     center;
 
-  register ssize_t
+  ssize_t
     y;
 
   size_t
@@ -1913,10 +1914,10 @@ MagickExport Image *HoughLineImage(const Image *image,const size_t width,
   image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -1931,7 +1932,7 @@ MagickExport Image *HoughLineImage(const Image *image,const size_t width,
     {
       if (GetPixelIntensity(image,p) > (QuantumRange/2.0))
         {
-          register ssize_t
+          ssize_t
             i;
 
           for (i=0; i < 180; i++)
@@ -1998,7 +1999,7 @@ MagickExport Image *HoughLineImage(const Image *image,const size_t width,
     line_count=threshold;
   for (y=0; y < (ssize_t) accumulator_height; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
     for (x=0; x < (ssize_t) accumulator_width; x++)
@@ -2209,13 +2210,13 @@ MagickExport Image *MeanShiftImage(const Image *image,const size_t width,
 #endif
   for (y=0; y < (ssize_t) mean_image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -2238,7 +2239,7 @@ MagickExport Image *MeanShiftImage(const Image *image,const size_t width,
         mean_location,
         previous_location;
 
-      register ssize_t
+      ssize_t
         i;
 
       GetPixelInfo(image,&mean_pixel);

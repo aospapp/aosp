@@ -69,25 +69,27 @@ MACs stands for Multiply Adds
 | [mobilenet_v2_0.35_128] | 20  | 1.66 |          50.8 | 75.0 |
 | [mobilenet_v2_0.35_96]  | 11  | 1.66 |          45.5 | 70.4 |
 
+  Reference:
+  - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](
+      https://arxiv.org/abs/1801.04381) (CVPR 2018)
 """
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
-
 from tensorflow.python.keras import backend
-from tensorflow.python.keras import layers
 from tensorflow.python.keras.applications import imagenet_utils
 from tensorflow.python.keras.engine import training
+from tensorflow.python.keras.layers import VersionAwareLayers
 from tensorflow.python.keras.utils import data_utils
 from tensorflow.python.keras.utils import layer_utils
+from tensorflow.python.lib.io import file_io
 from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util.tf_export import keras_export
 
-
 BASE_WEIGHT_PATH = ('https://storage.googleapis.com/tensorflow/'
                     'keras-applications/mobilenet_v2/')
+layers = None
 
 
 @keras_export('keras.applications.mobilenet_v2.MobileNetV2',
@@ -99,16 +101,21 @@ def MobileNetV2(input_shape=None,
                 input_tensor=None,
                 pooling=None,
                 classes=1000,
+                classifier_activation='softmax',
                 **kwargs):
   """Instantiates the MobileNetV2 architecture.
 
-  Reference paper:
-  - [MobileNetV2: Inverted Residuals and Linear Bottlenecks]
-  (https://arxiv.org/abs/1801.04381) (CVPR 2018)
+  Reference:
+  - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](
+      https://arxiv.org/abs/1801.04381) (CVPR 2018)
 
   Optionally loads weights pre-trained on ImageNet.
 
-  Arguments:
+  Note: each Keras Application expects a specific kind of input preprocessing.
+  For MobileNetV2, call `tf.keras.applications.mobilenet_v2.preprocess_input`
+  on your inputs before passing them to the model.
+
+  Args:
     input_shape: Optional shape tuple, to be specified if you would
       like to use a model with an input image resolution that is not
       (224, 224, 3).
@@ -152,6 +159,9 @@ def MobileNetV2(input_shape=None,
     classes: Integer, optional number of classes to classify images
       into, only to be specified if `include_top` is True, and
       if no `weights` argument is specified.
+    classifier_activation: A `str` or callable. The activation function to use
+      on the "top" layer. Ignored unless `include_top=True`. Set
+      `classifier_activation=None` to return the logits of the "top" layer.
     **kwargs: For backwards compatibility only.
 
   Returns:
@@ -161,13 +171,17 @@ def MobileNetV2(input_shape=None,
     ValueError: in case of invalid argument for `weights`,
       or invalid input shape or invalid alpha, rows when
       weights='imagenet'
+    ValueError: if `classifier_activation` is not `softmax` or `None` when
+      using a pretrained top layer.
   """
+  global layers
   if 'layers' in kwargs:
-    global layers
     layers = kwargs.pop('layers')
+  else:
+    layers = VersionAwareLayers()
   if kwargs:
     raise ValueError('Unknown argument(s): %s' % (kwargs,))
-  if not (weights in {'imagenet', None} or os.path.exists(weights)):
+  if not (weights in {'imagenet', None} or file_io.file_exists_v2(weights)):
     raise ValueError('The `weights` argument should be either '
                      '`None` (random initialization), `imagenet` '
                      '(pre-training on ImageNet), '
@@ -190,7 +204,7 @@ def MobileNetV2(input_shape=None,
         raise ValueError('input_tensor: ', input_tensor,
                          'is not type input_tensor')
     if is_input_t_tensor:
-      if backend.image_data_format == 'channels_first':
+      if backend.image_data_format() == 'channels_first':
         if backend.int_shape(input_tensor)[1] != input_shape[1]:
           raise ValueError('input_shape: ', input_shape, 'and input_tensor: ',
                            input_tensor,
@@ -285,17 +299,13 @@ def MobileNetV2(input_shape=None,
   channel_axis = 1 if backend.image_data_format() == 'channels_first' else -1
 
   first_block_filters = _make_divisible(32 * alpha, 8)
-  x = layers.ZeroPadding2D(
-      padding=imagenet_utils.correct_pad(img_input, 3),
-      name='Conv1_pad')(img_input)
   x = layers.Conv2D(
       first_block_filters,
       kernel_size=3,
       strides=(2, 2),
-      padding='valid',
+      padding='same',
       use_bias=False,
-      name='Conv1')(
-          x)
+      name='Conv1')(img_input)
   x = layers.BatchNormalization(
       axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_Conv1')(
           x)
@@ -360,9 +370,10 @@ def MobileNetV2(input_shape=None,
 
   if include_top:
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(
-        classes, activation='softmax', use_bias=True, name='Logits')(
-            x)
+    imagenet_utils.validate_activation(classifier_activation, weights)
+    x = layers.Dense(classes, activation=classifier_activation,
+                     name='predictions')(x)
+
   else:
     if pooling == 'avg':
       x = layers.GlobalAveragePooling2D()(x)
@@ -485,11 +496,16 @@ def _make_divisible(v, divisor, min_value=None):
 
 @keras_export('keras.applications.mobilenet_v2.preprocess_input')
 def preprocess_input(x, data_format=None):
-  """Preprocesses the input (encoding a batch of images) for the model."""
   return imagenet_utils.preprocess_input(x, data_format=data_format, mode='tf')
 
 
 @keras_export('keras.applications.mobilenet_v2.decode_predictions')
 def decode_predictions(preds, top=5):
-  """Decodes the prediction result from the model."""
   return imagenet_utils.decode_predictions(preds, top=top)
+
+
+preprocess_input.__doc__ = imagenet_utils.PREPROCESS_INPUT_DOC.format(
+    mode='',
+    ret=imagenet_utils.PREPROCESS_INPUT_RET_DOC_TF,
+    error=imagenet_utils.PREPROCESS_INPUT_ERROR_DOC)
+decode_predictions.__doc__ = imagenet_utils.decode_predictions.__doc__

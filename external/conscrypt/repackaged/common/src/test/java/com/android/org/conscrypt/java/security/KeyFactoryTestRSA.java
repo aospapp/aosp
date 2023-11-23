@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 
 import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.PublicKey;
@@ -44,9 +43,7 @@ import org.junit.runners.JUnit4;
  * @hide This class is not part of the Android public SDK API
  */
 @RunWith(JUnit4.class)
-public class KeyFactoryTestRSA extends
-        AbstractKeyFactoryTest<RSAPublicKeySpec, RSAPrivateKeySpec> {
-
+public class KeyFactoryTestRSA extends AbstractKeyFactoryTest<RSAPublicKeySpec, RSAPrivateKeySpec> {
     // BEGIN Android-Added: Allow access to deprecated BC algorithms.
     // Allow access to deprecated BC algorithms in this test, so we can ensure they
     // continue to work

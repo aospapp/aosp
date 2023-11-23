@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -26,12 +27,16 @@
 	 * table.
 	 * -------------------------------------------------
 	 */
-	.globl	workaround_bpflush_runtime_exceptions
-
 vector_base workaround_bpflush_runtime_exceptions
 
 	.macro	apply_workaround
 	stp	x0, x1, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_X0]
+
+	/* Disable cycle counter when event counting is prohibited */
+	mrs	x1, pmcr_el0
+	orr	x0, x1, #PMCR_EL0_DP_BIT
+	msr	pmcr_el0, x0
+	isb
 
 	/* -------------------------------------------------
 	 * A new write-only system register where a write of
@@ -156,13 +161,19 @@ endfunc denver_disable_ext_debug
 	 * ----------------------------------------------------
 	 */
 func denver_enable_dco
-	mov	x3, x30
+	/* DCO is not supported on PN5 and later */
+	mrs	x1, midr_el1
+	mov_imm	x2, DENVER_MIDR_PN4
+	cmp	x1, x2
+	b.hi	1f
+
+	mov	x18, x30
 	bl	plat_my_core_pos
 	mov	x1, #1
 	lsl	x1, x1, x0
 	msr	s3_0_c15_c0_2, x1
-	mov	x30, x3
-	ret
+	mov	x30, x18
+1:	ret
 endfunc denver_enable_dco
 
 	/* ----------------------------------------------------
@@ -170,10 +181,14 @@ endfunc denver_enable_dco
 	 * ----------------------------------------------------
 	 */
 func denver_disable_dco
-
-	mov	x3, x30
+	/* DCO is not supported on PN5 and later */
+	mrs	x1, midr_el1
+	mov_imm	x2, DENVER_MIDR_PN4
+	cmp	x1, x2
+	b.hi	2f
 
 	/* turn off background work */
+	mov	x18, x30
 	bl	plat_my_core_pos
 	mov	x1, #1
 	lsl	x1, x1, x0
@@ -188,8 +203,8 @@ func denver_disable_dco
 	and	x2, x2, x1
 	cbnz	x2, 1b
 
-	mov	x30, x3
-	ret
+	mov	x30, x18
+2:	ret
 endfunc denver_disable_dco
 
 func check_errata_cve_2017_5715
@@ -348,37 +363,23 @@ func denver_cpu_reg_dump
 	ret
 endfunc denver_cpu_reg_dump
 
-declare_cpu_ops_wa denver, DENVER_MIDR_PN0, \
-	denver_reset_func, \
-	check_errata_cve_2017_5715, \
-	CPU_NO_EXTRA2_FUNC, \
-	denver_core_pwr_dwn, \
-	denver_cluster_pwr_dwn
+/* macro to declare cpu_ops for Denver SKUs */
+.macro	denver_cpu_ops_wa midr
+	declare_cpu_ops_wa denver, \midr, \
+		denver_reset_func, \
+		check_errata_cve_2017_5715, \
+		CPU_NO_EXTRA2_FUNC, \
+		denver_core_pwr_dwn, \
+		denver_cluster_pwr_dwn
+.endm
 
-declare_cpu_ops_wa denver, DENVER_MIDR_PN1, \
-	denver_reset_func, \
-	check_errata_cve_2017_5715, \
-	CPU_NO_EXTRA2_FUNC, \
-	denver_core_pwr_dwn, \
-	denver_cluster_pwr_dwn
-
-declare_cpu_ops_wa denver, DENVER_MIDR_PN2, \
-	denver_reset_func, \
-	check_errata_cve_2017_5715, \
-	CPU_NO_EXTRA2_FUNC, \
-	denver_core_pwr_dwn, \
-	denver_cluster_pwr_dwn
-
-declare_cpu_ops_wa denver, DENVER_MIDR_PN3, \
-	denver_reset_func, \
-	check_errata_cve_2017_5715, \
-	CPU_NO_EXTRA2_FUNC, \
-	denver_core_pwr_dwn, \
-	denver_cluster_pwr_dwn
-
-declare_cpu_ops_wa denver, DENVER_MIDR_PN4, \
-	denver_reset_func, \
-	check_errata_cve_2017_5715, \
-	CPU_NO_EXTRA2_FUNC, \
-	denver_core_pwr_dwn, \
-	denver_cluster_pwr_dwn
+denver_cpu_ops_wa DENVER_MIDR_PN0
+denver_cpu_ops_wa DENVER_MIDR_PN1
+denver_cpu_ops_wa DENVER_MIDR_PN2
+denver_cpu_ops_wa DENVER_MIDR_PN3
+denver_cpu_ops_wa DENVER_MIDR_PN4
+denver_cpu_ops_wa DENVER_MIDR_PN5
+denver_cpu_ops_wa DENVER_MIDR_PN6
+denver_cpu_ops_wa DENVER_MIDR_PN7
+denver_cpu_ops_wa DENVER_MIDR_PN8
+denver_cpu_ops_wa DENVER_MIDR_PN9

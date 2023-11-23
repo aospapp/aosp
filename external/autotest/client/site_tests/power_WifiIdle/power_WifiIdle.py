@@ -4,7 +4,7 @@
 import logging
 import time
 
-from autotest_lib.client.common_lib.cros.network import interface
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.networking.chrome_testing \
         import chrome_networking_test_api as cnta
 from autotest_lib.client.cros.networking.chrome_testing \
@@ -46,19 +46,6 @@ class power_WifiIdle(power_test.power_Test):
         Args:
             idle_time: time in seconds to stay idle and measure power
         """
-
-        # Find all wired ethernet interfaces.
-        # TODO(seankao): This block to check whether ethernet interface
-        # is active appears in several tests. Pull this into power_utils.
-        ifaces = [iface for iface in interface.get_interfaces()
-                if (not iface.is_wifi_device() and
-                iface.name.startswith('eth'))]
-        logging.debug('Ethernet interfaces include: ' +
-                str([iface.name for iface in ifaces]))
-        for iface in ifaces:
-            if iface.is_lower_up:
-                raise error.TestError('Ethernet interface is active. '
-                                      'Please remove Ethernet cable.')
 
         with cntc.ChromeNetworkingTestContext() as testing_context:
             self.chrome_net = cnta.ChromeNetworkProvider(testing_context)

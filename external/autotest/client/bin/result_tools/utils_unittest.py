@@ -6,6 +6,10 @@
 """unittest for utils.py
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 import os
 import shutil
@@ -21,6 +25,7 @@ from autotest_lib.client.bin.result_tools import utils as result_utils
 from autotest_lib.client.bin.result_tools import utils_lib
 from autotest_lib.client.bin.result_tools import view as result_view
 from autotest_lib.client.bin.result_tools import unittest_lib
+from six.moves import range
 
 SIZE = unittest_lib.SIZE
 
@@ -470,10 +475,10 @@ class ThrottleTest(unittest.TestCase):
     def testThrottleResults(self):
         """Test _throttle_results method."""
         summary = result_info.ResultInfo.build_from_path(self.test_dir)
-        result_utils._throttle_results(summary, LARGE_SIZE * 10 / 1024)
+        result_utils._throttle_results(summary, LARGE_SIZE * 10 // 1024)
         self.assertEqual(EXPECTED_THROTTLED_SUMMARY_NO_THROTTLE, summary)
 
-        result_utils._throttle_results(summary, LARGE_SIZE * 3 / 1024)
+        result_utils._throttle_results(summary, LARGE_SIZE * 3 // 1024)
         self.assertEqual(EXPECTED_THROTTLED_SUMMARY_WITH_SHRINK, summary)
 
     def testThrottleResults_Dedupe(self):
@@ -485,7 +490,7 @@ class ThrottleTest(unittest.TestCase):
         try:
             summary = result_info.ResultInfo.build_from_path(self.test_dir)
             result_utils._throttle_results(
-                    summary, (2*LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE) / 1024)
+                    summary, (2*LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE) // 1024)
             self.assertEqual(EXPECTED_THROTTLED_SUMMARY_WITH_DEDUPE, summary)
         finally:
             throttler_lib.AUTOTEST_LOG_PATTERN = old_pattern
@@ -494,7 +499,7 @@ class ThrottleTest(unittest.TestCase):
         """Test _throttle_results method with dedupe triggered."""
         summary = result_info.ResultInfo.build_from_path(self.test_dir)
         result_utils._throttle_results(
-                summary, (LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE) / 1024 + 2)
+                summary, (LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE) // 1024 + 2)
         self.assertEqual(
                 3 * LARGE_SIZE + 5 * SMALL_SIZE, summary.original_size)
 
@@ -514,7 +519,7 @@ class ThrottleTest(unittest.TestCase):
         """Test _throttle_results method with delete triggered."""
         summary = result_info.ResultInfo.build_from_path(self.test_dir)
         result_utils._throttle_results(
-                summary, (3*SMALL_SIZE + SHRINK_SIZE) / 1024 + 2)
+                summary, (3*SMALL_SIZE + SHRINK_SIZE) // 1024 + 2)
 
         # Confirm the original size is preserved.
         self.assertEqual(3 * LARGE_SIZE + 5 * SMALL_SIZE, summary.original_size)

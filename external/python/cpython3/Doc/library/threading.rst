@@ -395,7 +395,8 @@ since it is impossible to detect the termination of alien threads.
 
 .. impl-detail::
 
-   In CPython, due to the :term:`Global Interpreter Lock`, only one thread
+   In CPython, due to the :term:`Global Interpreter Lock
+   <global interpreter lock>`, only one thread
    can execute Python code at once (even though certain performance-oriented
    libraries might overcome this limitation).
    If you want your application to make better use of the computational
@@ -489,6 +490,7 @@ All methods are executed atomically.
       There is no return value.
 
    .. method:: locked()
+
       Return true if the lock is acquired.
 
 
@@ -798,11 +800,14 @@ Semaphores also support the :ref:`context management protocol <with-locks>`.
       .. versionchanged:: 3.2
          The *timeout* parameter is new.
 
-   .. method:: release()
+   .. method:: release(n=1)
 
-      Release a semaphore, incrementing the internal counter by one.  When it
-      was zero on entry and another thread is waiting for it to become larger
-      than zero again, wake up that thread.
+      Release a semaphore, incrementing the internal counter by *n*.  When it
+      was zero on entry and other threads are waiting for it to become larger
+      than zero again, wake up *n* of those threads.
+
+      .. versionchanged:: 3.9
+         Added the *n* parameter to release multiple waiting threads at once.
 
 
 .. class:: BoundedSemaphore(value=1)

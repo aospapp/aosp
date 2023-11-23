@@ -1650,6 +1650,9 @@ _mesa_get_fixed_func_vertex_program(struct gl_context *ctx)
    struct gl_program *prog;
    struct state_key key;
 
+   /* We only update ctx->varying_vp_inputs when in VP_MODE_FF _VPMode */
+   assert(VP_MODE_FF == ctx->VertexProgram._VPMode);
+
    /* Grab all the relevant state and put it in a single structure:
     */
    make_state_key(ctx, &key);
@@ -1664,7 +1667,7 @@ _mesa_get_fixed_func_vertex_program(struct gl_context *ctx)
       if (0)
          printf("Build new TNL program\n");
 
-      prog = ctx->Driver.NewProgram(ctx, GL_VERTEX_PROGRAM_ARB, 0, true);
+      prog = ctx->Driver.NewProgram(ctx, MESA_SHADER_VERTEX, 0, true);
       if (!prog)
          return NULL;
 

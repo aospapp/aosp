@@ -18,16 +18,10 @@ properly 'locked' by doing a normal user sign-in first.
 
 import datetime
 
-from autotest_lib.client.common_lib import utils
-
-args_dict = utils.args_to_dict(args)
-
 def run(machine):
     host = hosts.create_host(machine)
-    job.run_test(
-        'rlz_CheckPing', host=host, logged_in=False,
-        rlz_embargo_end_date=(
-            datetime.date.today() - datetime.timedelta(days=2)),
-        **args_dict)
+    rlz_embargo_end_date = (datetime.date.today() - datetime.timedelta(days=2))
+    job.run_test('rlz_CheckPing', host=host, pre_login='lock',
+                 rlz_embargo_end_date=rlz_embargo_end_date)
 
 job.parallel_simple(run, machines)

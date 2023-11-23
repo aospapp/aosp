@@ -883,7 +883,7 @@ protected:
 
 class CCPR_busyPath : public CCPRRenderingTest {
     void onRun(skiatest::Reporter* reporter, const CCPRPathDrawer& ccpr) const override {
-        static constexpr int kNumBusyVerbs = 1 << 17;
+        static constexpr int kNumBusyVerbs = 1 << 14;
         ccpr.clear();
         SkPath busyPath;
         busyPath.moveTo(0, 0); // top left

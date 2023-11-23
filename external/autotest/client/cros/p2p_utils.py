@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -31,8 +32,8 @@ def p2p_backup_files(backup_path=P2P_SHARE_BACKUP_PATH):
             shutil.rmtree(backup_path)
         if os.path.exists(P2P_SHARE_PATH):
             os.rename(P2P_SHARE_PATH, backup_path)
-    except OSError, e:
-        raise error.TestError("Error on P2P files backup: %s" % (e.message))
+    except OSError as e:
+        raise error.TestError("Error on P2P files backup: %s" % (str(e)))
 
 
 def p2p_restore_files(backup_path=P2P_SHARE_BACKUP_PATH):

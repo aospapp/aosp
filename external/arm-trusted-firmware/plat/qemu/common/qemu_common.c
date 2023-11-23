@@ -1,5 +1,6 @@
+
 /*
- * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,7 +26,7 @@
 #ifdef DEVICE2_BASE
 #define MAP_DEVICE2	MAP_REGION_FLAT(DEVICE2_BASE,			\
 					DEVICE2_SIZE,			\
-					MT_DEVICE | MT_RO | MT_SECURE)
+					MT_DEVICE | MT_RW | MT_SECURE)
 #endif
 
 #define MAP_SHARED_RAM	MAP_REGION_FLAT(SHARED_RAM_BASE,		\
@@ -77,7 +78,11 @@ static const mmap_region_t plat_qemu_mmap[] = {
 	MAP_DEVICE2,
 #endif
 	MAP_NS_DRAM0,
+#if SPM_MM
+	QEMU_SP_IMAGE_MMAP,
+#else
 	MAP_BL32_MEM,
+#endif
 	{0}
 };
 #endif
@@ -88,7 +93,15 @@ static const mmap_region_t plat_qemu_mmap[] = {
 #ifdef MAP_DEVICE1
 	MAP_DEVICE1,
 #endif
+#ifdef MAP_DEVICE2
+	MAP_DEVICE2,
+#endif
+#if SPM_MM
+	MAP_NS_DRAM0,
+	QEMU_SPM_BUF_EL3_MMAP,
+#else
 	MAP_BL32_MEM,
+#endif
 	{0}
 };
 #endif
@@ -98,6 +111,9 @@ static const mmap_region_t plat_qemu_mmap[] = {
 	MAP_DEVICE0,
 #ifdef MAP_DEVICE1
 	MAP_DEVICE1,
+#endif
+#ifdef MAP_DEVICE2
+	MAP_DEVICE2,
 #endif
 	{0}
 };

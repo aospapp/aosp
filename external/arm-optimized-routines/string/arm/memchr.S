@@ -1,7 +1,7 @@
 /*
  * memchr - scan memory for a character
  *
- * Copyright (c) 2010, Arm Limited.
+ * Copyright (c) 2010-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -31,7 +31,6 @@
 #else
 #define CHARTSTMASK(c) 1<<(c*8)
 #endif
-	.text
 	.thumb
 
 @ ---------------------------------------------------------------------------

@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-PROJECT		:= cert_create
 PLAT		:= none
 V		?= 0
 DEBUG		:= 0
-BINARY		:= ${PROJECT}${BIN_EXT}
+CRTTOOL		?= cert_create${BIN_EXT}
+BINARY		:= $(notdir ${CRTTOOL})
 OPENSSL_DIR	:= /usr
 COT		:= tbbr
 
@@ -27,6 +27,8 @@ OBJECTS := src/cert.o \
 # Chain of trust.
 ifeq (${COT},tbbr)
   include src/tbbr/tbbr.mk
+else ifeq (${COT},dualroot)
+  include src/dualroot/cot.mk
 else
   $(error Unknown chain of trust ${COT})
 endif
@@ -57,7 +59,7 @@ HOSTCC ?= gcc
 
 .PHONY: all clean realclean
 
-all: clean ${BINARY}
+all: ${BINARY}
 
 ${BINARY}: ${OBJECTS} Makefile
 	@echo "  HOSTLD  $@"

@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import io.grpc.CallCredentials.MetadataApplier;
+import io.grpc.CallCredentials2.MetadataApplier;
 import io.grpc.CallOptions;
 import io.grpc.Context;
 import io.grpc.Metadata;
@@ -29,7 +29,7 @@ import io.grpc.Status;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
-final class MetadataApplierImpl implements MetadataApplier {
+final class MetadataApplierImpl extends MetadataApplier {
   private final ClientTransport transport;
   private final MethodDescriptor<?, ?> method;
   private final Metadata origHeaders;

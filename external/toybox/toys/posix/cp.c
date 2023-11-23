@@ -15,15 +15,15 @@
 // options shared between mv/cp must be in same order (right to left)
 // for FLAG macros to work out right in shared infrastructure.
 
-USE_CP(NEWTOY(cp, "<2"USE_CP_PRESERVE("(preserve):;")"D(parents)RHLPprdaslvnF(remove-destination)fiT[-HLPd][-ni]", TOYFLAG_BIN))
-USE_MV(NEWTOY(mv, "<2vnF(remove-destination)fiT[-ni]", TOYFLAG_BIN))
-USE_INSTALL(NEWTOY(install, "<1cdDpsvm:o:g:", TOYFLAG_USR|TOYFLAG_BIN))
+USE_CP(NEWTOY(cp, "<1(preserve):;D(parents)RHLPprudaslvnF(remove-destination)fit:T[-HLPd][-niu]", TOYFLAG_BIN))
+USE_MV(NEWTOY(mv, "<1vnF(remove-destination)fit:T[-ni]", TOYFLAG_BIN))
+USE_INSTALL(NEWTOY(install, "<1cdDpsvt:m:o:g:", TOYFLAG_USR|TOYFLAG_BIN))
 
 config CP
   bool "cp"
   default y
   help
-    usage: cp [-adfHiLlnPpRrsTv] SOURCE... DEST
+    usage: cp [-adfHiLlnPpRrsTv] [--preserve=motcxa] [-t TARGET] SOURCE... [DEST]
 
     Copy files from SOURCE to DEST.  If more than one SOURCE, DEST must
     be a directory.
@@ -38,23 +38,17 @@ config CP
     -L	Follow all symlinks
     -l	Hard link instead of copy
     -n	No clobber (don't overwrite DEST)
-    -P	Do not follow symlinks [default]
+    -u	Update (keep newest mtime)
+    -P	Do not follow symlinks
     -p	Preserve timestamps, ownership, and mode
     -R	Recurse into subdirectories (DEST must be a directory)
     -r	Synonym for -R
     -s	Symlink instead of copy
+    -t	Copy to TARGET dir (no DEST)
     -T	DEST always treated as file, max 2 arguments
     -v	Verbose
 
-config CP_PRESERVE
-  bool "cp --preserve support"
-  default y
-  depends on CP
-  help
-    usage: cp [--preserve=motcxa]
-
-    --preserve takes either a comma separated list of attributes, or the first
-    letter(s) of:
+    Arguments to --preserve are the first letter(s) of:
 
             mode - permissions (ignore umask for rwx, copy suid and sticky bit)
        ownership - user and group
@@ -67,11 +61,12 @@ config MV
   bool "mv"
   default y
   help
-    usage: mv [-finTv] SOURCE... DEST
+    usage: mv [-finTv] [-t TARGET] SOURCE... [DEST]
 
     -f	Force copy by deleting destination file
     -i	Interactive, prompt before overwriting existing DEST
     -n	No clobber (don't overwrite DEST)
+    -t	Move to TARGET dir (no DEST)
     -T	DEST always treated as file, max 2 arguments
     -v	Verbose
 
@@ -79,7 +74,7 @@ config INSTALL
   bool "install"
   default y
   help
-    usage: install [-dDpsv] [-o USER] [-g GROUP] [-m MODE] [SOURCE...] DEST
+    usage: install [-dDpsv] [-o USER] [-g GROUP] [-m MODE] [-t TARGET] [SOURCE...] [DEST]
 
     Copy files and set attributes.
 
@@ -90,6 +85,7 @@ config INSTALL
     -o	Make copy belong to USER
     -p	Preserve timestamps
     -s	Call "strip -p"
+    -t	Copy files to TARGET dir (no DEST)
     -v	Verbose
 */
 
@@ -101,11 +97,11 @@ GLOBALS(
   union {
     // install's options
     struct {
-      char *g, *o, *m;
+      char *g, *o, *m, *t;
     } i;
     // cp's options
     struct {
-      char *preserve;
+      char *t, *preserve;
     } c;
   };
 
@@ -157,7 +153,7 @@ static int cp_node(struct dirtree *try)
       return 0;
     }
 
-    // Handle -invF
+    // Handle -inuvF
 
     if (!faccessat(cfd, catch, F_OK, 0) && !S_ISDIR(cst.st_mode)) {
       char *s;
@@ -170,11 +166,13 @@ static int cp_node(struct dirtree *try)
         error_msg("unlink '%s'", catch);
         return 0;
       } else if (flags & FLAG_n) return 0;
+      else if ((flags & FLAG_u) && nanodiff(&try->st.st_mtim, &cst.st_mtim)>0)
+        return 0;
       else if (flags & FLAG_i) {
         fprintf(stderr, "%s: overwrite '%s'", toys.which->name,
           s = dirtree_path(try, 0));
         free(s);
-        if (!yesno(1)) return 0;
+        if (!yesno(0)) return 0;
       }
     }
 
@@ -246,7 +244,7 @@ static int cp_node(struct dirtree *try)
 
       // Do something _other_ than copy contents of a file?
       } else if (!S_ISREG(try->st.st_mode)
-                 && (try->parent || (flags & (FLAG_a|FLAG_r))))
+                 && (try->parent || (flags & (FLAG_a|FLAG_P|FLAG_r))))
       {
         int i;
 
@@ -367,21 +365,30 @@ static int cp_node(struct dirtree *try)
 
 void cp_main(void)
 {
-  char *destname = toys.optargs[--toys.optc];
-  int i, destdir = !stat(destname, &TT.top) && S_ISDIR(TT.top.st_mode);
+  char *tt = *toys.which->name == 'i' ? TT.i.t : TT.c.t,
+    *destname = tt ? : toys.optargs[--toys.optc];
+  int i, destdir = !stat(destname, &TT.top);
+
+  if (!toys.optc) error_exit("Needs 2 arguments");
+  if (!destdir && errno==ENOENT && FLAG(D)) {
+    if (tt && mkpathat(AT_FDCWD, tt, 0777, MKPATHAT_MAKE|MKPATHAT_MKLAST))
+      perror_exit("-t '%s'", tt);
+    destdir = 1;
+  } else {
+    destdir = destdir && S_ISDIR(TT.top.st_mode);
+    if (!destdir && (toys.optc>1 || FLAG(D) || tt))
+      error_exit("'%s' not directory", destname);
+  }
 
   if (FLAG(T)) {
     if (toys.optc>1) help_exit("Max 2 arguments");
     if (destdir) error_exit("'%s' is a directory", destname);
   }
 
-  if ((toys.optc>1 || FLAG(D)) && !destdir)
-    error_exit("'%s' not directory", destname);
-
   if (FLAG(a)||FLAG(p)) TT.pflags = _CP_mode|_CP_ownership|_CP_timestamps;
 
   // Not using comma_args() (yet?) because interpeting as letters.
-  if (CFG_CP_PRESERVE && FLAG(preserve)) {
+  if (FLAG(preserve)) {
     char *pre = xstrdup(TT.c.preserve ? TT.c.preserve : "mot"), *s;
 
     if (comma_remove(pre, "all")) TT.pflags = ~0;
@@ -408,14 +415,14 @@ void cp_main(void)
 
   // Loop through sources
   for (i=0; i<toys.optc; i++) {
-    char *src = toys.optargs[i], *trail = src;
-    int rc = 1;
+    char *src = toys.optargs[i], *trail;
+    int send = 1;
 
-    while (*++trail);
-    if (*--trail == '/') *trail = 0;
+    if (!(trail = strrchr(src, '/')) || trail[1]) trail = 0;
+    else while (trail>src && *trail=='/') *trail-- = 0;
 
     if (destdir) {
-      char *s = FLAG(D) ? dirname(src) : getbasename(src);
+      char *s = FLAG(D) ? src : getbasename(src);
 
       TT.destname = xmprintf("%s/%s", destname, s);
       if (FLAG(D)) {
@@ -429,6 +436,7 @@ void cp_main(void)
       }
     } else TT.destname = destname;
 
+    // "mv across devices" triggers cp fallback path, so set that as default
     errno = EXDEV;
     if (CFG_MV && toys.which->name[0] == 'm') {
       int force = FLAG(f), no_clobber = FLAG(n);
@@ -440,20 +448,20 @@ void cp_main(void)
         // Prompt if -i or file isn't writable.  Technically "is writable" is
         // more complicated (022 is not writeable by the owner, just everybody
         // _else_) but I don't care.
-        if (exists && (FLAG(i) || !(st.st_mode & 0222))) {
+        if (exists && (FLAG(i) || (!(st.st_mode & 0222) && isatty(0)))) {
           fprintf(stderr, "%s: overwrite '%s'", toys.which->name, TT.destname);
-          if (!yesno(1)) rc = 0;
+          if (!yesno(0)) send = 0;
           else unlink(TT.destname);
         }
         // if -n and dest exists, don't try to rename() or copy
-        if (exists && no_clobber) rc = 0;
+        if (exists && no_clobber) send = 0;
       }
-      if (rc) rc = rename(src, TT.destname);
-      if (errno && !*trail) *trail = '/';
+      if (send) send = rename(src, TT.destname);
+      if (trail) trail[1] = '/';
     }
 
-    // Copy if we didn't mv, skipping nonexistent sources
-    if (rc) {
+    // Copy if we didn't mv or hit an error, skipping nonexistent sources
+    if (send) {
       if (errno!=EXDEV || dirtree_flagread(src, DIRTREE_SHUTUP+
         DIRTREE_SYMFOLLOW*!!(FLAG(H)||FLAG(L)), TT.callback))
           perror_msg("bad '%s'", src);
@@ -516,12 +524,11 @@ void install_main(void)
   }
 
   if (FLAG(D)) {
-    TT.destname = toys.optargs[toys.optc-1];
-    if (mkpathat(AT_FDCWD, TT.destname, 0, MKPATHAT_MAKE))
-      perror_exit("-D '%s'", TT.destname);
-    if (toys.optc == 1) return;
+    char *destname = FLAG(t) ? TT.i.t : (TT.destname = toys.optargs[toys.optc-1]);
+    if (mkpathat(AT_FDCWD, destname, 0777, MKPATHAT_MAKE | (FLAG(t) ? MKPATHAT_MKLAST : 0)))
+      perror_exit("-D '%s'", destname);
+    if (toys.optc == !FLAG(t)) return;
   }
-  if (toys.optc < 2) error_exit("needs 2 args");
 
   // Translate flags from install to cp
   toys.optflags = cp_flag_F() + cp_flag_v()*!!FLAG(v)

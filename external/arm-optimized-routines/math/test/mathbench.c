@@ -1,7 +1,7 @@
 /*
  * Microbenchmark for math functions.
  *
- * Copyright (c) 2018, Arm Limited.
+ * Copyright (c) 2018-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -248,6 +248,7 @@ D (log2, 0.999, 1.001)
 {"pow", 'd', 0, 0.01, 11.1, {.d = xypow}},
 D (xpow, 0.01, 11.1)
 D (ypow, -9.9, 9.9)
+D (erf, -6.0, 6.0)
 
 F (dummyf, 1.0, 2.0)
 F (expf, -9.9, 9.9)
@@ -275,6 +276,7 @@ F (cosf, -3.1, 3.1)
 F (cosf, 3.3, 33.3)
 F (cosf, 100, 1000)
 F (cosf, 1e6, 1e32)
+F (erff, -4.0, 4.0)
 #if WANT_VMATH
 D (__s_sin, -3.1, 3.1)
 D (__s_cos, -3.1, 3.1)

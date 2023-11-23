@@ -134,6 +134,12 @@ open class DocumentationNode(val name: String,
         get() = details(NodeKind.Supertype)
     val signatureName = detailOrNull(NodeKind.Signature)?.name
 
+    val prettyName : String
+        get() = when(kind) {
+            NodeKind.Constructor -> owner!!.name
+            else -> name
+        }
+
     val superclassType: DocumentationNode?
         get() = when (kind) {
             NodeKind.Supertype -> {
@@ -266,7 +272,7 @@ private fun DocumentationNode.isSuperclassFor(node: DocumentationNode): Boolean 
 
 fun DocumentationNode.classNodeNameWithOuterClass(): String {
     assert(kind in NodeKind.classLike)
-    return path.dropWhile { it.kind == NodeKind.Package || it.kind == NodeKind.Module }.joinToString(separator = ".") { it.name }
+    return path.dropWhile { it.kind !in NodeKind.classLike }.joinToString(separator = ".") { it.name }
 }
 
 fun DocumentationNode.deprecatedLevelMessage(): String {
@@ -278,4 +284,25 @@ fun DocumentationNode.deprecatedLevelMessage(): String {
         else -> "class"
     }
     return "This $kindName was deprecated in API level ${deprecatedLevel.name}."
+}
+
+fun DocumentationNode.convertDeprecationDetailsToChildren() {
+    val toProcess = details.toMutableList()
+    while (!toProcess.isEmpty()) {
+        var child = toProcess.removeAt(0)
+        if (child.details.isEmpty() && child.name != "") {
+            updateContent { text(child.name.cleanForAppending()) }
+        }
+        else toProcess.addAll(0, child.details)
+    }
+}
+
+   /*
+    * Removes extraneous quotation marks and adds a ". " to make appending children readable.
+    */
+fun String.cleanForAppending(): String {
+    var result = this
+    if (this.first() == this.last() && this.first() == '"') result = result.substring(1, result.length - 1)
+    if (result[result.length - 2] != '.' && result.last() != ' ') result += ". "
+    return result
 }

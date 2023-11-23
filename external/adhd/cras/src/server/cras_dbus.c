@@ -15,7 +15,7 @@
 #include "cras_system_state.h"
 #include "cras_tm.h"
 
-static void dbus_watch_callback(void *arg)
+static void dbus_watch_callback(void *arg, int revents)
 {
 	DBusWatch *watch = (DBusWatch *)arg;
 	int r, flags;
@@ -48,7 +48,8 @@ static dbus_bool_t dbus_watch_add(DBusWatch *watch, void *data)
 	 */
 	if ((flags & DBUS_WATCH_READABLE) && dbus_watch_get_enabled(watch)) {
 		r = cras_system_add_select_fd(dbus_watch_get_unix_fd(watch),
-					      dbus_watch_callback, watch);
+					      dbus_watch_callback, watch,
+					      POLLIN);
 		if (r != 0)
 			return FALSE;
 	}

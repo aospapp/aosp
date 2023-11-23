@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
@@ -324,6 +325,8 @@ __constructor_order_last(void)
 
 int main(int argc, char **argv)
 {
+	struct stat st;
+
 	switch (argc) {
 	case 2:
 		rtc_file = argv[1];
@@ -333,6 +336,11 @@ int main(int argc, char **argv)
 	default:
 		fprintf(stderr, "usage: %s [rtcdev]\n", argv[0]);
 		return 1;
+	}
+
+	if (stat(rtc_file, &st) < 0 || !S_ISCHR(st.st_mode)) {
+		printf("no RTC present\n");
+		return 0;
 	}
 
 	return test_harness_run(argc, argv);

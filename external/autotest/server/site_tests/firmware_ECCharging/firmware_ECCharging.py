@@ -13,8 +13,15 @@ class firmware_ECCharging(FirmwareTest):
     """
     version = 1
 
+    # Flags set by battery
+    BATT_FLAG_WANT_CHARGE = 0x1
+    STATUS_FULLY_CHARGED = 0x20
+
     # Threshold of trickle charging current in mA
     TRICKLE_CHARGE_THRESHOLD = 100
+
+    # The dict to cache the battery information
+    BATTERY_INFO = {}
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECCharging, self).initialize(host, cmdline_args)
@@ -33,45 +40,66 @@ class firmware_ECCharging(FirmwareTest):
             logging.error("Caught exception: %s", str(e))
         super(firmware_ECCharging, self).cleanup()
 
+    def _update_battery_info(self):
+        """Get the battery info we care for this test."""
+        # The battery parameters we care for this test. The order must match
+        # the output of EC battery command.
+        battery_params = ['V', 'V-desired', 'I', 'I-desired', 'Charge']
+        regex_str_list = []
+
+        for p in battery_params:
+            if p == 'Charge':
+                regex_str_list.append(p + ':\s+(\d+)\s+')
+            else:
+                regex_str_list.append(p + ':\s+0x[0-9a-f]*\s+=\s+([0-9-]+)\s+')
+
+        battery_regex_match = self.ec.send_command_get_output('battery',
+                                                              regex_str_list)
+        for i in range(len(battery_params)):
+            self.BATTERY_INFO[battery_params[i]] = int(
+                    battery_regex_match[i][1])
+
 
     def _get_battery_desired_voltage(self):
         """Get battery desired voltage value."""
-        voltage = int(self.ec.send_command_get_output("battery",
-                ["V-desired:\s+0x[0-9a-f]*\s+=\s+(\d+)\s+mV"])[0][1])
-        logging.info("Battery desired voltage = %d mV", voltage)
-        return voltage
+        if not self.BATTERY_INFO:
+            self._update_battery_info()
+        logging.info('Battery desired voltage = %d mV',
+                     self.BATTERY_INFO['V-desired'])
+        return self.BATTERY_INFO['V-desired']
 
 
     def _get_battery_desired_current(self):
         """Get battery desired current value."""
-        current = int(self.ec.send_command_get_output("battery",
-                ["I-desired:\s+0x[0-9a-f]*\s+=\s+(\d+)\s+mA"])[0][1])
-        logging.info("Battery desired current = %d mA", current)
-        return current
+        if not self.BATTERY_INFO:
+            self._update_battery_info()
+        logging.info('Battery desired current = %d mA',
+                     self.BATTERY_INFO['I-desired'])
+        return self.BATTERY_INFO['I-desired']
 
 
     def _get_battery_actual_voltage(self):
         """Get the actual voltage from charger to battery."""
-        voltage = int(self.ec.send_command_get_output("battery",
-                ["V:\s+0x[0-9a-f]*\s+=\s+(\d+)\s+mV"])[0][1])
-        logging.info("Battery actual voltage = %d mV", voltage)
-        return voltage
+        if not self.BATTERY_INFO:
+            self._update_battery_info()
+        logging.info('Battery actual voltage = %d mV', self.BATTERY_INFO['V'])
+        return self.BATTERY_INFO['V']
 
 
     def _get_battery_actual_current(self):
         """Get the actual current from charger to battery."""
-        current = int(self.ec.send_command_get_output("battery",
-                ["I:\s+0x[0-9a-f]*\s+=\s+([0-9-]+)\s+mA"])[0][1])
-        logging.info("Battery actual current = %d mA", current)
-        return current
+        if not self.BATTERY_INFO:
+            self._update_battery_info()
+        logging.info('Battery actual current = %d mA', self.BATTERY_INFO['I'])
+        return self.BATTERY_INFO['I']
 
 
     def _get_battery_charge(self):
         """Get battery charge state."""
-        charge = int(self.ec.send_command_get_output("battery",
-                ["Charge:\s+(\d+)\s+"])[0][1])
-        logging.info("Battery charge = %d %%", charge)
-        return charge
+        if not self.BATTERY_INFO:
+            self._update_battery_info()
+        logging.info("Battery charge = %d %%", self.BATTERY_INFO['Charge'])
+        return self.BATTERY_INFO['Charge']
 
 
     def _get_charger_target_voltage(self):
@@ -123,6 +151,18 @@ class firmware_ECCharging(FirmwareTest):
                 1.05 * self._get_charger_target_current()):
             raise error.TestFail("Battery actual current is too high.")
 
+    def _check_if_discharge_on_ac(self):
+        """Check if DUT is performing discharge on AC"""
+        match = self.ec.send_command_get_output("battery",
+                ["Status:\s*(0x[0-9a-f]+)\s", "Param flags:\s*([0-9a-f]+)\s"])
+        status = int(match[0][1], 16)
+        params = int(match[1][1], 16)
+
+        if (not (params & self.BATT_FLAG_WANT_CHARGE) and
+                (status & self.STATUS_FULLY_CHARGED)):
+            return True
+
+        return False
 
     def run_once(self):
         """Execute the main body of the test.
@@ -131,6 +171,9 @@ class firmware_ECCharging(FirmwareTest):
             raise error.TestNAError("Nothing needs to be tested on this device")
         if self._get_battery_charge() == 100:
             logging.info("Battery is full. Unable to test.")
+            return
+        if self._check_if_discharge_on_ac():
+            logging.info("DUT is performing discharge on AC. Unable to test.")
             return
         if self._get_trickle_charging():
             logging.info("Trickling charging battery. Unable to test.")

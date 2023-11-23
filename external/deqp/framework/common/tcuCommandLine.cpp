@@ -91,6 +91,7 @@ DE_DECLARE_COMMAND_LINE_OPT(VKDeviceID,					int);
 DE_DECLARE_COMMAND_LINE_OPT(VKDeviceGroupID,			int);
 DE_DECLARE_COMMAND_LINE_OPT(LogFlush,					bool);
 DE_DECLARE_COMMAND_LINE_OPT(Validation,					bool);
+DE_DECLARE_COMMAND_LINE_OPT(PrintValidationErrors,		bool);
 DE_DECLARE_COMMAND_LINE_OPT(ShaderCache,				bool);
 DE_DECLARE_COMMAND_LINE_OPT(ShaderCacheFilename,		std::string);
 DE_DECLARE_COMMAND_LINE_OPT(Optimization,				int);
@@ -99,6 +100,8 @@ DE_DECLARE_COMMAND_LINE_OPT(ShaderCacheTruncate,		bool);
 DE_DECLARE_COMMAND_LINE_OPT(RenderDoc,					bool);
 DE_DECLARE_COMMAND_LINE_OPT(CaseFraction,				std::vector<int>);
 DE_DECLARE_COMMAND_LINE_OPT(CaseFractionMandatoryTests,	std::string);
+DE_DECLARE_COMMAND_LINE_OPT(WaiverFile,					std::string);
+DE_DECLARE_COMMAND_LINE_OPT(RunnerType,					tcu::TestRunnerType);
 
 static void parseIntList (const char* src, std::vector<int>* dst)
 {
@@ -151,6 +154,12 @@ void registerOptions (de::cmdline::Parser& parser)
 		{ "180",			SCREENROTATION_180			},
 		{ "270",			SCREENROTATION_270			}
 	};
+	static const NamedValue<tcu::TestRunnerType> s_runnerTypes[] =
+	{
+		{ "any",	tcu::RUNNERTYPE_ANY		},
+		{ "none",	tcu::RUNNERTYPE_NONE	},
+		{ "amber",	tcu::RUNNERTYPE_AMBER	},
+	};
 
 	parser
 		<< Option<CasePath>						("n",		"deqp-case",								"Test case(s) to run, supports wildcards (e.g. dEQP-GLES2.info.*)")
@@ -189,6 +198,7 @@ void registerOptions (de::cmdline::Parser& parser)
 		<< Option<ArchiveDir>					(DE_NULL,	"deqp-archive-dir",							"Path to test resource files",											".")
 		<< Option<LogFlush>						(DE_NULL,	"deqp-log-flush",							"Enable or disable log file fflush",				s_enableNames,		"enable")
 		<< Option<Validation>					(DE_NULL,	"deqp-validation",							"Enable or disable test case validation",			s_enableNames,		"disable")
+		<< Option<PrintValidationErrors>		(DE_NULL,	"deqp-print-validation-errors",				"Print validation errors to standard error")
 		<< Option<Optimization>					(DE_NULL,	"deqp-optimization-recipe",					"Shader optimization recipe (0=disabled, 1=performance, 2=size)",		"0")
 		<< Option<OptimizeSpirv>				(DE_NULL,	"deqp-optimize-spirv",						"Apply optimization to spir-v shaders as well",		s_enableNames,		"disable")
 		<< Option<ShaderCache>					(DE_NULL,	"deqp-shadercache",							"Enable or disable shader cache",					s_enableNames,		"enable")
@@ -196,7 +206,9 @@ void registerOptions (de::cmdline::Parser& parser)
 		<< Option<ShaderCacheTruncate>			(DE_NULL,	"deqp-shadercache-truncate",				"Truncate shader cache before running tests",		s_enableNames,		"enable")
 		<< Option<RenderDoc>					(DE_NULL,	"deqp-renderdoc",							"Enable RenderDoc frame markers",					s_enableNames,		"disable")
 		<< Option<CaseFraction>					(DE_NULL,	"deqp-fraction",							"Run a fraction of the test cases (e.g. N,M means run group%M==N)",	parseIntList,	"")
-		<< Option<CaseFractionMandatoryTests>	(DE_NULL,	"deqp-fraction-mandatory-caselist-file",	"Case list file that must be run for each fraction",					"");
+		<< Option<CaseFractionMandatoryTests>	(DE_NULL,	"deqp-fraction-mandatory-caselist-file",	"Case list file that must be run for each fraction",					"")
+		<< Option<WaiverFile>					(DE_NULL,	"deqp-waiver-file",							"Read waived tests from given file",									"")
+		<< Option<RunnerType>					(DE_NULL,	"deqp-runner-type",							"Filter test cases based on runner",				s_runnerTypes,		"any");
 }
 
 void registerLegacyOptions (de::cmdline::Parser& parser)
@@ -554,9 +566,9 @@ static CaseTreeNode* parseCaseList (std::istream& in)
 class CasePaths
 {
 public:
-							CasePaths	(const string& pathList);
-							CasePaths	(const vector<string>& pathList);
-	bool					matches		(const string& caseName, bool allowPrefix=false) const;
+	CasePaths(const string& pathList);
+	CasePaths(const vector<string>& pathList);
+	bool					matches(const string& caseName, bool allowPrefix = false) const;
 
 private:
 	const vector<string>	m_casePatterns;
@@ -573,11 +585,11 @@ CasePaths::CasePaths(const vector<string>& pathList)
 }
 
 // Match a single path component against a pattern component that may contain *-wildcards.
-static bool matchWildcards(string::const_iterator	patternStart,
-						   string::const_iterator	patternEnd,
-						   string::const_iterator	pathStart,
-						   string::const_iterator	pathEnd,
-						   bool						allowPrefix)
+bool matchWildcards(string::const_iterator	patternStart,
+					string::const_iterator	patternEnd,
+					string::const_iterator	pathStart,
+					string::const_iterator	pathEnd,
+					bool					allowPrefix)
 {
 	string::const_iterator	pattern	= patternStart;
 	string::const_iterator	path	= pathStart;
@@ -685,6 +697,18 @@ CommandLine::CommandLine (void)
 CommandLine::CommandLine (int argc, const char* const* argv)
 	: m_logFlags	(0)
 {
+	if (argc > 1)
+	{
+		int loop = 1;		// skip application name
+		while (true)
+		{
+			m_initialCmdLine += std::string(argv[loop++]);
+			if (loop >= argc)
+				break;
+			m_initialCmdLine += " ";
+		}
+	}
+
 	if (!parse(argc, argv))
 		throw Exception("Failed to parse command line");
 }
@@ -697,6 +721,7 @@ CommandLine::CommandLine (int argc, const char* const* argv)
  * \param cmdLine Full command line string.
  *//*--------------------------------------------------------------------*/
 CommandLine::CommandLine (const std::string& cmdLine)
+	: m_initialCmdLine	(cmdLine)
 {
 	if (!parse(cmdLine))
 		throw Exception("Failed to parse command line");
@@ -715,6 +740,11 @@ void CommandLine::clear (void)
 const de::cmdline::CommandLine& CommandLine::getCommandLine (void) const
 {
 	return m_cmdLine;
+}
+
+const std::string& CommandLine::getInitialCmdLine(void) const
+{
+	return m_initialCmdLine;
 }
 
 void CommandLine::registerExtendedOptions (de::cmdline::Parser& parser)
@@ -817,6 +847,7 @@ const std::vector<int>&	CommandLine::getCLDeviceIds					(void) const	{ return m_
 int						CommandLine::getVKDeviceId					(void) const	{ return m_cmdLine.getOption<opt::VKDeviceID>();							}
 int						CommandLine::getVKDeviceGroupId				(void) const	{ return m_cmdLine.getOption<opt::VKDeviceGroupID>();						}
 bool					CommandLine::isValidationEnabled			(void) const	{ return m_cmdLine.getOption<opt::Validation>();							}
+bool					CommandLine::printValidationErrors			(void) const	{ return m_cmdLine.getOption<opt::PrintValidationErrors>();					}
 bool					CommandLine::isOutOfMemoryTestEnabled		(void) const	{ return m_cmdLine.getOption<opt::TestOOM>();								}
 bool					CommandLine::isShadercacheEnabled			(void) const	{ return m_cmdLine.getOption<opt::ShaderCache>();							}
 const char*				CommandLine::getShaderCacheFilename			(void) const	{ return m_cmdLine.getOption<opt::ShaderCacheFilename>().c_str();			}
@@ -824,9 +855,11 @@ bool					CommandLine::isShaderCacheTruncateEnabled	(void) const	{ return m_cmdLi
 int						CommandLine::getOptimizationRecipe			(void) const	{ return m_cmdLine.getOption<opt::Optimization>();							}
 bool					CommandLine::isSpirvOptimizationEnabled		(void) const	{ return m_cmdLine.getOption<opt::OptimizeSpirv>();							}
 bool					CommandLine::isRenderDocEnabled				(void) const	{ return m_cmdLine.getOption<opt::RenderDoc>();								}
+const char*				CommandLine::getWaiverFileName				(void) const	{ return m_cmdLine.getOption<opt::WaiverFile>().c_str();					}
 const std::vector<int>&	CommandLine::getCaseFraction				(void) const	{ return m_cmdLine.getOption<opt::CaseFraction>();							}
 const char*				CommandLine::getCaseFractionMandatoryTests	(void) const	{ return m_cmdLine.getOption<opt::CaseFractionMandatoryTests>().c_str();	}
 const char*				CommandLine::getArchiveDir					(void) const	{ return m_cmdLine.getOption<opt::ArchiveDir>().c_str();					}
+tcu::TestRunnerType		CommandLine::getRunnerType					(void) const	{ return m_cmdLine.getOption<opt::RunnerType>();							}
 
 const char* CommandLine::getGLContextType (void) const
 {
@@ -936,12 +969,14 @@ bool CaseListFilter::checkCaseFraction (int i, const std::string& testCaseName) 
 }
 
 CaseListFilter::CaseListFilter (void)
-	: m_caseTree(DE_NULL)
+	: m_caseTree	(DE_NULL)
+	, m_runnerType	(tcu::RUNNERTYPE_ANY)
 {
 }
 
 CaseListFilter::CaseListFilter (const de::cmdline::CommandLine& cmdLine, const tcu::Archive& archive)
-	: m_caseTree(DE_NULL)
+	: m_caseTree	(DE_NULL)
+	, m_runnerType	(cmdLine.getOption<opt::RunnerType>())
 {
 	if (cmdLine.hasOption<opt::CaseList>())
 	{

@@ -424,6 +424,10 @@ deUint32 getBlockByteSize (vk::VkFormat format)
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM:
 		case vk::VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:
+		case vk::VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT:
+		case vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT:
+		case vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT:
+		case vk::VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT:
 			DE_FATAL("Plane formats not supported");
 			return ~0u;
 
@@ -587,13 +591,15 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 		vector<vk::VkImageCopy>	copies;
 
 		de::Random				rng			(buildSeed(config));
+		const bool				noNan		= true;
 
 		genCopies(rng, copyCount, config.src.format, config.src.size, config.dst.format, config.dst.size, &copies);
 
 		logTestCaseInfo(log, config, copies);
 
-		fillRandom(&rng, &srcData);
-		fillRandom(&rng, &dstData);
+		// To avoid putting NaNs in dst in the image copy
+		fillRandom(&rng, &srcData, config.dst.format, noNan);
+		fillRandom(&rng, &dstData, config.dst.format, noNan);
 
 		{
 			const vk::DeviceInterface&		vkd						(context.getDeviceInterface());
@@ -640,7 +646,7 @@ tcu::TestStatus imageCopyTest (Context& context, const TestConfig config)
 						vk::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 						DE_NULL,
 						vk::VK_ACCESS_TRANSFER_WRITE_BIT,
-						vk::VK_ACCESS_TRANSFER_WRITE_BIT,
+						vk::VK_ACCESS_TRANSFER_READ_BIT | vk::VK_ACCESS_TRANSFER_WRITE_BIT,
 						vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 						vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 						VK_QUEUE_FAMILY_IGNORED,
@@ -868,7 +874,11 @@ void initYcbcrDefaultCopyTests (tcu::TestCaseGroup* testGroup)
 		vk::VK_FORMAT_G16_B16R16_2PLANE_420_UNORM,
 		vk::VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM,
 		vk::VK_FORMAT_G16_B16R16_2PLANE_422_UNORM,
-		vk::VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM
+		vk::VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM,
+		vk::VK_FORMAT_G8_B8R8_2PLANE_444_UNORM_EXT,
+		vk::VK_FORMAT_G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16_EXT,
+		vk::VK_FORMAT_G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16_EXT,
+		vk::VK_FORMAT_G16_B16R16_2PLANE_444_UNORM_EXT,
 	};
 	const struct
 	{

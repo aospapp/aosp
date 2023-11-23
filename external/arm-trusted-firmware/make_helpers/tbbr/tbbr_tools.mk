@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -23,6 +23,7 @@
 #   KEY_ALG
 #   KEY_SIZE
 #   ROT_KEY
+#   PROT_KEY
 #   TRUSTED_WORLD_KEY
 #   NON_TRUSTED_WORLD_KEY
 #   SCP_BL2_KEY
@@ -53,10 +54,14 @@ $(eval $(call TOOL_ADD_PAYLOAD,${FWU_CERT},--fwu-cert,,FWU_))
 # packed in the FIP). Developers can use their own keys by specifying the proper
 # build option in the command line when building the Trusted Firmware
 $(if ${KEY_ALG},$(eval $(call CERT_ADD_CMD_OPT,${KEY_ALG},--key-alg)))
+$(if ${KEY_ALG},$(eval $(call CERT_ADD_CMD_OPT,${KEY_ALG},--key-alg,FWU_)))
 $(if ${KEY_SIZE},$(eval $(call CERT_ADD_CMD_OPT,${KEY_SIZE},--key-size)))
+$(if ${KEY_SIZE},$(eval $(call CERT_ADD_CMD_OPT,${KEY_SIZE},--key-size,FWU_)))
 $(if ${HASH_ALG},$(eval $(call CERT_ADD_CMD_OPT,${HASH_ALG},--hash-alg)))
+$(if ${HASH_ALG},$(eval $(call CERT_ADD_CMD_OPT,${HASH_ALG},--hash-alg,FWU_)))
 $(if ${ROT_KEY},$(eval $(call CERT_ADD_CMD_OPT,${ROT_KEY},--rot-key)))
 $(if ${ROT_KEY},$(eval $(call CERT_ADD_CMD_OPT,${ROT_KEY},--rot-key,FWU_)))
+$(if ${PROT_KEY},$(eval $(call CERT_ADD_CMD_OPT,${PROT_KEY},--prot-key)))
 $(if ${TRUSTED_WORLD_KEY},$(eval $(call CERT_ADD_CMD_OPT,${TRUSTED_WORLD_KEY},--trusted-world-key)))
 $(if ${NON_TRUSTED_WORLD_KEY},$(eval $(call CERT_ADD_CMD_OPT,${NON_TRUSTED_WORLD_KEY},--non-trusted-world-key)))
 
@@ -93,5 +98,15 @@ endif
 ifneq (${BL33},)
     $(if ${BL33_KEY},$(eval $(call CERT_ADD_CMD_OPT,${BL33_KEY},--nt-fw-key)))
     $(eval $(call TOOL_ADD_PAYLOAD,${BUILD_PLAT}/nt_fw_content.crt,--nt-fw-cert))
+ifneq (${COT},dualroot)
     $(eval $(call TOOL_ADD_PAYLOAD,${BUILD_PLAT}/nt_fw_key.crt,--nt-fw-key-cert))
+endif
+endif
+
+# Add SiP owned Secure Partitions CoT (image cert)
+ifneq (${SP_LAYOUT_FILE},)
+    $(eval $(call TOOL_ADD_PAYLOAD,${BUILD_PLAT}/sip_sp_content.crt,--sip-sp-cert))
+ifeq (${COT},dualroot)
+    $(eval $(call TOOL_ADD_PAYLOAD,${BUILD_PLAT}/plat_sp_content.crt,--plat-sp-cert))
+endif
 endif

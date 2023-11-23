@@ -24,6 +24,7 @@ namespace trace_processor {
 namespace {
 
 using ::testing::_;
+using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::SaveArg;
 
@@ -33,17 +34,17 @@ class MockSliceTracker : public SliceTracker {
   virtual ~MockSliceTracker() = default;
 
   MOCK_METHOD5(Begin,
-               base::Optional<uint32_t>(int64_t timestamp,
-                                        TrackId track_id,
-                                        StringId cat,
-                                        StringId name,
-                                        SetArgsCallback args_callback));
+               base::Optional<SliceId>(int64_t timestamp,
+                                       TrackId track_id,
+                                       StringId cat,
+                                       StringId name,
+                                       SetArgsCallback args_callback));
   MOCK_METHOD5(End,
-               base::Optional<uint32_t>(int64_t timestamp,
-                                        TrackId track_id,
-                                        StringId cat,
-                                        StringId name,
-                                        SetArgsCallback args_callback));
+               base::Optional<SliceId>(int64_t timestamp,
+                                       TrackId track_id,
+                                       StringId cat,
+                                       StringId name,
+                                       SetArgsCallback args_callback));
 };
 
 class SyscallTrackerTest : public ::testing::Test {

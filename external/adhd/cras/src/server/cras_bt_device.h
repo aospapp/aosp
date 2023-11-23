@@ -13,6 +13,16 @@ struct cras_bt_device;
 struct cras_iodev;
 struct cras_timer;
 
+/* All the reasons for when CRAS schedule a suspend to BT device. */
+enum cras_bt_device_suspend_reason {
+	A2DP_LONG_TX_FAILURE,
+	A2DP_TX_FATAL_ERROR,
+	CONN_WATCH_TIME_OUT,
+	HFP_SCO_SOCKET_ERROR,
+	HFP_AG_START_FAILURE,
+	UNEXPECTED_PROFILE_DROP,
+};
+
 enum cras_bt_device_profile {
 	CRAS_BT_DEVICE_PROFILE_A2DP_SOURCE = (1 << 0),
 	CRAS_BT_DEVICE_PROFILE_A2DP_SINK = (1 << 1),
@@ -40,6 +50,10 @@ void cras_bt_device_reset();
 struct cras_bt_device *cras_bt_device_get(const char *object_path);
 
 const char *cras_bt_device_object_path(const struct cras_bt_device *device);
+
+/* Gets the stable id of given cras_bt_device. */
+int cras_bt_device_get_stable_id(const struct cras_bt_device *device);
+
 struct cras_bt_adapter *
 cras_bt_device_adapter(const struct cras_bt_device *device);
 const char *cras_bt_device_address(const struct cras_bt_device *device);
@@ -53,8 +67,8 @@ void cras_bt_device_update_properties(struct cras_bt_device *device,
 				      DBusMessageIter *invalidated_array_iter);
 
 /* Updates the supported profiles on dev. Expose for unit test. */
-int cras_bt_device_add_supported_profiles(struct cras_bt_device *device,
-					  const char *uuid);
+int cras_bt_device_set_supported_profiles(struct cras_bt_device *device,
+					  unsigned int profiles);
 
 /* Checks if profile is claimed supported by the device. */
 int cras_bt_device_supports_profile(const struct cras_bt_device *device,
@@ -123,7 +137,8 @@ void cras_bt_device_rm_iodev(struct cras_bt_device *device,
 			     struct cras_iodev *iodev);
 
 /* Gets the active profile of the bt device. */
-int cras_bt_device_get_active_profile(const struct cras_bt_device *device);
+unsigned int
+cras_bt_device_get_active_profile(const struct cras_bt_device *device);
 
 /* Sets the active profile of the bt device. */
 void cras_bt_device_set_active_profile(struct cras_bt_device *device,
@@ -170,8 +185,9 @@ void cras_bt_device_a2dp_configured(struct cras_bt_device *device);
 int cras_bt_device_cancel_suspend(struct cras_bt_device *device);
 
 /* Schedules device to suspend after given delay. */
-int cras_bt_device_schedule_suspend(struct cras_bt_device *device,
-				    unsigned int msec);
+int cras_bt_device_schedule_suspend(
+	struct cras_bt_device *device, unsigned int msec,
+	enum cras_bt_device_suspend_reason suspend_reason);
 
 /* Notifies bt device that audio gateway is initialized.
  * Args:

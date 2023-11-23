@@ -17,8 +17,8 @@
 #ifndef LIBGAV1_SRC_DSP_ARM_OBMC_NEON_H_
 #define LIBGAV1_SRC_DSP_ARM_OBMC_NEON_H_
 
-#include "src/dsp/cpu.h"
 #include "src/dsp/dsp.h"
+#include "src/utils/cpu.h"
 
 namespace libgav1 {
 namespace dsp {
@@ -31,8 +31,8 @@ void ObmcInit_NEON();
 
 // If NEON is enabled, signal the NEON implementation should be used.
 #if LIBGAV1_ENABLE_NEON
-#define LIBGAV1_Dsp8bpp_ObmcVertical LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_ObmcHorizontal LIBGAV1_DSP_NEON
+#define LIBGAV1_Dsp8bpp_ObmcVertical LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ObmcHorizontal LIBGAV1_CPU_NEON
 #endif  // LIBGAV1_ENABLE_NEON
 
 #endif  // LIBGAV1_SRC_DSP_ARM_OBMC_NEON_H_

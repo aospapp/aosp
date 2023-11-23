@@ -107,11 +107,12 @@ public abstract class LoadBalancer {
    * <p>Implementations should not modify the given {@code servers}.
    *
    * @param servers the resolved server addresses, never empty.
-   * @param attributes extra metadata from naming system.
+   * @param attributes extra information from naming system.
    * @since 1.2.0
    */
   public abstract void handleResolvedAddressGroups(
-      List<EquivalentAddressGroup> servers, Attributes attributes);
+      List<EquivalentAddressGroup> servers,
+      @NameResolver.ResolutionResultAttr Attributes attributes);
 
   /**
    * Handles an error from the name resolution system.
@@ -153,6 +154,11 @@ public abstract class LoadBalancer {
    * @since 1.2.0
    */
   public abstract void shutdown();
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName();
+  }
 
   /**
    * The main balancing logic.  It <strong>must be thread-safe</strong>. Typically it should only

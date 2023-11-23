@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """
 OProfile is a system-wide profiler for Linux systems,
 capable of profiling all running code at low overhead.
@@ -9,10 +10,16 @@ and several post-profiling tools for turning data into information.
 More Info: http://oprofile.sourceforge.net/
 Will need some libaries to compile. Do 'apt-get build-dep oprofile'
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import logging
 import os, shutil, time
+
 from autotest_lib.client.bin import utils, profiler
 from autotest_lib.client.common_lib import error
-import logging
+
 
 class oprofile(profiler.profiler):
     version = 7
@@ -79,7 +86,7 @@ class oprofile(profiler.profiler):
         if (self.local == False and after_setup) or (
                 (self.local in (None, False) and os.path.exists(src_opreport)
                  and os.path.exists(src_opcontrol))):
-            print "Using source-built copy of oprofile"
+            print("Using source-built copy of oprofile")
             self.opreport = src_opreport
             self.opcontrol = src_opcontrol
             perform_setup = True
@@ -88,7 +95,7 @@ class oprofile(profiler.profiler):
             # we're not running after setup() then delay the decision
             return
         else:
-            print "Using machine local copy of oprofile"
+            print("Using machine local copy of oprofile")
             self.opreport = '/usr/bin/opreport'
             self.opcontrol = '/usr/bin/opcontrol'
 

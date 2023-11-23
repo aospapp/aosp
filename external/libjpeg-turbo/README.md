@@ -1,14 +1,14 @@
 Background
 ==========
 
-libjpeg-turbo is a JPEG image codec that uses SIMD instructions (MMX, SSE2,
-AVX2, NEON, AltiVec) to accelerate baseline JPEG compression and decompression
-on x86, x86-64, ARM, and PowerPC systems, as well as progressive JPEG
-compression on x86 and x86-64 systems.  On such systems, libjpeg-turbo is
-generally 2-6x as fast as libjpeg, all else being equal.  On other types of
-systems, libjpeg-turbo can still outperform libjpeg by a significant amount, by
-virtue of its highly-optimized Huffman coding routines.  In many cases, the
-performance of libjpeg-turbo rivals that of proprietary high-speed JPEG codecs.
+libjpeg-turbo is a JPEG image codec that uses SIMD instructions to accelerate
+baseline JPEG compression and decompression on x86, x86-64, Arm, PowerPC, and
+MIPS systems, as well as progressive JPEG compression on x86, x86-64, and Arm
+systems.  On such systems, libjpeg-turbo is generally 2-6x as fast as libjpeg,
+all else being equal.  On other types of systems, libjpeg-turbo can still
+outperform libjpeg by a significant amount, by virtue of its highly-optimized
+Huffman coding routines.  In many cases, the performance of libjpeg-turbo
+rivals that of proprietary high-speed JPEG codecs.
 
 libjpeg-turbo implements both the traditional libjpeg API as well as the less
 powerful but more straightforward TurboJPEG API.  libjpeg-turbo also features
@@ -145,14 +145,14 @@ supported and which aren't.
 
 #### Fully supported
 
-- **libjpeg: IDCT scaling extensions in decompressor**<br>
+- **libjpeg API: IDCT scaling extensions in decompressor**<br>
   libjpeg-turbo supports IDCT scaling with scaling factors of 1/8, 1/4, 3/8,
   1/2, 5/8, 3/4, 7/8, 9/8, 5/4, 11/8, 3/2, 13/8, 7/4, 15/8, and 2/1 (only 1/4
   and 1/2 are SIMD-accelerated.)
 
-- **libjpeg: Arithmetic coding**
+- **libjpeg API: Arithmetic coding**
 
-- **libjpeg: In-memory source and destination managers**<br>
+- **libjpeg API: In-memory source and destination managers**<br>
   See notes below.
 
 - **cjpeg: Separate quality settings for luminance and chrominance**<br>
@@ -179,19 +179,19 @@ supported and which aren't.
 
 NOTE:  As of this writing, extensive research has been conducted into the
 usefulness of DCT scaling as a means of data reduction and SmartScale as a
-means of quality improvement.  The reader is invited to peruse the research at
-<http://www.libjpeg-turbo.org/About/SmartScale> and draw his/her own conclusions,
+means of quality improvement.  Readers are invited to peruse the research at
+<http://www.libjpeg-turbo.org/About/SmartScale> and draw their own conclusions,
 but it is the general belief of our project that these features have not
 demonstrated sufficient usefulness to justify inclusion in libjpeg-turbo.
 
-- **libjpeg: DCT scaling in compressor**<br>
+- **libjpeg API: DCT scaling in compressor**<br>
   `cinfo.scale_num` and `cinfo.scale_denom` are silently ignored.
   There is no technical reason why DCT scaling could not be supported when
   emulating the libjpeg v7+ API/ABI, but without the SmartScale extension (see
   below), only scaling factors of 1/2, 8/15, 4/7, 8/13, 2/3, 8/11, 4/5, and
   8/9 would be available, which is of limited usefulness.
 
-- **libjpeg: SmartScale**<br>
+- **libjpeg API: SmartScale**<br>
   `cinfo.block_size` is silently ignored.
   SmartScale is an extension to the JPEG format that allows for DCT block
   sizes other than 8x8.  Providing support for this new format would be
@@ -204,7 +204,7 @@ demonstrated sufficient usefulness to justify inclusion in libjpeg-turbo.
   interest in providing this feature would be as a means of supporting
   additional DCT scaling factors.
 
-- **libjpeg: Fancy downsampling in compressor**<br>
+- **libjpeg API: Fancy downsampling in compressor**<br>
   `cinfo.do_fancy_downsampling` is silently ignored.
   This requires the DCT scaling feature, which is not supported.
 
@@ -252,8 +252,8 @@ building libjpeg-turbo.  This will restore the pre-1.3 behavior, in which
 libjpeg v8 API/ABI.
 
 On Un*x systems, including the in-memory source/destination managers changes
-the dynamic library version from 62.1.0 to 62.2.0 if using libjpeg v6b API/ABI
-emulation and from 7.1.0 to 7.2.0 if using libjpeg v7 API/ABI emulation.
+the dynamic library version from 62.2.0 to 62.3.0 if using libjpeg v6b API/ABI
+emulation and from 7.2.0 to 7.3.0 if using libjpeg v7 API/ABI emulation.
 
 Note that, on most Un*x systems, the dynamic linker will not look for a
 function in a library until that function is actually used.  Thus, if a program
@@ -287,12 +287,13 @@ following reasons:
   (and slightly faster) floating point IDCT algorithm introduced in libjpeg
   v8a as opposed to the algorithm used in libjpeg v6b.  It should be noted,
   however, that this algorithm basically brings the accuracy of the floating
-  point IDCT in line with the accuracy of the slow integer IDCT.  The floating
-  point DCT/IDCT algorithms are mainly a legacy feature, and they do not
-  produce significantly more accuracy than the slow integer algorithms (to put
-  numbers on this, the typical difference in PNSR between the two algorithms
-  is less than 0.10 dB, whereas changing the quality level by 1 in the upper
-  range of the quality scale is typically more like a 1.0 dB difference.)
+  point IDCT in line with the accuracy of the accurate integer IDCT.  The
+  floating point DCT/IDCT algorithms are mainly a legacy feature, and they do
+  not produce significantly more accuracy than the accurate integer algorithms
+  (to put numbers on this, the typical difference in PNSR between the two
+  algorithms is less than 0.10 dB, whereas changing the quality level by 1 in
+  the upper range of the quality scale is typically more like a 1.0 dB
+  difference.)
 
 - If the floating point algorithms in libjpeg-turbo are not implemented using
   SIMD instructions on a particular platform, then the accuracy of the
@@ -329,7 +330,7 @@ in a way that makes the rest of the libjpeg infrastructure happy, so it is
 necessary to use the slow Huffman decoder when decompressing a JPEG image that
 has restart markers.  This can cause the decompression performance to drop by
 as much as 20%, but the performance will still be much greater than that of
-libjpeg.  Many consumer packages, such as PhotoShop, use restart markers when
+libjpeg.  Many consumer packages, such as Photoshop, use restart markers when
 generating JPEG images, so images generated by those programs will experience
 this issue.
 
@@ -340,7 +341,7 @@ The algorithm used by the SIMD-accelerated quantization function cannot produce
 correct results whenever the fast integer forward DCT is used along with a JPEG
 quality of 98-100.  Thus, libjpeg-turbo must use the non-SIMD quantization
 function in those cases.  This causes performance to drop by as much as 40%.
-It is therefore strongly advised that you use the slow integer forward DCT
+It is therefore strongly advised that you use the accurate integer forward DCT
 whenever encoding images with a JPEG quality of 98 or higher.
 
 

@@ -59,11 +59,11 @@ kselftest_modules += \
   kselftest_x86_tests_single_step_syscall \
   kselftest_x86_tests_syscall_arg_fault \
   kselftest_x86_tests_syscall_nt \
-  kselftest_x86_tests_sysret_ss_attrs \
   kselftest_x86_tests_test_FCMOV \
   kselftest_x86_tests_test_FCOMI \
   kselftest_x86_tests_test_FISTTP \
   kselftest_x86_tests_test_mremap_vdso \
   kselftest_x86_tests_unwind_vdso \
   kselftest_x86_tests_vdso_restorer \
+  kselftest_x86_test_sysret_ss_attrs \
   kselftest_x86_test_syscall_vdso \

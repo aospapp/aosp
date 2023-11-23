@@ -107,10 +107,6 @@ struct JniCache {
   ScopedGlobalRef<jclass> timezone_class;
   jmethodID timezone_get_timezone = nullptr;
 
-  // java.net.URLEncoder
-  ScopedGlobalRef<jclass> urlencoder_class;
-  jmethodID urlencoder_encode = nullptr;
-
   // android.content.Context
   ScopedGlobalRef<jclass> context_class;
   jmethodID context_get_package_name = nullptr;
@@ -121,6 +117,7 @@ struct JniCache {
   jmethodID uri_parse = nullptr;
   jmethodID uri_get_scheme = nullptr;
   jmethodID uri_get_host = nullptr;
+  jmethodID uri_encode = nullptr;
 
   // android.os.UserManager
   ScopedGlobalRef<jclass> usermanager_class;

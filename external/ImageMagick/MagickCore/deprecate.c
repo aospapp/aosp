@@ -17,7 +17,7 @@
 %                                October 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -40,12 +40,16 @@
 /*
   Include declarations.
 */
-#if defined(MAGICKCORE_WINDOWS_SUPPORT)
-#define WIN32_LEAN_AND_MEAN
-#define VC_EXTRALEAN
-#include <windows.h>
-#endif
 #include "MagickCore/studio.h"
+#if defined(MAGICKCORE_WINGDI32_DELEGATE)
+#  if defined(__CYGWIN__)
+#    include <windows.h>
+#  else
+     /* All MinGW needs ... */
+#    include "MagickCore/nt-base-private.h"
+#    include <wingdi.h>
+#  endif
+#endif
 #include "MagickCore/property.h"
 #include "MagickCore/blob.h"
 #include "MagickCore/blob-private.h"
@@ -79,6 +83,7 @@
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/morphology.h"
+#include "MagickCore/nt-feature.h"
 #include "MagickCore/paint.h"
 #include "MagickCore/pixel.h"
 #include "MagickCore/pixel-accessor.h"
@@ -128,7 +133,7 @@ MagickExport MagickBooleanType GetMagickSeekableStream(
     MagickTrue);
 }
 
-#if defined(MAGICKCORE_WINDOWS_SUPPORT)
+#if defined(MAGICKCORE_WINGDI32_DELEGATE)
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -180,10 +185,10 @@ MagickExport void *CropImageToHBITMAP(Image *image,
   RectangleInfo
     page;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register RGBQUAD
+  RGBQUAD
     *q;
 
   RGBQUAD
@@ -251,7 +256,7 @@ MagickExport void *CropImageToHBITMAP(Image *image,
   q=bitmap_bits;
   for (y=0; y < (ssize_t) page.height; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
     p=GetVirtualPixels(image,page.x,page.y+y,page.width,1,exception);
@@ -286,7 +291,7 @@ MagickExport void *CropImageToHBITMAP(Image *image,
 }
 #endif
 
-#if defined(MAGICKCORE_WINDOWS_SUPPORT)
+#if defined(MAGICKCORE_WINGDI32_DELEGATE)
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -320,13 +325,13 @@ MagickExport void *ImageToHBITMAP(Image *image,ExceptionInfo *exception)
   HBITMAP
     bitmapH;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register RGBQUAD
+  RGBQUAD
     *q;
 
   RGBQUAD

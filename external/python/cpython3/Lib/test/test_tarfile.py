@@ -11,7 +11,7 @@ import unittest.mock
 import tarfile
 
 from test import support
-from test.support import script_helper, requires_hashdigest
+from test.support import script_helper
 
 # Check for our compression modules.
 try:
@@ -57,21 +57,21 @@ class TarTest:
     def mode(self):
         return self.prefix + self.suffix
 
-@support.requires_gzip
+@support.requires_gzip()
 class GzipTest:
     tarname = gzipname
     suffix = 'gz'
     open = gzip.GzipFile if gzip else None
     taropen = tarfile.TarFile.gzopen
 
-@support.requires_bz2
+@support.requires_bz2()
 class Bz2Test:
     tarname = bz2name
     suffix = 'bz2'
     open = bz2.BZ2File if bz2 else None
     taropen = tarfile.TarFile.bz2open
 
-@support.requires_lzma
+@support.requires_lzma()
 class LzmaTest:
     tarname = xzname
     suffix = 'xz'
@@ -319,6 +319,38 @@ class LzmaListTest(LzmaTest, ListTest):
 
 class CommonReadTest(ReadTest):
 
+    def test_is_tarfile_erroneous(self):
+        with open(tmpname, "wb"):
+            pass
+
+        # is_tarfile works on filenames
+        self.assertFalse(tarfile.is_tarfile(tmpname))
+
+        # is_tarfile works on path-like objects
+        self.assertFalse(tarfile.is_tarfile(pathlib.Path(tmpname)))
+
+        # is_tarfile works on file objects
+        with open(tmpname, "rb") as fobj:
+            self.assertFalse(tarfile.is_tarfile(fobj))
+
+        # is_tarfile works on file-like objects
+        self.assertFalse(tarfile.is_tarfile(io.BytesIO(b"invalid")))
+
+    def test_is_tarfile_valid(self):
+        # is_tarfile works on filenames
+        self.assertTrue(tarfile.is_tarfile(self.tarname))
+
+        # is_tarfile works on path-like objects
+        self.assertTrue(tarfile.is_tarfile(pathlib.Path(self.tarname)))
+
+        # is_tarfile works on file objects
+        with open(self.tarname, "rb") as fobj:
+            self.assertTrue(tarfile.is_tarfile(fobj))
+
+        # is_tarfile works on file-like objects
+        with open(self.tarname, "rb") as fobj:
+            self.assertTrue(tarfile.is_tarfile(io.BytesIO(fobj.read())))
+
     def test_empty_tarfile(self):
         # Test for issue6123: Allow opening empty archives.
         # This test checks if tarfile.open() is able to open an empty tar
@@ -354,7 +386,7 @@ class CommonReadTest(ReadTest):
     def test_ignore_zeros(self):
         # Test TarFile's ignore_zeros option.
         # generate 512 pseudorandom bytes
-        data = Random(0).getrandbits(512*8).to_bytes(512, 'big')
+        data = Random(0).randbytes(512)
         for char in (b'\0', b'a'):
             # Test if EOFHeaderError ('\0') and InvalidHeaderError ('a')
             # are ignored correctly.
@@ -396,6 +428,13 @@ class CommonReadTest(ReadTest):
 
                 with self.assertRaisesRegex(tarfile.ReadError, "unexpected end of data"):
                     tar.extractfile(t).read()
+
+    def test_length_zero_header(self):
+        # bpo-39017 (CVE-2019-20907): reading a zero-length header should fail
+        # with an exception
+        with self.assertRaisesRegex(tarfile.ReadError, "file could not be opened successfully"):
+            with tarfile.open(support.findfile('recursion.tar')) as tar:
+                pass
 
 class MiscReadTestBase(CommonReadTest):
     def requires_name_attribute(self):
@@ -1307,10 +1346,10 @@ class WriteTest(WriteTestBase, unittest.TestCase):
                 f.write('something\n')
             os.symlink(source_file, target_file)
             with tarfile.open(temparchive, 'w') as tar:
-                tar.add(source_file)
-                tar.add(target_file)
+                tar.add(source_file, arcname="source")
+                tar.add(target_file, arcname="symlink")
             # Let's extract it to the location which contains the symlink
-            with tarfile.open(temparchive) as tar:
+            with tarfile.open(temparchive, errorlevel=2) as tar:
                 # this should not raise OSError: [Errno 17] File exists
                 try:
                     tar.extractall(path=tempdir)
@@ -1377,11 +1416,14 @@ class WriteTest(WriteTestBase, unittest.TestCase):
                                    pax_headers={'non': 'empty'})
             self.assertFalse(f.closed)
 
+
 class GzipWriteTest(GzipTest, WriteTest):
     pass
 
+
 class Bz2WriteTest(Bz2Test, WriteTest):
     pass
+
 
 class LzmaWriteTest(LzmaTest, WriteTest):
     pass
@@ -1425,8 +1467,17 @@ class StreamWriteTest(WriteTestBase, unittest.TestCase):
         finally:
             os.umask(original_umask)
 
+
 class GzipStreamWriteTest(GzipTest, StreamWriteTest):
-    pass
+    def test_source_directory_not_leaked(self):
+        """
+        Ensure the source directory is not included in the tar header
+        per bpo-41316.
+        """
+        tarfile.open(tmpname, self.mode).close()
+        payload = pathlib.Path(tmpname).read_text(encoding='latin-1')
+        assert os.path.dirname(tmpname) not in payload
+
 
 class Bz2StreamWriteTest(Bz2Test, StreamWriteTest):
     decompressor = bz2.BZ2Decompressor if bz2 else None
@@ -1515,6 +1566,52 @@ class GNUWriteTest(unittest.TestCase):
     def test_longnamelink_1025(self):
         self._test(("longnam/" * 127) + "longname_",
                    ("longlnk/" * 127) + "longlink_")
+
+
+class DeviceHeaderTest(WriteTestBase, unittest.TestCase):
+
+    prefix = "w:"
+
+    def test_headers_written_only_for_device_files(self):
+        # Regression test for bpo-18819.
+        tempdir = os.path.join(TEMPDIR, "device_header_test")
+        os.mkdir(tempdir)
+        try:
+            tar = tarfile.open(tmpname, self.mode)
+            try:
+                input_blk = tarfile.TarInfo(name="my_block_device")
+                input_reg = tarfile.TarInfo(name="my_regular_file")
+                input_blk.type = tarfile.BLKTYPE
+                input_reg.type = tarfile.REGTYPE
+                tar.addfile(input_blk)
+                tar.addfile(input_reg)
+            finally:
+                tar.close()
+
+            # devmajor and devminor should be *interpreted* as 0 in both...
+            tar = tarfile.open(tmpname, "r")
+            try:
+                output_blk = tar.getmember("my_block_device")
+                output_reg = tar.getmember("my_regular_file")
+            finally:
+                tar.close()
+            self.assertEqual(output_blk.devmajor, 0)
+            self.assertEqual(output_blk.devminor, 0)
+            self.assertEqual(output_reg.devmajor, 0)
+            self.assertEqual(output_reg.devminor, 0)
+
+            # ...but the fields should not actually be set on regular files:
+            with open(tmpname, "rb") as infile:
+                buf = infile.read()
+            buf_blk = buf[output_blk.offset:output_blk.offset_data]
+            buf_reg = buf[output_reg.offset:output_reg.offset_data]
+            # See `struct posixheader` in GNU docs for byte offsets:
+            # <https://www.gnu.org/software/tar/manual/html_node/Standard.html>
+            device_headers = slice(329, 329 + 16)
+            self.assertEqual(buf_blk[device_headers], b"0000000\0" * 2)
+            self.assertEqual(buf_reg[device_headers], b"\0" * 16)
+        finally:
+            support.rmtree(tempdir)
 
 
 class CreateTest(WriteTestBase, unittest.TestCase):
@@ -2227,7 +2324,8 @@ class CommandLineTest(unittest.TestCase):
     def test_test_command_verbose(self):
         for tar_name in testtarnames:
             for opt in '-v', '--verbose':
-                out = self.tarfilecmd(opt, '-t', tar_name)
+                out = self.tarfilecmd(opt, '-t', tar_name,
+                                      PYTHONIOENCODING='utf-8')
                 self.assertIn(b'is a tar archive.\n', out)
 
     def test_test_command_invalid_file(self):
@@ -2298,7 +2396,8 @@ class CommandLineTest(unittest.TestCase):
                                   'and-utf8-bom-sig-only.txt')]
         for opt in '-v', '--verbose':
             try:
-                out = self.tarfilecmd(opt, '-c', tmpname, *files)
+                out = self.tarfilecmd(opt, '-c', tmpname, *files,
+                                      PYTHONIOENCODING='utf-8')
                 self.assertIn(b' file created.', out)
                 with tarfile.open(tmpname) as tar:
                     tar.getmembers()
@@ -2356,7 +2455,8 @@ class CommandLineTest(unittest.TestCase):
         for opt in '-v', '--verbose':
             try:
                 with support.temp_cwd(tarextdir):
-                    out = self.tarfilecmd(opt, '-e', tmpname)
+                    out = self.tarfilecmd(opt, '-e', tmpname,
+                                          PYTHONIOENCODING='utf-8')
                 self.assertIn(b' file is extracted.', out)
             finally:
                 support.rmtree(tarextdir)

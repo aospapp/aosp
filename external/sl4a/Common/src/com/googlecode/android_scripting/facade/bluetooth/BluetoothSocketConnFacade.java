@@ -33,6 +33,7 @@ import com.googlecode.android_scripting.rpc.RpcParameter;
 
 import org.apache.commons.codec.binary.Base64Codec;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -555,9 +556,19 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
         byte bufIndex = (byte) 0x00FF;
 
         try {
+
+            ByteArrayOutputStream tmp_array = new ByteArrayOutputStream();
             for (int i = 0; i < numBuffers; i++) {
                 // Read one buffer
-                byte[] readBuf = conn.readBinary(bufferSize);
+                while (tmp_array.size() < bufferSize) {
+                    byte[] tmp_read = conn.readBinary(bufferSize);
+                    if (tmp_read.length == 0) {
+                        break;
+                    }
+                    tmp_array.write(tmp_read);
+                }
+                byte[] readBuf = tmp_array.toByteArray();
+                tmp_array.reset();
 
                 // Make sure the contents are valid
                 int nextInChar = 'a';
@@ -587,6 +598,9 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
                     nextInChar = getNextOutputChar(nextInChar);
                 }
                 Log.d("bluetoothConnectionThroughputRead: Buffer Read index=" + i);
+                if (bufferSize < readBuf.length) {
+                    tmp_array.write(readBuf, bufferSize, readBuf.length - bufferSize);
+                }
             }
 
             long endTesttime = System.currentTimeMillis();

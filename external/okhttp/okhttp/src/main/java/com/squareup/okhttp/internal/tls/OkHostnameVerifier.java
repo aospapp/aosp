@@ -107,6 +107,11 @@ public final class OkHostnameVerifier implements HostnameVerifier {
    * Returns true if {@code certificate} matches {@code hostName}.
    */
   private boolean verifyHostName(String hostName, X509Certificate certificate) {
+    // BEGIN Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
+    if (!isPrintableAscii(hostName)) {
+      return false;
+    }
+    // END Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
     hostName = hostName.toLowerCase(Locale.US);
     boolean hasDns = false;
     List<String> altNames = getSubjectAltNames(certificate, ALT_DNS_NAME);
@@ -209,6 +214,11 @@ public final class OkHostnameVerifier implements HostnameVerifier {
     }
     // hostName and pattern are now absolute domain names.
 
+    // BEGIN Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
+    if (!isPrintableAscii(pattern)) {
+      return false;
+    }
+    // END Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
     pattern = pattern.toLowerCase(Locale.US);
     // hostName and pattern are now in lower case -- domain names are case-insensitive.
 
@@ -279,4 +289,25 @@ public final class OkHostnameVerifier implements HostnameVerifier {
     // hostName matches pattern
     return true;
   }
+
+  // BEGIN Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
+  /**
+   * Returns true if the  input string contains only printable 7-bit ASCII
+   * characters, otherwise false.
+   */
+  private static final char DEL = 127;
+  static boolean isPrintableAscii(String input) {
+    if (input == null) {
+      return false;
+    }
+    for (char c : input.toCharArray()) {
+      // Space is illegal in a DNS name. DEL and anything less than space is non-printing so
+      // also illegal. Anything greater than DEL is not 7-bit.
+      if (c <= ' ' || c >= DEL) {
+        return false;
+      }
+    }
+    return true;
+  }
+  // END Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
 }

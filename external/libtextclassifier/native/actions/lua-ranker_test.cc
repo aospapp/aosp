@@ -19,7 +19,7 @@
 #include <string>
 
 #include "actions/types.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/mutable.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -229,8 +229,8 @@ TEST(LuaRankingTest, HandlesEntityData) {
       flatbuffers::GetRoot<reflection::Schema>(serialized_schema.data());
 
   // Create test entity data.
-  ReflectiveFlatbufferBuilder builder(entity_data_schema);
-  std::unique_ptr<ReflectiveFlatbuffer> buffer = builder.NewRoot();
+  MutableFlatbufferBuilder builder(entity_data_schema);
+  std::unique_ptr<MutableFlatbuffer> buffer = builder.NewRoot();
   buffer->Set("test", "value_a");
   const std::string serialized_entity_data_a = buffer->Serialize();
   buffer->Set("test", "value_b");

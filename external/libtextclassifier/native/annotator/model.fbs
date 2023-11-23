@@ -16,9 +16,9 @@
 
 include "annotator/entity-data.fbs";
 include "annotator/experimental/experimental.fbs";
-include "annotator/grammar/dates/dates.fbs";
 include "utils/codepoint-range.fbs";
-include "utils/flatbuffers.fbs";
+include "utils/container/bit-vector.fbs";
+include "utils/flatbuffers/flatbuffers.fbs";
 include "utils/grammar/rules.fbs";
 include "utils/intents/intent-config.fbs";
 include "utils/normalization.fbs";
@@ -131,6 +131,8 @@ enum DatetimeExtractorType : int {
   NINETY = 70,
   HUNDRED = 71,
   THOUSAND = 72,
+  NOON = 73,
+  MIDNIGHT = 74,
 }
 
 namespace libtextclassifier3;
@@ -154,6 +156,7 @@ enum DatetimeGroupType : int {
   GROUP_DUMMY1 = 12,
 
   GROUP_DUMMY2 = 13,
+  GROUP_ABSOLUTETIME = 14,
 }
 
 // Options for the model that predicts text selection.
@@ -370,85 +373,6 @@ table GrammarTokenizerOptions {
   tokenize_on_script_change:bool = false;
 }
 
-// Options for grammar date/datetime/date range annotations.
-namespace libtextclassifier3.GrammarDatetimeModel_;
-table AnnotationOptions {
-  // If enabled, extract special day offset like today, yesterday, etc.
-  enable_special_day_offset:bool = true;
-
-  // If true, merge the adjacent day of week, time and date. e.g.
-  // "20/2/2016 at 8pm" is extracted as a single instance instead of two
-  // instance: "20/2/2016" and "8pm".
-  merge_adjacent_components:bool = true;
-
-  // List the extra id of requested dates.
-  extra_requested_dates:[string];
-
-  // If true, try to include preposition to the extracted annotation. e.g.
-  // "at 6pm". if it's false, only 6pm is included. offline-actions has
-  // special requirements to include preposition.
-  include_preposition:bool = true;
-
-  // If enabled, extract range in date annotator.
-  // input: Monday, 5-6pm
-  // If the flag is true, The extracted annotation only contains 1 range
-  // instance which is from Monday 5pm to 6pm.
-  // If the flag is false, The extracted annotation contains two date
-  // instance: "Monday" and "6pm".
-  enable_date_range:bool = true;
-  reserved_6:int16 (deprecated);
-
-  // If enabled, the rule priority score is used to set the priority score of
-  // the annotation.
-  // In case of false the annotation priority score is set from
-  // GrammarDatetimeModel's priority_score
-  use_rule_priority_score:bool = false;
-
-  // If enabled, annotator will try to resolve the ambiguity by generating
-  // possible alternative interpretations of the input text
-  // e.g. '9:45' will be resolved to '9:45 AM' and '9:45 PM'.
-  generate_alternative_interpretations_when_ambiguous:bool;
-
-  // List of spans which grammar will ignore during the match e.g. if
-  // “@” is in the allowed span list and input is “12 March @ 12PM” then “@”
-  // will be ignored and 12 March @ 12PM will be translate to
-  // {Day:12 Month: March Hour: 12 MERIDIAN: PM}.
-  // This can also be achieved by adding additional rules e.g.
-  // <Digit_Day> <Month> <Time>
-  // <Digit_Day> <Month> @ <Time>
-  // Though this is doable in the grammar but requires multiple rules, this
-  // list enables the rule to represent multiple rules.
-  ignored_spans:[string];
-}
-
-namespace libtextclassifier3;
-table GrammarDatetimeModel {
-  // List of BCP 47 locale strings representing all locales supported by the
-  // model.
-  locales:[string];
-
-  // If true, will give only future dates (when the day is not specified).
-  prefer_future_for_unspecified_date:bool = false;
-
-  // Grammar specific tokenizer options.
-  grammar_tokenizer_options:GrammarTokenizerOptions;
-
-  // The modes for which to apply the grammars.
-  enabled_modes:ModeFlag = ALL;
-
-  // The datetime grammar rules.
-  datetime_rules:dates.DatetimeRules;
-
-  // The final score to assign to the results of grammar model
-  target_classification_score:float = 1;
-
-  // The priority score used for conflict resolution with the other models.
-  priority_score:float = 0;
-
-  // Options for grammar annotations.
-  annotation_options:GrammarDatetimeModel_.AnnotationOptions;
-}
-
 namespace libtextclassifier3.DatetimeModelLibrary_;
 table Item {
   key:string (shared);
@@ -502,12 +426,29 @@ table GrammarModel {
 
   // Grammar specific tokenizer options.
   tokenizer_options:GrammarTokenizerOptions;
+
+  // The score.
+  target_classification_score:float = 1;
+
+  // The priority score used for conflict resolution with the other models.
+  priority_score:float = 1;
+}
+
+namespace libtextclassifier3.MoneyParsingOptions_;
+table QuantitiesNameToExponentEntry {
+  key:string (key, shared);
+  value:int;
 }
 
 namespace libtextclassifier3;
 table MoneyParsingOptions {
   // Separators (codepoints) marking decimal or thousand in the money amount.
   separators:[int];
+
+  // Mapping between a quantity string (e.g. "million") and the power of 10
+  // it multiplies the amount with (e.g. 6 in case of "million").
+  // NOTE: The entries need to be sorted by key since we use LookupByKey.
+  quantities_name_to_exponent:[MoneyParsingOptions_.QuantitiesNameToExponentEntry];
 }
 
 namespace libtextclassifier3.ModelTriggeringOptions_;
@@ -652,13 +593,16 @@ table Model {
   triggering_locales:string (shared);
 
   embedding_pruning_mask:Model_.EmbeddingPruningMask;
-  grammar_datetime_model:GrammarDatetimeModel;
+  reserved_25:int16 (deprecated);
   contact_annotator_options:ContactAnnotatorOptions;
   money_parsing_options:MoneyParsingOptions;
   translate_annotator_options:TranslateAnnotatorOptions;
   grammar_model:GrammarModel;
   conflict_resolution_options:Model_.ConflictResolutionOptions;
   experimental_model:ExperimentalModel;
+  pod_ner_model:PodNerModel;
+  vocab_model:VocabModel;
+  datetime_grammar_model:GrammarModel;
 }
 
 // Method for selecting the center token.
@@ -983,6 +927,122 @@ table TranslateAnnotatorOptions {
 
   algorithm:TranslateAnnotatorOptions_.Algorithm;
   backoff_options:TranslateAnnotatorOptions_.BackoffOptions;
+}
+
+namespace libtextclassifier3.PodNerModel_;
+table Collection {
+  // Collection's name (e.g., "location", "person").
+  name:string (shared);
+
+  // Priority scores used for conflict resolution with the other annotators
+  // when the annotation is made over a single/multi token text.
+  single_token_priority_score:float;
+
+  multi_token_priority_score:float;
+}
+
+namespace libtextclassifier3.PodNerModel_.Label_;
+enum BoiseType : int {
+  NONE = 0,
+  BEGIN = 1,
+  O = 2,
+  // No label.
+
+  INTERMEDIATE = 3,
+  SINGLE = 4,
+  END = 5,
+}
+
+namespace libtextclassifier3.PodNerModel_.Label_;
+enum MentionType : int {
+  UNDEFINED = 0,
+  NAM = 1,
+  NOM = 2,
+}
+
+namespace libtextclassifier3.PodNerModel_;
+table Label {
+  boise_type:Label_.BoiseType;
+  mention_type:Label_.MentionType;
+  collection_id:int;
+  // points to the collections array above.
+}
+
+namespace libtextclassifier3;
+table PodNerModel {
+  tflite_model:[ubyte];
+  word_piece_vocab:[ubyte];
+  lowercase_input:bool = true;
+
+  // Index of mention_logits tensor in the output of the tflite model. Can
+  // be found in the textproto output after model is converted to tflite.
+  logits_index_in_output_tensor:int = 0;
+
+  // Whether to append a period at the end of an input that doesn't already
+  // end in punctuation.
+  append_final_period:bool = false;
+
+  // Priority score used for conflict resolution with the other models. Used
+  // only if collections_array is empty.
+  priority_score:float = 0;
+
+  // Maximum number of wordpieces supported by the model.
+  max_num_wordpieces:int = 128;
+
+  // In case of long text (number of wordpieces greater than the max) we use
+  // sliding window approach, this determines the number of overlapping
+  // wordpieces between two consecutive windows. This overlap enables context
+  // for each word NER annotates.
+  sliding_window_num_wordpieces_overlap:int = 20;
+  reserved_9:int16 (deprecated);
+
+  // The possible labels the ner model can output. If empty the default labels
+  // will be used.
+  labels:[PodNerModel_.Label];
+
+  // If the ratio of unknown wordpieces in the input text is greater than this
+  // maximum, the text won't be annotated.
+  max_ratio_unknown_wordpieces:float = 0.1;
+
+  // Possible collections for labeled entities.
+  collections:[PodNerModel_.Collection];
+
+  // Minimum word-length and wordpieces-length required for the text to be
+  // annotated.
+  min_number_of_tokens:int = 1;
+
+  min_number_of_wordpieces:int = 1;
+}
+
+namespace libtextclassifier3;
+table VocabModel {
+  // A trie that stores a list of vocabs that triggers "Define". A id is
+  // returned when looking up a vocab from the trie and the id can be used
+  // to access more information about that vocab. The marisa trie library
+  // requires 8-byte alignment because the first thing in a marisa trie is a
+  // 64-bit integer.
+  vocab_trie:[ubyte] (force_align: 8);
+
+  // A bit vector that tells if the vocab should trigger "Define" for users of
+  // beginner proficiency only. To look up the bit vector, use the id returned
+  // by the trie.
+  beginner_level:BitVectorData;
+
+  // A sorted list of indices of vocabs that should not trigger "Define" if
+  // its leading character is in upper case. The indices are those returned by
+  // trie. You may perform binary search to look up an index.
+  do_not_trigger_in_upper_case:BitVectorData;
+
+  // Comma-separated list of locales (BCP 47 tags) that the model supports, that
+  // are used to prevent  triggering on input in unsupported languages. If
+  // empty, the model will trigger on all inputs.
+  triggering_locales:string (shared);
+
+  // The final score to assign to the results of the vocab model
+  target_classification_score:float = 1;
+
+  // Priority score used for conflict resolution with the other models.
+  priority_score:float = 0;
 }
 
 root_type libtextclassifier3.Model;

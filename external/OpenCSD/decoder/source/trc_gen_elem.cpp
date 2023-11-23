@@ -55,6 +55,8 @@ static const char *s_elem_descs[][2] =
     {"OCSD_GEN_TRC_ELEM_CYCLE_COUNT","Cycle count - cycles since last cycle count value - associated with a preceding instruction range."},
     {"OCSD_GEN_TRC_ELEM_EVENT","Event - numbered event or trigger"},
     {"OCSD_GEN_TRC_ELEM_SWTRACE","Software trace packet - may contain data payload."},
+    {"OCSD_GEN_TRC_ELEM_SYNC_MARKER","Synchronisation marker - marks position in stream of an element that is output later."},
+    {"OCSD_GEN_TRC_ELEM_MEMTRANS","Trace indication of transactional memory operations."},
     {"OCSD_GEN_TRC_ELEM_CUSTOM","Fully custom packet type."}
 };
 
@@ -64,7 +66,8 @@ static const char *instr_type[] = {
     "iBR ",
     "ISB ",
     "DSB.DMB",
-    "WFI.WFE"
+    "WFI.WFE",
+    "TSTART"
 };
 
 #define T_SIZE (sizeof(instr_type) / sizeof(const char *))
@@ -105,11 +108,21 @@ static const char *s_unsync_reason[] = {
     "bad-packet",           // UNSYNC_BAD_PACKET - bad packet at input - resync to restart.
     "end-of-trace",         // UNSYNC_EOT - end of trace info.
 };
+static const char *s_transaction_type[] = {
+	"Init",
+    "Start",
+    "Commit",
+    "Fail"
+};
+
+static const char *s_marker_t[] = {
+  "Timestamp marker",  //  ELEM_MARKER_TS  
+};
 
 void OcsdTraceElement::toString(std::string &str) const
 {
     std::ostringstream oss;
-    int num_str = ((sizeof(s_elem_descs) / sizeof(const char *)) / 2);
+    int num_str = sizeof(s_elem_descs) / sizeof(s_elem_descs[0]);
     int typeIdx = (int)this->elem_type;
     if(typeIdx < num_str)
     {
@@ -188,6 +201,15 @@ void OcsdTraceElement::toString(std::string &str) const
         case OCSD_GEN_TRC_ELEM_NO_SYNC:
             if (unsync_eot_info <= UNSYNC_EOT)
                 oss << " [" << s_unsync_reason[unsync_eot_info] << "]";
+            break;
+
+        case OCSD_GEN_TRC_ELEM_SYNC_MARKER:
+            oss << " [" << s_marker_t[sync_marker.type] << "(0x" << std::setfill('0') << std::setw(8) << std::hex << sync_marker.value << ")]";
+            break;
+
+        case OCSD_GEN_TRC_ELEM_MEMTRANS:
+            if (mem_trans <= OCSD_MEM_TRANS_FAIL)
+                oss << s_transaction_type[mem_trans];
             break;
 
         default: break;

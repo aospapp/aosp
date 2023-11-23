@@ -8,9 +8,7 @@
 import collections
 import logging
 import os
-import select
 import tempfile
-import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -21,9 +19,7 @@ from telemetry.internal.browser import extension_page
 
 _ARC_SUPPORT_HOST_URL = 'chrome-extension://cnbgggchhmkkdmeppjobngjoejnihlei/'
 _ARC_SUPPORT_HOST_PAGENAME = '_generated_background_page.html'
-_DUMPSTATE_DEFAULT_TIMEOUT = 20
 _DUMPSTATE_PATH = '/var/log/arc-dumpstate.log'
-_DUMPSTATE_PIPE_PATH = '/run/arc/bugreport/pipe'
 _USERNAME = 'crosarcplusplustest@gmail.com'
 _ARCP_URL = 'https://sites.google.com/a/chromium.org/dev/chromium-os' \
                 '/testing/arcplusplus-testing/arcp'
@@ -146,37 +142,19 @@ def pre_processing_before_close(chrome):
     _save_android_dumpstate()
 
 
-def _save_android_dumpstate(timeout=_DUMPSTATE_DEFAULT_TIMEOUT):
+def _save_android_dumpstate():
     """
     Triggers a dumpstate and saves its contents to to /var/log/arc-dumpstate.log
     with logging.
 
     Exception thrown while doing dumpstate will be ignored.
-
-    @param timeout: The timeout in seconds.
     """
 
     try:
         logging.info('Saving Android dumpstate.')
         with open(_DUMPSTATE_PATH, 'w') as out:
-            # _DUMPSTATE_PIPE_PATH is a named pipe, so it permanently blocks if
-            # opened normally if the other end has not been opened. In order to
-            # avoid that, open the file with O_NONBLOCK and use a select loop to
-            # read from the file with a timeout.
-            fd = os.open(_DUMPSTATE_PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
-            with os.fdopen(fd, 'r') as pipe:
-                end_time = time.time() + timeout
-                while True:
-                    remaining_time = end_time - time.time()
-                    if remaining_time <= 0:
-                        break
-                    rlist, _, _ = select.select([pipe], [], [], remaining_time)
-                    if pipe not in rlist:
-                        break
-                    buf = os.read(pipe.fileno(), 1024)
-                    if len(buf) == 0:
-                        break
-                    out.write(buf)
+            log = utils.system_output('android-sh -c arc-bugreport')
+            out.write(log)
         logging.info('Android dumpstate successfully saved.')
     except Exception:
         # Dumpstate is nice-to-have stuff. Do not make it as a fatal error.

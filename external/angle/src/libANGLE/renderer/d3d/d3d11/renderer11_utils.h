@@ -70,7 +70,7 @@ unsigned int GetReservedVertexUniformVectors(D3D_FEATURE_LEVEL featureLevel);
 
 unsigned int GetReservedFragmentUniformVectors(D3D_FEATURE_LEVEL featureLevel);
 
-gl::Version GetMaximumClientVersion(D3D_FEATURE_LEVEL featureLevel);
+gl::Version GetMaximumClientVersion(const Renderer11DeviceCaps &caps);
 void GenerateCaps(ID3D11Device *device,
                   ID3D11DeviceContext *deviceContext,
                   const Renderer11DeviceCaps &renderer11DeviceCaps,
@@ -148,9 +148,7 @@ struct BlendStateKey final
     BlendStateKey();
     BlendStateKey(const BlendStateKey &other);
 
-    gl::BlendStateArray blendStateArray;
-
-    uint8_t rtvMasks[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+    gl::BlendStateExt blendStateExt;
 
     // Use two 16-bit ints to round the struct nicely.
     uint16_t rtvMax;

@@ -21,9 +21,9 @@
 
 #include "perfetto/ext/base/circular_queue.h"
 #include "perfetto/trace_processor/basic_types.h"
+#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/storage/trace_storage.h"
 #include "src/trace_processor/timestamped_trace_piece.h"
-#include "src/trace_processor/trace_blob_view.h"
 
 namespace Json {
 class Value;
@@ -78,8 +78,7 @@ class TraceSorter {
     MaybeExtractEvents(queue);
   }
 
-  inline void PushJsonValue(int64_t timestamp,
-                            std::unique_ptr<Json::Value> json_value) {
+  inline void PushJsonValue(int64_t timestamp, std::string json_value) {
     auto* queue = GetQueue(0);
     queue->Append(
         TimestampedTracePiece(timestamp, packet_idx_++, std::move(json_value)));
@@ -106,10 +105,12 @@ class TraceSorter {
 
   inline void PushFtraceEvent(uint32_t cpu,
                               int64_t timestamp,
-                              TraceBlobView event) {
+                              TraceBlobView event,
+                              PacketSequenceState* state) {
     set_ftrace_batch_cpu_for_DCHECK(cpu);
-    GetQueue(cpu + 1)->Append(
-        TimestampedTracePiece(timestamp, packet_idx_++, std::move(event)));
+    GetQueue(cpu + 1)->Append(TimestampedTracePiece(
+        timestamp, packet_idx_++,
+        FtraceEventData{std::move(event), state->current_generation()}));
 
     // The caller must call FinalizeFtraceEventBatch() after having pushed a
     // batch of ftrace events. This is to amortize the overhead of handling

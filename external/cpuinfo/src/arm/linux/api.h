@@ -11,6 +11,8 @@
 
 /* No hard limit in the kernel, maximum length observed on non-rogue kernels is 64 */
 #define CPUINFO_HARDWARE_VALUE_MAX 64
+/* No hard limit in the kernel, maximum length on Raspberry Pi is 8. Add 1 symbol to detect overly large revision strings */
+#define CPUINFO_REVISION_VALUE_MAX 9
 
 #ifdef __ANDROID__
 	/* As per include/sys/system_properties.h in Android NDK */
@@ -24,6 +26,7 @@
 		char ro_mediatek_platform[CPUINFO_BUILD_PROP_VALUE_MAX];
 		char ro_arch[CPUINFO_BUILD_PROP_VALUE_MAX];
 		char ro_chipname[CPUINFO_BUILD_PROP_VALUE_MAX];
+		char ro_hardware_chipname[CPUINFO_BUILD_PROP_VALUE_MAX];
 	};
 #endif
 
@@ -108,6 +111,28 @@ struct cpuinfo_arm_linux_proc_cpuinfo_cache {
 	#define CPUINFO_ARM_LINUX_FEATURE_ILRCPC   UINT32_C(0x04000000)
 	#define CPUINFO_ARM_LINUX_FEATURE_FLAGM    UINT32_C(0x08000000)
 	#define CPUINFO_ARM_LINUX_FEATURE_SSBS     UINT32_C(0x10000000)
+	#define CPUINFO_ARM_LINUX_FEATURE_SB       UINT32_C(0x20000000)
+	#define CPUINFO_ARM_LINUX_FEATURE_PACA     UINT32_C(0x40000000)
+	#define CPUINFO_ARM_LINUX_FEATURE_PACG     UINT32_C(0x80000000)
+
+	#define CPUINFO_ARM_LINUX_FEATURE2_DCPODP     UINT32_C(0x00000001)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVE2       UINT32_C(0x00000002)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEAES     UINT32_C(0x00000004)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEPMULL   UINT32_C(0x00000008)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEBITPERM UINT32_C(0x00000010)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVESHA3    UINT32_C(0x00000020)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVESM4     UINT32_C(0x00000040)
+	#define CPUINFO_ARM_LINUX_FEATURE2_FLAGM2     UINT32_C(0x00000080)
+	#define CPUINFO_ARM_LINUX_FEATURE2_FRINT      UINT32_C(0x00000100)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEI8MM    UINT32_C(0x00000200)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEF32MM   UINT32_C(0x00000400)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEF64MM   UINT32_C(0x00000800)
+	#define CPUINFO_ARM_LINUX_FEATURE2_SVEBF16    UINT32_C(0x00001000)
+	#define CPUINFO_ARM_LINUX_FEATURE2_I8MM       UINT32_C(0x00002000)
+	#define CPUINFO_ARM_LINUX_FEATURE2_BF16       UINT32_C(0x00004000)
+	#define CPUINFO_ARM_LINUX_FEATURE2_DGH        UINT32_C(0x00008000)
+	#define CPUINFO_ARM_LINUX_FEATURE2_RNG        UINT32_C(0x00010000)
+	#define CPUINFO_ARM_LINUX_FEATURE2_BTI        UINT32_C(0x00020000)
 #endif
 
 #define CPUINFO_ARM_LINUX_VALID_ARCHITECTURE UINT32_C(0x00010000)
@@ -143,15 +168,14 @@ struct cpuinfo_arm_linux_processor {
 	struct cpuinfo_arm_linux_proc_cpuinfo_cache proc_cpuinfo_cache;
 #endif
 	uint32_t features;
-#if CPUINFO_ARCH_ARM
 	uint32_t features2;
-#endif
 	/**
 	 * Main ID Register value.
 	 */
 	uint32_t midr;
 	enum cpuinfo_vendor vendor;
 	enum cpuinfo_uarch uarch;
+	uint32_t uarch_index;
 	/**
 	 * ID of the physical package which includes this logical processor.
 	 * The value is parsed from /sys/devices/system/cpu/cpu<N>/topology/physical_package_id
@@ -257,6 +281,7 @@ static inline bool cpuinfo_arm_linux_processor_not_equals(
 
 CPUINFO_INTERNAL bool cpuinfo_arm_linux_parse_proc_cpuinfo(
 	char hardware[restrict static CPUINFO_HARDWARE_VALUE_MAX],
+	char revision[restrict static CPUINFO_REVISION_VALUE_MAX],
 	uint32_t max_processors_count,
 	struct cpuinfo_arm_linux_processor processors[restrict static max_processors_count]);
 
@@ -277,9 +302,13 @@ CPUINFO_INTERNAL bool cpuinfo_arm_linux_parse_proc_cpuinfo(
 		const struct cpuinfo_arm_chipset chipset[restrict static 1],
 		struct cpuinfo_arm_isa isa[restrict static 1]);
 #elif CPUINFO_ARCH_ARM64
-	CPUINFO_INTERNAL uint32_t cpuinfo_arm_linux_hwcap_from_getauxval(void);
+	CPUINFO_INTERNAL void cpuinfo_arm_linux_hwcap_from_getauxval(
+		uint32_t hwcap[restrict static 1],
+		uint32_t hwcap2[restrict static 1]);
+
 	CPUINFO_INTERNAL void cpuinfo_arm64_linux_decode_isa_from_proc_cpuinfo(
 		uint32_t features,
+		uint32_t features2,
 		uint32_t midr,
 		const struct cpuinfo_arm_chipset chipset[restrict static 1],
 		struct cpuinfo_arm_isa isa[restrict static 1]);
@@ -295,6 +324,7 @@ CPUINFO_INTERNAL bool cpuinfo_arm_linux_parse_proc_cpuinfo(
 	CPUINFO_INTERNAL struct cpuinfo_arm_chipset
 		cpuinfo_arm_linux_decode_chipset(
 			const char hardware[restrict static CPUINFO_HARDWARE_VALUE_MAX],
+			const char revision[restrict static CPUINFO_REVISION_VALUE_MAX],
 			uint32_t cores,
 			uint32_t max_cpu_freq_max);
 #endif
@@ -322,6 +352,13 @@ CPUINFO_INTERNAL struct cpuinfo_arm_chipset
 	CPUINFO_INTERNAL struct cpuinfo_arm_chipset
 		cpuinfo_arm_android_decode_chipset_from_ro_chipname(
 			const char ro_chipname[restrict static CPUINFO_BUILD_PROP_VALUE_MAX]);
+	CPUINFO_INTERNAL struct cpuinfo_arm_chipset
+		cpuinfo_arm_android_decode_chipset_from_ro_hardware_chipname(
+			const char ro_hardware_chipname[restrict static CPUINFO_BUILD_PROP_VALUE_MAX]);
+#else
+	CPUINFO_INTERNAL struct cpuinfo_arm_chipset
+		cpuinfo_arm_linux_decode_chipset_from_proc_cpuinfo_revision(
+			const char proc_cpuinfo_revision[restrict static CPUINFO_REVISION_VALUE_MAX]);
 #endif
 
 CPUINFO_INTERNAL bool cpuinfo_arm_linux_detect_core_clusters_by_heuristic(
@@ -342,3 +379,6 @@ CPUINFO_INTERNAL uint32_t cpuinfo_arm_linux_detect_cluster_midr(
 	uint32_t max_processors,
 	uint32_t usable_processors,
 	struct cpuinfo_arm_linux_processor processors[restrict static max_processors]);
+
+extern CPUINFO_INTERNAL const uint32_t* cpuinfo_linux_cpu_to_uarch_index_map;
+extern CPUINFO_INTERNAL uint32_t cpuinfo_linux_cpu_to_uarch_index_map_entries;

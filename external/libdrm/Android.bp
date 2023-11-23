@@ -21,6 +21,35 @@
 // IN THE SOFTWARE.
 //
 
+package {
+    default_applicable_licenses: ["external_libdrm_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_libdrm_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "legacy_unencumbered",
+    ],
+    // large-scale-change unable to identify any license_text files
+}
+
 subdirs = ["*"]
 build = ["Android.sources.bp"]
 
@@ -47,6 +76,14 @@ cc_defaults {
     export_system_include_dirs: ["."],
 }
 
+cc_library_headers {
+    name: "libdrm_headers",
+    vendor_available: true,
+    host_supported: true,
+    defaults: ["libdrm_defaults"],
+    export_include_dirs: ["include/drm", "android"],
+}
+
 // Library for the device
 cc_library {
     name: "libdrm",
@@ -65,5 +102,9 @@ cc_library {
         "-Wno-pointer-arith",
         "-Wno-sign-compare",
         "-Wno-tautological-compare",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
     ],
 }

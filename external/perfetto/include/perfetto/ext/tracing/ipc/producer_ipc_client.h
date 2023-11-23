@@ -21,6 +21,7 @@
 #include <string>
 
 #include "perfetto/base/export.h"
+#include "perfetto/ext/ipc/client.h"
 #include "perfetto/ext/tracing/core/shared_memory.h"
 #include "perfetto/ext/tracing/core/shared_memory_arbiter.h"
 #include "perfetto/ext/tracing/core/tracing_service.h"
@@ -36,6 +37,16 @@ class Producer;
 //   src/tracing/ipc/producer/producer_ipc_client_impl.cc
 class PERFETTO_EXPORT ProducerIPCClient {
  public:
+  enum class ConnectionFlags {
+    // Fails immediately with OnConnect(false) if the service connection cannot
+    // be established.
+    kDefault = 0,
+
+    // Keeps retrying with exponential backoff indefinitely. The caller will
+    // never see an OnConnect(false).
+    kRetryIfUnreachable = 1,
+  };
+
   // Connects to the producer port of the Service listening on the given
   // |service_sock_name|. If the connection is successful, the OnConnect()
   // method will be invoked asynchronously on the passed Producer interface. If
@@ -51,8 +62,25 @@ class PERFETTO_EXPORT ProducerIPCClient {
   // until the client is destroyed.
   //
   // TODO(eseckler): Support adoption failure more gracefully.
+  // TODO(primiano): move all the existing use cases to the Connect(ConnArgs)
+  // below. Also move the functionality of ConnectionFlags into ConnArgs.
   static std::unique_ptr<TracingService::ProducerEndpoint> Connect(
       const char* service_sock_name,
+      Producer*,
+      const std::string& producer_name,
+      base::TaskRunner*,
+      TracingService::ProducerSMBScrapingMode smb_scraping_mode =
+          TracingService::ProducerSMBScrapingMode::kDefault,
+      size_t shared_memory_size_hint_bytes = 0,
+      size_t shared_memory_page_size_hint_bytes = 0,
+      std::unique_ptr<SharedMemory> shm = nullptr,
+      std::unique_ptr<SharedMemoryArbiter> shm_arbiter = nullptr,
+      ConnectionFlags = ConnectionFlags::kDefault);
+
+  // Overload of Connect() to support adopting a connected socket using
+  // ipc::Client::ConnArgs.
+  static std::unique_ptr<TracingService::ProducerEndpoint> Connect(
+      ipc::Client::ConnArgs,
       Producer*,
       const std::string& producer_name,
       base::TaskRunner*,

@@ -9,7 +9,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:cellular_au_nightly"
+# Disable until test can be fixed: http://b/163367994
+# ATTRIBUTES = "suite:cellular_au_nightly"
 DOC = """
 This tests autoupdate over a cellular connection.
 

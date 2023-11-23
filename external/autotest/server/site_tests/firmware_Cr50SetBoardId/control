@@ -10,7 +10,7 @@ PURPOSE = "Verify cr50-set-board-id"
 ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify cr50-set-board-id.sh sets the right board id and flags with the given

@@ -22,7 +22,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "tcuTestContext.hpp"
-
+#include "tcuCommandLine.hpp"
 #include "tcuTestLog.hpp"
 
 namespace tcu
@@ -46,10 +46,28 @@ TestContext::TestContext (
 	setCurrentArchive(m_rootArchive);
 }
 
+void TestContext::writeSessionInfo(void)
+{
+	const std::string sessionInfo = "#sessionInfo commandLineParameters \"";
+	m_log.writeSessionInfo(sessionInfo + m_cmdLine.getInitialCmdLine() + "\"\n");
+}
+
 void TestContext::touchWatchdog (void)
 {
 	if (m_watchDog)
 		qpWatchDog_touch(m_watchDog);
+}
+
+void TestContext::touchWatchdogAndDisableIntervalTimeLimit (void)
+{
+	if (m_watchDog)
+		qpWatchDog_touchAndDisableIntervalTimeLimit(m_watchDog);
+}
+
+void TestContext::touchWatchdogAndEnableIntervalTimeLimit (void)
+{
+	if (m_watchDog)
+		qpWatchDog_touchAndEnableIntervalTimeLimit(m_watchDog);
 }
 
 void TestContext::setTestResult (qpTestResult testResult, const char* description)

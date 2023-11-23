@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright © 2009,2012 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -51,6 +51,8 @@ struct hash_table {
    const void *deleted_key;
    uint32_t size;
    uint32_t rehash;
+   uint64_t size_magic;
+   uint64_t rehash_magic;
    uint32_t max_entries;
    uint32_t size_index;
    uint32_t entries;
@@ -106,45 +108,24 @@ _mesa_hash_table_random_entry(struct hash_table *ht,
                               bool (*predicate)(struct hash_entry *entry));
 
 uint32_t _mesa_hash_data(const void *data, size_t size);
+
+uint32_t _mesa_hash_int(const void *key);
+uint32_t _mesa_hash_uint(const void *key);
+uint32_t _mesa_hash_u32(const void *key);
 uint32_t _mesa_hash_string(const void *key);
+uint32_t _mesa_hash_pointer(const void *pointer);
+
+bool _mesa_key_int_equal(const void *a, const void *b);
+bool _mesa_key_uint_equal(const void *a, const void *b);
+bool _mesa_key_u32_equal(const void *a, const void *b);
 bool _mesa_key_string_equal(const void *a, const void *b);
 bool _mesa_key_pointer_equal(const void *a, const void *b);
-
-static inline uint32_t _mesa_key_hash_string(const void *key)
-{
-   return _mesa_hash_string((const char *)key);
-}
-
-static inline uint32_t _mesa_hash_pointer(const void *pointer)
-{
-   uintptr_t num = (uintptr_t) pointer;
-   return (uint32_t) ((num >> 2) ^ (num >> 6) ^ (num >> 10) ^ (num >> 14));
-}
 
 struct hash_table *
 _mesa_pointer_hash_table_create(void *mem_ctx);
 
-enum {
-   _mesa_fnv32_1a_offset_bias = 2166136261u,
-};
-
-static inline uint32_t
-_mesa_fnv32_1a_accumulate_block(uint32_t hash, const void *data, size_t size)
-{
-   const uint8_t *bytes = (const uint8_t *)data;
-
-   while (size-- != 0) {
-      hash ^= *bytes;
-      hash = hash * 0x01000193;
-      bytes++;
-   }
-
-   return hash;
-}
-
-#define _mesa_fnv32_1a_accumulate(hash, expr) \
-   _mesa_fnv32_1a_accumulate_block(hash, &(expr), sizeof(expr))
-
+bool
+_mesa_hash_table_reserve(struct hash_table *ht, unsigned size);
 /**
  * This foreach function is safe against deletion (which just replaces
  * an entry's data with the deleted marker), but not against insertion
@@ -171,6 +152,7 @@ hash_table_call_foreach(struct hash_table *ht,
  */
 struct hash_table_u64 {
    struct hash_table *table;
+   void *freed_key_data;
    void *deleted_key_data;
 };
 
@@ -190,6 +172,10 @@ _mesa_hash_table_u64_search(struct hash_table_u64 *ht, uint64_t key);
 
 void
 _mesa_hash_table_u64_remove(struct hash_table_u64 *ht, uint64_t key);
+
+void
+_mesa_hash_table_u64_clear(struct hash_table_u64 *ht,
+                           void (*delete_function)(struct hash_entry *entry));
 
 #ifdef __cplusplus
 } /* extern C */

@@ -1,7 +1,7 @@
 /*
  * strcmp - compare two strings
  *
- * Copyright (c) 2012, Arm Limited.
+ * Copyright (c) 2012-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -37,6 +37,8 @@
 
 	/* Start of performance-critical section  -- one 64B cache line.  */
 ENTRY (__strcmp_aarch64)
+	PTR_ARG (0)
+	PTR_ARG (1)
 	eor	tmp1, src1, src2
 	mov	zeroones, #REP8_01
 	tst	tmp1, #7
@@ -168,3 +170,4 @@ L(done):
 	ret
 
 END (__strcmp_aarch64)
+

@@ -218,7 +218,7 @@ public class RcsService extends Service {
         mRcsStackAdaptor.getListener().setPresenceSubscriber(mSubscriber);
         mPublication.setSubscriber(mSubscriber);
 
-        ConnectivityManager cm = ConnectivityManager.from(this);
+        final ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null) {
             boolean enabled = Settings.Global.getInt(getContentResolver(),
                     Settings.Global.MOBILE_DATA, 1) == 1;
@@ -275,15 +275,12 @@ public class RcsService extends Service {
             return;
         }
         int defaultSub = RcsSettingUtils.getDefaultSubscriptionId(this);
-        if (!SubscriptionManager.isValidSubscriptionId(defaultSub)) {
-            mAssociatedSubscription = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-            handleAssociatedSubscriptionChanged(mAssociatedSubscription);
-            return;
+        // If the presence SIP PUBLISH procedure is not supported, treat it as if there is no valid
+        // associated sub
+        if (!RcsSettingUtils.isPublishEnabled(this, defaultSub)) {
+            defaultSub = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
         }
 
-        ImsMmTelManager imsManager = ImsMmTelManager.createForSubscriptionId(defaultSub);
-        ProvisioningManager provisioningManager =
-                ProvisioningManager.createForSubscriptionId(defaultSub);
         try {
             if (defaultSub == mAssociatedSubscription) {
                 // Don't register duplicate callbacks for the same subscription.
@@ -301,15 +298,23 @@ public class RcsService extends Service {
                         mProvisioningChangedCallback);
                 logger.print("callbacks unregistered for sub " + mAssociatedSubscription);
             }
-            // move over registrations.
-            imsManager.registerImsRegistrationCallback(getMainExecutor(), mImsRegistrationCallback);
-            imsManager.registerMmTelCapabilityCallback(getMainExecutor(), mCapabilityCallback);
-            provisioningManager.registerProvisioningChangedCallback(getMainExecutor(),
-                    mProvisioningChangedCallback);
-            mAssociatedSubscription = defaultSub;
+            if (SubscriptionManager.isValidSubscriptionId(defaultSub)) {
+                ImsMmTelManager imsManager = ImsMmTelManager.createForSubscriptionId(defaultSub);
+                ProvisioningManager provisioningManager =
+                        ProvisioningManager.createForSubscriptionId(defaultSub);
+                // move over registrations if the new sub id is valid.
+                imsManager.registerImsRegistrationCallback(getMainExecutor(),
+                        mImsRegistrationCallback);
+                imsManager.registerMmTelCapabilityCallback(getMainExecutor(), mCapabilityCallback);
+                provisioningManager.registerProvisioningChangedCallback(getMainExecutor(),
+                        mProvisioningChangedCallback);
+                mAssociatedSubscription = defaultSub;
+                logger.print("callbacks registered for sub " + mAssociatedSubscription);
+            } else {
+                mAssociatedSubscription = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+            }
             logger.print("registerImsCallbacksAndSetAssociatedSubscription: new default="
-                    + defaultSub);
-            logger.print("callbacks registered for sub " + mAssociatedSubscription);
+                    + mAssociatedSubscription);
             handleAssociatedSubscriptionChanged(mAssociatedSubscription);
         } catch (ImsException e) {
             logger.info("Couldn't register callbacks for " + defaultSub + ": "

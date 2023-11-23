@@ -8,7 +8,6 @@ PURPOSE = "Enable ChromeVox and check for sound."
 CRITERIA = """
 This test will fail if ChromeVox is not running or produces insufficient sound.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "accessibility"

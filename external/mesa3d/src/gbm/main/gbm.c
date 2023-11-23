@@ -271,6 +271,9 @@ gbm_bo_get_bpp(struct gbm_bo *bo)
       case GBM_FORMAT_RGBA1010102:
       case GBM_FORMAT_BGRA1010102:
          return 32;
+      case GBM_FORMAT_XBGR16161616F:
+      case GBM_FORMAT_ABGR16161616F:
+         return 64;
    }
 }
 
@@ -530,6 +533,11 @@ gbm_bo_import(struct gbm_device *gbm,
  *
  * This function maps a region of a gbm bo for cpu read and/or write
  * access.
+ *
+ * The mapping exposes a linear view of the buffer object even if the buffer
+ * has a non-linear modifier.
+ *
+ * This function may require intermediate buffer copies (ie. it may be slow).
  *
  * \param bo The buffer object
  * \param x The X (top left origin) starting position of the mapped region for

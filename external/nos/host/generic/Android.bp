@@ -14,6 +14,36 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_nos_host_generic_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_nos_host_generic_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_headers {
     name: "nos_headers",
     defaults: ["nos_cc_host_supported_defaults"],
@@ -83,6 +113,32 @@ cc_library_static {
     ],
 }
 
+// A special target to be statically linkeed into fastboot hal.
+cc_library_static {
+    name: "libnos_for_fastboot",
+    recovery: true,
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-zero-length-array",
+    ],
+    export_include_dirs: [
+        "nugget/include",
+        "libnos/include",
+        "libnos_datagram/include",
+        "libnos_transport/include",
+    ],
+    srcs: [
+        "libnos/debug.cpp",
+        "libnos_transport/transport.c",
+        "libnos_transport/crc16.c",
+    ],
+    static_libs: [
+        "libbase",
+    ],
+}
+
 // A special target to be statically linkeed into recovery which is a system
 // (not vendor) component.
 cc_library_static {
@@ -101,6 +157,24 @@ cc_library_static {
     ],
 }
 
+// A special target to be statically linkeed into fastboot hal.
+cc_library_static {
+    name: "libnos_citadel_for_fastboot",
+    recovery: true,
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    srcs: [
+        ":libnos_client",
+        "libnos_datagram/citadel.c",
+    ],
+    static_libs: [
+        "libnos_for_fastboot",
+    ],
+}
+
 // Language and vendor related defaults
 cc_defaults {
     name: "nos_cc_defaults",
@@ -110,6 +184,7 @@ cc_defaults {
         "-Wall",
         "-Wextra",
         "-Werror",
+        "-Wno-gnu-zero-variadic-macro-arguments",
         "-Wno-zero-length-array",
     ],
     conlyflags: [

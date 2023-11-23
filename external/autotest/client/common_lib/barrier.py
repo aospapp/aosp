@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 import sys, socket, errno, logging
 from time import time, sleep
 from autotest_lib.client.common_lib import error, utils
@@ -73,23 +74,23 @@ class barrier(object):
     Implementation Details:
     .......................
 
-    When a barrier is forming the master node (first in sort order) in the
+    When a barrier is forming the main node (first in sort order) in the
     set accepts connections from each member of the set.  As they arrive
     they indicate the barrier they are joining and their identifier (their
     hostname or IP address and optional tag).  They are then asked to wait.
-    When all members are present the master node then checks that each
+    When all members are present the main node then checks that each
     member is still responding via a ping/pong exchange.  If this is
     successful then everyone has checked in at the barrier.  We then tell
     everyone they may continue via a rlse message.
 
-    Where the master is not the first to reach the barrier the client
+    Where the main is not the first to reach the barrier the client
     connects will fail.  Client will retry until they either succeed in
-    connecting to master or the overall timeout is exceeded.
+    connecting to main or the overall timeout is exceeded.
 
     As an example here is the exchange for a three node barrier called
     'TAG'
 
-      MASTER                        CLIENT1         CLIENT2
+      MAIN                        CLIENT1         CLIENT2
         <-------------TAG C1-------------
         --------------wait-------------->
                       [...]
@@ -110,8 +111,8 @@ class barrier(object):
     success, the failed host has effectively broken 'right at the beginning'
     of the post barrier execution window.
 
-    In addition, there is another rendezvous, that makes each slave a server
-    and the master a client.  The connection process and usage is still the
+    In addition, there is another rendezvous, that makes each node a server
+    and the main a client.  The connection process and usage is still the
     same but allows barriers from machines that only have a one-way
     connection initiation.  This is called rendezvous_servers.
 
@@ -162,14 +163,14 @@ class barrier(object):
         self._members = []  # List of hosts we expect to find at the barrier.
         self._timeout_secs = timeout
         self._start_time = None  # Timestamp of when we started waiting.
-        self._masterid = None  # Host/IP + optional tag of selected master.
+        self._mainid = None  # Host/IP + optional tag of selected main.
         logging.info("tag=%s port=%d timeout=%r",
                      self._tag, self._port, self._timeout_secs)
 
         # Number of clients seen (should be the length of self._waiting).
         self._seen = 0
 
-        # Clients who have checked in and are waiting (if we are a master).
+        # Clients who have checked in and are waiting (if we are a main).
         self._waiting = {}  # Maps from hostname -> (client, addr) tuples.
 
 
@@ -195,7 +196,7 @@ class barrier(object):
         return timeout
 
 
-    def _master_welcome(self, connection):
+    def _main_welcome(self, connection):
         client, addr = connection
         name = None
 
@@ -241,7 +242,7 @@ class barrier(object):
             # This is nominally an error, but as we do not know
             # who that was we cannot do anything sane other
             # than report it and let the normal timeout kill
-            # us when thats appropriate.
+            # us when that's appropriate.
             logging.warning("client handshake timeout: (%s:%d)",
                          addr[0], addr[1])
             client.close()
@@ -255,7 +256,7 @@ class barrier(object):
         self._seen += 1
 
 
-    def _slave_hello(self, connection):
+    def _node_hello(self, connection):
         (client, addr) = connection
         name = None
 
@@ -264,12 +265,11 @@ class barrier(object):
             client.send(self._tag + " " + self._hostid)
 
             reply = client.recv(4)
-            reply = reply.strip("\r\n")
-            logging.info("master said: %s", reply)
-
-            # Confirm the master accepted the connection.
+            reply = reply.strip(b"\r\n")
+            logging.info("main said: %s", reply)
+            # Confirm the main accepted the connection.
             if reply != "wait":
-                logging.warning("Bad connection request to master")
+                logging.warning("Bad connection request to main")
                 client.close()
                 return
 
@@ -277,20 +277,20 @@ class barrier(object):
             # This is nominally an error, but as we do not know
             # who that was we cannot do anything sane other
             # than report it and let the normal timeout kill
-            # us when thats appropriate.
-            logging.error("master handshake timeout: (%s:%d)",
+            # us when that's appropriate.
+            logging.error("main handshake timeout: (%s:%d)",
                           addr[0], addr[1])
             client.close()
             return
 
-        logging.info("slave now waiting: (%s:%d)", addr[0], addr[1])
+        logging.info("node now waiting: (%s:%d)", addr[0], addr[1])
 
         # They seem to be valid record them.
         self._waiting[self._hostid] = connection
         self._seen = 1
 
 
-    def _master_release(self):
+    def _main_release(self):
         # Check everyone is still there, that they have not
         # crashed or disconnected in the meantime.
         allpresent = True
@@ -316,7 +316,7 @@ class barrier(object):
                 allpresent = False
 
         if not allpresent:
-            raise error.BarrierError("master lost client")
+            raise error.BarrierError("main lost client")
 
         if abort:
             logging.info("Aborting the clients")
@@ -354,7 +354,7 @@ class barrier(object):
                 pass
 
 
-    def _run_server(self, is_master):
+    def _run_server(self, is_main):
         server = self._server or listen_server(port=self._port)
         failed = 0
         try:
@@ -363,26 +363,26 @@ class barrier(object):
                     # Wait for callers welcoming each.
                     server.socket.settimeout(self._remaining())
                     connection = server.socket.accept()
-                    if is_master:
-                        self._master_welcome(connection)
+                    if is_main:
+                        self._main_welcome(connection)
                     else:
-                        self._slave_hello(connection)
+                        self._node_hello(connection)
                 except socket.timeout:
                     logging.warning("timeout waiting for remaining clients")
                     pass
 
-                if is_master:
+                if is_main:
                     # Check if everyone is here.
-                    logging.info("master seen %d of %d",
+                    logging.info("main seen %d of %d",
                                  self._seen, len(self._members))
                     if self._seen == len(self._members):
-                        self._master_release()
+                        self._main_release()
                         break
                 else:
-                    # Check if master connected.
+                    # Check if main connected.
                     if self._seen:
-                        logging.info("slave connected to master")
-                        self._slave_wait()
+                        logging.info("node connected to main")
+                        self._node_wait()
                         break
         finally:
             self._waiting_close()
@@ -392,55 +392,55 @@ class barrier(object):
                 server.close()
 
 
-    def _run_client(self, is_master):
+    def _run_client(self, is_main):
         while self._remaining() is None or self._remaining() > 0:
             try:
                 remote = socket.socket(socket.AF_INET,
                         socket.SOCK_STREAM)
                 remote.settimeout(30)
-                if is_master:
-                    # Connect to all slaves.
+                if is_main:
+                    # Connect to all node.
                     host = _get_host_from_id(self._members[self._seen])
-                    logging.info("calling slave: %s", host)
+                    logging.info("calling node: %s", host)
                     connection = (remote, (host, self._port))
                     remote.connect(connection[1])
-                    self._master_welcome(connection)
+                    self._main_welcome(connection)
                 else:
-                    # Just connect to the master.
-                    host = _get_host_from_id(self._masterid)
-                    logging.info("calling master")
+                    # Just connect to the main.
+                    host = _get_host_from_id(self._mainid)
+                    logging.info("calling main")
                     connection = (remote, (host, self._port))
                     remote.connect(connection[1])
-                    self._slave_hello(connection)
+                    self._node_hello(connection)
             except socket.timeout:
                 logging.warning("timeout calling host, retry")
                 sleep(10)
                 pass
-            except socket.error, err:
+            except socket.error as err:
                 (code, str) = err
                 if (code != errno.ECONNREFUSED and
                     code != errno.ETIMEDOUT):
                     raise
                 sleep(10)
 
-            if is_master:
+            if is_main:
                 # Check if everyone is here.
-                logging.info("master seen %d of %d",
+                logging.info("main seen %d of %d",
                              self._seen, len(self._members))
                 if self._seen == len(self._members):
-                    self._master_release()
+                    self._main_release()
                     break
             else:
-                # Check if master connected.
+                # Check if main connected.
                 if self._seen:
-                    logging.info("slave connected to master")
-                    self._slave_wait()
+                    logging.info("node connected to main")
+                    self._node_wait()
                     break
 
         self._waiting_close()
 
 
-    def _slave_wait(self):
+    def _node_wait(self):
         remote = self._waiting[self._hostid][0]
         mode = "wait"
         while True:
@@ -452,7 +452,7 @@ class barrier(object):
                 break
 
             reply = reply.strip("\r\n")
-            logging.info("master said: %s", reply)
+            logging.info("main said: %s", reply)
 
             mode = reply
             if reply == "ping":
@@ -478,17 +478,17 @@ class barrier(object):
         if mode == "rlse":
             pass
         elif mode == "wait":
-            raise error.BarrierError("master abort -- barrier timeout")
+            raise error.BarrierError("main abort -- barrier timeout")
         elif mode == "ping":
-            raise error.BarrierError("master abort -- client lost")
+            raise error.BarrierError("main abort -- client lost")
         elif mode == "!tag":
-            raise error.BarrierError("master abort -- incorrect tag")
+            raise error.BarrierError("main abort -- incorrect tag")
         elif mode == "!dup":
-            raise error.BarrierError("master abort -- duplicate client")
+            raise error.BarrierError("main abort -- duplicate client")
         elif mode == "abrt":
             raise BarrierAbortError("Client requested abort")
         else:
-            raise error.BarrierError("master handshake failure: " + mode)
+            raise error.BarrierError("main handshake failure: " + mode)
 
 
     def rendezvous(self, *hosts, **dargs):
@@ -497,10 +497,10 @@ class barrier(object):
         self._start_time = time()
         self._members = list(hosts)
         self._members.sort()
-        self._masterid = self._members.pop(0)
+        self._mainid = self._members.pop(0)
         self._abort = dargs.get('abort', False)
 
-        logging.info("masterid: %s", self._masterid)
+        logging.info("mainid: %s", self._mainid)
         if self._abort:
             logging.debug("%s is aborting", self._hostid)
         if not len(self._members):
@@ -511,25 +511,25 @@ class barrier(object):
         self._seen = 0
         self._waiting = {}
 
-        # Figure out who is the master in this barrier.
-        if self._hostid == self._masterid:
-            logging.info("selected as master")
-            self._run_server(is_master=True)
+        # Figure out who is the main in this barrier.
+        if self._hostid == self._mainid:
+            logging.info("selected as main")
+            self._run_server(is_main=True)
         else:
-            logging.info("selected as slave")
-            self._run_client(is_master=False)
+            logging.info("selected as node")
+            self._run_client(is_main=False)
 
 
-    def rendezvous_servers(self, masterid, *hosts, **dargs):
+    def rendezvous_servers(self, mainid, *hosts, **dargs):
         # if called with abort=True, this will raise an exception
         # on all the clients.
         self._start_time = time()
         self._members = list(hosts)
         self._members.sort()
-        self._masterid = masterid
+        self._mainid = mainid
         self._abort = dargs.get('abort', False)
 
-        logging.info("masterid: %s", self._masterid)
+        logging.info("mainid: %s", self._mainid)
         if not len(self._members):
             logging.info("No other members listed.")
             return
@@ -538,10 +538,10 @@ class barrier(object):
         self._seen = 0
         self._waiting = {}
 
-        # Figure out who is the master in this barrier.
-        if self._hostid == self._masterid:
-            logging.info("selected as master")
-            self._run_client(is_master=True)
+        # Figure out who is the main in this barrier.
+        if self._hostid == self._mainid:
+            logging.info("selected as main")
+            self._run_client(is_main=True)
         else:
-            logging.info("selected as slave")
-            self._run_server(is_master=False)
+            logging.info("selected as node")
+            self._run_server(is_main=False)

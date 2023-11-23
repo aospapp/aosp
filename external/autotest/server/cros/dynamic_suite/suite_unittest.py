@@ -7,15 +7,21 @@
 
 """Unit tests for server/cros/dynamic_suite/dynamic_suite.py."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 from collections import OrderedDict
+import mock
+import mox
 import os
+import six
+from six.moves import range
+from six.moves import zip
 import shutil
 import tempfile
 import unittest
-
-import mock
-import mox
 
 import common
 
@@ -38,6 +44,7 @@ from autotest_lib.server.cros.dynamic_suite.fakes import FakeJob
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeMultiprocessingPool
 from autotest_lib.server.cros.dynamic_suite.suite import RetryHandler
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
+
 
 class SuiteTest(mox.MoxTestBase):
     """Unit tests for dynamic_suite Suite class.
@@ -105,7 +112,7 @@ class SuiteTest(mox.MoxTestBase):
 
         @param suite_name: The suite name to parse control files for.
         """
-        all_files = self.files.keys() + self.files_to_filter.keys()
+        all_files = list(self.files.keys()) + list(self.files_to_filter.keys())
         self._set_control_file_parsing_expectations(False, all_files,
                                                     self.files, suite_name)
 
@@ -130,7 +137,7 @@ class SuiteTest(mox.MoxTestBase):
 
         self.getter.get_control_file_list(
                 suite_name=suite_name).AndReturn(file_list)
-        for file, data in files_to_parse.iteritems():
+        for file, data in six.iteritems(files_to_parse):
             self.getter.get_control_file_contents(
                     file).InAnyOrder().AndReturn(data.string)
             control_data.parse_control_string(
@@ -154,13 +161,13 @@ class SuiteTest(mox.MoxTestBase):
                 FakeMultiprocessingPool())
 
         suite_info = {}
-        for k, v in self.files.iteritems():
+        for k, v in six.iteritems(self.files):
             suite_info[k] = v.string
             control_data.parse_control_string(
                     v.string,
                     raise_warnings=True,
                     path=k).InAnyOrder().AndReturn(v)
-        for k, v in self.files_to_filter.iteritems():
+        for k, v in six.iteritems(self.files_to_filter):
             suite_info[k] = v.string
         self.getter._dev_server = self._DEVSERVER_HOST
         self.getter.get_suite_info(
@@ -283,7 +290,7 @@ class SuiteTest(mox.MoxTestBase):
             mox.IgnoreArg(),
             forgiving_parser=True,
             run_prod_code=False,
-            test_args=None).AndReturn(self.files.values())
+            test_args=None).AndReturn(list(self.files.values()))
 
 
     def expect_job_scheduling(self, recorder,
@@ -306,7 +313,7 @@ class SuiteTest(mox.MoxTestBase):
         recorder.record_entry(
             StatusContains.CreateFromStrings('INFO', 'Start %s' % self._TAG),
             log_in_subdir=False)
-        tests = self.files.values()
+        tests = list(self.files.values())
         n = 1
         for test in tests:
             if test.name in tests_to_skip:
@@ -464,7 +471,7 @@ class SuiteTest(mox.MoxTestBase):
         self.mox.StubOutWithMock(utils, 'write_keyval')
         utils.write_keyval(None, keyval_dict)
 
-        all_files = self.files.items()
+        all_files = list(self.files.items())
         # Sort tests in self.files so that they are in the same
         # order as they are scheduled.
         expected_retry_map = {}
@@ -508,7 +515,7 @@ class SuiteTest(mox.MoxTestBase):
         suite.schedule(recorder.record_entry)
         self.assertEqual(suite._retry_handler._max_retries, 1)
         # Find the job_id of the test that allows retry
-        job_id = suite._retry_handler._retry_map.iterkeys().next()
+        job_id = next(six.iterkeys(suite._retry_handler._retry_map))
         suite._retry_handler.add_retry(old_job_id=job_id, new_job_id=10)
         self.assertEqual(suite._retry_handler._max_retries, 0)
 
@@ -535,7 +542,7 @@ class SuiteTest(mox.MoxTestBase):
 
 
     def testInheritedKeyvals(self):
-        """Tests should inherit some whitelisted job keyvals."""
+        """Tests should inherit some allowlisted job keyvals."""
         # Only keyvals in constants.INHERITED_KEYVALS are inherited to tests.
         job_keyvals = {
             constants.KEYVAL_CIDB_BUILD_ID: '111',
@@ -656,7 +663,7 @@ class SuiteTest(mox.MoxTestBase):
                             job_stats_wait_for_results(...)
             @yield: job_status.Status objects.
             """
-            results = map(lambda r: job_status.Status(*r), results)
+            results = [job_status.Status(*r) for r in results]
             for r in results:
                 new_input = (yield r)
                 if new_input:

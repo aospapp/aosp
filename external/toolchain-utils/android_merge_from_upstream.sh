@@ -18,11 +18,11 @@ remote_branch="${remote}/upstream-mirror-master"
 my_dir="$(dirname "$(readlink -m "$0")")"
 cd "${my_dir}"
 
-ensure_head_is_upstream_master() {
-  local current_rev master_rev
+ensure_head_is_upstream_main() {
+  local current_rev main_rev
   current_rev="$(git rev-parse HEAD)"
-  master_rev="$(git rev-parse ${local_upstream})"
-  if [[ "${current_rev}" != "${master_rev}" ]]; then
+  main_rev="$(git rev-parse ${local_upstream})"
+  if [[ "${current_rev}" != "${main_rev}" ]]; then
     echo "Please checkout ${local_upstream} and rerun this" >&2
     exit
   fi
@@ -42,16 +42,8 @@ ensure_no_local_branch_present() {
     exit 1
   fi
 
-  # If we're *on* that branch, deleting it is difficult.
-  local current_branch
-  current_branch="$(git branch --show-current)"
-  if [[ "${current_branch}" == "${local_branch_name}" ]]; then
-    local rev
-    rev="$(git rev-parse HEAD)"
-    # This is fine, since we assume HEAD == upstream-mirror-master anyway
-    # (e.g., the existing branch was pointless.)
-    git checkout "${rev}"
-  fi
+  # If we're *on* that branch, deleting it is difficult. Always detach.
+  git checkout --detach || return
   git branch -D "${local_branch_name}"
 }
 
@@ -61,7 +53,7 @@ get_merge_commit_list() {
   git log --oneline "${merge_base}..${remote_branch}"
 }
 
-ensure_head_is_upstream_master
+ensure_head_is_upstream_main
 ensure_no_local_branch_present
 
 echo "Ensuring repository is up-to-date..."

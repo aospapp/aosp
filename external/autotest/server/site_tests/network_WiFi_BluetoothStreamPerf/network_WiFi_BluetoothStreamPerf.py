@@ -117,9 +117,9 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
         audio_test.audio_test_requirement()
         factory = remote_facade_factory.RemoteFacadeFactory(
                 host, results_dir=self.resultsdir)
-        chameleon_board = host.chameleon
+        chameleon_board = host.btpeer
         if chameleon_board is None:
-            raise error.TestNAError("No chameleon device is present")
+            raise error.TestNAError("Bluetooth peer is not present")
 
         chameleon_board.setup_and_reset(self.outputdir)
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(

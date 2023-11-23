@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -46,7 +46,7 @@ static inline double StringToDouble(const char *magick_restrict string,
   return(InterpretLocaleValue(string,sentinal));
 }
 
-static inline char *StringLocateSubstring(const char *haystack,
+static inline const char *StringLocateSubstring(const char *haystack,
   const char *needle)
 {
 #if defined(MAGICKCORE_HAVE_STRCASESTR)
@@ -57,7 +57,7 @@ static inline char *StringLocateSubstring(const char *haystack,
       length_needle,
       length_haystack;
 
-    register ssize_t
+    size_t
       i;
 
     if (!haystack || !needle)
@@ -66,14 +66,14 @@ static inline char *StringLocateSubstring(const char *haystack,
     length_haystack=strlen(haystack)-length_needle+1;
     for (i=0; i < length_haystack; i++)
     {
-      register size_t
+      size_t
         j;
 
       for (j=0; j < length_needle; j++)
       {
-        unsigned char c1 = haystack[i+j];
-        unsigned char c2 = needle[j];
-        if (toupper(c1) != toupper(c2))
+        unsigned char c1 = (unsigned char) haystack[i+j];
+        unsigned char c2 = (unsigned char) needle[j];
+        if (toupper((int) c1) != toupper((int) c2))
           goto next;
       }
       return((char *) haystack+i);

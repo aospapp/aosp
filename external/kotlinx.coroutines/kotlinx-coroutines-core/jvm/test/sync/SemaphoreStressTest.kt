@@ -2,13 +2,11 @@ package kotlinx.coroutines.sync
 
 import kotlinx.coroutines.*
 import org.junit.Test
-import org.junit.After
 import kotlin.test.assertEquals
 
 class SemaphoreStressTest : TestBase() {
-
     @Test
-    fun stressTestAsMutex() = runTest {
+    fun stressTestAsMutex() = runBlocking(Dispatchers.Default) {
         val n = 10_000 * stressTestMultiplier
         val k = 100
         var shared = 0
@@ -27,7 +25,7 @@ class SemaphoreStressTest : TestBase() {
     }
 
     @Test
-    fun stressTest() = runTest {
+    fun stressTest() = runBlocking(Dispatchers.Default) {
         val n = 10_000 * stressTestMultiplier
         val k = 100
         val semaphore = Semaphore(10)
@@ -43,7 +41,7 @@ class SemaphoreStressTest : TestBase() {
     }
 
     @Test
-    fun stressCancellation() = runTest {
+    fun stressCancellation() = runBlocking(Dispatchers.Default) {
         val n = 10_000 * stressTestMultiplier
         val semaphore = Semaphore(1)
         semaphore.acquire()
@@ -72,14 +70,14 @@ class SemaphoreStressTest : TestBase() {
                 // Initially, we hold the permit and no one else can `acquire`,
                 // otherwise it's a bug.
                 assertEquals(0, semaphore.availablePermits)
-                var job1_entered_critical_section = false
+                var job1EnteredCriticalSection = false
                 val job1 = launch(start = CoroutineStart.UNDISPATCHED) {
                     semaphore.acquire()
-                    job1_entered_critical_section = true
+                    job1EnteredCriticalSection = true
                     semaphore.release()
                 }
                 // check that `job1` didn't finish the call to `acquire()`
-                assertEquals(false, job1_entered_critical_section)
+                assertEquals(false, job1EnteredCriticalSection)
                 val job2 = launch(pool) {
                     semaphore.release()
                 }
@@ -92,5 +90,4 @@ class SemaphoreStressTest : TestBase() {
             }
         }
     }
-
 }

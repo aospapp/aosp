@@ -101,7 +101,7 @@ class firmware_Cr50RejectUpdate(Cr50Test):
         # real effect. It will just reboot Cr50.
         self.try_update('', self.original_path, stdout='image updated')
         if not self.faft_config.ap_up_after_cr50_reboot:
-            self.servo.get_power_state_controller().reset()
+            self.host.reset_via_servo()
         # After reboot, if the DUT hasn't responded within 45 seconds, it's not
         # going to.
         time.sleep(45)

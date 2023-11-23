@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Shell class for a test, inherited by all individual tests
 #
 # Methods:
@@ -18,12 +19,20 @@
 
 #pylint: disable=C0111
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import errno
 import fcntl
 import json
 import logging
 import os
 import re
 import shutil
+import six
+from six.moves import map
+from six.moves import range
 import stat
 import sys
 import tempfile
@@ -66,6 +75,9 @@ class base_test(object):
         self.srcdir = os.path.join(self.bindir, 'src')
         self.tmpdir = tempfile.mkdtemp("_" + self.tagged_testname,
                                        dir=job.tmpdir)
+        # The crash_reporter uses this file to determine which test is in
+        # progress.
+        self.test_in_prog_file = '/run/crash_reporter/test-in-prog'
         self._keyvals = []
         self._new_keyval = False
         self.failed_constraints = []
@@ -97,7 +109,7 @@ class base_test(object):
     @staticmethod
     def _append_type_to_keys(dictionary, typename):
         new_dict = {}
-        for key, value in dictionary.iteritems():
+        for key, value in six.iteritems(dictionary):
             new_key = "%s{%s}" % (key, typename)
             new_dict[new_key] = value
         return new_dict
@@ -169,7 +181,7 @@ class base_test(object):
             with open(output_file, 'r') as fp:
                 contents = fp.read()
                 if contents:
-                     charts = json.loads(contents)
+                    charts = json.loads(contents)
 
         if graph:
             first_level = graph
@@ -184,9 +196,9 @@ class base_test(object):
         # representing numbers logged, attempt to convert them to numbers.
         # If a non number string is logged an exception will be thrown.
         if isinstance(value, list):
-          value = map(float, value)
+            value = list(map(float, value))
         else:
-          value = float(value)
+            value = float(value)
 
         result_type = 'scalar'
         value_key = 'value'
@@ -264,7 +276,7 @@ class base_test(object):
             utils.write_keyval(self.resultsdir, perf_dict, type_tag="perf")
 
         keyval_path = os.path.join(self.resultsdir, "keyval")
-        print >> open(keyval_path, "a"), ""
+        print("", file=open(keyval_path, "a"))
 
 
     def analyze_perf_constraints(self, constraints):
@@ -361,6 +373,44 @@ class base_test(object):
             logging.debug('before_iteration_hooks completed')
 
         finished = False
+
+        # Mark the current test in progress so that crash_reporter can report
+        # it in uploaded crashes.
+        # if the file already exists, truncate and overwrite.
+        # TODO(mutexlox): Determine what to do if the file already exists, which
+        # could happen for a few reasons:
+        #   * An earlier tast or autotest run crashed before removing the
+        #     test-in-prog file. In this case, we would ideally overwrite the
+        #     existing test name and _not_ restore it.
+        #   * An autotest ran another autotest (e.g. logging_GenerateCrashFiles
+        #     runs desktopui_SimpleLogin). In this case, arguably it makes sense
+        #     to attribute the crash to logging_GenerateCrashFiles and not to
+        #     desktopui_SimpleLogin (or to attribute it to both), since the
+        #     context in which it's running is different than if it were run on
+        #     its own.
+        #   * Every tast test is kicked off by the 'tast' autotest (see
+        #     server/site_tests/tast/tast.py), so the file will always be
+        #     populated when the tast suite starts running. In this case, we
+        #     want to attribute crashes that happen during a specific test to
+        #     that test, but if the tast infra causes a crash we should
+        #     attribute the crash to it (e.g. to the 'tast.critical-system'
+        #     "autotest").  For this case, we should save the contents of the
+        #     file before a test and restore it after.
+        if ('host' in dargs and hasattr(dargs['host'], 'is_up_fast') and
+                dargs['host'].is_up_fast()):
+            dargs['host'].run('echo %s > %s' %
+                              (self.tagged_testname, self.test_in_prog_file),
+                              ignore_status=True)
+        else:
+            crash_run_dir = os.path.dirname(self.test_in_prog_file)
+            try:
+                # Only try to create the file if the directory already exists
+                # (otherwise, we may not be on a CrOS device)
+                if os.path.exists(crash_run_dir):
+                    with open(self.test_in_prog_file, 'w') as f:
+                        f.write(self.tagged_testname)
+            except:  # Broad 'except' because we don't want this to block tests
+                logging.warning('failed to write in progress test name')
         try:
             if profile_only:
                 if not self.job.profilers.present():
@@ -387,6 +437,21 @@ class base_test(object):
                           'after_iteration_hooks.', str(e))
             raise
         finally:
+            if ('host' in dargs and hasattr(dargs['host'], 'is_up_fast') and
+                    dargs['host'].is_up_fast()):
+                dargs['host'].run('rm -f %s' % self.test_in_prog_file)
+            else:
+                try:
+                    # Unmark the test as running.
+                    os.remove(self.test_in_prog_file)
+                except OSError as e:
+                    # If something removed it, do nothing--we're in the desired
+                    # state (the file is gone). Otherwise, log.
+                    if e.errno != errno.ENOENT:
+                        logging.warning(
+                                "Couldn't remove test-in-prog file: %s",
+                                traceback.format_exc())
+
             if not finished or not self.job.fast:
                 logging.debug('Starting after_iteration_hooks for %s',
                               self.tagged_testname)
@@ -462,7 +527,7 @@ class base_test(object):
             if iterations > 1:
                 logging.debug('Test started. Specified %d iterations',
                               iterations)
-            for self.iteration in xrange(1, iterations + 1):
+            for self.iteration in range(1, iterations + 1):
                 if iterations > 1:
                     logging.debug('Executing iteration %d of %d',
                                   self.iteration, iterations)
@@ -556,7 +621,7 @@ class base_test(object):
             keyvals['version'] = self.version
             for i, arg in enumerate(args):
                 keyvals['param-%d' % i] = repr(arg)
-            for name, arg in dargs.iteritems():
+            for name, arg in six.iteritems(dargs):
                 keyvals['param-%s' % name] = repr(arg)
             self.write_test_keyval(keyvals)
 
@@ -570,13 +635,13 @@ class base_test(object):
                 self._make_writable_to_others(self.resultsdir)
 
                 # Initialize:
-                _cherry_pick_call(self.initialize, *args, **dargs)
+                utils.cherry_pick_call(self.initialize, *args, **dargs)
 
                 lockfile = open(os.path.join(self.job.tmpdir, '.testlock'), 'w')
                 try:
                     fcntl.flock(lockfile, fcntl.LOCK_EX)
                     # Setup: (compile and install the test, if needed)
-                    p_args, p_dargs = _cherry_pick_args(self.setup, args, dargs)
+                    p_args, p_dargs = utils.cherry_pick_args(self.setup, args, dargs)
                     utils.update_version(self.srcdir, self.preserve_srcdir,
                                          self.version, self.setup,
                                          *p_args, **p_dargs)
@@ -589,18 +654,18 @@ class base_test(object):
 
                 # call self.warmup cherry picking the arguments it accepts and
                 # translate exceptions if needed
-                _call_test_function(_cherry_pick_call, self.warmup,
+                _call_test_function(utils.cherry_pick_call, self.warmup,
                                     *args, **dargs)
 
                 if hasattr(self, 'run_once'):
-                    p_args, p_dargs = _cherry_pick_args(self.run_once,
+                    p_args, p_dargs = utils.cherry_pick_args(self.run_once,
                                                         args, dargs)
                     # pull in any non-* and non-** args from self.execute
-                    for param in _get_nonstar_args(self.execute):
+                    for param in utils.get_nonstar_args(self.execute):
                         if param in dargs:
                             p_dargs[param] = dargs[param]
                 else:
-                    p_args, p_dargs = _cherry_pick_args(self.execute,
+                    p_args, p_dargs = utils.cherry_pick_args(self.execute,
                                                         args, dargs)
 
                 _call_test_function(self.execute, *p_args, **p_dargs)
@@ -615,7 +680,7 @@ class base_test(object):
                     try:
                         if run_cleanup:
                             logging.debug('Running cleanup for test.')
-                            _cherry_pick_call(self.cleanup, *args, **dargs)
+                            utils.cherry_pick_call(self.cleanup, *args, **dargs)
                     except Exception:
                         logging.error('Ignoring exception during cleanup() '
                                       'phase:')
@@ -629,7 +694,7 @@ class base_test(object):
                     # actions fail.
                     self.job.logging.restore()
                     try:
-                        raise exc_info[0], exc_info[1], exc_info[2]
+                        six.reraise(exc_info[0], exc_info[1], exc_info[2])
                     finally:
                         # http://docs.python.org/library/sys.html#sys.exc_info
                         # Be nice and prevent a circular reference.
@@ -637,14 +702,14 @@ class base_test(object):
             else:
                 try:
                     if run_cleanup:
-                        _cherry_pick_call(self.cleanup, *args, **dargs)
+                        utils.cherry_pick_call(self.cleanup, *args, **dargs)
                     self.crash_handler_report()
                 finally:
                     self.job.logging.restore()
         except error.AutotestError:
             # Pass already-categorized errors on up.
             raise
-        except Exception, e:
+        except Exception as e:
             # Anything else is an ERROR in our own code, not execute().
             raise error.UnhandledTestError(e)
 
@@ -662,63 +727,8 @@ class base_test(object):
         """
         dargs["profile_only"] = dargs.get("profile_only", False)
         test_basepath = self.outputdir[len(self.job.resultdir + "/"):]
-        return self.job.run_test(url, master_testpath=test_basepath,
+        return self.job.run_test(url, main_testpath=test_basepath,
                                  *args, **dargs)
-
-
-def _get_nonstar_args(func):
-    """Extract all the (normal) function parameter names.
-
-    Given a function, returns a tuple of parameter names, specifically
-    excluding the * and ** parameters, if the function accepts them.
-
-    @param func: A callable that we want to chose arguments for.
-
-    @return: A tuple of parameters accepted by the function.
-    """
-    return func.func_code.co_varnames[:func.func_code.co_argcount]
-
-
-def _cherry_pick_args(func, args, dargs):
-    """Sanitize positional and keyword arguments before calling a function.
-
-    Given a callable (func), an argument tuple and a dictionary of keyword
-    arguments, pick only those arguments which the function is prepared to
-    accept and return a new argument tuple and keyword argument dictionary.
-
-    Args:
-      func: A callable that we want to choose arguments for.
-      args: A tuple of positional arguments to consider passing to func.
-      dargs: A dictionary of keyword arguments to consider passing to func.
-    Returns:
-      A tuple of: (args tuple, keyword arguments dictionary)
-    """
-    # Cherry pick args:
-    if func.func_code.co_flags & 0x04:
-        # func accepts *args, so return the entire args.
-        p_args = args
-    else:
-        p_args = ()
-
-    # Cherry pick dargs:
-    if func.func_code.co_flags & 0x08:
-        # func accepts **dargs, so return the entire dargs.
-        p_dargs = dargs
-    else:
-        # Only return the keyword arguments that func accepts.
-        p_dargs = {}
-        for param in _get_nonstar_args(func):
-            if param in dargs:
-                p_dargs[param] = dargs[param]
-
-    return p_args, p_dargs
-
-
-def _cherry_pick_call(func, *args, **dargs):
-    """Cherry picks arguments from args/dargs based on what "func" accepts
-    and calls the function with the picked arguments."""
-    p_args, p_dargs = _cherry_pick_args(func, args, dargs)
-    return func(*p_args, **p_dargs)
 
 
 def _validate_args(args, dargs, *funcs):
@@ -740,8 +750,8 @@ def _validate_args(args, dargs, *funcs):
     all_co_flags = 0
     all_varnames = ()
     for func in funcs:
-        all_co_flags |= func.func_code.co_flags
-        all_varnames += func.func_code.co_varnames[:func.func_code.co_argcount]
+        all_co_flags |= func.__code__.co_flags
+        all_varnames += func.__code__.co_varnames[:func.__code__.co_argcount]
 
     # Check if given args belongs to at least one of the methods below.
     if len(args) > 0:
@@ -771,7 +781,7 @@ def _installtest(job, url):
     # considered for import.
     if not os.path.exists(group_dir):
         os.makedirs(group_dir)
-        f = file(os.path.join(group_dir, '__init__.py'), 'w+')
+        f = open(os.path.join(group_dir, '__init__.py'), 'w+')
         f.close()
 
     logging.debug("%s: installing test url=%s", name, url)
@@ -806,16 +816,24 @@ def _call_test_function(func, *args, **dargs):
         return func(*args, **dargs)
     except error.AutotestError:
         raise
-    except Exception, e:
+    except Exception as e:
         # Other exceptions must be treated as a FAIL when
         # raised during the test functions
         raise error.UnhandledTestFail(e)
 
 
-def runtest(job, url, tag, args, dargs,
-            local_namespace={}, global_namespace={},
-            before_test_hook=None, after_test_hook=None,
-            before_iteration_hook=None, after_iteration_hook=None):
+def runtest(job,
+            url,
+            tag,
+            args,
+            dargs,
+            local_namespace={},
+            global_namespace={},
+            before_test_hook=None,
+            after_test_hook=None,
+            before_iteration_hook=None,
+            after_iteration_hook=None,
+            override_test_in_prog_file=None):
     local_namespace = local_namespace.copy()
     global_namespace = global_namespace.copy()
     # if this is not a plain test name then download and install the
@@ -855,7 +873,7 @@ def runtest(job, url, tag, args, dargs,
         if not bindir:
             raise error.TestError(testname + ': test does not exist')
 
-    subdir = os.path.join(dargs.pop('master_testpath', ""), testname)
+    subdir = os.path.join(dargs.pop('main_testpath', ""), testname)
     outputdir = os.path.join(job.resultdir, subdir)
     if tag:
         outputdir += '.' + tag
@@ -877,6 +895,8 @@ def runtest(job, url, tag, args, dargs,
 
     try:
         mytest = global_namespace['mytest']
+        if override_test_in_prog_file:
+            mytest.test_in_prog_file = override_test_in_prog_file
         mytest.success = False
         if not job.fast and before_test_hook:
             logging.info('Starting before_hook for %s', mytest.tagged_testname)

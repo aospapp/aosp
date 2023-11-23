@@ -1,8 +1,13 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Utility functions used for PKCS#11 library testing."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import grp, logging, os, pwd, re, stat, sys, shutil, pwd, grp
 
@@ -11,7 +16,7 @@ from autotest_lib.client.common_lib import error
 
 USER_TOKEN_PREFIX = 'User TPM Token '
 TMP_CHAPS_DIR = '/tmp/chaps'
-CHAPS_DIR_PERM = 0750
+CHAPS_DIR_PERM = 0o750
 SYSTEM_TOKEN_NAME = 'System TPM Token'
 SYSTEM_TOKEN_DIR = '/var/lib/chaps'
 INVALID_SLOT_ID = '100'
@@ -51,8 +56,8 @@ def __get_token_slot_by_path(token_path):
 def __verify_tokenname(token_path):
     """Verify that the TPM token name is correct."""
     # The token path is expected to be of the form:
-    # /home/root/<obfuscated_user_id>/chaps
-    match = re.search(r'/home/root/(.*)/chaps', token_path)
+    # /run/daemon-store/chaps/<obfuscated_user_id>
+    match = re.search(r'/run/daemon-store/chaps/(.*)', token_path)
     if not match:
         return False
     obfuscated_user = match.group(1)
@@ -197,14 +202,14 @@ def verify_p11_test_token():
     output = __run_cmd('p11_replay --generate --replay_wifi',
                        ignore_status=True)
     if not re.search('Sign: CKR_OK', output):
-        print >> sys.stderr, output
+        print(output, file=sys.stderr)
         return False
     unload_p11_test_token()
     load_p11_test_token()
     output = __run_cmd('p11_replay --replay_wifi --cleanup',
                        ignore_status=True)
     if not re.search('Sign: CKR_OK', output):
-        print >> sys.stderr, output
+        print(output, file=sys.stderr)
         return False
     return True
 
@@ -225,7 +230,7 @@ def wait_for_pkcs11_token():
     """
     try:
         utils.poll_for_condition(
-            lambda: utils.system('cryptohome --action=pkcs11_token_status',
+            lambda: utils.system('cryptohome --action=pkcs11_is_user_token_ok',
                                  ignore_status=True) == 0,
             desc='PKCS #11 token.',
             timeout=300)

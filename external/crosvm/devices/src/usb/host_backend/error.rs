@@ -5,9 +5,10 @@
 use crate::usb::xhci::scatter_gather_buffer::Error as BufferError;
 use crate::usb::xhci::xhci_transfer::Error as XhciTransferError;
 use crate::utils::Error as UtilsError;
-use msg_socket::MsgError;
+
+use base::TubeError;
 use std::fmt::{self, Display};
-use usb_util::error::Error as UsbUtilError;
+use usb_util::Error as UsbUtilError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -19,18 +20,20 @@ pub enum Error {
     SetActiveConfig(UsbUtilError),
     SetInterfaceAltSetting(UsbUtilError),
     ClearHalt(UsbUtilError),
+    CreateTransfer(UsbUtilError),
+    Reset(UsbUtilError),
     GetEndpointType,
-    CreateControlSock(std::io::Error),
-    SetupControlSock(std::io::Error),
-    ReadControlSock(MsgError),
-    WriteControlSock(MsgError),
+    CreateControlTube(TubeError),
+    SetupControlTube(TubeError),
+    ReadControlTube(TubeError),
+    WriteControlTube(TubeError),
     GetXhciTransferType(XhciTransferError),
     TransferComplete(XhciTransferError),
     ReadBuffer(BufferError),
     WriteBuffer(BufferError),
     BufferLen(BufferError),
     /// Cannot get interface descriptor for (interface, altsetting).
-    GetInterfaceDescriptor((i32, u16)),
+    GetInterfaceDescriptor((u8, u8)),
     GetEndpointDescriptor(u8),
     BadXhciTransferState,
     BadBackendProviderState,
@@ -49,11 +52,13 @@ impl Display for Error {
             SetActiveConfig(e) => write!(f, "failed to set active config: {:?}", e),
             SetInterfaceAltSetting(e) => write!(f, "failed to set interface alt setting: {:?}", e),
             ClearHalt(e) => write!(f, "failed to clear halt: {:?}", e),
+            CreateTransfer(e) => write!(f, "failed to create transfer: {:?}", e),
+            Reset(e) => write!(f, "failed to reset: {:?}", e),
             GetEndpointType => write!(f, "failed to get endpoint type"),
-            CreateControlSock(e) => write!(f, "failed to create contro sock: {}", e),
-            SetupControlSock(e) => write!(f, "failed to setup control sock: {}", e),
-            ReadControlSock(e) => write!(f, "failed to read control sock: {}", e),
-            WriteControlSock(e) => write!(f, "failed to write control sock: {}", e),
+            CreateControlTube(e) => write!(f, "failed to create contro tube: {}", e),
+            SetupControlTube(e) => write!(f, "failed to setup control tube: {}", e),
+            ReadControlTube(e) => write!(f, "failed to read control tube: {}", e),
+            WriteControlTube(e) => write!(f, "failed to write control tube: {}", e),
             GetXhciTransferType(e) => write!(f, "failed to get xhci transfer type: {}", e),
             TransferComplete(e) => write!(f, "xhci transfer completed: {}", e),
             ReadBuffer(e) => write!(f, "failed to read buffer: {}", e),

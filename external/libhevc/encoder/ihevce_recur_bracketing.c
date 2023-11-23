@@ -451,7 +451,7 @@ void ihevce_pu_calc_4x4_blk(
         if(u1_use_satd)
         {
             ps_func_selector->ihevc_resi_trans_4x4_ttype1_fptr(
-                pu1_src, &pred[0], (WORD32 *)pi2_tmp, pi2_trans_out, src_stride, 4, (4 << 16) | 0);
+                pu1_src, &pred[0], (WORD32 *)pi2_tmp, pi2_trans_out, src_stride, 4, 4, NULL_PLANE);
 
             sad = ihevce_ipe_pass_satd(pi2_trans_out, 4, 4);
         }

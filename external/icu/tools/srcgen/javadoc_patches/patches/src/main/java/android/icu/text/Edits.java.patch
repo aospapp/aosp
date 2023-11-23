@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/text/Edits.java	2018-10-22 05:12:27.128614515 +0100
-+++ android_icu4j/src/main/java/android/icu/text/Edits.java	2018-10-22 05:12:45.632675685 +0100
+--- android_icu4j/src/main/java/android/icu/text/Edits.java	2021-01-19 16:26:28.618678744 +0000
++++ android_icu4j/src/main/java/android/icu/text/Edits.java	2021-01-19 16:26:51.066838093 +0000
 @@ -49,8 +49,7 @@
   * <p>
   * The "fine changes" and "coarse changes" iterators will step through only the change edits when their

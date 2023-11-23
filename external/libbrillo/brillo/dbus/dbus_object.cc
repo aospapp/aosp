@@ -4,9 +4,12 @@
 
 #include <brillo/dbus/dbus_object.h>
 
+#include <memory>
+#include <utility>
 #include <vector>
 
 #include <base/bind.h>
+#include <base/bind_helpers.h>
 #include <base/logging.h>
 #include <brillo/dbus/async_event_sequencer.h>
 #include <brillo/dbus/exported_object_manager.h>
@@ -37,8 +40,9 @@ void SetupDefaultPropertyHandlers(DBusInterface* prop_interface,
 
 DBusInterface::DBusInterface(DBusObject* dbus_object,
                              const std::string& interface_name)
-    : dbus_object_(dbus_object), interface_name_(interface_name) {
-}
+    : dbus_object_(dbus_object),
+      interface_name_(interface_name),
+      release_interface_cb_(base::DoNothing()) {}
 
 void DBusInterface::AddProperty(const std::string& property_name,
                                 ExportedPropertyBase* prop_base) {
@@ -115,6 +119,50 @@ void DBusInterface::ExportAndBlock(
   }
 }
 
+void DBusInterface::UnexportAsync(
+    ExportedObjectManager* object_manager,
+    dbus::ExportedObject* exported_object,
+    const dbus::ObjectPath& object_path,
+    const AsyncEventSequencer::CompletionAction& completion_callback) {
+  VLOG(1) << "Unexporting D-Bus interface " << interface_name_ << " for "
+          << object_path.value();
+
+  // Release the interface.
+  release_interface_cb_.RunAndReset();
+
+  // Unexport all method handlers.
+  scoped_refptr<AsyncEventSequencer> sequencer(new AsyncEventSequencer());
+  for (const auto& pair : handlers_) {
+    std::string method_name = pair.first;
+    VLOG(1) << "Unexporting method: " << interface_name_ << "." << method_name;
+    std::string export_error = "Failed unexporting " + method_name + " method";
+    auto export_handler = sequencer->GetExportHandler(
+        interface_name_, method_name, export_error, true);
+    exported_object->UnexportMethod(interface_name_, method_name,
+                                    export_handler);
+  }
+
+  sequencer->OnAllTasksCompletedCall({completion_callback});
+}
+
+void DBusInterface::UnexportAndBlock(ExportedObjectManager* object_manager,
+                                     dbus::ExportedObject* exported_object,
+                                     const dbus::ObjectPath& object_path) {
+  VLOG(1) << "Unexporting D-Bus interface " << interface_name_ << " for "
+          << object_path.value();
+
+  // Release the interface.
+  release_interface_cb_.RunAndReset();
+
+  // Unexport all method handlers.
+  for (const auto& pair : handlers_) {
+    std::string method_name = pair.first;
+    VLOG(1) << "Unexporting method: " << interface_name_ << "." << method_name;
+    if (!exported_object->UnexportMethodAndBlock(interface_name_, method_name))
+      LOG(FATAL) << "Failed unexporting " << method_name << " method";
+  }
+}
+
 void DBusInterface::ClaimInterface(
       base::WeakPtr<ExportedObjectManager> object_manager,
       const dbus::ObjectPath& object_path,
@@ -125,6 +173,7 @@ void DBusInterface::ClaimInterface(
     return;
   }
   object_manager->ClaimInterface(object_path, interface_name_, writer);
+  release_interface_cb_.RunAndReset();
   release_interface_cb_.ReplaceClosure(
       base::Bind(&ExportedObjectManager::ReleaseInterface,
                  object_manager, object_path, interface_name_));
@@ -232,6 +281,25 @@ void DBusObject::ExportInterfaceAsync(
   AddOrGetInterface(interface_name)
       ->ExportAsync(object_manager_.get(), bus_.get(), exported_object_,
                     object_path_, completion_callback);
+}
+
+void DBusObject::ExportInterfaceAndBlock(const std::string& interface_name) {
+  AddOrGetInterface(interface_name)
+      ->ExportAndBlock(object_manager_.get(), bus_.get(), exported_object_,
+                       object_path_);
+}
+
+void DBusObject::UnexportInterfaceAsync(
+    const std::string& interface_name,
+    const AsyncEventSequencer::CompletionAction& completion_callback) {
+  AddOrGetInterface(interface_name)
+      ->UnexportAsync(object_manager_.get(), exported_object_, object_path_,
+                      completion_callback);
+}
+
+void DBusObject::UnexportInterfaceAndBlock(const std::string& interface_name) {
+  AddOrGetInterface(interface_name)
+      ->UnexportAndBlock(object_manager_.get(), exported_object_, object_path_);
 }
 
 void DBusObject::RegisterAsync(

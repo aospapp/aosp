@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -10,7 +10,6 @@
 #include <drivers/arm/sp805.h>
 #include <drivers/cfi/v2m_flash.h>
 #include <plat/arm/common/plat_arm.h>
-#include <plat/common/platform.h>
 #include <platform_def.h>
 
 /*
@@ -38,7 +37,7 @@ __dead2 void plat_arm_error_handler(int err)
 		break;
 	}
 
-	(void)console_flush();
+	console_flush();
 
 	/* Setup the watchdog to reset the system as soon as possible */
 	sp805_refresh(ARM_SP805_TWDG_BASE, 1U);

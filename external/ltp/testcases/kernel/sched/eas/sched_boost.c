@@ -78,7 +78,7 @@ static void *test_fn(void *arg LTP_ATTRIBUTE_UNUSED)
 		// give time for utilization to track real task usage
 		do_work();
 		// start measuring
-		SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
+		tracefs_write("tracing_on", "1");
 		do_work();
 		sem_post(&result_sem);
 		tests_done++;
@@ -110,10 +110,10 @@ static void run_test(void)
 {
 	SAFE_FILE_PRINTF(STUNE_TEST_PATH "/schedtune.boost",
 			 "%d", test_boost[test_index]);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
+	tracefs_write("trace", "\n");
 	sem_post(&test_sem);
 	sem_wait(&result_sem);
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
+	tracefs_write("tracing_on", "0");
 	LOAD_TRACE();
 	parse_results();
 	test_index++;
@@ -182,9 +182,9 @@ static void run(void)
 
 	SAFE_PTHREAD_CREATE(&test_thread, NULL, test_fn, NULL);
 
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
-	SAFE_FILE_PRINTF(TRACING_DIR "buffer_size_kb", "16384");
-	SAFE_FILE_PRINTF(TRACING_DIR "set_event", TRACE_EVENTS);
+	tracefs_write("tracing_on", "0");
+	tracefs_write("buffer_size_kb", "16384");
+	tracefs_write("set_event", TRACE_EVENTS);
 
 	while (test_index < NUM_TESTS)
 		run_test();
@@ -196,5 +196,6 @@ static void run(void)
 
 static struct tst_test test = {
 	.test_all = run,
+	.setup = trace_setup,
 	.cleanup = trace_cleanup,
 };

@@ -3,8 +3,6 @@ https://docs.microsoft.com/en-us/typography/opentype/spec/chapter2#featurevariat
 
 NOTE: The API is experimental and subject to change.
 """
-from __future__ import print_function, absolute_import, division
-from fontTools.misc.py23 import *
 from fontTools.misc.dictTools import hashdict
 from fontTools.misc.intTools import popCount
 from fontTools.ttLib import newTable
@@ -12,8 +10,10 @@ from fontTools.ttLib.tables import otTables as ot
 from fontTools.otlLib.builder import buildLookup, buildSingleSubstSubtable
 from collections import OrderedDict
 
+from .errors import VarLibError, VarLibValidationError
 
-def addFeatureVariations(font, conditionalSubstitutions):
+
+def addFeatureVariations(font, conditionalSubstitutions, featureTag='rvrn'):
     """Add conditional substitutions to a Variable Font.
 
     The `conditionalSubstitutions` argument is a list of (Region, Substitutions)
@@ -45,7 +45,8 @@ def addFeatureVariations(font, conditionalSubstitutions):
     """
 
     addFeatureVariationsRaw(font,
-                            overlayFeatureVariations(conditionalSubstitutions))
+                            overlayFeatureVariations(conditionalSubstitutions),
+                            featureTag)
 
 def overlayFeatureVariations(conditionalSubstitutions):
     """Compute overlaps between all conditional substitutions.
@@ -81,6 +82,7 @@ def overlayFeatureVariations(conditionalSubstitutions):
     ...     ([{"wght": (0.5, 1.0)}], {"dollar": "dollar.rvrn"}),
     ...     ([{"wght": (0.5, 1.0)}], {"dollar": "dollar.rvrn"}),
     ...     ([{"wdth": (0.5, 1.0)}], {"cent": "cent.rvrn"}),
+    ...     ([{"wght": (0.5, 1.0), "wdth": (-1, 1.0)}], {"dollar": "dollar.rvrn"}),
     ... ]
     >>> from pprint import pprint
     >>> pprint(overlayFeatureVariations(condSubst))
@@ -135,12 +137,14 @@ def overlayFeatureVariations(conditionalSubstitutions):
                     remainder = hashdict(remainder)
                     newMap[remainder] = newMap.get(remainder, 0) | rank
         boxMap = newMap
-    del boxMap[hashdict()]
 
     # Generate output
     items = []
     for box,rank in sorted(boxMap.items(),
                            key=(lambda BoxAndRank: -popCount(BoxAndRank[1]))):
+        # Skip any box that doesn't have any substitution.
+        if rank == 0:
+            continue
         substsList = []
         i = 0
         while rank:
@@ -257,15 +261,15 @@ def cleanupBox(box):
 # Low level implementation
 #
 
-def addFeatureVariationsRaw(font, conditionalSubstitutions):
+def addFeatureVariationsRaw(font, conditionalSubstitutions, featureTag='rvrn'):
     """Low level implementation of addFeatureVariations that directly
     models the possibilities of the FeatureVariations table."""
 
     #
-    # assert there is no 'rvrn' feature
-    # make dummy 'rvrn' feature with no lookups
-    # sort features, get 'rvrn' feature index
-    # add 'rvrn' feature to all scripts
+    # if there is no <featureTag> feature:
+    #     make empty <featureTag> feature
+    #     sort features, get <featureTag> feature index
+    #     add <featureTag> feature to all scripts
     # make lookups
     # add feature variations
     #
@@ -280,20 +284,30 @@ def addFeatureVariationsRaw(font, conditionalSubstitutions):
 
     gsub.FeatureVariations = None  # delete any existing FeatureVariations
 
-    for feature in gsub.FeatureList.FeatureRecord:
-        assert feature.FeatureTag != 'rvrn'
+    varFeatureIndices = []
+    for index, feature in enumerate(gsub.FeatureList.FeatureRecord):
+        if feature.FeatureTag == featureTag:
+            varFeatureIndices.append(index)
 
-    rvrnFeature = buildFeatureRecord('rvrn', [])
-    gsub.FeatureList.FeatureRecord.append(rvrnFeature)
-    gsub.FeatureList.FeatureCount = len(gsub.FeatureList.FeatureRecord)
+    if not varFeatureIndices:
+        varFeature = buildFeatureRecord(featureTag, [])
+        gsub.FeatureList.FeatureRecord.append(varFeature)
+        gsub.FeatureList.FeatureCount = len(gsub.FeatureList.FeatureRecord)
 
-    sortFeatureList(gsub)
-    rvrnFeatureIndex = gsub.FeatureList.FeatureRecord.index(rvrnFeature)
+        sortFeatureList(gsub)
+        varFeatureIndex = gsub.FeatureList.FeatureRecord.index(varFeature)
 
-    for scriptRecord in gsub.ScriptList.ScriptRecord:
-        langSystems = [lsr.LangSys for lsr in scriptRecord.Script.LangSysRecord]
-        for langSys in [scriptRecord.Script.DefaultLangSys] + langSystems:
-            langSys.FeatureIndex.append(rvrnFeatureIndex)
+        for scriptRecord in gsub.ScriptList.ScriptRecord:
+            if scriptRecord.Script.DefaultLangSys is None:
+                raise VarLibError(
+                    "Feature variations require that the script "
+                    f"'{scriptRecord.ScriptTag}' defines a default language system."
+                )
+            langSystems = [lsr.LangSys for lsr in scriptRecord.Script.LangSysRecord]
+            for langSys in [scriptRecord.Script.DefaultLangSys] + langSystems:
+                langSys.FeatureIndex.append(varFeatureIndex)
+
+        varFeatureIndices = [varFeatureIndex]
 
     # setup lookups
 
@@ -308,13 +322,19 @@ def addFeatureVariationsRaw(font, conditionalSubstitutions):
     for conditionSet, substitutions in conditionalSubstitutions:
         conditionTable = []
         for axisTag, (minValue, maxValue) in sorted(conditionSet.items()):
-            assert minValue < maxValue
+            if minValue > maxValue:
+                raise VarLibValidationError(
+                    "A condition set has a minimum value above the maximum value."
+                )
             ct = buildConditionTable(axisIndices[axisTag], minValue, maxValue)
             conditionTable.append(ct)
 
         lookupIndices = [lookupMap[subst] for subst in substitutions]
-        record = buildFeatureTableSubstitutionRecord(rvrnFeatureIndex, lookupIndices)
-        featureVariationRecords.append(buildFeatureVariationRecord(conditionTable, [record]))
+        records = []
+        for varFeatureIndex in varFeatureIndices:
+            existingLookupIndices = gsub.FeatureList.FeatureRecord[varFeatureIndex].Feature.LookupListIndex
+            records.append(buildFeatureTableSubstitutionRecord(varFeatureIndex, existingLookupIndices + lookupIndices))
+        featureVariationRecords.append(buildFeatureVariationRecord(conditionTable, records))
 
     gsub.FeatureVariations = buildFeatureVariations(featureVariationRecords)
 

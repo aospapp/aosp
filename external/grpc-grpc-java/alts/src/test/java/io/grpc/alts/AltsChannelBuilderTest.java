@@ -18,12 +18,8 @@ package io.grpc.alts;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import io.grpc.alts.internal.AltsClientOptions;
 import io.grpc.alts.internal.AltsProtocolNegotiator;
-import io.grpc.alts.internal.TransportSecurityCommon.RpcProtocolVersions;
-import io.grpc.netty.InternalNettyChannelBuilder.TransportCreationParamsFilterFactory;
 import io.grpc.netty.ProtocolNegotiator;
-import java.net.InetSocketAddress;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,32 +32,13 @@ public final class AltsChannelBuilderTest {
     AltsChannelBuilder builder =
         AltsChannelBuilder.forTarget("localhost:8080").enableUntrustedAltsForTesting();
 
-    TransportCreationParamsFilterFactory tcpfFactory = builder.getTcpfFactoryForTest();
-    AltsClientOptions altsClientOptions = builder.getAltsClientOptionsForTest();
-
-    assertThat(tcpfFactory).isNull();
-    assertThat(altsClientOptions).isNull();
+    ProtocolNegotiator protocolNegotiator = builder.getProtocolNegotiatorForTest();
+    assertThat(protocolNegotiator).isNull();
 
     builder.build();
 
-    tcpfFactory = builder.getTcpfFactoryForTest();
-    altsClientOptions = builder.getAltsClientOptionsForTest();
-
-    assertThat(tcpfFactory).isNotNull();
-    ProtocolNegotiator protocolNegotiator =
-        tcpfFactory
-            .create(new InetSocketAddress(8080), "fakeAuthority", "fakeUserAgent", null)
-            .getProtocolNegotiator();
+    protocolNegotiator = builder.getProtocolNegotiatorForTest();
+    assertThat(protocolNegotiator).isNotNull();
     assertThat(protocolNegotiator).isInstanceOf(AltsProtocolNegotiator.class);
-
-    assertThat(altsClientOptions).isNotNull();
-    RpcProtocolVersions expectedVersions =
-        RpcProtocolVersions.newBuilder()
-            .setMaxRpcVersion(
-                RpcProtocolVersions.Version.newBuilder().setMajor(2).setMinor(1).build())
-            .setMinRpcVersion(
-                RpcProtocolVersions.Version.newBuilder().setMajor(2).setMinor(1).build())
-            .build();
-    assertThat(altsClientOptions.getRpcProtocolVersions()).isEqualTo(expectedVersions);
   }
 }

@@ -15,42 +15,67 @@
 # Description:
 #   The Service Provider Interface for Dagger's binding graph model
 
-package(default_visibility = ["//:src"])
-
+load("@rules_java//java:defs.bzl", "java_library")
 load(
     "//:build_defs.bzl",
     "DOCLINT_HTML_AND_SYNTAX",
     "DOCLINT_REFERENCES",
+    "POM_VERSION",
 )
+load("//tools:maven.bzl", "gen_maven_artifact")
+
+package(default_visibility = ["//:src"])
 
 filegroup(
     name = "spi-srcs",
-    srcs = glob(["*.java"]),
+    srcs = glob(["*.java"]) + [
+        "//java/dagger/model:model-srcs",
+    ],
 )
-
-load("//tools:maven.bzl", "POM_VERSION", "pom_file")
 
 java_library(
     name = "spi",
-    srcs = [":spi-srcs"],
+    srcs = glob(["*.java"]),
     javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
     tags = ["maven_coordinates=com.google.dagger:dagger-spi:" + POM_VERSION],
+    exports = [
+        "//java/dagger/model",
+    ],
     deps = [
         "//java/dagger:core",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
         "//java/dagger/model",
         "@google_bazel_common//third_party/java/auto:value",
         "@google_bazel_common//third_party/java/error_prone:annotations",
-        "@google_bazel_common//third_party/java/guava",
         "@google_bazel_common//third_party/java/jsr330_inject",
     ],
 )
 
-pom_file(
-    name = "pom",
-    artifact_id = "dagger-spi",
+gen_maven_artifact(
+    name = "artifact",
+    artifact_coordinates = "com.google.dagger:dagger-spi:" + POM_VERSION,
     artifact_name = "Dagger SPI",
-    targets = [
+    artifact_target = ":spi",
+    artifact_target_libs = [
+        "//java/dagger/internal/codegen/extension",
         "//java/dagger/model",
-        ":spi",
     ],
+    artifact_target_maven_deps = [
+        "com.google.auto:auto-common",
+        "com.google.code.findbugs:jsr305",
+        "com.google.dagger:dagger-producers",
+        "com.google.dagger:dagger",
+        "com.google.guava:failureaccess",
+        "com.google.guava:guava",
+        "com.squareup:javapoet",
+        "javax.inject:javax.inject",
+    ],
+    javadoc_root_packages = [
+        "dagger.model",
+        "dagger.spi",
+    ],
+    javadoc_srcs = [":spi-srcs"],
+    shaded_deps = ["@maven//:com_google_auto_auto_common"],
+    shaded_rules = ["rule com.google.auto.common.** dagger.spi.shaded.auto.common.@1"],
 )

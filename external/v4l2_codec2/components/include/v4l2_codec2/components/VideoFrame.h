@@ -9,13 +9,12 @@
 #include <vector>
 
 #include <C2Buffer.h>
-#include <base/files/scoped_file.h>
 
-#include <rect.h>
+#include <ui/Rect.h>
 
 namespace android {
 
-// Wrap C2GraphicBlock and provide essiential information from C2GraphicBlock.
+// Wrap C2GraphicBlock and provide essential information from C2GraphicBlock.
 class VideoFrame {
 public:
     // Create the instance from C2GraphicBlock. return nullptr if any error occurs.
@@ -23,11 +22,11 @@ public:
     ~VideoFrame();
 
     // Return the file descriptors of the corresponding buffer.
-    const std::vector<::base::ScopedFD>& getFDs() const;
+    const std::vector<int>& getFDs() const;
 
     // Getter and setter of the visible rectangle.
-    void setVisibleRect(const media::Rect& visibleRect);
-    const media::Rect& getVisibleRect() const;
+    void setVisibleRect(const Rect& visibleRect);
+    const Rect& getVisibleRect() const;
 
     // Getter and setter of the bitstream ID of the corresponding input bitstream.
     void setBitstreamId(int32_t bitstreamId);
@@ -37,11 +36,11 @@ public:
     C2ConstGraphicBlock getGraphicBlock();
 
 private:
-    VideoFrame(std::shared_ptr<C2GraphicBlock> block, std::vector<::base::ScopedFD> fds);
+    VideoFrame(std::shared_ptr<C2GraphicBlock> block, std::vector<int> fds);
 
     std::shared_ptr<C2GraphicBlock> mGraphicBlock;
-    std::vector<::base::ScopedFD> mFds;
-    media::Rect mVisibleRect;
+    std::vector<int> mFds;
+    Rect mVisibleRect;
     int32_t mBitstreamId = -1;
 };
 

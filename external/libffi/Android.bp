@@ -12,6 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_libffi_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_libffi_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-GPL-3.0",
+        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-LGPL-2.1",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-MPL",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE",
+        "LICENSE-BUILDTOOLS",
+    ],
+}
+
 genrule {
     name: "ffi_header",
     cmd: "$(location gen_ffi_header.sh) < $(in) > $(out)",
@@ -20,15 +63,19 @@ genrule {
     tool_files: ["gen_ffi_header.sh"],
 }
 
-cc_library_static {
+cc_library {
     name: "libffi",
     host_supported: true,
     vendor_available: true,
     cflags: [
         "-Wall",
         "-Werror",
+
         "-Wno-error=incompatible-pointer-types",
         "-Wno-incompatible-pointer-types",
+
+        "-Wno-deprecated-declarations",
+        "-Wno-missing-field-initializers",
         "-Wno-null-pointer-arithmetic",
         "-Wno-pointer-arith",
         "-Wno-sign-compare",
@@ -65,7 +112,6 @@ cc_library_static {
             srcs: [
                 "src/x86/ffi.c",
                 "src/x86/sysv.S",
-                "src/x86/win32.S",
             ],
             asflags: [
                 "-DHAVE_AS_X86_PCREL",
@@ -76,7 +122,9 @@ cc_library_static {
         x86_64: {
             srcs: [
                 "src/x86/ffi64.c",
+                "src/x86/ffiw64.c",
                 "src/x86/unix64.S",
+                "src/x86/win64.S",
             ],
             asflags: [
                 "-DHAVE_AS_X86_PCREL",
@@ -85,13 +133,8 @@ cc_library_static {
             export_include_dirs: ["linux-x86_64"],
         },
     },
-    target: {
-        darwin_x86_64: {
-            exclude_srcs: ["src/x86/unix64.S"],
-            srcs: [
-                "src/x86/darwin.S",
-                "src/x86/darwin64.S",
-            ],
-        },
-    },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }

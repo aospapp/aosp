@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import datetime
 import collections
@@ -16,6 +21,8 @@ from autotest_lib.client.common_lib.cros.network import interface
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.server.cros.network import packet_capturer
+import six
+from six.moves import range
 
 NetDev = collections.namedtuple('NetDev',
                                 ['inherited', 'phy', 'if_name', 'if_type'])
@@ -109,7 +116,6 @@ class LinuxSystem(object):
         logging.debug('Current regulatory domain %r',
                       self.iw_runner.get_regulatory_domain())
         self._interfaces = []
-        self._brif_index = 0
         for interface in self.iw_runner.list_interfaces():
             if self.inherit_interfaces:
                 self._interfaces.append(NetDev(inherited=True,
@@ -137,6 +143,19 @@ class LinuxSystem(object):
         if self.host.path_exists(self._UMA_EVENTS):
             self.host.run('truncate -s 0 %s' % self._UMA_EVENTS,
                           ignore_status=True)
+
+        # Tear down hostapbr bridge and intermediate functional block
+        # interfaces. Run this even for pcaps, because pcap devices sometimes
+        # are run as APs too.
+        # TODO(crbug.com/1005443): drop the ifb hack when we deploy an AP OS
+        # image that has fixes for crbug.com/960551.
+        result = self.host.run('ls -d /sys/class/net/%s* /sys/class/net/%s*'
+                               ' 2>/dev/null' %
+                               (self.HOSTAP_BRIDGE_INTERFACE_PREFIX,
+                                self.IFB_INTERFACE_PREFIX),
+                               ignore_status=True)
+        for path in result.stdout.splitlines():
+            self.delete_link(path.split('/')[-1])
 
 
     @property
@@ -227,7 +246,7 @@ class LinuxSystem(object):
         # across systems. (The default random class might, e.g., seed
         # itself based on wall-clock time.)
         sysrand = random.SystemRandom()
-        for tries in xrange(0, self.MAC_RETRY_LIMIT):
+        for tries in range(0, self.MAC_RETRY_LIMIT):
             mac_addr = '%02x:%02x:%02x:%02x:%02x:%02x' % (
                 (sysrand.getrandbits(8) & ~self.MAC_BIT_MULTICAST) |
                 self.MAC_BIT_LOCAL,
@@ -269,6 +288,16 @@ class LinuxSystem(object):
                 break
 
 
+    def delete_link(self, name):
+        """Delete link using the `ip` command.
+
+        @param name string link name.
+
+        """
+        self.host.run('%s link del %s' % (self.cmd_ip, name),
+                      ignore_status=True)
+
+
     def close(self):
         """Close global resources held by this system."""
         logging.debug('Cleaning up host object for %s', self.role)
@@ -301,10 +330,10 @@ class LinuxSystem(object):
     def get_capabilities(self):
         caps = set()
         phymap = self.phys_for_frequency
-        if [freq for freq in phymap.iterkeys() if freq > 5000]:
+        if [freq for freq in six.iterkeys(phymap) if freq > 5000]:
             # The frequencies are expressed in megaherz
             caps.add(self.CAPABILITY_5GHZ)
-        if [freq for freq in phymap.iterkeys() if len(phymap[freq]) > 1]:
+        if [freq for freq in six.iterkeys(phymap) if len(phymap[freq]) > 1]:
             caps.add(self.CAPABILITY_MULTI_AP_SAME_BAND)
             caps.add(self.CAPABILITY_MULTI_AP)
         elif len(self.phy_bus_type) > 1:
@@ -512,13 +541,6 @@ class LinuxSystem(object):
         return net_dev
 
 
-    def get_brif(self):
-        brif_name = '%s%d' % (self.HOSTAP_BRIDGE_INTERFACE_PREFIX,
-                              self._brif_index)
-        self._brif_index += 1
-        return brif_name
-
-
     def get_configured_interface(self, phytype, spatial_streams=None,
                                  frequency=None, same_phy_as=None):
         """Get a WiFi device that supports the given frequency and phytype.
@@ -670,14 +692,16 @@ class LinuxSystem(object):
         """
         if self._bridge_interface is None:
             self._create_bridge_interface()
+        # TODO b:169251326 terms below are set outside of this codebase
+        # and should be updated when possible. ("master" -> "main")
         self.host.run('%s link set dev %s master %s' %
                       (self.cmd_ip, interface, self._bridge_interface))
 
 
-    def get_virtual_ethernet_master_interface(self):
-        """Return the master interface of the virtual ethernet pair.
+    def get_virtual_ethernet_main_interface(self):
+        """Return the main interface of the virtual ethernet pair.
 
-        @return string name of the master interface of the virtual ethernet
+        @return string name of the main interface of the virtual ethernet
                 pair.
         """
         if self._virtual_ethernet_pair is None:

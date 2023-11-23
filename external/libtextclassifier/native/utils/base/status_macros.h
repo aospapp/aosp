@@ -56,11 +56,20 @@ class StatusAdapter {
 //     TC3_RETURN_IF_ERROR(foo.Method(args...));
 //     return libtextclassifier3::Status();
 //   }
-#define TC3_RETURN_IF_ERROR(expr)                          \
+#define TC3_RETURN_IF_ERROR(expr) \
+  TC3_RETURN_IF_ERROR_INTERNAL(expr, std::move(adapter).status())
+
+#define TC3_RETURN_NULL_IF_ERROR(expr) \
+  TC3_RETURN_IF_ERROR_INTERNAL(expr, nullptr)
+
+#define TC3_RETURN_FALSE_IF_ERROR(expr) \
+  TC3_RETURN_IF_ERROR_INTERNAL(expr, false)
+
+#define TC3_RETURN_IF_ERROR_INTERNAL(expr, return_value)   \
   TC3_STATUS_MACROS_IMPL_ELSE_BLOCKER_                     \
   if (::libtextclassifier3::StatusAdapter adapter{expr}) { \
   } else /* NOLINT */                                      \
-    return std::move(adapter).status()
+    return return_value
 
 // The GNU compiler emits a warning for code like:
 //

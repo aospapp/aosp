@@ -26,6 +26,9 @@ include $(LOCAL_PATH)/silk_headers.mk
 include $(LOCAL_PATH)/silk_sources.mk
 
 LOCAL_MODULE := libopus
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 LOCAL_ARM_MODE := arm
 LOCAL_CFLAGS := -DOPUS_BUILD -DFIXED_POINT -DUSE_ALLOCA -DHAVE_LRINT \
                 -DHAVE_LRINTF

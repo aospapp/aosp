@@ -69,6 +69,17 @@ _HTML_CHART_STR = '''
 </html>
 '''
 
+_HTML_LINK_STR = '''
+<!DOCTYPE html>
+<html>
+<body>
+<a href="http://chrome-power.appspot.com/dashboard?board={board}&test={test}&datetime={datetime}">
+  Link to power dashboard
+</a>
+</body>
+</html>
+'''
+
 
 class BaseDashboard(object):
     """Base class that implements method for prepare and upload data to power
@@ -156,6 +167,16 @@ class BaseDashboard(object):
             resultsdir: directory to save HTML page
             filename: filename to append to
         """
+        # Generate link to power dashboard,
+        board = powerlog_dict['dut']['board']
+        test = powerlog_dict['test']
+        datetime = time.strftime('%Y%m%d%H%M',
+                                 time.gmtime(powerlog_dict['timestamp']))
+
+        html_str = _HTML_LINK_STR.format(board=board,
+                                         test=test,
+                                         datetime=datetime)
+
         # Create dict from type to sorted list of rail names.
         rail_type = collections.defaultdict(list)
         for r, t in powerlog_dict['power']['type'].iteritems():
@@ -163,7 +184,6 @@ class BaseDashboard(object):
         for t in rail_type:
             rail_type[t] = sorted(rail_type[t])
 
-        html_str = ''
         row_indent = ' ' * 12
         for t in rail_type:
             data_str_list = []
@@ -203,7 +223,7 @@ class BaseDashboard(object):
         encoded = urllib.urlencode(data_obj)
         req = urllib2.Request(uploadurl, encoded)
 
-        @retry.retry(urllib2.URLError, blacklist=[urllib2.HTTPError],
+        @retry.retry(urllib2.URLError, raiselist=[urllib2.HTTPError],
                      timeout_min=5.0, delay_sec=1, backoff=2)
         def _do_upload():
             urllib2.urlopen(req)
@@ -296,8 +316,7 @@ class ClientTestDashboard(BaseDashboard):
     """Dashboard class for autotests that run on client side.
     """
 
-    def __init__(self, logger, testname, start_ts=None, resultsdir=None,
-                 uploadurl=None, note=''):
+    def __init__(self, logger, testname, start_ts, resultsdir, uploadurl, note):
         """Create BaseDashboard objects.
 
         Args:
@@ -372,8 +391,7 @@ class MeasurementLoggerDashboard(ClientTestDashboard):
     """Dashboard class for power_status.MeasurementLogger.
     """
 
-    def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
-                 note=''):
+    def __init__(self, logger, testname, resultsdir, uploadurl, note):
         super(MeasurementLoggerDashboard, self).__init__(logger, testname, None,
                                                          resultsdir, uploadurl,
                                                          note)
@@ -455,10 +473,7 @@ class PowerLoggerDashboard(MeasurementLoggerDashboard):
     """Dashboard class for power_status.PowerLogger.
     """
 
-    def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
-                 note=''):
-        if uploadurl is None:
-            uploadurl = 'http://chrome-power.appspot.com/rapl'
+    def __init__(self, logger, testname, resultsdir, uploadurl, note):
         super(PowerLoggerDashboard, self).__init__(logger, testname, resultsdir,
                                                    uploadurl, note)
         self._unit = 'watt'
@@ -469,49 +484,74 @@ class TempLoggerDashboard(MeasurementLoggerDashboard):
     """Dashboard class for power_status.TempLogger.
     """
 
-    def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
-                 note=''):
-        if uploadurl is None:
-            uploadurl = 'http://chrome-power.appspot.com/rapl'
+    def __init__(self, logger, testname, resultsdir, uploadurl, note):
         super(TempLoggerDashboard, self).__init__(logger, testname, resultsdir,
                                                   uploadurl, note)
         self._unit = 'celsius'
         self._type = 'temperature'
 
 
-class SimplePowerLoggerDashboard(ClientTestDashboard):
-    """Dashboard class for simple system power measurement taken and publishing
-    it to the dashboard.
+class KeyvalLogger(power_status.MeasurementLogger):
+    """Class for logging custom keyval data to power dashboard.
+
+    Each key should be unique and only map to one value.
+    See power_SpeedoMeter2 for implementation example.
     """
 
-    def __init__(self, duration_secs, power_watts, testname, start_ts,
-                 resultsdir=None, uploadurl=None, note=''):
+    def __init__(self, start_ts, end_ts):
+        # Do not call parent constructor to avoid making a new thread.
+        self.times = [start_ts]
+        self._duration_secs = end_ts - start_ts
+        self.keys = []
+        self.values = []
+        self.units = []
+        self.types = []
 
-        if uploadurl is None:
-            uploadurl = 'http://chrome-power.appspot.com/rapl'
-        super(SimplePowerLoggerDashboard, self).__init__(
-                None, testname, start_ts, resultsdir, uploadurl, note)
+    def is_unit_valid(self, unit):
+        """Make sure that unit of the data is supported unit."""
+        pattern = re.compile(r'^((kilo|mega|giga)hertz|'
+                             r'percent|celsius|fps|rpm|point|'
+                             r'(milli|micro)?(watt|volt|amp))$')
+        return pattern.match(unit) is not None
 
-        self._unit = 'watt'
-        self._type = 'power'
-        self._duration_secs = duration_secs
-        self._power_watts = power_watts
-        self._testname = testname
+    def add_item(self, key, value, unit, type_):
+        """Add a data point to the logger.
+
+        @param key: string, key of the data.
+        @param value: float, measurement value.
+        @param unit: string, unit for the data.
+        @param type: string, type of the data.
+        """
+        if not self.is_unit_valid(unit):
+            raise error.TestError(
+                    'Unit %s is not support in power dashboard.' % unit)
+        self.keys.append(key)
+        self.values.append(value)
+        self.units.append(unit)
+        self.types.append(type_)
+
+    def calc(self, mtype=None):
+        return {}
+
+    def save_results(self, resultsdir=None, fname_prefix=None):
+        pass
+
+
+class KeyvalLoggerDashboard(MeasurementLoggerDashboard):
+    """Dashboard class for custom keyval data in KeyvalLogger class."""
 
     def _convert(self):
-        """Convert vbat to raw power measurement dictionary.
-
-        Return:
-            raw measurement dictionary
-        """
-        power_dict = {
-            'sample_count': 1,
-            'sample_duration': self._duration_secs,
-            'average': {'system': self._power_watts},
-            'data': {'system': [self._power_watts]},
-            'unit': {'system': self._unit},
-            'type': {'system': self._type},
-            'checkpoint': [[self._testname]],
+        """Convert KeyvalLogger data to power dict."""
+        power_dict =  {
+            # 2 samples to show flat value spanning across duration of the test.
+            'sample_count': 2,
+            'sample_duration': self._logger._duration_secs,
+            'average': dict(zip(self._logger.keys, self._logger.values)),
+            'data': dict(zip(self._logger.keys,
+                             ([v, v] for v in self._logger.values))),
+            'unit': dict(zip(self._logger.keys, self._logger.units)),
+            'type': dict(zip(self._logger.keys, self._logger.types)),
+            'checkpoint': [[self._testname], [self._testname]],
         }
         return power_dict
 
@@ -519,14 +559,6 @@ class SimplePowerLoggerDashboard(ClientTestDashboard):
 class CPUStatsLoggerDashboard(MeasurementLoggerDashboard):
     """Dashboard class for power_status.CPUStatsLogger.
     """
-
-    def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
-                 note=''):
-        if uploadurl is None:
-            uploadurl = 'http://chrome-power.appspot.com/rapl'
-        super(CPUStatsLoggerDashboard, self).__init__(
-                logger, testname, resultsdir, uploadurl, note)
-
     @staticmethod
     def _split_domain(domain):
         """Return domain_type and domain_name for given domain.
@@ -615,11 +647,53 @@ class CPUStatsLoggerDashboard(MeasurementLoggerDashboard):
 class VideoFpsLoggerDashboard(MeasurementLoggerDashboard):
     """Dashboard class for power_status.VideoFpsLogger."""
 
-    def __init__(self, logger, testname, resultsdir=None, uploadurl=None,
-                 note=''):
-        if uploadurl is None:
-            uploadurl = 'http://chrome-power.appspot.com/rapl'
+    def __init__(self, logger, testname, resultsdir, uploadurl, note):
         super(VideoFpsLoggerDashboard, self).__init__(
             logger, testname, resultsdir, uploadurl, note)
         self._unit = 'fps'
         self._type = 'fps'
+
+
+class FanRpmLoggerDashboard(MeasurementLoggerDashboard):
+    """Dashboard class for power_status.FanRpmLogger."""
+
+    def __init__(self, logger, testname, resultsdir, uploadurl, note):
+        super(FanRpmLoggerDashboard, self).__init__(
+            logger, testname, resultsdir, uploadurl, note)
+        self._unit = 'rpm'
+        self._type = 'fan'
+
+dashboard_factory = None
+def get_dashboard_factory():
+    global dashboard_factory
+    if not dashboard_factory:
+        dashboard_factory = LoggerDashboardFactory()
+    return dashboard_factory
+
+class LoggerDashboardFactory(object):
+    """Class to generate client test dashboard object from logger."""
+
+    loggerToDashboardDict = {
+        power_status.CPUStatsLogger: CPUStatsLoggerDashboard,
+        power_status.PowerLogger:    PowerLoggerDashboard,
+        power_status.TempLogger:     TempLoggerDashboard,
+        power_status.VideoFpsLogger: VideoFpsLoggerDashboard,
+        power_status.FanRpmLogger:   FanRpmLoggerDashboard,
+        KeyvalLogger:                KeyvalLoggerDashboard,
+    }
+
+    def registerDataType(self, logger_type, dashboard_type):
+        """Register new type of dashboard to the factory
+
+        @param logger_type: Type of logger to register
+        @param dashboard_type: Type of dashboard to register
+        """
+        self.loggerToDashboardDict[logger_type] = dashboard_type
+
+    def createDashboard(self, logger, testname, resultsdir=None,
+                        uploadurl=None, note=''):
+        """Create dashboard object"""
+        if uploadurl is None:
+            uploadurl = 'http://chrome-power.appspot.com/rapl'
+        dashboard = self.loggerToDashboardDict[type(logger)]
+        return dashboard(logger, testname, resultsdir, uploadurl, note)

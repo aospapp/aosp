@@ -25,6 +25,7 @@
 
 #define _GNU_SOURCE
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -45,6 +46,7 @@
 
 #include "wayland-util.h"
 #include "wayland-private.h"
+#include "wayland-server-private.h"
 #include "wayland-server.h"
 #include "wayland-os.h"
 
@@ -112,6 +114,7 @@ struct wl_global {
 	void *data;
 	wl_global_bind_func_t bind;
 	struct wl_list link;
+	bool removed;
 };
 
 struct wl_resource {
@@ -686,12 +689,12 @@ wl_resource_post_no_memory(struct wl_resource *resource)
  * Before Wayland 1.2.0, the definition of struct wl_resource was public.
  * It was made opaque just before 1.2.0, and later new fields were added.
  * The new fields cannot be accessed if a program is using the deprecated
- * defition, as there would not be memory allocated for them.
+ * definition, as there would not be memory allocated for them.
  *
  * The creation pattern for the deprecated definition was wl_resource_init()
  * followed by wl_client_add_resource(). wl_resource_init() was an inline
  * function and no longer exists, but binaries might still carry it.
- * wl_client_add_resource() still exists for ABI compatiblity.
+ * wl_client_add_resource() still exists for ABI compatibility.
  */
 static bool
 resource_is_deprecated(struct wl_resource *resource)
@@ -855,6 +858,28 @@ wl_resource_get_class(struct wl_resource *resource)
 	return resource->object.interface->name;
 }
 
+/** Safely converts an object into its corresponding resource
+ *
+ * \param object The object to convert
+ * \return A corresponding resource, or NULL on failure
+ *
+ * Safely converts an object into its corresponding resource.
+ *
+ * This is useful for implementing functions that are given a \c wl_argument
+ * array, and that need to do further introspection on the ".o" field, as it
+ * is otherwise an opaque type.
+ *
+ * \memberof wl_resource
+ */
+WL_EXPORT struct wl_resource *
+wl_resource_from_object(struct wl_object *object)
+{
+	struct wl_resource *resource;
+	if (object == NULL)
+		return NULL;
+	return wl_container_of(object, resource, object);
+}
+
 WL_EXPORT void
 wl_client_add_destroy_listener(struct wl_client *client,
 			       struct wl_listener *listener)
@@ -888,7 +913,7 @@ wl_client_destroy(struct wl_client *client)
 
 /* Check if a global filter is registered and use it if any.
  *
- * If no wl_global filter has been registered, this funtion will
+ * If no wl_global filter has been registered, this function will
  * return true, allowing the wl_global to be visible to the wl_client
  */
 static bool
@@ -917,6 +942,12 @@ registry_bind(struct wl_client *client,
 		wl_resource_post_error(resource,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
 				       "invalid global %s (%d)", interface, name);
+	else if (strcmp(global->interface->name, interface) != 0)
+		wl_resource_post_error(resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "invalid interface for global %u: "
+				       "have %s, wanted %s",
+				       name, interface, global->interface->name);
 	else if (version == 0)
 		wl_resource_post_error(resource,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
@@ -986,7 +1017,7 @@ display_get_registry(struct wl_client *client,
 		       &registry_resource->link);
 
 	wl_list_for_each(global, &display->global_list, link)
-		if (wl_global_is_visible(client, global))
+		if (wl_global_is_visible(client, global) && !global->removed)
 			wl_resource_post_event(registry_resource,
 					       WL_REGISTRY_GLOBAL,
 					       global->name,
@@ -1142,13 +1173,13 @@ wl_display_destroy(struct wl_display *display)
 /** Set a filter function for global objects
  *
  * \param display The Wayland display object.
- * \param filter  The global filter funtion.
+ * \param filter  The global filter function.
  * \param data User data to be associated with the global filter.
  * \return None.
  *
  * Set a filter for the wl_display to advertise or hide global objects
  * to clients.
- * The set filter will be used during wl_global advertisment to
+ * The set filter will be used during wl_global advertisement to
  * determine whether a global object should be advertised to a
  * given client, and during wl_global binding to determine whether
  * a given client should be allowed to bind to a global.
@@ -1202,6 +1233,7 @@ wl_global_create(struct wl_display *display,
 	global->version = version;
 	global->data = data;
 	global->bind = bind;
+	global->removed = false;
 	wl_list_insert(display->global_list.prev, &global->link);
 
 	wl_list_for_each(resource, &display->registry_resource_list, link)
@@ -1214,15 +1246,50 @@ wl_global_create(struct wl_display *display,
 	return global;
 }
 
+/** Remove the global
+ *
+ * \param global The Wayland global.
+ *
+ * Broadcast a global remove event to all clients without destroying the
+ * global. This function can only be called once per global.
+ *
+ * wl_global_destroy() removes the global and immediately destroys it. On
+ * the other end, this function only removes the global, allowing clients
+ * that have not yet received the global remove event to continue to bind to
+ * it.
+ *
+ * This can be used by compositors to mitigate clients being disconnected
+ * because a global has been added and removed too quickly. Compositors can call
+ * wl_global_remove(), then wait an implementation-defined amount of time, then
+ * call wl_global_destroy(). Note that the destruction of a global is still
+ * racy, since clients have no way to acknowledge that they received the remove
+ * event.
+ *
+ * \since 1.17.90
+ */
 WL_EXPORT void
-wl_global_destroy(struct wl_global *global)
+wl_global_remove(struct wl_global *global)
 {
 	struct wl_display *display = global->display;
 	struct wl_resource *resource;
 
+	if (global->removed)
+		wl_abort("wl_global_remove: called twice on the same "
+			 "global '%s@%"PRIu32"'", global->interface->name,
+			 global->name);
+
 	wl_list_for_each(resource, &display->registry_resource_list, link)
 		wl_resource_post_event(resource, WL_REGISTRY_GLOBAL_REMOVE,
 				       global->name);
+
+	global->removed = true;
+}
+
+WL_EXPORT void
+wl_global_destroy(struct wl_global *global)
+{
+	if (!global->removed)
+		wl_global_remove(global);
 	wl_list_remove(&global->link);
 	free(global);
 }
@@ -1237,6 +1304,19 @@ WL_EXPORT void *
 wl_global_get_user_data(const struct wl_global *global)
 {
 	return global->data;
+}
+
+/** Set the global's user data
+ *
+ * \param global The global object
+ * \param data The user data pointer
+ *
+ * \since 1.17.90
+ */
+WL_EXPORT void
+wl_global_set_user_data(struct wl_global *global, void *data)
+{
+	global->data = data;
 }
 
 /** Get the current serial number
@@ -1362,7 +1442,7 @@ socket_data(int fd, uint32_t mask, void *data)
 	client_fd = wl_os_accept_cloexec(fd, (struct sockaddr *) &name,
 					 &length);
 	if (client_fd < 0)
-		wl_log("failed to accept: %m\n");
+		wl_log("failed to accept: %s\n", strerror(errno));
 	else
 		if (!wl_client_create(display, client_fd))
 			close(client_fd);
@@ -1378,7 +1458,7 @@ wl_socket_lock(struct wl_socket *socket)
 	snprintf(socket->lock_addr, sizeof socket->lock_addr,
 		 "%s%s", socket->addr.sun_path, LOCK_SUFFIX);
 
-	socket->fd_lock = open(socket->lock_addr, O_CREAT | O_CLOEXEC,
+	socket->fd_lock = open(socket->lock_addr, O_CREAT | O_CLOEXEC | O_RDWR,
 			       (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP));
 
 	if (socket->fd_lock < 0) {
@@ -1393,7 +1473,7 @@ wl_socket_lock(struct wl_socket *socket)
 		goto err_fd;
 	}
 
-	if (stat(socket->addr.sun_path, &socket_stat) < 0 ) {
+	if (lstat(socket->addr.sun_path, &socket_stat) < 0 ) {
 		if (errno != ENOENT) {
 			wl_log("did not manage to stat file %s\n",
 				socket->addr.sun_path);
@@ -1423,28 +1503,32 @@ static int
 wl_socket_init_for_display_name(struct wl_socket *s, const char *name)
 {
 	int name_size;
-	const char *runtime_dir;
+	const char *runtime_dir = "";
+	const char *separator = "";
 
-	runtime_dir = getenv("XDG_RUNTIME_DIR");
-	if (!runtime_dir) {
-		wl_log("error: XDG_RUNTIME_DIR not set in the environment\n");
+	if (name[0] != '/') {
+		runtime_dir = getenv("XDG_RUNTIME_DIR");
+		if (!runtime_dir) {
+			wl_log("error: XDG_RUNTIME_DIR not set in the environment\n");
 
-		/* to prevent programs reporting
-		 * "failed to add socket: Success" */
-		errno = ENOENT;
-		return -1;
+			/* to prevent programs reporting
+			 * "failed to add socket: Success" */
+			errno = ENOENT;
+			return -1;
+		}
+		separator = "/";
 	}
 
 	s->addr.sun_family = AF_LOCAL;
 	name_size = snprintf(s->addr.sun_path, sizeof s->addr.sun_path,
-			     "%s/%s", runtime_dir, name) + 1;
+			     "%s%s%s", runtime_dir, separator, name) + 1;
 
 	s->display_name = (s->addr.sun_path + name_size - 1) - strlen(name);
 
 	assert(name_size > 0);
 	if (name_size > (int)sizeof s->addr.sun_path) {
-		wl_log("error: socket path \"%s/%s\" plus null terminator"
-		       " exceeds 108 bytes\n", runtime_dir, name);
+		wl_log("error: socket path \"%s%s%s\" plus null terminator"
+		       " exceeds 108 bytes\n", runtime_dir, separator, name);
 		*s->addr.sun_path = 0;
 		/* to prevent programs reporting
 		 * "failed to add socket: Success" */
@@ -1467,12 +1551,12 @@ _wl_display_add_socket(struct wl_display *display, struct wl_socket *s)
 
 	size = offsetof (struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
 	if (bind(s->fd, (struct sockaddr *) &s->addr, size) < 0) {
-		wl_log("bind() failed with error: %m\n");
+		wl_log("bind() failed with error: %s\n", strerror(errno));
 		return -1;
 	}
 
 	if (listen(s->fd, 128) < 0) {
-		wl_log("listen() failed with error: %m\n");
+		wl_log("listen() failed with error: %s\n", strerror(errno));
 		return -1;
 	}
 
@@ -1583,14 +1667,17 @@ wl_display_add_socket_fd(struct wl_display *display, int sock_fd)
  * variable for the socket name. If WAYLAND_DISPLAY is not set, then default
  * wayland-0 is used.
  *
- * The Unix socket will be created in the directory pointed to by environment
- * variable XDG_RUNTIME_DIR. If XDG_RUNTIME_DIR is not set, then this function
- * fails and returns -1.
+ * If the socket name is a relative path, the Unix socket will be created in
+ * the directory pointed to by environment variable XDG_RUNTIME_DIR. If
+ * XDG_RUNTIME_DIR is not set, then this function fails and returns -1.
  *
- * The length of socket path, i.e., the path set in XDG_RUNTIME_DIR and the
- * socket name, must not exceed the maximum length of a Unix socket path.
- * The function also fails if the user do not have write permission in the
- * XDG_RUNTIME_DIR path or if the socket name is already in use.
+ * If the socket name is an absolute path, then it is used as-is for the
+ * the Unix socket.
+ *
+ * The length of the computed socket path must not exceed the maximum length
+ * of a Unix socket path.
+ * The function also fails if the user does not have write permission in the
+ * directory or if the path is already in use.
  *
  * \memberof wl_display
  */
@@ -1899,7 +1986,9 @@ wl_client_get_link(struct wl_client *client)
 WL_EXPORT struct wl_client *
 wl_client_from_link(struct wl_list *link)
 {
-	return container_of(link, struct wl_client, link);
+	struct wl_client *client;
+
+	return wl_container_of(link, client, link);
 }
 
 /** Add a listener for the client's resource creation signal
@@ -1975,7 +2064,7 @@ wl_client_for_each_resource(struct wl_client *client,
  * without corrupting the signal's list.
  *
  * Before passing a wl_priv_signal object to any other function it must be
- * initialized by useing wl_priv_signal_init().
+ * initialized by using wl_priv_signal_init().
  *
  * \memberof wl_priv_signal
  */
@@ -2005,7 +2094,7 @@ wl_priv_signal_add(struct wl_priv_signal *signal, struct wl_listener *listener)
  *
  * Returns the listener added to the given \a signal and with the given
  * \a notify function, or NULL if there isn't any.
- * Calling this function from withing wl_priv_signal_emit() is safe and will
+ * Calling this function from within wl_priv_signal_emit() is safe and will
  * return the correct value.
  *
  * \memberof wl_priv_signal

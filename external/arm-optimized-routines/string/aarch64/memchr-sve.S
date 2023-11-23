@@ -1,28 +1,27 @@
 /*
  * memchr - find a character in a memory zone
  *
- * Copyright (c) 2018, Arm Limited.
+ * Copyright (c) 2018-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
+#include "../asmdefs.h"
+
+#if __ARM_FEATURE_SVE
 /* Assumptions:
  *
  * ARMv8-a, AArch64
  * SVE Available.
  */
 
-	.arch	armv8-a+sve
-	.text
-
-	.globl	__memchr_aarch64_sve
-	.type	__memchr_aarch64_sve, %function
-	.p2align 4
-__memchr_aarch64_sve:
+ENTRY (__memchr_aarch64_sve)
+	PTR_ARG (0)
+	SIZE_ARG (2)
 	dup	z1.b, w1			/* duplicate c to a vector */
 	setffr					/* initialize FFR */
 	mov	x3, 0				/* initialize off */
-	nop
 
+	.p2align 4
 0:	whilelo	p1.b, x3, x2			/* make sure off < max */
 	b.none	9f
 
@@ -59,4 +58,7 @@ __memchr_aarch64_sve:
 9:	mov	x0, 0			/* return null */
 	ret
 
-	.size	__memchr_aarch64_sve, . - __memchr_aarch64_sve
+END (__memchr_aarch64_sve)
+
+#endif
+

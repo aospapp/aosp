@@ -207,6 +207,19 @@ def DefaultVariable(name, help, allowed_values):
   return (name, help, default_value, validator)
 
 
+def SortListVariable(iterator):
+  # Previously this code relied on the order of items in a list
+  # converted from a set. However in Python 3 the order changes each run.
+  # Here we do a custom partial sort to ensure that the build directory
+  # name is stable, the same across Python 2 and 3, and the same as the
+  # old code.
+  result = list(sorted(iterator))
+  result = sorted(result, key=lambda x: x == 't32', reverse=True)
+  result = sorted(result, key=lambda x: x == 'a32', reverse=True)
+  result = sorted(result, key=lambda x: x == 'a64', reverse=True)
+  return result
+
+
 def AliasedListVariable(name, help, default_value, allowed_values, aliasing):
   help = '%s (all|auto|comma-separated list) (any combination from [%s])' % \
          (help, ', '.join(allowed_values))
@@ -222,10 +235,10 @@ def AliasedListVariable(name, help, default_value, allowed_values, aliasing):
     if value == 'auto': return []
     if value == 'all':
       translated = [aliasing[v] for v in allowed_values]
-      return list(set(itertools.chain.from_iterable(translated)))
+      return SortListVariable(itertools.chain.from_iterable(translated))
     # The validator is run later hence the get.
     translated = [aliasing.get(v, v) for v in value.split(',')]
-    return list(set(itertools.chain.from_iterable(translated)))
+    return SortListVariable(itertools.chain.from_iterable(translated))
 
   return (name, help, default_value, validator, converter)
 
@@ -251,8 +264,10 @@ vars.AddVariables(
     DefaultVariable('code_buffer_allocator',
                     'Configure the allocation mechanism in the CodeBuffer',
                     ['malloc', 'mmap']),
-    ('std', 'C++ standard. The standards tested are: %s.' % \
-                                         ', '.join(config.tested_cpp_standards)),
+    ('std',
+     'C++ standard. The standards tested are: %s.' % \
+     ', '.join(config.tested_cpp_standards),
+     config.tested_cpp_standards[0]),
     ('compiler_wrapper', 'Command to prefix to the C and C++ compiler (e.g ccache)', '')
     )
 
@@ -292,9 +307,9 @@ def target_handler(env):
   if Is32BitHost(env):
     # We use list(set(...)) to keep the same order as if it was specify as
     # an option.
-    env['target'] = list(set(['a32', 't32']))
+    env['target'] = SortListVariable(['a32', 't32'])
   else:
-    env['target'] = list(set(['a64', 'a32', 't32']))
+    env['target'] = SortListVariable(['a64', 'a32', 't32'])
 
 
 def target_validator(env):
@@ -381,21 +396,12 @@ def ConfigureEnvironmentForCompiler(env):
   if env['negative_testing'] == 'on' and env['mode'] == 'debug' \
       and compiler >= 'gcc-6':
     env.Append(CPPFLAGS = ['-Wno-terminate'])
-    # The C++11 compatibility warning will also be triggered for this case, as
-    # the behavior of throwing from desctructors has changed.
-    if 'std' in env and env['std'] == 'c++98':
-      env.Append(CPPFLAGS = ['-Wno-c++11-compat'])
 
-  # When compiling with c++98 (the default), allow long long constants.
-  if 'std' not in env or env['std'] == 'c++98':
-    env.Append(CPPFLAGS = ['-Wno-long-long'])
-    env.Append(CPPFLAGS = ['-Wno-variadic-macros'])
-  # When compiling with c++11, suggest missing override keywords on methods.
-  if 'std' in env and env['std'] in ['c++11', 'c++14']:
-    if compiler >= 'gcc-5':
-      env.Append(CPPFLAGS = ['-Wsuggest-override'])
-    elif compiler >= 'clang-3.6':
-      env.Append(CPPFLAGS = ['-Winconsistent-missing-override'])
+  # Suggest missing override keywords on methods.
+  if compiler >= 'gcc-5':
+    env.Append(CPPFLAGS = ['-Wsuggest-override'])
+  elif compiler >= 'clang-3.6':
+    env.Append(CPPFLAGS = ['-Winconsistent-missing-override'])
 
 
 def ConfigureEnvironment(env):
@@ -459,11 +465,11 @@ env = Environment(variables = vars,
 # Abort the build if any command line option is unknown or invalid.
 unknown_build_options = vars.UnknownVariables()
 if unknown_build_options:
-  print 'Unknown build options:',  unknown_build_options.keys()
+  print('Unknown build options: ' + str(unknown_build_options.keys()))
   Exit(1)
 
 if env['negative_testing'] == 'on' and env['mode'] != 'debug':
-  print 'negative_testing only works in debug mode'
+  print('negative_testing only works in debug mode')
   Exit(1)
 
 ConfigureEnvironment(env)

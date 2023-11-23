@@ -17,7 +17,6 @@
 #include "cras_iodev.h"
 #include "cras_system_state.h"
 #include "cras_util.h"
-#include "sfh.h"
 #include "utlist.h"
 
 /* Implementation of bluetooth hands-free profile iodev.
@@ -44,12 +43,10 @@ static int update_supported_formats(struct cras_iodev *iodev)
 {
 	struct hfp_io *hfpio = (struct hfp_io *)iodev;
 
-	/* 16 bit, mono, 8kHz for narrowband and 16KHz for wideband */
-	iodev->format->format = SND_PCM_FORMAT_S16_LE;
-
 	free(iodev->supported_rates);
 	iodev->supported_rates = (size_t *)malloc(2 * sizeof(size_t));
 
+	/* 16 bit, mono, 8kHz for narrowband and 16KHz for wideband */
 	iodev->supported_rates[0] =
 		(hfp_slc_get_selected_codec(hfpio->slc) == HFP_CODEC_ID_MSBC) ?
 			16000 :
@@ -125,6 +122,12 @@ static int frames_queued(const struct cras_iodev *iodev,
 	return hfp_buf_queued(hfpio->info, iodev->direction);
 }
 
+static int output_underrun(struct cras_iodev *iodev)
+{
+	/* Handle it the same way as cras_iodev_output_underrun(). */
+	return cras_iodev_fill_odev_zeros(iodev, iodev->min_cb_level);
+}
+
 static int configure_dev(struct cras_iodev *iodev)
 {
 	struct hfp_io *hfpio = (struct hfp_io *)iodev;
@@ -133,11 +136,17 @@ static int configure_dev(struct cras_iodev *iodev)
 	/* Assert format is set before opening device. */
 	if (iodev->format == NULL)
 		return -EINVAL;
+
 	iodev->format->format = SND_PCM_FORMAT_S16_LE;
 	cras_iodev_init_audio_area(iodev, iodev->format->num_channels);
 
 	if (hfp_info_running(hfpio->info))
 		goto add_dev;
+
+	/*
+	 * Might require a codec negotiation before building the sco connection.
+	 */
+	hfp_slc_codec_connection_setup(hfpio->slc);
 
 	sk = cras_bt_device_sco_connect(hfpio->device,
 					hfp_slc_get_selected_codec(hfpio->slc));
@@ -148,7 +157,8 @@ static int configure_dev(struct cras_iodev *iodev)
 		hfpio->device, sk, hfp_slc_get_selected_codec(hfpio->slc));
 
 	/* Start hfp_info */
-	err = hfp_info_start(sk, mtu, hfpio->info);
+	err = hfp_info_start(sk, mtu, hfp_slc_get_selected_codec(hfpio->slc),
+			     hfpio->info);
 	if (err)
 		goto error;
 
@@ -250,6 +260,12 @@ static void update_active_node(struct cras_iodev *iodev, unsigned node_idx,
 {
 }
 
+int hfp_iodev_is_hsp(struct cras_iodev *iodev)
+{
+	struct hfp_io *hfpio = (struct hfp_io *)iodev;
+	return hfp_slc_is_hsp(hfpio->slc);
+}
+
 void hfp_free_resources(struct hfp_io *hfpio)
 {
 	struct cras_ionode *node;
@@ -292,10 +308,7 @@ struct cras_iodev *hfp_iodev_create(enum CRAS_STREAM_DIRECTION dir,
 
 	snprintf(iodev->info.name, sizeof(iodev->info.name), "%s", name);
 	iodev->info.name[ARRAY_SIZE(iodev->info.name) - 1] = 0;
-	iodev->info.stable_id =
-		SuperFastHash(cras_bt_device_object_path(device),
-			      strlen(cras_bt_device_object_path(device)),
-			      strlen(cras_bt_device_object_path(device)));
+	iodev->info.stable_id = cras_bt_device_get_stable_id(device);
 
 	iodev->configure_dev = configure_dev;
 	iodev->frames_queued = frames_queued;
@@ -308,21 +321,35 @@ struct cras_iodev *hfp_iodev_create(enum CRAS_STREAM_DIRECTION dir,
 	iodev->update_supported_formats = update_supported_formats;
 	iodev->update_active_node = update_active_node;
 	iodev->set_volume = set_hfp_volume;
+	iodev->output_underrun = output_underrun;
 
 	node = (struct cras_ionode *)calloc(1, sizeof(*node));
 	node->dev = iodev;
 	strcpy(node->name, iodev->info.name);
 
 	node->plugged = 1;
+	/* If headset mic doesn't support the wideband speech, report a
+	 * different node type so UI can set different plug priority. */
 	node->type = CRAS_NODE_TYPE_BLUETOOTH;
+	if (!hfp_slc_get_wideband_speech_supported(hfpio->slc) &&
+	    (dir == CRAS_STREAM_INPUT))
+		node->type = CRAS_NODE_TYPE_BLUETOOTH_NB_MIC;
+
 	node->volume = 100;
 	gettimeofday(&node->plugged_time, NULL);
 
-	cras_bt_device_append_iodev(device, iodev, profile);
+	/* Prepare active node before append, so bt_io can extract correct
+	 * info from HFP iodev and node. */
 	cras_iodev_add_node(iodev, node);
 	cras_iodev_set_active_node(iodev, node);
+	cras_bt_device_append_iodev(device, iodev, profile);
 
 	hfpio->info = info;
+
+	/* Record max supported channels into cras_iodev_info. */
+	iodev->info.max_supported_channels = 1;
+
+	ewma_power_disable(&iodev->ewma);
 
 	return iodev;
 

@@ -25,12 +25,22 @@
 // ARM:
 #include "src/dsp/arm/mask_blend_neon.h"
 
+// x86:
+// Note includes should be sorted in logical order avx2/avx/sse4, etc.
+// The order of includes is important as each tests for a superior version
+// before setting the base.
+// clang-format off
+// SSE4_1
+#include "src/dsp/x86/mask_blend_sse4.h"
+// clang-format on
+
 // IWYU pragma: end_exports
 
 namespace libgav1 {
 namespace dsp {
 
-// Initializes Dsp::mask_blend. This function is not thread-safe.
+// Initializes Dsp::mask_blend and Dsp::inter_intra_mask_blend_8bpp. This
+// function is not thread-safe.
 void MaskBlendInit_C();
 
 }  // namespace dsp

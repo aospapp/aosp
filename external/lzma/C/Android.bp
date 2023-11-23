@@ -1,10 +1,19 @@
 // Copyright 2015 The Android Open Source Project
 
+package {
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "external_lzma_license":
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_lzma_license"],
+}
+
 cc_library {
     name: "liblzma",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
+    vendor_ramdisk_available: true,
     native_bridge_supported: true,
     vndk: {
         enabled: true,
@@ -85,7 +94,8 @@ cc_library {
 
     apex_available: [
         "//apex_available:platform",
-        "com.android.art.debug", // from libartbase
-        "com.android.art.release",
+        "com.android.art", // from libartbase
+        "com.android.art.debug",
     ],
+    min_sdk_version: "apex_inherit",
 }

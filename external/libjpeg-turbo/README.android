@@ -1,20 +1,15 @@
-Any Android specific modifications to upstream libjpeg-turbo (the version
-specified in METADATA) should be listed here:
+# Android differences from upstream chromium
 
-(1) jconfig.h and jconfigint.h
-
-These are included upstream as jconfig.h.in and jconfigint.h.in.
-We have the option autogenerate these platform/version specific files (using
-the libjpeg-turbo build system) or to manually create them.
-
-Autogenerating these files on linux gets us most of the way, but we've needed
-to add some multi-platform flexibility to the INLINE and SIZEOF_SIZE_T macros.
-
-(2) simd/arm64/jsimd_neon.S
-
-To support execute-only memory layouts, constants in handwritten assembly have
-been moved into a dedicated rodata section.
-
-There's a pull request upstream for this as well. If that's accepted, this
-can be removed as an Android-specific modification.
-https://github.com/libjpeg-turbo/libjpeg-turbo/pull/318
+Android builds with `C_ARITH_CODING_SUPPORTED` and `D_ARITH_CODING_SUPPORTED`,
+added in
+https://android-review.googlesource.com/c/platform/external/libjpeg-turbo/+/291407/
+to support a variant of jpeg files using arithmetic (instead of Huffman)
+encoding. This variant isn't often used because of a lack of support in many
+viewers (e.g. Chromium), but Android really values backwards compatibility, and
+this might break some users. Android probably only needs to keep
+`D_ARITH_CODING_SUPPORTED`, but vendor code might also be encoding by setting
+jpeg_compress_struct.arith_code to true, so we enable both to ensure full
+backwards compatibility since it's not really costing us anything.
+We `#define` these in jconfig.h rather than in Android.bp so that they're
+correctly exported to any *users* (in particular, jerror.h only conditionally
+defines the corresponding error codes if these `#define`s are present).

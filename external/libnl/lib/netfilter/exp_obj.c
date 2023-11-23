@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/exp_obj.c	Conntrack Expectation Object
  *
@@ -132,7 +133,7 @@ static int exp_clone(struct nl_object *_dst, struct nl_object *_src)
 		dst->exp_mask.dst = addr;
 	}
 
-    // NAT
+	// NAT
 	if (src->exp_nat.src) {
 		addr = nl_addr_clone(src->exp_nat.src);
 		if (!addr)
@@ -200,7 +201,7 @@ static void exp_dump_tuples(struct nfnl_exp *exp, struct nl_dump_params *p)
 		if (nfnl_exp_test_dst(exp, i))
 			tuple_dst = nfnl_exp_get_dst(exp, i);
 
-        // Don't have tests for individual ports/types/codes/ids,
+		// Don't have tests for individual ports/types/codes/ids,
 		if (nfnl_exp_test_l4protonum(exp, i)) {
 			nl_dump(p, "%s ",
 				nl_ip_proto2str(nfnl_exp_get_l4protonum(exp, i), buf, sizeof(buf)));
@@ -286,27 +287,27 @@ static int exp_cmp_l4proto_ports (union nfnl_exp_protodata *a, union nfnl_exp_pr
 	// Must return 0 for match, 1 for mismatch
 	int d = 0;
 	d = ( (a->port.src != b->port.src) ||
-		  (a->port.dst != b->port.dst) );
+	      (a->port.dst != b->port.dst) );
 
 	return d;
 }
 
 static int exp_cmp_l4proto_icmp (union nfnl_exp_protodata *a, union nfnl_exp_protodata *b) {
-    // Must return 0 for match, 1 for mismatch
+	// Must return 0 for match, 1 for mismatch
 	int d = 0;
 	d = ( (a->icmp.code != b->icmp.code) ||
-		  (a->icmp.type != b->icmp.type) ||
-		  (a->icmp.id != b->icmp.id) );
+	      (a->icmp.type != b->icmp.type) ||
+	      (a->icmp.id != b->icmp.id) );
 
 	return d;
 }
 
-static int exp_compare(struct nl_object *_a, struct nl_object *_b,
-							uint32_t attrs, int flags)
+static uint64_t exp_compare(struct nl_object *_a, struct nl_object *_b,
+			    uint64_t attrs, int flags)
 {
 	struct nfnl_exp *a = (struct nfnl_exp *) _a;
 	struct nfnl_exp *b = (struct nfnl_exp *) _b;
-	int diff = 0;
+	uint64_t diff = 0;
 
 #define EXP_DIFF(ATTR, EXPR) ATTR_DIFF(attrs, EXP_ATTR_##ATTR, a, b, EXPR)
 #define EXP_DIFF_VAL(ATTR, FIELD) EXP_DIFF(ATTR, a->FIELD != b->FIELD)
@@ -367,35 +368,35 @@ static int exp_compare(struct nl_object *_a, struct nl_object *_b,
 
 // CLI arguments?
 static const struct trans_tbl exp_attrs[] = {
-	__ADD(EXP_ATTR_FAMILY,				family)
-	__ADD(EXP_ATTR_TIMEOUT,				timeout)
-	__ADD(EXP_ATTR_ID,				id)
-	__ADD(EXP_ATTR_HELPER_NAME,			helpername)
-	__ADD(EXP_ATTR_ZONE,				zone)
-	__ADD(EXP_ATTR_CLASS,				class)
-	__ADD(EXP_ATTR_FLAGS,				flags)
-	__ADD(EXP_ATTR_FN,				function)
-	__ADD(EXP_ATTR_EXPECT_IP_SRC,			expectipsrc)
-	__ADD(EXP_ATTR_EXPECT_IP_DST,			expectipdst)
-	__ADD(EXP_ATTR_EXPECT_L4PROTO_NUM,		expectprotonum)
-	__ADD(EXP_ATTR_EXPECT_L4PROTO_PORTS,		expectports)
-	__ADD(EXP_ATTR_EXPECT_L4PROTO_ICMP,		expecticmp)
-	__ADD(EXP_ATTR_MASTER_IP_SRC,			masteripsrc)
-	__ADD(EXP_ATTR_MASTER_IP_DST,			masteripdst)
-	__ADD(EXP_ATTR_MASTER_L4PROTO_NUM,		masterprotonum)
-	__ADD(EXP_ATTR_MASTER_L4PROTO_PORTS,		masterports)
-	__ADD(EXP_ATTR_MASTER_L4PROTO_ICMP,		mastericmp)
-	__ADD(EXP_ATTR_MASK_IP_SRC,			maskipsrc)
-	__ADD(EXP_ATTR_MASK_IP_DST,			maskipdst)
-	__ADD(EXP_ATTR_MASK_L4PROTO_NUM,		maskprotonum)
-	__ADD(EXP_ATTR_MASK_L4PROTO_PORTS,		maskports)
-	__ADD(EXP_ATTR_MASK_L4PROTO_ICMP,		maskicmp)
-	__ADD(EXP_ATTR_NAT_IP_SRC,			natipsrc)
-	__ADD(EXP_ATTR_NAT_IP_DST,			natipdst)
-	__ADD(EXP_ATTR_NAT_L4PROTO_NUM,			natprotonum)
-	__ADD(EXP_ATTR_NAT_L4PROTO_PORTS,		natports)
-	__ADD(EXP_ATTR_NAT_L4PROTO_ICMP,		naticmp)
-	__ADD(EXP_ATTR_NAT_DIR,				natdir)
+	__ADD(EXP_ATTR_FAMILY,				family),
+	__ADD(EXP_ATTR_TIMEOUT,				timeout),
+	__ADD(EXP_ATTR_ID,				id),
+	__ADD(EXP_ATTR_HELPER_NAME,			helpername),
+	__ADD(EXP_ATTR_ZONE,				zone),
+	__ADD(EXP_ATTR_CLASS,				class),
+	__ADD(EXP_ATTR_FLAGS,				flags),
+	__ADD(EXP_ATTR_FN,				function),
+	__ADD(EXP_ATTR_EXPECT_IP_SRC,			expectipsrc),
+	__ADD(EXP_ATTR_EXPECT_IP_DST,			expectipdst),
+	__ADD(EXP_ATTR_EXPECT_L4PROTO_NUM,		expectprotonum),
+	__ADD(EXP_ATTR_EXPECT_L4PROTO_PORTS,		expectports),
+	__ADD(EXP_ATTR_EXPECT_L4PROTO_ICMP,		expecticmp),
+	__ADD(EXP_ATTR_MASTER_IP_SRC,			masteripsrc),
+	__ADD(EXP_ATTR_MASTER_IP_DST,			masteripdst),
+	__ADD(EXP_ATTR_MASTER_L4PROTO_NUM,		masterprotonum),
+	__ADD(EXP_ATTR_MASTER_L4PROTO_PORTS,		masterports),
+	__ADD(EXP_ATTR_MASTER_L4PROTO_ICMP,		mastericmp),
+	__ADD(EXP_ATTR_MASK_IP_SRC,			maskipsrc),
+	__ADD(EXP_ATTR_MASK_IP_DST,			maskipdst),
+	__ADD(EXP_ATTR_MASK_L4PROTO_NUM,		maskprotonum),
+	__ADD(EXP_ATTR_MASK_L4PROTO_PORTS,		maskports),
+	__ADD(EXP_ATTR_MASK_L4PROTO_ICMP,		maskicmp),
+	__ADD(EXP_ATTR_NAT_IP_SRC,			natipsrc),
+	__ADD(EXP_ATTR_NAT_IP_DST,			natipdst),
+	__ADD(EXP_ATTR_NAT_L4PROTO_NUM,			natprotonum),
+	__ADD(EXP_ATTR_NAT_L4PROTO_PORTS,		natports),
+	__ADD(EXP_ATTR_NAT_L4PROTO_ICMP,		naticmp),
+	__ADD(EXP_ATTR_NAT_DIR,				natdir),
 };
 
 static char *exp_attrs2str(int attrs, char *buf, size_t len)
@@ -467,9 +468,9 @@ uint32_t nfnl_exp_get_flags(const struct nfnl_exp *exp)
 }
 
 static const struct trans_tbl flag_table[] = {
-	__ADD(IPS_EXPECTED, expected)
-	__ADD(IPS_SEEN_REPLY, seen_reply)
-	__ADD(IPS_ASSURED, assured)
+	__ADD(IPS_EXPECTED, expected),
+	__ADD(IPS_SEEN_REPLY, seen_reply),
+	__ADD(IPS_ASSURED, assured),
 };
 
 char * nfnl_exp_flags2str(int flags, char *buf, size_t len)

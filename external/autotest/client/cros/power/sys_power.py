@@ -35,7 +35,7 @@ class SuspendTimeout(SuspendFailure):
 class KernelError(SuspendFailure):
     """Kernel problem encountered during suspend/resume.
 
-    Whitelist is an array of a 2-entry tuples consisting of (source regexp, text
+    Allowlist is an array of a 2-entry tuples consisting of (source regexp, text
     regexp).  For example, kernel output might look like,
 
       [  597.079950] WARNING: CPU: 0 PID: 21415 at \
@@ -47,11 +47,11 @@ class KernelError(SuspendFailure):
     up to 2 lines below the source.  Note timestamps are stripped prior to
     comparing regexp.
     """
-    WHITELIST = [
+    ALLOWLIST = [
         # crosbug.com/37594: debug tracing clock desync we don't care about
         (r'kernel/trace/ring_buffer.c:\d+ rb_reserve_next_event',
          r'Delta way too big!'),
-        # TODO(crosbug.com/p/52008): Remove from whitelist once watermark
+        # TODO(crosbug.com/p/52008): Remove from allowlist once watermark
         # implementation has landed.
         (r'v3.18/\S+/intel_pm.c:\d+ skl_update_other_pipe_wm',
          r'WARN_ON\(\!wm_changed\)')
@@ -60,7 +60,7 @@ class KernelError(SuspendFailure):
 
 class FirmwareError(SuspendFailure):
     """String 'ERROR' found in firmware log after resume."""
-    WHITELIST = [
+    ALLOWLIST = [
         # crosbug.com/36762: no one knows, but it has always been there
         ('^stumpy', r'PNP: 002e\.4 70 irq size: 0x0000000001 not assigned'),
         # crbug.com/221538: no one knows what ME errors mean anyway
@@ -72,7 +72,7 @@ class FirmwareError(SuspendFailure):
 
 class SpuriousWakeupError(SuspendFailure):
     """Received spurious wakeup while suspending or woke before schedule."""
-    S3_WHITELIST = [  # (<board>, <eventlog wake source>, <syslog wake source>)
+    S3_ALLOWLIST = [  # (<board>, <eventlog wake source>, <syslog wake source>)
         # crbug.com/220014: spurious trackpad IRQs
         ('^link', 'Wake Source | GPIO | 12', ''),
         # crbug.com/345327: unknown, probably same as crbug.com/290923
@@ -80,11 +80,11 @@ class SpuriousWakeupError(SuspendFailure):
         # crbug.com/355106: unknown, possibly related to crbug.com/290923
         ('^lumpy|^parrot', '', 'PM1_STS: WAK PWRBTN'),
     ]
-    S0_WHITELIST = [  # (<board>, <kernel wake source>)
+    S0_ALLOWLIST = [  # (<board>, <kernel wake source>)
         # crbug.com/290923: spurious keyboard IRQ, believed to be from Servo
         ('^x86-alex|^lumpy|^parrot|^butterfly', 'serio0'),
         # crosbug.com/p/46140: battery event caused by MKBP
-        ('^elm|^oak', 'spi32766.0'),
+        ('^elm|^oak|^hana', 'spi32766.0'),
     ]
 
 
@@ -101,6 +101,12 @@ class SuspendNotAllowed(SuspendFailure):
 class S0ixResidencyNotChanged(SuspendFailure):
     """power_SuspendStress test found CPU/SoC is unable to idle properly
     when suspended to S0ix. """
+    pass
+
+
+class S2IdleResidencyNotChanged(SuspendFailure):
+    """power_SuspendStress test found CPU/SoC is unable to idle properly
+    when suspended to s2idle. """
     pass
 
 
@@ -129,7 +135,7 @@ def check_wakeup(estimated_alarm):
     """
     now = rtc.get_seconds()
     if now < estimated_alarm:
-        logging.error('Woke up early at %d', now)
+        logging.error('Woke up %d secs early', (estimated_alarm - now))
         raise SpuriousWakeupError('Woke from suspend early')
 
 

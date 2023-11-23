@@ -5,8 +5,8 @@
 import logging
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.cellular import test_environment
 from autotest_lib.client.cros.update_engine import nebraska_wrapper
@@ -36,16 +36,24 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
         self._oobe.ExecuteJavaScript('Oobe.skipToUpdateForTesting()')
 
 
-    def _start_oobe_update(self, url):
+    def _start_oobe_update(self, update_url, critical_update, full_payload):
         """
         Jump to the update check screen at OOBE and wait for update to start.
 
-        @param url: The omaha update URL we expect to call.
+        @param update_url: The omaha update URL we expect to call.
+        @param critical_update: True if the update is critical.
+        @param full_payload: Whether we want the full payload or delta.
 
         """
-        self._create_custom_lsb_release(url)
+        self._create_custom_lsb_release(update_url,
+                                        critical_update=critical_update,
+                                        full_payload=full_payload)
         # Start chrome instance to interact with OOBE.
-        self._chrome = chrome.Chrome(auto_login=False)
+        extra_browser_args = []
+        if lsbrelease_utils.get_device_type() != 'CHROMEBOOK':
+            extra_browser_args.append('--disable-hid-detection-on-oobe')
+        self._chrome = chrome.Chrome(auto_login=False,
+                                     extra_browser_args=extra_browser_args)
         self._oobe = self._chrome.browser.oobe
         self._skip_to_oobe_update_screen()
 
@@ -56,7 +64,7 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
                                      error.TestFail(err_str),
                                      timeout=timeout)
         except error.TestFail as e:
-            if self._critical_update:
+            if critical_update:
                 if not self._get_update_requests():
                     raise error.TestFail('%s There were no update requests in'
                                          ' update_engine.log. OOBE update'
@@ -68,72 +76,86 @@ class autoupdate_StartOOBEUpdate(update_engine_test.UpdateEngineTest):
                     raise e
 
 
-    def run_once(self, image_url, cellular=False, critical_update=True):
+    def run_once(self, update_url=None, payload_url=None, cellular=False,
+                 critical_update=True, full_payload=None,
+                 interrupt_network=False, interrupt_progress=0.0):
         """
         Test that will start a forced update at OOBE.
 
-        @param image_url: The omaha URL to call. It contains the payload url
-                          for cellular tests.
+        @param update_url: The omaha URL to call from the OOBE update screen.
+        @param payload_url: Payload url to pass to Nebraska for non-critical
+                            and cellular tests.
         @param cellular: True if we should run this test using a sim card.
         @param critical_update: True if we should have deadline:now in omaha
                                 response.
+        @param full_payload: Whether the payload is full or delta. None if we
+                             don't have to care about it.
+        @param interrupt_network: True to cause a network interruption after
+                                  starting the update. Should only be used
+                                  during a critical update.
+        @param interrupt_progress: If interrupt_network is True, we will wait
+                                   for the update progress to reach this
+                                   value before interrupting. Should be
+                                   expressed as a number between 0 and 1.
 
         """
-        self._critical_update = critical_update
 
-        if cellular:
+        if critical_update and not cellular:
+            self._start_oobe_update(update_url, critical_update, full_payload)
+            if interrupt_network:
+                self._wait_for_progress(interrupt_progress)
+                self._take_screenshot(self._BEFORE_INTERRUPT_FILENAME)
+                completed = self._get_update_progress()
+                self._disconnect_reconnect_network_test(update_url)
+                self._take_screenshot(self._AFTER_INTERRUPT_FILENAME)
+
+                if self._is_update_engine_idle():
+                    raise error.TestFail(
+                        'The update was IDLE after interrupt.')
+                if not self._update_continued_where_it_left_off(completed):
+                    raise error.TestFail('The update did not continue where '
+                                         'it left off after interruption.')
+
+                # Remove screenshots since the interrupt test succeeded.
+                self._remove_screenshots()
+            return
+
+        # Setup a Nebraska instance on the DUT for cellular tests and
+        # non-critical updates. Ceullar tests cannot reach devservers.
+        # Non-critical tests don't need a devserver.
+        with nebraska_wrapper.NebraskaWrapper(
+            log_dir=self.resultsdir, payload_url=payload_url) as nebraska:
+
+            update_url = nebraska.get_update_url(
+                critical_update=critical_update)
+            if not cellular:
+                self._start_oobe_update(update_url, critical_update, None)
+                return
+
             try:
                 with test_environment.CellularOTATestEnvironment() as test_env:
                     service = test_env.shill.wait_for_cellular_service_object()
                     if not service:
                         raise error.TestError('No cellular service found.')
                     connect_timeout = 120
-                    test_env.shill.connect_service_synchronous(
-                        service, connect_timeout)
+                    test_env.shill.connect_service_synchronous(service,
+                                                               connect_timeout)
 
-                    metadata_dir = autotemp.tempdir()
-                    self._get_payload_properties_file(image_url,
-                                                      metadata_dir.name)
-                    # Setup a Nebraska instance on the DUT because we can't
-                    # reach devservers over cellular.
-                    base_url = ''.join(image_url.rpartition('/')[0:2])
-                    with nebraska_wrapper.NebraskaWrapper(
-                            log_dir=self.resultsdir,
-                            update_metadata_dir=metadata_dir.name,
-                            update_payloads_address=base_url) as nebraska:
+                    self._start_oobe_update(update_url, critical_update, None)
 
-                        self._start_oobe_update(nebraska.get_update_url(
-                            critical_update=self._critical_update))
+                    # Remove the custom omaha server from lsb release because
+                    # after we reboot it will no longer be running.
+                    self._clear_custom_lsb_release()
 
-                        # Remove the custom omaha server from lsb release
-                        # because after we reboot it will no longer be running.
-                        self._clear_custom_lsb_release()
-
-                        # We need to return from the client test before OOBE
-                        # reboots or the server side test will hang. But we
-                        # cannot return right away when the OOBE update starts
-                        # because all of the code from using a cellular
-                        # connection is in client side and we will switch back
-                        # to ethernet. So we need to wait for the update to get
-                        # as close to the end as possible so that we are done
-                        # downloading the payload via cellular and don't need to
-                        # ping omaha again. When the DUT reboots it will send a
-                        # final update ping to production omaha and then move to
-                        # the sign in screen.
-                        self._wait_for_update_to_complete(finalizing_ok=True)
+                    # Need to return from this client test before OOBE reboots
+                    # or the server test will hang. Cannot return immediately
+                    # when the OOBE update starts because all code for cellular
+                    # connections is client side and the test will switch to
+                    # ethernet. So wait for FINALIZING so payload is downloaded
+                    # via cellular and won't ping omaha again. After reboot,
+                    # there is a final ping to omaha and login screen is shown.
+                    self._wait_for_update_status(
+                        self._UPDATE_STATUS_FINALIZING)
             except error.TestError as e:
                 logging.error('Failure setting up sim card.')
                 raise error.TestFail(e)
-
-        else:
-            if self._critical_update:
-                self._start_oobe_update(image_url)
-            else:
-                metadata_dir = autotemp.tempdir()
-                self._get_payload_properties_file(image_url, metadata_dir.name)
-                base_url = ''.join(image_url.rpartition('/')[0:2])
-                with nebraska_wrapper.NebraskaWrapper(
-                        log_dir=metadata_dir.name,
-                        update_metadata_dir=metadata_dir.name,
-                        update_payloads_address=base_url) as nebraska:
-                    self._start_oobe_update(nebraska.get_update_url())

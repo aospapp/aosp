@@ -12,7 +12,7 @@
 
 #include <utility>
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 namespace android {
 
@@ -95,7 +95,7 @@ std::string GetBytesForNextFrame(const std::string& data, size_t* next_pos) {
 
 EncodedDataHelper::EncodedDataHelper(const std::string& file_path, VideoCodecType type)
       : type_(type) {
-    InputFileStream input(file_path);
+    CachedInputFileStream input(file_path);
     if (!input.IsValid()) {
         ALOGE("Failed to open file: %s", file_path.c_str());
         return;

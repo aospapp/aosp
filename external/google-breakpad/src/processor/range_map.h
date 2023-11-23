@@ -49,43 +49,70 @@ namespace google_breakpad {
 // Forward declarations (for later friend declarations of specialized template).
 template<class, class> class RangeMapSerializer;
 
+// Determines what happens when two ranges overlap.
+enum class MergeRangeStrategy {
+  // When two ranges overlap, the new range fails to be inserted. The default
+  // strategy.
+  kExclusiveRanges,
+
+  // The range with the lower base address will be truncated such that it's
+  // high address is one less than the range above it.
+  kTruncateLower,
+
+  // The range with the greater high address has its range truncated such that
+  // its base address is one higher than the range below it.
+  kTruncateUpper
+};
+
 template<typename AddressType, typename EntryType>
 class RangeMap {
  public:
-  RangeMap() : map_() {}
+  RangeMap() : merge_strategy_(MergeRangeStrategy::kExclusiveRanges), map_() {}
+
+  void SetMergeStrategy(MergeRangeStrategy strat) { merge_strategy_ = strat; }
+
+  MergeRangeStrategy GetMergeStrategy() const { return merge_strategy_; }
 
   // Inserts a range into the map.  Returns false for a parameter error,
   // or if the location of the range would conflict with a range already
-  // stored in the map.
-  bool StoreRange(const AddressType &base,
-                  const AddressType &size,
+  // stored in the map.  If enable_shrink_down is true and there is an overlap
+  // between the current range and some other range (already in the map),
+  // shrink down the range which ends at a higher address.
+  bool StoreRange(const AddressType &base, const AddressType &size,
                   const EntryType &entry);
 
-  // Locates the range encompassing the supplied address.  If there is
-  // no such range, returns false.  entry_base and entry_size, if non-NULL,
-  // are set to the base and size of the entry's range.
+  // Locates the range encompassing the supplied address.  If there is no such
+  // range, returns false.  entry_base, entry_delta, and entry_size, if
+  // non-NULL, are set to the base, delta, and size of the entry's range.
+  // A positive entry delta (> 0) indicates that there was an overlap and the
+  // entry was shrunk down (original start address was increased by delta).
   bool RetrieveRange(const AddressType &address, EntryType *entry,
-                     AddressType *entry_base, AddressType *entry_size) const;
+                     AddressType *entry_base, AddressType *entry_delta,
+                     AddressType *entry_size) const;
 
   // Locates the range encompassing the supplied address, if one exists.
   // If no range encompasses the supplied address, locates the nearest range
   // to the supplied address that is lower than the address.  Returns false
-  // if no range meets these criteria.  entry_base and entry_size, if
-  // non-NULL, are set to the base and size of the entry's range.
+  // if no range meets these criteria.  entry_base, entry_delta, and entry_size,
+  // if non-NULL, are set to the base, delta, and size of the entry's range.
+  // A positive entry delta (> 0) indicates that there was an overlap and the
+  // entry was shrunk down (original start address was increased by delta).
   bool RetrieveNearestRange(const AddressType &address, EntryType *entry,
-                            AddressType *entry_base, AddressType *entry_size)
-                            const;
+                            AddressType *entry_base, AddressType *entry_delta,
+                            AddressType *entry_size) const;
 
   // Treating all ranges as a list ordered by the address spaces that they
   // occupy, locates the range at the index specified by index.  Returns
-  // false if index is larger than the number of ranges stored.  entry_base
-  // and entry_size, if non-NULL, are set to the base and size of the entry's
-  // range.
+  // false if index is larger than the number of ranges stored.  entry_base,
+  // entry_delta, and entry_size, if non-NULL, are set to the base, delta, and
+  // size of the entry's range.
+  // A positive entry delta (> 0) indicates that there was an overlap and the
+  // entry was shrunk down (original start address was increased by delta).
   //
   // RetrieveRangeAtIndex is not optimized for speedy operation.
   bool RetrieveRangeAtIndex(int index, EntryType *entry,
-                            AddressType *entry_base, AddressType *entry_size)
-                            const;
+                            AddressType *entry_base, AddressType *entry_delta,
+                            AddressType *entry_size) const;
 
   // Returns the number of ranges stored in the RangeMap.
   int GetCount() const;
@@ -99,18 +126,28 @@ class RangeMap {
   friend class ModuleComparer;
   friend class RangeMapSerializer<AddressType, EntryType>;
 
+  // Same a StoreRange() with the only exception that the |delta| can be
+  // passed in.
+  bool StoreRangeInternal(const AddressType &base, const AddressType &delta,
+                          const AddressType &size, const EntryType &entry);
+
   class Range {
    public:
-    Range(const AddressType &base, const EntryType &entry)
-        : base_(base), entry_(entry) {}
+    Range(const AddressType &base, const AddressType &delta,
+          const EntryType &entry)
+        : base_(base), delta_(delta), entry_(entry) {}
 
     AddressType base() const { return base_; }
+    AddressType delta() const { return delta_; }
     EntryType entry() const { return entry_; }
 
    private:
     // The base address of the range.  The high address does not need to
     // be stored, because RangeMap uses it as the key to the map.
     const AddressType base_;
+
+    // The delta when the range is shrunk down.
+    const AddressType delta_;
 
     // The entry corresponding to a range.
     const EntryType entry_;
@@ -120,6 +157,8 @@ class RangeMap {
   typedef std::map<AddressType, Range> AddressToRangeMap;
   typedef typename AddressToRangeMap::const_iterator MapConstIterator;
   typedef typename AddressToRangeMap::value_type MapValue;
+
+  MergeRangeStrategy merge_strategy_;
 
   // Maps the high address of each range to a EntryType.
   AddressToRangeMap map_;

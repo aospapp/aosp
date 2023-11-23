@@ -274,6 +274,11 @@ int cras_iodev_list_suspend_hotword_streams();
 /* Resumes all hotwording streams. */
 int cras_iodev_list_resume_hotword_stream();
 
+/* Sets the state of noise cancellation for input devices which supports noise
+ * cancellation by suspend, enable/disable, then resume.
+ */
+void cras_iodev_list_reset_for_noise_cancellation();
+
 /* For unit test only. */
 void cras_iodev_list_reset();
 

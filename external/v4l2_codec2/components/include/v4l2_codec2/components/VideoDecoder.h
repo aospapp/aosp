@@ -9,11 +9,11 @@
 #include <memory>
 
 #include <base/callback.h>
-#include <base/files/scoped_file.h>
 
+#include <v4l2_codec2/common/VideoTypes.h>
+#include <v4l2_codec2/components/BitstreamBuffer.h>
 #include <v4l2_codec2/components/VideoFrame.h>
 #include <v4l2_codec2/components/VideoFramePool.h>
-#include <v4l2_codec2/components/VideoTypes.h>
 
 namespace android {
 
@@ -26,21 +26,8 @@ public:
     };
     static const char* DecodeStatusToString(DecodeStatus status);
 
-    struct BitstreamBuffer {
-        BitstreamBuffer(const int32_t id, base::ScopedFD dmabuf_fd, const size_t offset,
-                        const size_t size)
-              : id(id), dmabuf_fd(std::move(dmabuf_fd)), offset(offset), size(size) {}
-        ~BitstreamBuffer() = default;
-
-        const int32_t id;
-        base::ScopedFD dmabuf_fd;
-        const size_t offset;
-        const size_t size;
-    };
-
-    using GetPoolCB =
-            base::RepeatingCallback<void(std::unique_ptr<VideoFramePool>*, const media::Size& size,
-                                         HalPixelFormat pixelFormat, size_t numOutputBuffers)>;
+    using GetPoolCB = base::RepeatingCallback<std::unique_ptr<VideoFramePool>(
+            const ui::Size& size, HalPixelFormat pixelFormat, size_t numOutputBuffers)>;
     using DecodeCB = base::OnceCallback<void(DecodeStatus)>;
     using OutputCB = base::RepeatingCallback<void(std::unique_ptr<VideoFrame>)>;
     using ErrorCB = base::RepeatingCallback<void()>;

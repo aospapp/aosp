@@ -204,7 +204,7 @@ class UnsafeArena : public BaseArena {
 
   // Allocates and initializes an object on the arena.
   template <typename T, typename... Args>
-  T* AllocAndInit(Args... args) {
+  T* AllocAndInit(Args&&... args) {
     return new (reinterpret_cast<T*>(AllocAligned(sizeof(T), alignof(T))))
         T(std::forward<Args>(args)...);
   }

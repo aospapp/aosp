@@ -25,12 +25,19 @@ dat_file := $(notdir $(wildcard $(stubdata_path)/*.dat))
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := icu-data_host_i18n_apex
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Unicode-DFS
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE $(LOCAL_PATH)/../../license.html
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(HOST_OUT)/com.android.i18n/etc/icu
 LOCAL_MODULE_STEM := $(dat_file)
 LOCAL_SRC_FILES := $(dat_file)
 LOCAL_IS_HOST_MODULE := true
 include $(BUILD_PREBUILT)
+
+ifneq (,$(wildcard frameworks/layoutlib))
+  $(call dist-for-goals, layoutlib, $(LOCAL_MODULE_PATH)/$(dat_file):layoutlib_native/icu/$(dat_file))
+endif
 
 # Module definition producing ICU .dat prebuilt files in
 # /system/etc/icu for standalone ART testing purposes. This is a
@@ -43,6 +50,9 @@ include $(BUILD_PREBUILT)
 # Buildbot and Golem have full support for the ART APEX.
 include $(CLEAR_VARS)
 LOCAL_MODULE := icu-data-art-test-i18n
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Unicode-DFS
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE $(LOCAL_PATH)/../../license.html
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/i18n_module/etc/icu
 LOCAL_MODULE_STEM := $(dat_file)

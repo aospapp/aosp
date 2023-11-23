@@ -24,48 +24,40 @@
 
 /* gallium blitter implementation in GL */
 /* for when we can't use glBlitFramebuffer */
-#include <epoxy/gl.h>
 
 #include <stdio.h>
-#include "pipe/p_shader_tokens.h"
 
-#include "pipe/p_context.h"
-#include "pipe/p_defines.h"
-#include "pipe/p_screen.h"
-#include "pipe/p_state.h"
-#include "util/u_inlines.h"
 #include "util/u_memory.h"
-#include "util/u_dual_blend.h"
-
-#include "util/u_double_list.h"
 #include "util/u_format.h"
 #include "util/u_texture.h"
-#include "tgsi/tgsi_parse.h"
 
-#include "vrend_object.h"
 #include "vrend_shader.h"
-
 #include "vrend_renderer.h"
-
 #include "vrend_blitter.h"
 
 #define DEST_SWIZZLE_SNIPPET_SIZE 64
+
+#define BLIT_USE_GLES      (1 << 0)
+#define BLIT_USE_MSAA      (1 << 1)
+#define BLIT_USE_DEPTH     (1 << 2)
 
 struct vrend_blitter_ctx {
    virgl_gl_context gl_context;
    bool initialised;
    bool use_gles;
-   int framebuffer_srgb_enabled;
 
    GLuint vaoid;
 
    GLuint vs;
-   GLuint vs_pos_only;
    GLuint fs_texfetch_col[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_depth[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_depth_msaa[PIPE_MAX_TEXTURE_TYPES];
    GLuint fs_texfetch_col_swizzle;
    GLuint fb_id;
+
+   // Parameters related to the creation of fs_texfetch_col_swizzle
+   unsigned fs_texfetch_col_swizzle_nr_samples;
+   bool fs_texfetch_col_swizzle_has_swizzle;
 
    unsigned dst_width;
    unsigned dst_height;
@@ -86,9 +78,16 @@ struct vrend_blitter_delta {
     int dy;
 };
 
-static bool build_and_check(GLuint id, const char *buf)
+struct swizzle_and_type {
+  char *twm;
+  char *ivec;
+  bool is_array;
+};
+
+static GLint build_and_check(GLenum shader_type, const char *buf)
 {
    GLint param;
+   GLint id = glCreateShader(shader_type);
    glShaderSource(id, 1, (const char **)&buf, NULL);
    glCompileShader(id);
 
@@ -97,21 +96,27 @@ static bool build_and_check(GLuint id, const char *buf)
       char infolog[65536];
       int len;
       glGetShaderInfoLog(id, 65536, &len, infolog);
-      fprintf(stderr,"shader failed to compile\n%s\n", infolog);
-      fprintf(stderr,"GLSL:\n%s\n", buf);
-      return false;
+      vrend_printf("shader failed to compile\n%s\n", infolog);
+      vrend_printf("GLSL:\n%s\n", buf);
+      glDeleteShader(id);
+      return 0;
    }
-   return true;
+   return id;
 }
 
-static bool blit_build_vs_passthrough(struct vrend_blitter_ctx *blit_ctx)
+static bool link_and_check(GLuint prog_id)
 {
-   blit_ctx->vs = glCreateShader(GL_VERTEX_SHADER);
+   GLint lret;
 
-   if (!build_and_check(blit_ctx->vs,
-        blit_ctx->use_gles ? VS_PASSTHROUGH_GLES : VS_PASSTHROUGH_GL)) {
-      glDeleteShader(blit_ctx->vs);
-      blit_ctx->vs = 0;
+   glLinkProgram(prog_id);
+   glGetProgramiv(prog_id, GL_LINK_STATUS, &lret);
+   if (lret == GL_FALSE) {
+      char infolog[65536];
+      int len;
+      glGetProgramInfoLog(prog_id, 65536, &len, infolog);
+      vrend_printf("got error linking\n%s\n", infolog);
+      /* dump shaders */
+      glDeleteProgram(prog_id);
       return false;
    }
    return true;
@@ -164,269 +169,192 @@ static enum tgsi_return_type tgsi_ret_for_format(enum virgl_formats format)
    return TGSI_RETURN_TYPE_UNORM;
 }
 
+static void get_swizzle(int tgsi_tex_target, unsigned flags,
+                        struct swizzle_and_type *retval)
+{
+   retval->twm = "";
+   retval->ivec = "";
+   retval->is_array = false;
+   switch (tgsi_tex_target) {
+   case TGSI_TEXTURE_1D:
+      if (flags & (BLIT_USE_GLES | BLIT_USE_DEPTH)) {
+         retval->twm = ".xy";
+         break;
+      }
+      /* fallthrough */
+   case TGSI_TEXTURE_BUFFER:
+      retval->twm = ".x";
+      break;
+   case TGSI_TEXTURE_2D_MSAA:
+      if (flags & BLIT_USE_MSAA) {
+         retval->ivec = "ivec2";
+      }
+      /* fallthrough */
+   case TGSI_TEXTURE_1D_ARRAY:
+   case TGSI_TEXTURE_2D:
+   case TGSI_TEXTURE_RECT:
+      retval->twm = ".xy";
+      break;
+   case TGSI_TEXTURE_2D_ARRAY_MSAA:
+      if (flags & BLIT_USE_MSAA) {
+         retval->ivec = "ivec3";
+         retval->is_array = true;
+      }
+      /* fallthrough */
+   case TGSI_TEXTURE_SHADOW1D:
+   case TGSI_TEXTURE_SHADOW2D:
+   case TGSI_TEXTURE_SHADOW1D_ARRAY:
+   case TGSI_TEXTURE_SHADOWRECT:
+   case TGSI_TEXTURE_3D:
+   case TGSI_TEXTURE_CUBE:
+   case TGSI_TEXTURE_2D_ARRAY:
+      retval->twm = ".xyz";
+      break;
+   case TGSI_TEXTURE_SHADOWCUBE:
+   case TGSI_TEXTURE_SHADOW2D_ARRAY:
+   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
+   case TGSI_TEXTURE_CUBE_ARRAY:
+      retval->twm = "";
+      break;
+   default:
+      if (flags & BLIT_USE_MSAA) {
+         break;
+      }
+      retval->twm = ".xy";
+      break;
+   }
+}
+
 static GLuint blit_build_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
                                       int tgsi_tex_target,
                                       enum tgsi_return_type tgsi_ret,
-                                      const uint8_t swizzle[4])
+                                      const uint8_t swizzle[4],
+                                      int nr_samples)
 {
-   GLuint fs_id;
    char shader_buf[4096];
-   int is_shad;
-   const char *twm;
-   const char *ext_str = "";
+   struct swizzle_and_type retval;
+   unsigned flags = 0;
    char dest_swizzle_snippet[DEST_SWIZZLE_SNIPPET_SIZE] = "texel";
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_1D:
-   case TGSI_TEXTURE_BUFFER:
-      twm = ".x";
-      break;
-   case TGSI_TEXTURE_1D_ARRAY:
-   case TGSI_TEXTURE_2D:
-   case TGSI_TEXTURE_RECT:
-   case TGSI_TEXTURE_2D_MSAA:
-   default:
-      twm = ".xy";
-      break;
-   case TGSI_TEXTURE_SHADOW1D:
-   case TGSI_TEXTURE_SHADOW2D:
-   case TGSI_TEXTURE_SHADOW1D_ARRAY:
-   case TGSI_TEXTURE_SHADOWRECT:
-   case TGSI_TEXTURE_3D:
-   case TGSI_TEXTURE_CUBE:
-   case TGSI_TEXTURE_2D_ARRAY:
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      break;
-   case TGSI_TEXTURE_SHADOWCUBE:
-   case TGSI_TEXTURE_SHADOW2D_ARRAY:
-   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-   case TGSI_TEXTURE_CUBE_ARRAY:
-      twm = "";
-      break;
-   }
+   const char *ext_str = "";
+   bool msaa = nr_samples > 0;
 
-   if (tgsi_tex_target == TGSI_TEXTURE_CUBE_ARRAY ||
-       tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
+   if (msaa && !blit_ctx->use_gles)
+      ext_str = "#extension GL_ARB_texture_multisample : enable\n";
+   else if (tgsi_tex_target == TGSI_TEXTURE_CUBE_ARRAY ||
+            tgsi_tex_target == TGSI_TEXTURE_SHADOWCUBE_ARRAY)
       ext_str = "#extension GL_ARB_texture_cube_map_array : require\n";
 
-   if (swizzle)
-      create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
-
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_COL_GLES : FS_TEXFETCH_COL_GL,
-            ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
-            vrend_shader_samplerreturnconv(tgsi_ret),
-            vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm,
-            dest_swizzle_snippet);
-
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
-}
-
-static GLuint blit_build_frag_tex_col_msaa(struct vrend_blitter_ctx *blit_ctx,
-                                           int tgsi_tex_target,
-                                           enum tgsi_return_type tgsi_ret,
-                                           const uint8_t swizzle[4],
-                                           int nr_samples)
-{
-   GLuint fs_id;
-   char shader_buf[4096];
-   int is_shad;
-   const char *twm;
-   const char *ivec;
-   char dest_swizzle_snippet[DEST_SWIZZLE_SNIPPET_SIZE] = "texel";
-   const char *ext_str = blit_ctx->use_gles ? "" :
-                         "#extension GL_ARB_texture_multisample : enable\n";
-
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_2D_MSAA:
-      twm = ".xy";
-      ivec = "ivec2";
-      break;
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      ivec = "ivec3";
-      break;
-   default:
-      return 0;
-   }
+   if (blit_ctx->use_gles)
+      flags |= BLIT_USE_GLES;
+   if (msaa)
+      flags |= BLIT_USE_MSAA;
+   get_swizzle(tgsi_tex_target, flags, &retval);
 
    if (swizzle)
       create_dest_swizzle_snippet(swizzle, dest_swizzle_snippet);
 
-   snprintf(shader_buf, 4096,
-            blit_ctx->use_gles ? FS_TEXFETCH_COL_MSAA_GLES : FS_TEXFETCH_COL_MSAA_GL,
-            ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
-            vrend_shader_samplerreturnconv(tgsi_ret),
-            vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad),
-            nr_samples, ivec, twm, dest_swizzle_snippet);
+   if (msaa)
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+                                 (retval.is_array ? FS_TEXFETCH_COL_MSAA_ARRAY_GLES
+                                                   : FS_TEXFETCH_COL_MSAA_GLES)
+                                 : FS_TEXFETCH_COL_MSAA_GL,
+         ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
+         vrend_shader_samplerreturnconv(tgsi_ret),
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target),
+         nr_samples, retval.ivec, retval.twm, dest_swizzle_snippet);
+   else
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+                                 (tgsi_tex_target == TGSI_TEXTURE_1D ?
+                                    FS_TEXFETCH_COL_GLES_1D : FS_TEXFETCH_COL_GLES)
+                                 : FS_TEXFETCH_COL_GL,
+         ext_str, vec4_type_for_tgsi_ret(tgsi_ret),
+         vrend_shader_samplerreturnconv(tgsi_ret),
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target),
+         retval.twm, dest_swizzle_snippet);
 
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+   VREND_DEBUG(dbg_blit, NULL, "-- Blit FS shader MSAA: %d -----------------\n"
+               "%s\n---------------------------------------\n", msaa, shader_buf);
 
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
+   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
 
-static GLuint blit_build_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
+static GLuint blit_build_frag_depth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target, bool msaa)
 {
-   GLuint fs_id;
    char shader_buf[4096];
-   int is_shad;
-   const char *twm;
+   struct swizzle_and_type retval;
+   unsigned flags = BLIT_USE_DEPTH;
 
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_1D:
-   case TGSI_TEXTURE_BUFFER:
-      twm = ".x";
-      break;
-   case TGSI_TEXTURE_1D_ARRAY:
-   case TGSI_TEXTURE_2D:
-   case TGSI_TEXTURE_RECT:
-   case TGSI_TEXTURE_2D_MSAA:
-   default:
-      twm = ".xy";
-      break;
-   case TGSI_TEXTURE_SHADOW1D:
-   case TGSI_TEXTURE_SHADOW2D:
-   case TGSI_TEXTURE_SHADOW1D_ARRAY:
-   case TGSI_TEXTURE_SHADOWRECT:
-   case TGSI_TEXTURE_3D:
-   case TGSI_TEXTURE_CUBE:
-   case TGSI_TEXTURE_2D_ARRAY:
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      break;
-   case TGSI_TEXTURE_SHADOWCUBE:
-   case TGSI_TEXTURE_SHADOW2D_ARRAY:
-   case TGSI_TEXTURE_SHADOWCUBE_ARRAY:
-   case TGSI_TEXTURE_CUBE_ARRAY:
-      twm = "";
-      break;
-   }
+   if (msaa)
+      flags |= BLIT_USE_MSAA;
 
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES : FS_TEXFETCH_DS_GL,
-      vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), twm);
+   get_swizzle(tgsi_tex_target, flags, &retval);
 
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+   if (msaa)
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ?
+                                 (retval.is_array ?  FS_TEXFETCH_DS_MSAA_ARRAY_GLES :  FS_TEXFETCH_DS_MSAA_GLES)
+                                 : FS_TEXFETCH_DS_MSAA_GL,
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), retval.ivec, retval.twm);
+   else
+      snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_GLES : FS_TEXFETCH_DS_GL,
+         vrend_shader_samplertypeconv(blit_ctx->use_gles, tgsi_tex_target), retval.twm);
 
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
-}
-
-static GLuint blit_build_frag_blit_msaa_depth(struct vrend_blitter_ctx *blit_ctx, int tgsi_tex_target)
-{
-   GLuint fs_id;
-   char shader_buf[4096];
-   int is_shad;
-   const char *twm;
-   const char *ivec;
-
-   switch (tgsi_tex_target) {
-   case TGSI_TEXTURE_2D_MSAA:
-      twm = ".xy";
-      ivec = "ivec2";
-      break;
-   case TGSI_TEXTURE_2D_ARRAY_MSAA:
-      twm = ".xyz";
-      ivec = "ivec3";
-      break;
-   default:
-      return 0;
-   }
-
-   snprintf(shader_buf, 4096, blit_ctx->use_gles ? FS_TEXFETCH_DS_MSAA_GLES : FS_TEXFETCH_DS_MSAA_GL,
-      vrend_shader_samplertypeconv(tgsi_tex_target, &is_shad), ivec, twm);
-
-   fs_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-   if (!build_and_check(fs_id, shader_buf)) {
-      glDeleteShader(fs_id);
-      return 0;
-   }
-
-   return fs_id;
+   return build_and_check(GL_FRAGMENT_SHADER, shader_buf);
 }
 
 static GLuint blit_get_frag_tex_writedepth(struct vrend_blitter_ctx *blit_ctx, int pipe_tex_target, unsigned nr_samples)
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   if (nr_samples > 1) {
-      GLuint *shader = &blit_ctx->fs_texfetch_depth_msaa[pipe_tex_target];
+   GLuint *shader = nr_samples > 0 ? &blit_ctx->fs_texfetch_depth_msaa[pipe_tex_target]
+                                   : &blit_ctx->fs_texfetch_depth[pipe_tex_target];
 
-      if (!*shader) {
-         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
-
-         *shader = blit_build_frag_blit_msaa_depth(blit_ctx, tgsi_tex);
-      }
-      return *shader;
-
-   } else {
-      GLuint *shader = &blit_ctx->fs_texfetch_depth[pipe_tex_target];
-
-      if (!*shader) {
-         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
-
-         *shader = blit_build_frag_tex_writedepth(blit_ctx, tgsi_tex);
-      }
-      return *shader;
+   if (!*shader) {
+      unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
+      *shader = blit_build_frag_depth(blit_ctx, tgsi_tex, nr_samples > 0);
    }
+   return *shader;
 }
 
 static GLuint blit_get_frag_tex_col(struct vrend_blitter_ctx *blit_ctx,
                                     int pipe_tex_target,
                                     unsigned nr_samples,
                                     const struct vrend_format_table *src_entry,
-                                    const struct vrend_format_table *dst_entry)
+                                    const struct vrend_format_table *dst_entry,
+                                    bool skip_dest_swizzle)
 {
    assert(pipe_tex_target < PIPE_MAX_TEXTURE_TYPES);
 
-   bool needs_swizzle = dst_entry->flags & VIRGL_BIND_NEED_SWIZZLE;
+   bool needs_swizzle = !skip_dest_swizzle && (dst_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE);
 
+
+   GLuint *shader;
    if (needs_swizzle || nr_samples > 1) {
-      const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
-      GLuint *shader = &blit_ctx->fs_texfetch_col_swizzle;
-      if (shader) {
+      shader = &blit_ctx->fs_texfetch_col_swizzle;
+      if (*shader && (blit_ctx->fs_texfetch_col_swizzle_has_swizzle != needs_swizzle
+                        || blit_ctx->fs_texfetch_col_swizzle_nr_samples != nr_samples)) {
          glDeleteShader(*shader);
+         *shader = 0;
       }
+      blit_ctx->fs_texfetch_col_swizzle_has_swizzle = needs_swizzle;
+      blit_ctx->fs_texfetch_col_swizzle_nr_samples = nr_samples;
+   } else {
+      shader = &blit_ctx->fs_texfetch_col[pipe_tex_target];
+   }
+
+   if (!*shader) {
 
       unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, nr_samples);
       enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
 
-      if (nr_samples > 1) {
-         // Integer textures are resolved using just one sample
-         int msaa_samples = tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1;
-         *shader = blit_build_frag_tex_col_msaa(blit_ctx, tgsi_tex, tgsi_ret,
-                                                swizzle, msaa_samples);
-      } else {
-         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, swizzle);
-      }
+      const uint8_t *swizzle = needs_swizzle ? dst_entry->swizzle : NULL;
 
-      return *shader;
-   } else {
-      GLuint *shader = &blit_ctx->fs_texfetch_col[pipe_tex_target];
+      // Integer textures are resolved using just one sample
+      int msaa_samples = nr_samples > 0 ? (tgsi_ret == TGSI_RETURN_TYPE_UNORM ? nr_samples : 1) : 0;
 
-      if (!*shader) {
-         unsigned tgsi_tex = util_pipe_tex_to_tgsi_tex(pipe_tex_target, 0);
-         enum tgsi_return_type tgsi_ret = tgsi_ret_for_format(src_entry->format);
-
-         *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret, NULL);
-      }
-      return *shader;
+      *shader = blit_build_frag_tex_col(blit_ctx, tgsi_tex, tgsi_ret,
+                                        swizzle, msaa_samples);
    }
+   return *shader;
 }
 
 static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
@@ -434,7 +362,7 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
    struct virgl_gl_ctx_param ctx_params;
    int i;
    if (blit_ctx->initialised) {
-      vrend_clicbs->make_current(0, blit_ctx->gl_context);
+      vrend_sync_make_current(blit_ctx->gl_context);
       return;
    }
 
@@ -450,12 +378,13 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
          break;
    }
 
-   vrend_clicbs->make_current(0, blit_ctx->gl_context);
+   vrend_sync_make_current(blit_ctx->gl_context);
    glGenVertexArrays(1, &blit_ctx->vaoid);
    glGenFramebuffers(1, &blit_ctx->fb_id);
 
    glGenBuffers(1, &blit_ctx->vbo_id);
-   blit_build_vs_passthrough(blit_ctx);
+   blit_ctx->vs = build_and_check(GL_VERTEX_SHADER,
+        blit_ctx->use_gles ? VS_PASSTHROUGH_GLES : VS_PASSTHROUGH_GL);
 
    for (i = 0; i < 4; i++)
       blit_ctx->vertices[i][0][3] = 1; /*v.w*/
@@ -464,21 +393,6 @@ static void vrend_renderer_init_blit_ctx(struct vrend_blitter_ctx *blit_ctx)
 
    if (!blit_ctx->use_gles)
       glEnable(GL_FRAMEBUFFER_SRGB);
-   blit_ctx->framebuffer_srgb_enabled = true;
-}
-
-static inline GLenum convert_mag_filter(unsigned int filter)
-{
-   if (filter == PIPE_TEX_FILTER_NEAREST)
-      return GL_NEAREST;
-   return GL_LINEAR;
-}
-
-static void blitter_set_dst_dim(struct vrend_blitter_ctx *blit_ctx,
-                                unsigned width, unsigned height)
-{
-   blit_ctx->dst_width = width;
-   blit_ctx->dst_height = height;
 }
 
 static void blitter_set_rectangle(struct vrend_blitter_ctx *blit_ctx,
@@ -506,13 +420,14 @@ static void blitter_set_rectangle(struct vrend_blitter_ctx *blit_ctx,
    glViewport(0, 0, blit_ctx->dst_width, blit_ctx->dst_height);
 }
 
-static void get_texcoords(struct vrend_resource *src_res,
+static void get_texcoords(struct vrend_blitter_ctx *blit_ctx,
+                          struct vrend_resource *src_res,
                           int src_level,
                           int x1, int y1, int x2, int y2,
                           float out[4])
 {
-   bool normalized = src_res->base.target != PIPE_TEXTURE_RECT &&
-      src_res->base.nr_samples <= 1;
+   bool normalized = (src_res->base.target != PIPE_TEXTURE_RECT || blit_ctx->use_gles) &&
+                     src_res->base.nr_samples < 1;
 
    if (normalized) {
       out[0] = x1 / (float)u_minify(src_res->base.width0,  src_level);
@@ -526,6 +441,7 @@ static void get_texcoords(struct vrend_resource *src_res,
       out[3] = (float) y2;
    }
 }
+
 static void set_texcoords_in_vertices(const float coord[4],
                                       float *out, unsigned stride)
 {
@@ -551,7 +467,7 @@ static void blitter_set_texcoords(struct vrend_blitter_ctx *blit_ctx,
    float coord[4];
    float face_coord[4][2];
    int i;
-   get_texcoords(src_res, level, x1, y1, x2, y2, coord);
+   get_texcoords(blit_ctx, src_res, level, x1, y1, x2, y2, coord);
 
    if (src_res->base.target == PIPE_TEXTURE_CUBE ||
        src_res->base.target == PIPE_TEXTURE_CUBE_ARRAY) {
@@ -687,102 +603,48 @@ static void calc_dst_deltas_from_src(const struct pipe_blit_info *info,
    dst1_delta->dy = src1_delta->dy * scale_y;
 }
 
-/* implement blitting using OpenGL. */
-void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
-                            struct vrend_resource *src_res,
-                            struct vrend_resource *dst_res,
-                            const struct pipe_blit_info *info,
-                            bool has_texture_srgb_decode)
+static void blitter_set_points(struct vrend_blitter_ctx *blit_ctx,
+                               const struct pipe_blit_info *info,
+                               struct vrend_resource *src_res,
+                               struct vrend_resource *dst_res,
+                               struct vrend_blitter_point *src0,
+                               struct vrend_blitter_point *src1)
 {
-   struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
-   GLuint buffers;
-   GLuint prog_id;
-   GLuint fs_id;
-   GLint lret;
-   GLenum filter;
-   GLuint pos_loc, tc_loc;
-   GLuint samp_loc;
-   bool has_depth, has_stencil;
-   bool blit_stencil, blit_depth;
-   int dst_z;
+   struct vrend_blitter_point dst0, dst1;
    struct vrend_blitter_delta src0_delta, src1_delta, dst0_delta, dst1_delta;
-   struct vrend_blitter_point src0, src1, dst0, dst1;
-   const struct util_format_description *src_desc =
-      util_format_description(src_res->base.format);
-   const struct util_format_description *dst_desc =
-      util_format_description(dst_res->base.format);
-   const struct vrend_format_table *src_entry =
-      vrend_get_format_table_entry(info->src.format);
-   const struct vrend_format_table *dst_entry =
-      vrend_get_format_table_entry(info->dst.format);
 
-   has_depth = util_format_has_depth(src_desc) &&
-      util_format_has_depth(dst_desc);
-   has_stencil = util_format_has_stencil(src_desc) &&
-      util_format_has_stencil(dst_desc);
-
-   blit_depth = has_depth && (info->mask & PIPE_MASK_Z);
-   blit_stencil = has_stencil && (info->mask & PIPE_MASK_S) & 0;
-
-   filter = convert_mag_filter(info->filter);
-   vrend_renderer_init_blit_ctx(blit_ctx);
-
-   blitter_set_dst_dim(blit_ctx,
-                       u_minify(dst_res->base.width0, info->dst.level),
-                       u_minify(dst_res->base.height0, info->dst.level));
+   blit_ctx->dst_width = u_minify(dst_res->base.width0, info->dst.level);
+   blit_ctx->dst_height = u_minify(dst_res->base.height0, info->dst.level);
 
    /* Calculate src and dst points taking deltas into account */
    calc_src_deltas_for_bounds(src_res, info, &src0_delta, &src1_delta);
    calc_dst_deltas_from_src(info, &src0_delta, &src1_delta, &dst0_delta, &dst1_delta);
 
-   src0.x = info->src.box.x + src0_delta.dx;
-   src0.y = info->src.box.y + src0_delta.dy;
-   src1.x = info->src.box.x + info->src.box.width + src1_delta.dx;
-   src1.y = info->src.box.y + info->src.box.height + src1_delta.dy;
+   src0->x = info->src.box.x + src0_delta.dx;
+   src0->y = info->src.box.y + src0_delta.dy;
+   src1->x = info->src.box.x + info->src.box.width + src1_delta.dx;
+   src1->y = info->src.box.y + info->src.box.height + src1_delta.dy;
 
    dst0.x = info->dst.box.x + dst0_delta.dx;
    dst0.y = info->dst.box.y + dst0_delta.dy;
    dst1.x = info->dst.box.x + info->dst.box.width + dst1_delta.dx;
    dst1.y = info->dst.box.y + info->dst.box.height + dst1_delta.dy;
 
+   VREND_DEBUG(dbg_blit, NULL, "Blitter src:[%3d, %3d] - [%3d, %3d] to dst:[%3d, %3d] - [%3d, %3d]\n",
+               src0->x, src0->y, src1->x, src1->y,
+               dst0.x, dst0.y, dst1.x, dst1.y);
+
    blitter_set_rectangle(blit_ctx, dst0.x, dst0.y, dst1.x, dst1.y, 0);
+}
 
-   prog_id = glCreateProgram();
-   glAttachShader(prog_id, blit_ctx->vs);
+static void vrend_set_tex_param(struct vrend_resource *src_res,
+                                const struct pipe_blit_info *info,
+                                bool has_texture_srgb_decode)
+{
+   const struct vrend_format_table *src_entry =
+      vrend_get_format_table_entry_with_emulation(src_res->base.bind, info->src.format);
 
-   if (blit_depth || blit_stencil) {
-      fs_id = blit_get_frag_tex_writedepth(blit_ctx, src_res->base.target,
-                                           src_res->base.nr_samples);
-   } else {
-      fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target,
-                                    src_res->base.nr_samples,
-                                    src_entry, dst_entry);
-   }
-   glAttachShader(prog_id, fs_id);
-
-   glLinkProgram(prog_id);
-   glGetProgramiv(prog_id, GL_LINK_STATUS, &lret);
-   if (lret == GL_FALSE) {
-      char infolog[65536];
-      int len;
-      glGetProgramInfoLog(prog_id, 65536, &len, infolog);
-      fprintf(stderr,"got error linking\n%s\n", infolog);
-      /* dump shaders */
-      glDeleteProgram(prog_id);
-      return;
-   }
-
-   glUseProgram(prog_id);
-
-   glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
-   vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z);
-
-   buffers = GL_COLOR_ATTACHMENT0_EXT;
-   glDrawBuffers(1, &buffers);
-
-   glBindTexture(src_res->target, src_res->id);
-
-   if (src_entry->flags & VIRGL_BIND_NEED_SWIZZLE) {
+   if (src_entry->flags & VIRGL_TEXTURE_NEED_SWIZZLE) {
       glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_R,
                       to_gl_swizzle(src_entry->swizzle[0]));
       glTexParameteri(src_res->target, GL_TEXTURE_SWIZZLE_G,
@@ -794,30 +656,124 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
    }
 
    /* Just make sure that no stale state disabled decoding */
-   if (has_texture_srgb_decode && util_format_is_srgb(src_res->base.format))
-         glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
+   if (has_texture_srgb_decode && util_format_is_srgb(info->src.format) &&
+       src_res->base.nr_samples < 1)
+      glTexParameteri(src_res->target, GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
 
-   glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-   glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+   if (src_res->base.nr_samples < 1) {
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexParameteri(src_res->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+   }
 
    glTexParameteri(src_res->target, GL_TEXTURE_BASE_LEVEL, info->src.level);
    glTexParameteri(src_res->target, GL_TEXTURE_MAX_LEVEL, info->src.level);
-   glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
-   glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
+
+   if (src_res->base.nr_samples < 1) {
+      GLenum filter = info->filter == PIPE_TEX_FILTER_NEAREST ?
+                                       GL_NEAREST : GL_LINEAR;
+      glTexParameterf(src_res->target, GL_TEXTURE_MAG_FILTER, filter);
+      glTexParameterf(src_res->target, GL_TEXTURE_MIN_FILTER, filter);
+   }
+}
+
+static void vrend_set_vertex_param(GLuint prog_id)
+{
+   GLuint pos_loc, tc_loc;
+
    pos_loc = glGetAttribLocation(prog_id, "arg0");
    tc_loc = glGetAttribLocation(prog_id, "arg1");
-   samp_loc = glGetUniformLocation(prog_id, "samp");
-
-   glUniform1i(samp_loc, 0);
 
    glVertexAttribPointer(pos_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
    glVertexAttribPointer(tc_loc, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(4 * sizeof(float)));
 
    glEnableVertexAttribArray(pos_loc);
    glEnableVertexAttribArray(tc_loc);
+}
+
+/* implement blitting using OpenGL. */
+void vrend_renderer_blit_gl(MAYBE_UNUSED struct vrend_context *ctx,
+                            struct vrend_resource *src_res,
+                            struct vrend_resource *dst_res,
+                            GLenum blit_views[2],
+                            const struct pipe_blit_info *info,
+                            bool has_texture_srgb_decode,
+                            bool has_srgb_write_control,
+                            bool skip_dest_swizzle)
+{
+   struct vrend_blitter_ctx *blit_ctx = &vrend_blit_ctx;
+   GLuint buffers;
+   GLuint prog_id;
+   GLuint fs_id;
+   bool has_depth, has_stencil;
+   bool blit_stencil, blit_depth;
+   int dst_z;
+   struct vrend_blitter_point src0, src1;
+   const struct util_format_description *src_desc =
+      util_format_description(src_res->base.format);
+   const struct util_format_description *dst_desc =
+      util_format_description(dst_res->base.format);
+   const struct vrend_format_table *orig_src_entry = vrend_get_format_table_entry(info->src.format);
+   const struct vrend_format_table *dst_entry =
+      vrend_get_format_table_entry_with_emulation(dst_res->base.bind, info->dst.format);
+
+   has_depth = util_format_has_depth(src_desc) &&
+      util_format_has_depth(dst_desc);
+   has_stencil = util_format_has_stencil(src_desc) &&
+      util_format_has_stencil(dst_desc);
+
+   blit_depth = has_depth && (info->mask & PIPE_MASK_Z);
+   blit_stencil = has_stencil && (info->mask & PIPE_MASK_S) & 0;
+
+   vrend_renderer_init_blit_ctx(blit_ctx);
+   blitter_set_points(blit_ctx, info, src_res, dst_res, &src0, &src1);
+
+   prog_id = glCreateProgram();
+   glAttachShader(prog_id, blit_ctx->vs);
+
+   if (blit_depth || blit_stencil) {
+      fs_id = blit_get_frag_tex_writedepth(blit_ctx, src_res->base.target,
+                                           src_res->base.nr_samples);
+   } else {
+      fs_id = blit_get_frag_tex_col(blit_ctx, src_res->base.target,
+                                    src_res->base.nr_samples,
+                                    orig_src_entry, dst_entry,
+                                    skip_dest_swizzle);
+   }
+   glAttachShader(prog_id, fs_id);
+
+   if(!link_and_check(prog_id))
+      return;
+
+   glUseProgram(prog_id);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
+   vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, info->dst.box.z);
+
+   buffers = GL_COLOR_ATTACHMENT0;
+   glDrawBuffers(1, &buffers);
+
+   glBindTexture(src_res->target, blit_views[0]);
+   vrend_set_tex_param(src_res, info, has_texture_srgb_decode);
+   vrend_set_vertex_param(prog_id);
 
    set_dsa_write_depth_keep_stencil();
+
+   if (info->scissor_enable) {
+      glScissor(info->scissor.minx, info->scissor.miny, info->scissor.maxx - info->scissor.minx, info->scissor.maxy - info->scissor.miny);
+      glEnable(GL_SCISSOR_TEST);
+   } else
+      glDisable(GL_SCISSOR_TEST);
+
+   if (has_srgb_write_control) {
+      if (util_format_is_srgb(info->dst.format) || util_format_is_srgb(info->src.format)) {
+         VREND_DEBUG(dbg_blit, ctx, "%s: Enable GL_FRAMEBUFFER_SRGB\n", __func__);
+         glEnable(GL_FRAMEBUFFER_SRGB);
+      } else {
+         VREND_DEBUG(dbg_blit, ctx, "%s: Disable GL_FRAMEBUFFER_SRGB\n", __func__);
+         glDisable(GL_FRAMEBUFFER_SRGB);
+      }
+   }
 
    for (dst_z = 0; dst_z < info->dst.box.depth; dst_z++) {
       float dst2src_scale = info->src.box.depth / (float)info->dst.box.depth;
@@ -826,10 +782,10 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
       float src_z = (dst_z + dst_offset) * dst2src_scale;
       uint32_t layer = (dst_res->target == GL_TEXTURE_CUBE_MAP) ? info->dst.box.z : dst_z;
 
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, blit_ctx->fb_id);
-      vrend_fb_bind_texture(dst_res, 0, info->dst.level, layer);
+      glBindFramebuffer(GL_FRAMEBUFFER, blit_ctx->fb_id);
+      vrend_fb_bind_texture_id(dst_res, blit_views[1], 0, info->dst.level, layer);
 
-      buffers = GL_COLOR_ATTACHMENT0_EXT;
+      buffers = GL_COLOR_ATTACHMENT0;
       glDrawBuffers(1, &buffers);
       blitter_set_texcoords(blit_ctx, src_res, info->src.level,
                             info->src.box.z + src_z, 0,
@@ -838,8 +794,19 @@ void vrend_renderer_blit_gl(UNUSED struct vrend_context *ctx,
       glBufferData(GL_ARRAY_BUFFER, sizeof(blit_ctx->vertices), blit_ctx->vertices, GL_STATIC_DRAW);
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
    }
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
+
+   glUseProgram(0);
+   glDeleteProgram(prog_id);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                              GL_TEXTURE_2D, 0, 0);
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              GL_TEXTURE_2D, 0, 0);
+   glBindTexture(src_res->target, 0);
+}
+
+void vrend_blitter_fini(void)
+{
+   vrend_blit_ctx.initialised = false;
+   vrend_clicbs->destroy_gl_context(vrend_blit_ctx.gl_context);
+   memset(&vrend_blit_ctx, 0, sizeof(vrend_blit_ctx));
 }

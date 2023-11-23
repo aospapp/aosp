@@ -193,7 +193,7 @@ class provision_CheetsUpdate(test.test):
                '--loglevel',
                'DEBUG']
         if self.sepolicy:
-          cmd.extend(['--sepolicy-artifacts-path', self.sepolicy])
+            cmd.extend(['--sepolicy-artifacts-path', self.sepolicy])
         try:
             logging.info('Running push to device:')
             logging.info(
@@ -239,7 +239,7 @@ class provision_CheetsUpdate(test.test):
             # In case the DUT has never run cheets tests before, there might not
             # be cheets build label set.
             host_android_build = None
-        # provision_AutoUpdate can update the cheets version and the
+        # provision_QuickProvision can update the cheets version and the
         # cheets-version label might not have been updated so checking the
         # cheets version installed on the DUT.
         dut_arc_version = host.get_arc_version()

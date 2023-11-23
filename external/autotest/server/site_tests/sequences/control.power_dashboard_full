@@ -1,4 +1,4 @@
-# Copyright (c) 2018 The Chromium OS Authors. All rights reserved.
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -13,6 +13,7 @@ DOC = """
 Sequence for upload common power test data to dashboard.
 """
 
+import datetime
 from autotest_lib.client.common_lib import utils
 
 CLIENT_TESTS = [
@@ -49,7 +50,9 @@ try:
 except NameError:
     args_dict = utils.args_to_dict(args)
 
-pdash_note = args_dict.get('pdash_note', '')
+# Use time as pdash_note if not supplied to track all tests in same suite.
+pdash_note = args_dict.get('pdash_note',
+                           NAME + '_' + datetime.datetime.utcnow().isoformat())
 sweetberry_serial = args_dict.get('sweetberry_serial', None)
 
 

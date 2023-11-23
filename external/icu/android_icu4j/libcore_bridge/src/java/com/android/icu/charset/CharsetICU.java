@@ -19,16 +19,6 @@ import java.nio.charset.CharsetEncoder;
 public final class CharsetICU extends Charset {
     private final String icuCanonicalName;
 
-    @libcore.api.IntraCoreApi
-    public static String[] getAvailableCharsetNames() {
-        return NativeConverter.getAvailableCharsetNames();
-    }
-
-    @libcore.api.IntraCoreApi
-    public static Charset charsetForName(String charsetName) {
-        return NativeConverter.charsetForName(charsetName);
-    }
-
     /**
      * Called by native codes.
      */

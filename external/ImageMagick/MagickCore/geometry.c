@@ -17,7 +17,7 @@
 %                              January 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -127,7 +127,7 @@ MagickExport MagickStatusType GetGeometry(const char *geometry,ssize_t *x,
         (void) CopyMagickString(p,p+1,MagickPathExtent);
         continue;
       }
-    c=(int)*p;
+    c=(int) *p;
     switch (c)
     {
       case '%':
@@ -387,18 +387,20 @@ MagickExport char *GetPageGeometry(const char *page_geometry)
       MagickPageSize("10x13", "720x936"),
       MagickPageSize("10x14", "720x1008"),
       MagickPageSize("11x17", "792x1224"),
+      MagickPageSize("4A0", "4768x6741"),
+      MagickPageSize("2A0", "3370x4768"),
       MagickPageSize("a0", "2384x3370"),
       MagickPageSize("a1", "1684x2384"),
-      MagickPageSize("a10", "73x105"),
       MagickPageSize("a2", "1191x1684"),
       MagickPageSize("a3", "842x1191"),
       MagickPageSize("a4", "595x842"),
       MagickPageSize("a4small", "595x842"),
       MagickPageSize("a5", "420x595"),
-      MagickPageSize("a6", "297x420"),
-      MagickPageSize("a7", "210x297"),
-      MagickPageSize("a8", "148x210"),
-      MagickPageSize("a9", "105x148"),
+      MagickPageSize("a6", "298x420"),
+      MagickPageSize("a7", "210x298"),
+      MagickPageSize("a8", "147x210"),
+      MagickPageSize("a9", "105x147"),
+      MagickPageSize("a10", "74x105"),
       MagickPageSize("archa", "648x864"),
       MagickPageSize("archb", "864x1296"),
       MagickPageSize("archC", "1296x1728"),
@@ -460,14 +462,14 @@ MagickExport char *GetPageGeometry(const char *page_geometry)
     };
 
   char
-    page[MaxTextExtent];
+    page[MagickPathExtent];
 
-  register ssize_t
+  ssize_t
     i;
 
   assert(page_geometry != (char *) NULL);
   (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",page_geometry);
-  (void) CopyMagickString(page,page_geometry,MaxTextExtent);
+  (void) CopyMagickString(page,page_geometry,MagickPathExtent);
   for (i=0; i < (ssize_t) (sizeof(PageSizes)/sizeof(PageSizes[0])); i++)
   {
     int
@@ -485,12 +487,12 @@ MagickExport char *GetPageGeometry(const char *page_geometry)
         /*
           Replace mneumonic with the equivalent size in dots-per-inch.
         */
-        (void) FormatLocaleString(page,MaxTextExtent,"%s%.80s",
+        (void) FormatLocaleString(page,MagickPathExtent,"%s%.80s",
           PageSizes[i].geometry,page_geometry+PageSizes[i].extent);
         flags=GetGeometry(page,&geometry.x,&geometry.y,&geometry.width,
           &geometry.height);
         if ((flags & GreaterValue) == 0)
-          (void) ConcatenateMagickString(page,">",MaxTextExtent);
+          (void) ConcatenateMagickString(page,">",MagickPathExtent);
         break;
       }
   }
@@ -661,7 +663,12 @@ MagickExport MagickBooleanType IsSceneGeometry(const char *geometry,
     return(MagickFalse);
   p=(char *) geometry;
   value=StringToDouble(geometry,&p);
-  (void) value;
+  if (IsNaN(value) != 0)
+    return(MagickFalse);
+  if (value > (double) MAGICK_SSIZE_MAX)
+    return(MagickFalse);
+  if (value < (double) MAGICK_SSIZE_MIN)
+    return(MagickFalse);
   if (p == geometry)
     return(MagickFalse);
   if (strspn(geometry,"0123456789-, ") != strlen(geometry))
@@ -756,7 +763,7 @@ MagickExport MagickStatusType ParseAffineGeometry(const char *geometry,
   MagickStatusType
     flags;
 
-  register ssize_t
+  ssize_t
     i;
 
   GetAffineMatrix(affine_matrix);
@@ -898,7 +905,7 @@ MagickExport MagickStatusType ParseGeometry(const char *geometry,
   for (p=pedantic_geometry; *p != '\0'; )
   {
     c=(int) ((unsigned char) *p);
-    if (isspace(c) != 0)
+    if (isspace((int) ((unsigned char) c)) != 0)
       {
         (void) CopyMagickString(p,p+1,MagickPathExtent);
         continue;
@@ -1417,8 +1424,8 @@ MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
       scale.y=geometry_info.sigma;
       if ((percent_flags & SigmaValue) == 0)
         scale.y=scale.x;
-      *width=(size_t) MagickMax(floor(scale.x*former_width/100.0+0.5),1.0);
-      *height=(size_t) MagickMax(floor(scale.y*former_height/100.0+0.5),1.0);
+      *width=(size_t) floor(scale.x*former_width/100.0+0.5);
+      *height=(size_t) floor(scale.y*former_height/100.0+0.5);
       former_width=(*width);
       former_height=(*height);
     }
@@ -1528,14 +1535,16 @@ MagickExport MagickStatusType ParseMetaGeometry(const char *geometry,ssize_t *x,
       (void) ParseGeometry(geometry,&geometry_info);
       area=geometry_info.rho+sqrt(MagickEpsilon);
       distance=sqrt((double) former_width*former_height);
-      scale.x=(double) former_width*PerceptibleReciprocal(distance/sqrt(area));
-      scale.y=(double) former_height*PerceptibleReciprocal(distance/sqrt(area));
+      scale.x=(double) former_width*PerceptibleReciprocal(distance*
+        PerceptibleReciprocal(sqrt(area)));
+      scale.y=(double) former_height*PerceptibleReciprocal(distance*
+        PerceptibleReciprocal(sqrt(area)));
       if ((scale.x < (double) *width) || (scale.y < (double) *height))
         {
           *width=(unsigned long) (former_width*PerceptibleReciprocal(
-            distance/sqrt(area)));
+            distance*PerceptibleReciprocal(sqrt(area))));
           *height=(unsigned long) (former_height*PerceptibleReciprocal(
-            distance/sqrt(area)));
+            distance*PerceptibleReciprocal(sqrt(area))));
         }
       former_width=(*width);
       former_height=(*height);

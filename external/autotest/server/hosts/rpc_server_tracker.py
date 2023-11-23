@@ -1,13 +1,14 @@
+# Lint as: python2, python3
 # Copyright (c) 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import httplib
+import six.moves.http_client
 import logging
 import socket
 import tempfile
 import time
-import xmlrpclib
+import six.moves.xmlrpc_client
 
 import common
 from autotest_lib.client.bin import utils
@@ -114,7 +115,8 @@ class RpcServerTracker(object):
 
     def xmlrpc_connect(self, command, port, command_name=None,
                        ready_test_name=None, timeout_seconds=10,
-                       logfile=None, request_timeout_seconds=None):
+                       logfile=None, request_timeout_seconds=None,
+                       server_desc=None):
         """Connect to an XMLRPC server on the host.
 
         The `command` argument should be a simple shell command that
@@ -155,6 +157,7 @@ class RpcServerTracker(object):
         @param logfile Logfile to send output when running
             'command' argument.
         @param request_timeout_seconds Timeout in seconds for an XMLRPC request.
+        @param server_desc: Extra text to report in socket.error descriptions.
 
         """
         # Clean up any existing state.  If the caller is willing
@@ -169,22 +172,26 @@ class RpcServerTracker(object):
                 remote_cmd = command
             remote_pid = self._host.run_background(remote_cmd)
             logging.debug('Started XMLRPC server on host %s, pid = %s',
-                        self._host.hostname, remote_pid)
+                          self._host.hostname, remote_pid)
 
         # Tunnel through SSH to be able to reach that remote port.
         rpc_url = self._setup_rpc(port, command_name, remote_pid=remote_pid)
+        if not server_desc:
+            server_desc = "<%s '%s:%s'>" % (command_name or 'XMLRPC',
+                                            self._host.hostname, port)
+        server_desc = '%s (%s)' % (server_desc, rpc_url.replace('http://', ''))
         if request_timeout_seconds is not None:
             proxy = TimeoutXMLRPCServerProxy(
                     rpc_url, timeout=request_timeout_seconds, allow_none=True)
         else:
-            proxy = xmlrpclib.ServerProxy(rpc_url, allow_none=True)
+            proxy = six.moves.xmlrpc_client.ServerProxy(rpc_url, allow_none=True)
 
         if ready_test_name is not None:
             # retry.retry logs each attempt; calculate delay_sec to
             # keep log spam to a dull roar.
             @retry.retry((socket.error,
-                          xmlrpclib.ProtocolError,
-                          httplib.BadStatusLine),
+                          six.moves.xmlrpc_client.ProtocolError,
+                          six.moves.http_client.BadStatusLine),
                          timeout_min=timeout_seconds / 60.0,
                          delay_sec=min(max(timeout_seconds / 20.0, 0.1), 1))
             def ready_test():
@@ -192,26 +199,62 @@ class RpcServerTracker(object):
                 try:
                     getattr(proxy, ready_test_name)()
                 except socket.error as e:
-                    e.filename = rpc_url.replace('http://', '')
+                    e.filename = server_desc
                     raise
-            successful = False
+
             try:
                 logging.info('Waiting %d seconds for XMLRPC server '
                              'to start.', timeout_seconds)
                 ready_test()
-                successful = True
-            except socket.error as e:
-                e.filename = rpc_url.replace('http://', '')
+            except Exception as exc:
+                log_lines = []
+                if logfile:
+                    logging.warn('Failed to start XMLRPC server; getting log.')
+                    with tempfile.NamedTemporaryFile() as temp:
+                        self._host.get_file(logfile, temp.name)
+                        with open(temp.name) as f:
+                            log_lines = f.read().rstrip().splitlines()
+                else:
+                    logging.warn('Failed to start XMLRPC server; no log.')
+
+                logging.error(
+                        'Failed to start XMLRPC server:  %s.%s: %s.',
+                        type(exc).__module__, type(exc).__name__,
+                        str(exc).rstrip('.'))
+
+                if isinstance(exc, six.moves.http_client.BadStatusLine):
+                    # BadStatusLine: inject the last log line into the message,
+                    # using the 'line' and 'args' attributes.
+                    if log_lines:
+                        if exc.line:
+                            exc.line = '%s -- Log tail: %r' % (
+                                    exc.line, log_lines[-1])
+                        else:
+                            exc.line = 'Log tail: %r' % (
+                                    log_lines[-1])
+                        exc.args = (exc.line,)
+                elif isinstance(exc, socket.error):
+                    # socket.error: inject the last log line into the message,
+                    # using the 'filename' attribute.
+                    if log_lines:
+                        if exc.filename:
+                            exc.filename = '%s -- Log tail: %r' % (
+                                    exc.filename, log_lines[-1])
+                        else:
+                            exc.filename = 'Log tail: %r' % log_lines[-1]
+                elif log_lines:
+                    # Unusual failure: can't inject the last log line,
+                    # so report it via logging.
+                    logging.error('Log tail: %r', log_lines[-1])
+
+                if len(log_lines) > 1:
+                    # The failure messages include only the last line,
+                    # so report the whole thing if it had more lines.
+                    logging.error('Full XMLRPC server log:\n%s',
+                                  '\n'.join(log_lines))
+
+                self.disconnect(port)
                 raise
-            finally:
-                if not successful:
-                    logging.error('Failed to start XMLRPC server.')
-                    if logfile:
-                        with tempfile.NamedTemporaryFile() as temp:
-                            self._host.get_file(logfile, temp.name)
-                            logging.error('The log of XML RPC server:\n%s',
-                                          open(temp.name).read())
-                    self.disconnect(port)
         logging.info('XMLRPC server started successfully.')
         return proxy
 
@@ -247,8 +290,7 @@ class RpcServerTracker(object):
         logging.info('Established a jsonrpc connection through port %s.', port)
         return proxy
 
-
-    def disconnect(self, port):
+    def disconnect(self, port, pkill=True):
         """Disconnect from an RPC server on the host.
 
         Terminates the remote RPC server previously started for
@@ -261,13 +303,13 @@ class RpcServerTracker(object):
         This function does nothing if requested to disconnect a port
         that was not previously connected via _setup_rpc.
 
-        @param port Port number passed to a previous call to
-                    `_setup_rpc()`.
+        @param port Port number passed to a previous call to `_setup_rpc()`.
+        @param pkill: if True, ssh in to the server and pkill the process.
         """
         if port not in self._rpc_proxy_map:
             return
         remote_name, tunnel_proc, remote_pid = self._rpc_proxy_map[port]
-        if remote_name:
+        if pkill and remote_name:
             # We use 'pkill' to find our target process rather than
             # a PID, because the host may have rebooted since
             # connecting, and we don't want to kill an innocent
@@ -305,7 +347,7 @@ class RpcServerTracker(object):
             self.disconnect(port)
 
 
-class TimeoutXMLRPCServerProxy(xmlrpclib.ServerProxy):
+class TimeoutXMLRPCServerProxy(six.moves.xmlrpc_client.ServerProxy):
     """XMLRPC ServerProxy supporting timeout."""
     def __init__(self, uri, timeout=20, *args, **kwargs):
         """Initializes a TimeoutXMLRPCServerProxy.
@@ -318,10 +360,10 @@ class TimeoutXMLRPCServerProxy(xmlrpclib.ServerProxy):
         """
         if timeout:
             kwargs['transport'] = TimeoutXMLRPCTransport(timeout=timeout)
-        xmlrpclib.ServerProxy.__init__(self, uri, *args, **kwargs)
+        six.moves.xmlrpc_client.ServerProxy.__init__(self, uri, *args, **kwargs)
 
 
-class TimeoutXMLRPCTransport(xmlrpclib.Transport):
+class TimeoutXMLRPCTransport(six.moves.xmlrpc_client.Transport):
     """A Transport subclass supporting timeout."""
     def __init__(self, timeout=20, *args, **kwargs):
         """Initializes a TimeoutXMLRPCTransport.
@@ -331,7 +373,7 @@ class TimeoutXMLRPCTransport(xmlrpclib.Transport):
         @param **kwargs: kwargs to xmlrpclib.Transport.
 
         """
-        xmlrpclib.Transport.__init__(self, *args, **kwargs)
+        six.moves.xmlrpc_client.Transport.__init__(self, *args, **kwargs)
         self.timeout = timeout
 
 
@@ -343,5 +385,5 @@ class TimeoutXMLRPCTransport(xmlrpclib.Transport):
         @return: A httplib.HTTPConnection connecting to host with timeout.
 
         """
-        conn = httplib.HTTPConnection(host, timeout=self.timeout)
+        conn = six.moves.http_client.HTTPConnection(host, timeout=self.timeout)
         return conn

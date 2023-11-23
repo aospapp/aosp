@@ -102,11 +102,11 @@ but the indication about which fields are mandatory still holds.
 | SYNC\_COUNT  | No       | Integer >= 1.  Number of simultaneous devices needed for a test run.                                                                                                                                                                                                                                                                     |
 | TIME         | Yes      | Test duration: 'FAST' (<1m), 'MEDIUM' (<10m), 'LONG' (<20m), 'LENGTHY' (>30m)                                                                                                                                                                                                                                                            |
 | TEST\_TYPE   | Yes      | Client or Server                                                                                                                                                                                                                                                                                                                         |
-| ATTRIBUTES   | No       | Comma separated list of attribute tags to apply to this control file, used in composing suites. For instance, 'suite:foo, suite:bar, subsystem:baz'.                                                                                                                                                                                     |
+| ATTRIBUTES   | No       | Comma separated list of attribute tags to apply to this control file, used in composing suites. For instance, 'suite:foo, suite:bar'.                                                                                                                                                                                                    |
 
 ### Running tests in suites
 
-Make sure that the suite name is listed in `site_utils/attribute_whitelist.txt`,
+Make sure that the suite name is listed in `site_utils/attribute_allowlist.txt`,
 then add the appropriate attribute to the ATTRIBUTES field in tests that make
 up the test suite.  For instance:
 
@@ -271,8 +271,10 @@ Below is a code snippet outlining the requirements; portions of the control file
 
 ```
 # ... Standard boilerplate variable assignments...
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 # ... more standard boilerplate...
+# servo_state:WORKING - servo is present and can provide required functionality
+# servo_state:BROKEN - servo is present but cannot provide required functionality
 
 args_dict = utils.args_to_dict(args)
 servo_args = hosts.SiteHost.get_servo_arguments(args_dict)

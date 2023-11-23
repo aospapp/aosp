@@ -428,7 +428,7 @@ static int strtoopt( char *str, uint8_t optonly)
     options_list[count].len = sizeof(uint32_t);
     options_list[count].val = xmalloc(sizeof(uint32_t));
     convtmp = strtou32(valstr);
-    if (convtmp < 0) error_exit("Invalid/wrong formated number %s", valstr);
+    if (convtmp < 0) error_exit("Invalid/wrong formatted number %s", valstr);
     convtmp = htonl(convtmp);
     memcpy(options_list[count].val, &convtmp, sizeof(uint32_t));
     break;
@@ -1136,12 +1136,14 @@ static uint8_t dhcpc_parseoptions(dhcpc_result_t *presult, uint8_t *optptr)
       msgopt_list[count].len = strlen(toybuf);
       break;
     case DHCP_IPLIST:
+      options = &optptr[2];
       optlen = optptr[1];
       dest = toybuf;
       while (optlen) {
-        memcpy(&convtmp, &optptr[2], sizeof(uint32_t));
+        memcpy(&convtmp, options, sizeof(uint32_t));
         addr.s_addr = convtmp;
         dest += sprintf(dest, "%s ", inet_ntoa(addr));
+        options += 4;
         optlen -= 4;
       }
       *(dest - 1) = '\0';

@@ -90,6 +90,8 @@ VkStencilOp ToVkStencilOp(StencilOp op) {
       return VK_STENCIL_OP_INCREMENT_AND_WRAP;
     case StencilOp::kDecrementAndWrap:
       return VK_STENCIL_OP_DECREMENT_AND_WRAP;
+    case StencilOp::kUnknown:
+      break;
   }
   assert(false && "Vulkan::Unknown StencilOp");
   return VK_STENCIL_OP_KEEP;
@@ -113,6 +115,8 @@ VkCompareOp ToVkCompareOp(CompareOp op) {
       return VK_COMPARE_OP_GREATER_OR_EQUAL;
     case CompareOp::kAlways:
       return VK_COMPARE_OP_ALWAYS;
+    case CompareOp::kUnknown:
+      break;
   }
   assert(false && "Vulkan::Unknown CompareOp");
   return VK_COMPARE_OP_NEVER;
@@ -381,14 +385,14 @@ class RenderPassGuard {
 GraphicsPipeline::GraphicsPipeline(
     Device* device,
     const std::vector<amber::Pipeline::BufferInfo>& color_buffers,
-    Format* depth_stencil_format,
+    amber::Pipeline::BufferInfo depth_stencil_buffer,
     uint32_t fence_timeout_ms,
     const std::vector<VkPipelineShaderStageCreateInfo>& shader_stage_info)
     : Pipeline(PipelineType::kGraphics,
                device,
                fence_timeout_ms,
                shader_stage_info),
-      depth_stencil_format_(depth_stencil_format) {
+      depth_stencil_buffer_(depth_stencil_buffer) {
   for (const auto& info : color_buffers)
     color_buffers_.push_back(&info);
 }
@@ -426,10 +430,11 @@ Result GraphicsPipeline::CreateRenderPass() {
   subpass_desc.colorAttachmentCount = static_cast<uint32_t>(color_refer.size());
   subpass_desc.pColorAttachments = color_refer.data();
 
-  if (depth_stencil_format_ && depth_stencil_format_->IsFormatKnown()) {
+  if (depth_stencil_buffer_.buffer &&
+      depth_stencil_buffer_.buffer->GetFormat()->IsFormatKnown()) {
     attachment_desc.push_back(kDefaultAttachmentDesc);
     attachment_desc.back().format =
-        device_->GetVkFormat(*depth_stencil_format_);
+        device_->GetVkFormat(*depth_stencil_buffer_.buffer->GetFormat());
     attachment_desc.back().initialLayout =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     attachment_desc.back().finalLayout =
@@ -541,31 +546,25 @@ Result GraphicsPipeline::CreateVkGraphicsPipeline(
         "null");
   }
 
+  std::vector<VkVertexInputBindingDescription> vertex_bindings;
+  std::vector<VkVertexInputAttributeDescription> vertex_attribs;
+  if (vertex_buffer != nullptr) {
+    vertex_bindings = vertex_buffer->GetVkVertexInputBinding();
+    vertex_attribs = vertex_buffer->GetVkVertexInputAttr();
+  }
+
   VkPipelineVertexInputStateCreateInfo vertex_input_info =
       VkPipelineVertexInputStateCreateInfo();
   vertex_input_info.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input_info.vertexBindingDescriptionCount = 1;
-
-  VkVertexInputBindingDescription vertex_binding_desc =
-      VkVertexInputBindingDescription();
-  if (vertex_buffer != nullptr) {
-    vertex_binding_desc = vertex_buffer->GetVkVertexInputBinding();
-    const auto& vertex_attr_desc = vertex_buffer->GetVkVertexInputAttr();
-
-    vertex_input_info.pVertexBindingDescriptions = &vertex_binding_desc;
-    vertex_input_info.vertexAttributeDescriptionCount =
-        static_cast<uint32_t>(vertex_attr_desc.size());
-    vertex_input_info.pVertexAttributeDescriptions = vertex_attr_desc.data();
-  } else {
-    vertex_binding_desc.binding = 0;
-    vertex_binding_desc.stride = 0;
-    vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    vertex_input_info.pVertexBindingDescriptions = &vertex_binding_desc;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_info.pVertexAttributeDescriptions = nullptr;
-  }
+  vertex_input_info.vertexBindingDescriptionCount =
+      static_cast<uint32_t>(vertex_bindings.size());
+  vertex_input_info.pVertexBindingDescriptions =
+      vertex_bindings.empty() ? nullptr : vertex_bindings.data();
+  vertex_input_info.vertexAttributeDescriptionCount =
+      static_cast<uint32_t>(vertex_attribs.size());
+  vertex_input_info.pVertexAttributeDescriptions =
+      vertex_attribs.empty() ? nullptr : vertex_attribs.data();
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly_info =
       VkPipelineInputAssemblyStateCreateInfo();
@@ -650,7 +649,8 @@ Result GraphicsPipeline::CreateVkGraphicsPipeline(
   }
 
   VkPipelineDepthStencilStateCreateInfo depthstencil_info;
-  if (depth_stencil_format_ && depth_stencil_format_->IsFormatKnown()) {
+  if (depth_stencil_buffer_.buffer &&
+      depth_stencil_buffer_.buffer->GetFormat()->IsFormatKnown()) {
     depthstencil_info = GetVkPipelineDepthStencilInfo(pipeline_data);
     pipeline_info.pDepthStencilState = &depthstencil_info;
   }
@@ -694,8 +694,9 @@ Result GraphicsPipeline::Initialize(uint32_t width,
   if (!r.IsSuccess())
     return r;
 
-  frame_ = MakeUnique<FrameBuffer>(device_, color_buffers_, width, height);
-  r = frame_->Initialize(render_pass_, depth_stencil_format_);
+  frame_ = MakeUnique<FrameBuffer>(device_, color_buffers_,
+                                   depth_stencil_buffer_, width, height);
+  r = frame_->Initialize(render_pass_);
   if (!r.IsSuccess())
     return r;
 
@@ -741,7 +742,8 @@ Result GraphicsPipeline::SetClearColor(float r, float g, float b, float a) {
 }
 
 Result GraphicsPipeline::SetClearStencil(uint32_t stencil) {
-  if (!depth_stencil_format_ || !depth_stencil_format_->IsFormatKnown()) {
+  if (!depth_stencil_buffer_.buffer ||
+      !depth_stencil_buffer_.buffer->GetFormat()->IsFormatKnown()) {
     return Result(
         "Vulkan::ClearStencilCommand No DepthStencil Buffer for FrameBuffer "
         "Exists");
@@ -752,7 +754,8 @@ Result GraphicsPipeline::SetClearStencil(uint32_t stencil) {
 }
 
 Result GraphicsPipeline::SetClearDepth(float depth) {
-  if (!depth_stencil_format_ || !depth_stencil_format_->IsFormatKnown()) {
+  if (!depth_stencil_buffer_.buffer ||
+      !depth_stencil_buffer_.buffer->GetFormat()->IsFormatKnown()) {
     return Result(
         "Vulkan::ClearStencilCommand No DepthStencil Buffer for FrameBuffer "
         "Exists");
@@ -767,32 +770,13 @@ Result GraphicsPipeline::Clear() {
   colour_clear.color = {
       {clear_color_r_, clear_color_g_, clear_color_b_, clear_color_a_}};
 
-  Result r = ClearBuffer(colour_clear, VK_IMAGE_ASPECT_COLOR_BIT);
-  if (!r.IsSuccess())
-    return r;
-
-  if (!depth_stencil_format_ || !depth_stencil_format_->IsFormatKnown())
-    return {};
-
-  VkClearValue depth_clear;
-  depth_clear.depthStencil = {clear_depth_, clear_stencil_};
-
-  return ClearBuffer(
-      depth_clear,
-      depth_stencil_format_ && depth_stencil_format_->HasStencilComponent()
-          ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT
-          : VK_IMAGE_ASPECT_DEPTH_BIT);
-}
-
-Result GraphicsPipeline::ClearBuffer(const VkClearValue& clear_value,
-                                     VkImageAspectFlags aspect) {
   CommandBufferGuard cmd_buf_guard(GetCommandBuffer());
   if (!cmd_buf_guard.IsRecording())
     return cmd_buf_guard.GetResult();
 
   frame_->ChangeFrameToWriteLayout(GetCommandBuffer());
   frame_->CopyBuffersToImages();
-  frame_->TransferColorImagesToDevice(GetCommandBuffer());
+  frame_->TransferImagesToDevice(GetCommandBuffer());
 
   {
     RenderPassGuard render_pass_guard(this);
@@ -800,9 +784,27 @@ Result GraphicsPipeline::ClearBuffer(const VkClearValue& clear_value,
     std::vector<VkClearAttachment> clears;
     for (size_t i = 0; i < color_buffers_.size(); ++i) {
       VkClearAttachment clear_attachment = VkClearAttachment();
-      clear_attachment.aspectMask = aspect;
+      clear_attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
       clear_attachment.colorAttachment = static_cast<uint32_t>(i);
-      clear_attachment.clearValue = clear_value;
+      clear_attachment.clearValue = colour_clear;
+
+      clears.push_back(clear_attachment);
+    }
+
+    if (depth_stencil_buffer_.buffer &&
+        depth_stencil_buffer_.buffer->GetFormat()->IsFormatKnown()) {
+      VkClearValue depth_stencil_clear;
+      depth_stencil_clear.depthStencil = {clear_depth_, clear_stencil_};
+
+      VkImageAspectFlags aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+      if (depth_stencil_buffer_.buffer->GetFormat()->HasStencilComponent())
+        aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+      VkClearAttachment clear_attachment = VkClearAttachment();
+      clear_attachment.aspectMask = aspect;
+      clear_attachment.colorAttachment =
+          static_cast<uint32_t>(color_buffers_.size());
+      clear_attachment.clearValue = depth_stencil_clear;
 
       clears.push_back(clear_attachment);
     }
@@ -817,7 +819,7 @@ Result GraphicsPipeline::ClearBuffer(const VkClearValue& clear_value,
         clears.data(), 1, &clear_rect);
   }
 
-  frame_->TransferColorImagesToHost(command_.get());
+  frame_->TransferImagesToHost(command_.get());
 
   Result r = cmd_buf_guard.Submit(GetFenceTimeout());
   if (!r.IsSuccess())
@@ -861,7 +863,7 @@ Result GraphicsPipeline::Draw(const DrawArraysCommand* command,
 
     frame_->ChangeFrameToWriteLayout(GetCommandBuffer());
     frame_->CopyBuffersToImages();
-    frame_->TransferColorImagesToDevice(GetCommandBuffer());
+    frame_->TransferImagesToDevice(GetCommandBuffer());
 
     {
       RenderPassGuard render_pass_guard(this);
@@ -879,10 +881,6 @@ Result GraphicsPipeline::Draw(const DrawArraysCommand* command,
       if (vertex_buffer != nullptr)
         vertex_buffer->BindToCommandBuffer(command_.get());
 
-      uint32_t instance_count = command->GetInstanceCount();
-      if (instance_count == 0 && command->GetVertexCount() != 0)
-        instance_count = 1;
-
       if (command->IsIndexed()) {
         if (!index_buffer_)
           return Result("Vulkan: Draw indexed is used without given indices");
@@ -896,20 +894,21 @@ Result GraphicsPipeline::Draw(const DrawArraysCommand* command,
         //    becomes the vertex offset and firstIndex will always be zero."
         device_->GetPtrs()->vkCmdDrawIndexed(
             command_->GetVkCommandBuffer(),
-            command->GetVertexCount(), /* indexCount */
-            instance_count,            /* instanceCount */
-            0,                         /* firstIndex */
+            command->GetVertexCount(),   /* indexCount */
+            command->GetInstanceCount(), /* instanceCount */
+            0,                           /* firstIndex */
             static_cast<int32_t>(
                 command->GetFirstVertexIndex()), /* vertexOffset */
-            0 /* firstInstance */);
+            command->GetFirstInstance());        /* firstInstance */
       } else {
-        device_->GetPtrs()->vkCmdDraw(command_->GetVkCommandBuffer(),
-                                      command->GetVertexCount(), instance_count,
-                                      command->GetFirstVertexIndex(), 0);
+        device_->GetPtrs()->vkCmdDraw(
+            command_->GetVkCommandBuffer(), command->GetVertexCount(),
+            command->GetInstanceCount(), command->GetFirstVertexIndex(),
+            command->GetFirstInstance());
       }
     }
 
-    frame_->TransferColorImagesToHost(command_.get());
+    frame_->TransferImagesToHost(command_.get());
 
     r = cmd_buf_guard.Submit(GetFenceTimeout());
     if (!r.IsSuccess())

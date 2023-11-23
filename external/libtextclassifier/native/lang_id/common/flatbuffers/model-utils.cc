@@ -26,14 +26,6 @@
 namespace libtextclassifier3 {
 namespace saft_fbs {
 
-namespace {
-
-// Returns true if we have clear evidence that |model| fails its checksum.
-//
-// E.g., if |model| has the crc32 field, and the value of that field does not
-// match the checksum, then this function returns true.  If there is no crc32
-// field, then we don't know what the original (at build time) checksum was, so
-// we don't know anything clear and this function returns false.
 bool ClearlyFailsChecksum(const Model &model) {
   if (!flatbuffers::IsFieldPresent(&model, Model::VT_CRC32)) {
     SAFTM_LOG(WARNING)
@@ -50,7 +42,6 @@ bool ClearlyFailsChecksum(const Model &model) {
   SAFTM_DLOG(INFO) << "Successfully checked CRC32 " << actual_crc32;
   return false;
 }
-}  // namespace
 
 const Model *GetVerifiedModelFromBytes(const char *data, size_t num_bytes) {
   if ((data == nullptr) || (num_bytes == 0)) {

@@ -17,10 +17,10 @@
 package com.google.android.setupdesign.view;
 
 import android.content.Context;
-import androidx.annotation.VisibleForTesting;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ScrollView;
+import androidx.annotation.VisibleForTesting;
 
 /**
  * An extension of ScrollView that will invoke a listener callback when the ScrollView needs
@@ -68,7 +68,6 @@ public class BottomScrollView extends ScrollView {
     return listener;
   }
 
-  @VisibleForTesting
   public int getScrollThreshold() {
     return scrollThreshold;
   }

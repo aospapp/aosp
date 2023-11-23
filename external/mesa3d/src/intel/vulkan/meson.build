@@ -68,19 +68,6 @@ intel_icd = custom_target(
   install : true,
 )
 
-dev_icd = custom_target(
-  'dev_icd',
-  input : 'anv_icd.py',
-  output : 'dev_icd.@0@.json'.format(host_machine.cpu()),
-  command : [
-    prog_python, '@INPUT@', '--lib-path', meson.current_build_dir(),
-    '--out', '@OUTPUT@'
-  ],
-  depend_files : files('anv_extensions.py'),
-  build_by_default : true,
-  install : false,
-)
-
 libanv_gen_libs = []
 anv_gen_files = files(
   'genX_blorp_exec.c',
@@ -92,18 +79,19 @@ anv_gen_files = files(
 )
 foreach g : [['70', ['gen7_cmd_buffer.c']], ['75', ['gen7_cmd_buffer.c']],
              ['80', ['gen8_cmd_buffer.c']], ['90', ['gen8_cmd_buffer.c']],
-             ['100', ['gen8_cmd_buffer.c']], ['110', ['gen8_cmd_buffer.c']]]
+             ['110', ['gen8_cmd_buffer.c']], ['120', ['gen8_cmd_buffer.c']]]
   _gen = g[0]
   libanv_gen_libs += static_library(
     'anv_gen@0@'.format(_gen),
     [anv_gen_files, g[1], anv_entrypoints[0], anv_extensions_h],
     include_directories : [
-      inc_common, inc_compiler, inc_include, inc_intel, inc_vulkan_wsi,
+      inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_compiler, inc_intel, inc_vulkan_wsi,
     ],
     c_args : [
-      c_vis_args, no_override_init_args, c_sse2_args,
+      no_override_init_args, c_sse2_args,
       '-DGEN_VERSIONx10=@0@'.format(_gen),
     ],
+    gnu_symbol_visibility : 'hidden',
     dependencies : [
       dep_libdrm, dep_valgrind, idep_nir_headers, idep_genxml, idep_vulkan_util_headers,
     ],
@@ -126,11 +114,11 @@ libanv_files = files(
   'anv_nir.h',
   'anv_nir_add_base_work_group_id.c',
   'anv_nir_apply_pipeline_layout.c',
-  'anv_nir_lower_input_attachments.c',
+  'anv_nir_compute_push_layout.c',
   'anv_nir_lower_multiview.c',
-  'anv_nir_lower_push_constants.c',
   'anv_nir_lower_ycbcr_textures.c',
   'anv_pass.c',
+  'anv_perf.c',
   'anv_pipeline.c',
   'anv_pipeline_cache.c',
   'anv_private.h',
@@ -147,7 +135,6 @@ anv_deps = [
   idep_vulkan_util_headers,
 ]
 anv_flags = [
-  c_vis_args,
   no_override_init_args,
   c_sse2_args,
 ]
@@ -167,7 +154,7 @@ if with_platform_wayland
   libanv_files += files('anv_wsi_wayland.c')
 endif
 
-if with_platform_drm
+if system_has_kms_drm and not with_platform_android
   anv_flags += '-DVK_USE_PLATFORM_DISPLAY_KHR'
   libanv_files += files('anv_wsi_display.c')
 endif
@@ -178,7 +165,6 @@ if with_xlib_lease
 endif
 
 if with_platform_android
-  anv_deps += dep_android
   anv_flags += '-DVK_USE_PLATFORM_ANDROID_KHR'
   libanv_files += files('anv_android.c')
 else
@@ -192,10 +178,11 @@ libanv_common = static_library(
     gen_xml_pack,
   ],
   include_directories : [
-    inc_common, inc_intel, inc_compiler, inc_include,
-    inc_vulkan_wsi,
+    inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel, inc_compiler,
+    inc_vulkan_wsi, inc_util,
   ],
   c_args : anv_flags,
+  gnu_symbol_visibility : 'hidden',
   dependencies : anv_deps,
 )
 
@@ -203,37 +190,64 @@ libvulkan_intel = shared_library(
   'vulkan_intel',
   [files('anv_gem.c'), anv_entrypoints[0], anv_extensions_h],
   include_directories : [
-    inc_common, inc_intel, inc_compiler, inc_include, inc_vulkan_wsi,
+    inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel, inc_compiler, inc_vulkan_wsi,
   ],
   link_whole : [libanv_common, libanv_gen_libs],
   link_with : [
-    libintel_compiler, libintel_common, libintel_dev, libisl, libblorp,
-    libvulkan_wsi, libmesa_util,
+    libintel_compiler, libintel_dev, libisl, libblorp, libvulkan_wsi,
+    libintel_perf,
   ],
   dependencies : [
-    dep_thread, dep_dl, dep_m, anv_deps, idep_nir, idep_genxml, idep_vulkan_util
+    dep_thread, dep_dl, dep_m, anv_deps, idep_libintel_common,
+    idep_nir, idep_genxml, idep_vulkan_util, idep_mesautil, idep_xmlconfig,
   ],
   c_args : anv_flags,
-  link_args : ['-Wl,--build-id=sha1', ld_args_bsymbolic, ld_args_gc_sections],
+  gnu_symbol_visibility : 'hidden',
+  link_args : [ld_args_build_id, ld_args_bsymbolic, ld_args_gc_sections],
   install : true,
 )
+
+if with_symbols_check
+  if get_option('buildtype') == 'debug'  # Same rule as `-DDEBUG` in /meson.build
+    _extra_args = [
+      '--ignore-symbol', 'anv_dump_start',
+      '--ignore-symbol', 'anv_dump_finish',
+    ]
+  else
+    _extra_args = []
+  endif
+
+  test(
+    'anv symbols check',
+    symbols_check,
+    args : [
+      '--lib', libvulkan_intel,
+      '--symbols-file', vulkan_icd_symbols,
+      _extra_args,
+      symbols_check_args,
+    ],
+    suite : ['intel'],
+  )
+endif
 
 if with_tests
   libvulkan_intel_test = static_library(
     'vulkan_intel_test',
     [files('anv_gem_stubs.c'), anv_entrypoints[0], anv_extensions_h],
     include_directories : [
-      inc_common, inc_intel, inc_compiler, inc_include, inc_vulkan_wsi,
+      inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel, inc_compiler, inc_vulkan_wsi,
     ],
     link_whole : libanv_common,
     link_with : [
       libanv_gen_libs, libintel_compiler, libintel_common, libintel_dev,
-      libisl, libblorp, libvulkan_wsi, libmesa_util,
+      libisl, libblorp, libvulkan_wsi, libintel_perf,
     ],
     dependencies : [
-      dep_thread, dep_dl, dep_m, anv_deps, idep_nir, idep_vulkan_util
+      dep_thread, dep_dl, dep_m, anv_deps,
+      idep_nir, idep_vulkan_util, idep_mesautil,
     ],
     c_args : anv_flags,
+    gnu_symbol_visibility : 'hidden',
   )
 
   foreach t : ['block_pool_no_free', 'block_pool_grow_first',
@@ -248,7 +262,7 @@ if with_tests
         link_with : libvulkan_intel_test,
         dependencies : [dep_libdrm, dep_thread, dep_m, dep_valgrind, idep_vulkan_util, ],
         include_directories : [
-          inc_common, inc_intel, inc_compiler, inc_vulkan_wsi,
+          inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel, inc_compiler, inc_vulkan_wsi,
         ],
       ),
       suite : ['intel'],

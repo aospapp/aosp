@@ -16,6 +16,20 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    default_applicable_licenses: ["external_okhttp_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_okhttp_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE.txt",
+    ],
 }
 
 // The source files that contribute to Android's core library APIs.
@@ -50,18 +64,19 @@ java_library {
     sdk_version: "none",
     system_modules: "core-all-system-modules",
     libs: [
-        "conscrypt.module.intra.core.api.stubs",
+        "conscrypt.module.intra.core.api",
     ],
     java_version: "1.7",
 }
 
-java_library {
-    name: "okhttp",
-    visibility: [
-        "//art/build/apex",
-        "//external/robolectric-shadows",
-        "//libcore",
-    ],
+// The source implementation files, used to build okhttp and core-all. It is
+// used in the latter case to break the cycle where okhttp depends on core-all
+// and core-all depends on okhttp. By including the source into core-all it
+// ensures that the code can all build correctly and then that is used to build
+// the separate parts.
+filegroup {
+    name: "okhttp_impl_files",
+    visibility: ["//libcore"],
     srcs: [
         // Although some of the classes in the android/ directory are already in the correct
         // package and do not need to be moved to another package they are transformed as they
@@ -72,6 +87,21 @@ java_library {
         "repackaged/okhttp-android-support/src/main/java/**/*.java",
         "repackaged/okio/okio/src/main/java/**/*.java",
     ],
+}
+
+java_library {
+    name: "okhttp",
+    visibility: [
+        "//art/build/apex",
+        "//art/build/sdk",
+        "//external/grpc-grpc-java/okhttp",
+        "//external/robolectric-shadows",
+        "//libcore",
+        "//packages/modules/ArtPrebuilt",
+    ],
+    srcs: [
+        ":okhttp_impl_files",
+    ],
 
     hostdex: true,
     installable: true,
@@ -79,36 +109,82 @@ java_library {
     sdk_version: "none",
     system_modules: "core-all-system-modules",
     libs: [
-        "conscrypt.module.intra.core.api.stubs",
+        "conscrypt.module.intra.core.api",
     ],
     java_version: "1.7",
     apex_available: [
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
     ],
+    min_sdk_version: "31",
 }
 
-// A guaranteed unstripped version of okhttp.
-// The build system may or may not strip the okhttp jar, but this one will
-// not be stripped. See b/24535627.
+// Java library for use on host, e.g. by robolectric.
 java_library {
-    name: "okhttp-testdex",
+    name: "okhttp-for-host",
     visibility: [
-        "//art:__subpackages__",
+        "//art/build/sdk",
+        "//external/robolectric-shadows",
     ],
-    static_libs: ["okhttp"],
+    static_libs: [
+        "okhttp",
+    ],
+    sdk_version: "none",
+    system_modules: "none",
+}
+
+// Java Library for both Host and Android that does not use the repackaged okhttp libraries
+// (com.android.okhttp) and instead uses the original (com.squareup.okhttp) packages.
+// This should not end up on the bootclasspath and instead should only be used to build
+// third-party or unbundled applications or libraries that require OkHttp.
+java_library {
+    name: "okhttp-norepackage",
+    host_supported: true,
+
+    visibility: [
+        "//art/build/sdk",
+        "//external/grpc-grpc-java/okhttp",
+    ],
+
+    srcs: [
+        "okhttp/src/main/java/**/*.java",
+        "okhttp-urlconnection/src/main/java/**/*.java",
+        "okio/okio/src/main/java/**/*.java",
+        ":okhttp_version.java",
+    ],
+
+    target: {
+        host: {
+            libs: [
+                "okhttp-android-util-log",
+            ],
+        },
+    },
 
     installable: true,
+    sdk_version: "current",
+}
 
-    sdk_version: "none",
-    system_modules: "core-all-system-modules",
-    libs: [
-        "conscrypt.module.intra.core.api.stubs",
+// Generate Version.java based on the version number from pom.xml.
+genrule {
+    name: "okhttp_version.java",
+    srcs: [
+        "okhttp/src/main/java-templates/com/squareup/okhttp/internal/Version.java",
+        "okhttp/pom.xml",
     ],
-    dex_preopt: {
-        enabled: false,
-    },
-    java_version: "1.7",
+    out: ["com/squareup/okhttp/internal/Version.java"],
+    cmd: "grep \"<version>\" $(location okhttp/pom.xml) | head -1 |" +
+        " sed -e \"s/\\s*<version>\\(.*\\)<\\/version>/\\1/\" > $(genDir)/version && " +
+        "sed -e \"s/\\$${project.version}/$$(cat $(genDir)/version)/\" " +
+        " $(location okhttp/src/main/java-templates/com/squareup/okhttp/internal/Version.java) " +
+        "> $(out)",
+}
+
+// A library to provide a stub android.util.Log symbol for
+// okhttp/src/main/java/com/squareup/okhttp/internal/Platform.java
+java_library_host {
+    name: "okhttp-android-util-log",
+    srcs: ["okhttp-android-util-log/src/main/java/**/*.java"],
 }
 
 java_library {
@@ -134,7 +210,7 @@ java_library {
     libs: [
         "okhttp-nojarjar",
         "junit",
-        "conscrypt.module.intra.core.api.stubs",
+        "conscrypt.module.intra.core.api",
         "bouncycastle-unbundled",
     ],
 

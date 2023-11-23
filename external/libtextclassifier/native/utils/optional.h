@@ -62,7 +62,7 @@ class Optional {
     return value_;
   }
 
-  T const& value_or(T&& default_value) {
+  T const& value_or(T&& default_value) const& {
     return (init_ ? value_ : default_value);
   }
 

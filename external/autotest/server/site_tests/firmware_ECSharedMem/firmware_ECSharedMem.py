@@ -35,7 +35,7 @@ class firmware_ECSharedMem(FirmwareTest):
         """Return whether there is still EC shared memory available.
         """
         match = self.ec.send_command_get_output("shmem",
-                                                ["Size:\s+([0-9-]+)\r"])[0]
+                                                ["Size:\s*([0-9-]+)\r"])[0]
         shmem_size = int(match[1])
         logging.info("EC shared memory size if %d bytes", shmem_size)
         if shmem_size <= 0:

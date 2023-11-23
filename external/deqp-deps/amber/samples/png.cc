@@ -50,16 +50,14 @@ amber::Result ConvertToPNG(uint32_t width,
                            uint32_t height,
                            const std::vector<amber::Value>& values,
                            std::vector<uint8_t>* buffer) {
-  if (values.size() != (width * height)) {
-    return amber::Result("Values size (" + std::to_string(values.size()) +
-                         ") != " + "width * height (" +
-                         std::to_string(width * height) + ")");
-  }
+  assert(values.size() == (width * height) &&
+         "Buffer values != width * height");
+  assert(!values.empty() && "Buffer empty");
 
   std::vector<uint8_t> data;
 
   // Prepare data as lodepng expects it
-  for (amber::Value value : values) {
+  for (const amber::Value& value : values) {
     const uint32_t pixel = value.AsUint32();
     data.push_back(byte2(pixel));  // R
     data.push_back(byte1(pixel));  // G
@@ -79,6 +77,25 @@ amber::Result ConvertToPNG(uint32_t width,
 
   if (lodepng::encode(*buffer, data, width, height, state) != 0)
     return amber::Result("lodepng::encode() returned non-zero");
+
+  return {};
+}
+
+amber::Result LoadPNG(const std::string file_name,
+                      uint32_t* width,
+                      uint32_t* height,
+                      std::vector<amber::Value>* values) {
+  std::vector<uint8_t> decoded_buffer;
+  if (lodepng::decode(decoded_buffer, *width, *height, file_name,
+                      LodePNGColorType::LCT_RGBA, 8) != 0) {
+    return amber::Result("lodepng::decode() returned non-zero");
+  }
+
+  for (auto d : decoded_buffer) {
+    amber::Value v;
+    v.SetIntValue(d);
+    values->push_back(v);
+  }
 
   return {};
 }

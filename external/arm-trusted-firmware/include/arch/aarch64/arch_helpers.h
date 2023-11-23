@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -69,11 +69,18 @@ static inline void _op(void)				\
 	__asm__ (#_op);					\
 }
 
+/* Define function for system instruction with register parameter */
+#define DEFINE_SYSOP_PARAM_FUNC(_op)			\
+static inline void _op(uint64_t v)			\
+{							\
+	 __asm__ (#_op "  %0" : : "r" (v));		\
+}
+
 /* Define function for system instruction with type specifier */
 #define DEFINE_SYSOP_TYPE_FUNC(_op, _type)		\
 static inline void _op ## _type(void)			\
 {							\
-	__asm__ (#_op " " #_type);			\
+	__asm__ (#_op " " #_type : : : "memory");			\
 }
 
 /* Define function for system instruction with register parameter */
@@ -211,9 +218,15 @@ DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e1r)
 DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e2r)
 DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e3r)
 
+/*******************************************************************************
+ * Strip Pointer Authentication Code
+ ******************************************************************************/
+DEFINE_SYSOP_PARAM_FUNC(xpaci)
+
 void flush_dcache_range(uintptr_t addr, size_t size);
 void clean_dcache_range(uintptr_t addr, size_t size);
 void inv_dcache_range(uintptr_t addr, size_t size);
+bool is_dcache_enabled(void);
 
 void dcsw_op_louis(u_register_t op_type);
 void dcsw_op_all(u_register_t op_type);
@@ -232,6 +245,7 @@ void disable_mmu_icache_el3(void);
 
 DEFINE_SYSREG_RW_FUNCS(par_el1)
 DEFINE_SYSREG_READ_FUNC(id_pfr1_el1)
+DEFINE_SYSREG_READ_FUNC(id_aa64isar0_el1)
 DEFINE_SYSREG_READ_FUNC(id_aa64isar1_el1)
 DEFINE_SYSREG_READ_FUNC(id_aa64pfr0_el1)
 DEFINE_SYSREG_READ_FUNC(id_aa64pfr1_el1)
@@ -345,6 +359,7 @@ void __dead2 smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3,
 DEFINE_SYSREG_READ_FUNC(midr_el1)
 DEFINE_SYSREG_READ_FUNC(mpidr_el1)
 DEFINE_SYSREG_READ_FUNC(id_aa64mmfr0_el1)
+DEFINE_SYSREG_READ_FUNC(id_aa64mmfr1_el1)
 
 DEFINE_SYSREG_RW_FUNCS(scr_el3)
 DEFINE_SYSREG_RW_FUNCS(hcr_el2)
@@ -468,7 +483,8 @@ DEFINE_RENAME_SYSREG_WRITE_FUNC(icc_eoir1_el1, ICC_EOIR1_EL1)
 DEFINE_RENAME_SYSREG_WRITE_FUNC(icc_sgi0r_el1, ICC_SGI0R_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(icc_sgi1r, ICC_SGI1R)
 
-DEFINE_RENAME_SYSREG_RW_FUNCS(amcgcr_el0, AMCGCR_EL0)
+DEFINE_RENAME_SYSREG_READ_FUNC(amcfgr_el0, AMCFGR_EL0)
+DEFINE_RENAME_SYSREG_READ_FUNC(amcgcr_el0, AMCGCR_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenclr0_el0, AMCNTENCLR0_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenset0_el0, AMCNTENSET0_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenclr1_el0, AMCNTENCLR1_EL0)
@@ -507,6 +523,13 @@ DEFINE_RENAME_SYSREG_RW_FUNCS(tfsr_el1, TFSR_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(rgsr_el1, RGSR_EL1)
 DEFINE_RENAME_SYSREG_RW_FUNCS(gcr_el1, GCR_EL1)
 
+/* Armv8.5 FEAT_RNG Registers */
+DEFINE_SYSREG_READ_FUNC(rndr)
+DEFINE_SYSREG_READ_FUNC(rndrrs)
+
+/* DynamIQ Shared Unit power management */
+DEFINE_RENAME_SYSREG_RW_FUNCS(clusterpwrdn_el1, CLUSTERPWRDN_EL1)
+
 #define IS_IN_EL(x) \
 	(GET_EL(read_CurrentEl()) == MODE_EL##x)
 
@@ -517,6 +540,23 @@ DEFINE_RENAME_SYSREG_RW_FUNCS(gcr_el1, GCR_EL1)
 static inline unsigned int get_current_el(void)
 {
 	return GET_EL(read_CurrentEl());
+}
+
+static inline unsigned int get_current_el_maybe_constant(void)
+{
+#if defined(IMAGE_AT_EL1)
+	return 1;
+#elif defined(IMAGE_AT_EL2)
+	return 2;	/* no use-case in TF-A */
+#elif defined(IMAGE_AT_EL3)
+	return 3;
+#else
+	/*
+	 * If we do not know which exception level this is being built for
+	 * (e.g. built for library), fall back to run-time detection.
+	 */
+	return get_current_el();
+#endif
 }
 
 /*
@@ -551,5 +591,28 @@ static inline uint64_t el_implemented(unsigned int el)
 
 #define read_cpacr()		read_cpacr_el1()
 #define write_cpacr(_v)		write_cpacr_el1(_v)
+
+#define read_clusterpwrdn()	read_clusterpwrdn_el1()
+#define write_clusterpwrdn(_v)	write_clusterpwrdn_el1(_v)
+
+#if ERRATA_SPECULATIVE_AT
+/*
+ * Assuming SCTLR.M bit is already enabled
+ * 1. Enable page table walk by clearing TCR_EL1.EPDx bits
+ * 2. Execute AT instruction for lower EL1/0
+ * 3. Disable page table walk by setting TCR_EL1.EPDx bits
+ */
+#define AT(_at_inst, _va)	\
+{	\
+	assert((read_sctlr_el1() & SCTLR_M_BIT) != 0ULL);	\
+	write_tcr_el1(read_tcr_el1() & ~(TCR_EPD0_BIT | TCR_EPD1_BIT));	\
+	isb();	\
+	_at_inst(_va);	\
+	write_tcr_el1(read_tcr_el1() | (TCR_EPD0_BIT | TCR_EPD1_BIT));	\
+	isb();	\
+}
+#else
+#define AT(_at_inst, _va)	_at_inst(_va);
+#endif
 
 #endif /* ARCH_HELPERS_H */

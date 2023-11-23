@@ -16,6 +16,9 @@
 
 #include "annotator/datetime/extractor.h"
 
+#include "annotator/datetime/utils.h"
+#include "annotator/model_generated.h"
+#include "annotator/types.h"
 #include "utils/base/logging.h"
 
 namespace libtextclassifier3 {
@@ -159,6 +162,18 @@ bool DatetimeExtractor::Extract(DatetimeParsedData* result,
             return false;
           }
           result->SetAbsoluteValue(component_type, day_of_week);
+        }
+        break;
+      }
+      case DatetimeGroupType_GROUP_ABSOLUTETIME: {
+        std::unordered_map<DatetimeComponent::ComponentType, int> values;
+        if (!ParseAbsoluteDateValues(group_text, &values)) {
+          TC3_LOG(ERROR) << "Couldn't extract Component values.";
+          return false;
+        }
+        for (const std::pair<const DatetimeComponent::ComponentType, int>&
+                 date_time_pair : values) {
+          result->SetAbsoluteValue(date_time_pair.first, date_time_pair.second);
         }
         break;
       }
@@ -376,15 +391,7 @@ bool DatetimeExtractor::ParseYear(const UnicodeText& input,
   if (!ParseDigits(input, parsed_year)) {
     return false;
   }
-
-  // Logic to decide if XX will be 20XX or 19XX
-  if (*parsed_year < 100) {
-    if (*parsed_year < 50) {
-      *parsed_year += 2000;
-    } else {
-      *parsed_year += 1900;
-    }
-  }
+  *parsed_year = GetAdjustedYear(*parsed_year);
 
   return true;
 }
@@ -414,6 +421,26 @@ bool DatetimeExtractor::ParseMonth(const UnicodeText& input,
     return true;
   }
 
+  return false;
+}
+
+bool DatetimeExtractor::ParseAbsoluteDateValues(
+    const UnicodeText& input,
+    std::unordered_map<DatetimeComponent::ComponentType, int>* values) const {
+  if (MapInput(input,
+               {
+                   {DatetimeExtractorType_NOON,
+                    {{DatetimeComponent::ComponentType::MERIDIEM, 1},
+                     {DatetimeComponent::ComponentType::MINUTE, 0},
+                     {DatetimeComponent::ComponentType::HOUR, 12}}},
+                   {DatetimeExtractorType_MIDNIGHT,
+                    {{DatetimeComponent::ComponentType::MERIDIEM, 0},
+                     {DatetimeComponent::ComponentType::MINUTE, 0},
+                     {DatetimeComponent::ComponentType::HOUR, 0}}},
+               },
+               values)) {
+    return true;
+  }
   return false;
 }
 

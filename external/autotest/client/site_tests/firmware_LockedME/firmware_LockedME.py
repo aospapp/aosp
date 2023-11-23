@@ -11,6 +11,7 @@ from autotest_lib.client.common_lib import error
 
 
 class firmware_LockedME(test.test):
+    """Validates that the Management Engine has been locked."""
     # Needed by autotest
     version = 1
 
@@ -25,9 +26,8 @@ class firmware_LockedME(test.test):
         extra = ['-p', 'host'] + list(args)
         return utils.run('flashrom', ignore_status=ignore_status, args=extra)
 
-    def determine_sw_wp_status(self):
-        """Determine software write-protect status."""
-        logging.info('Check that SW WP is enabled or not...')
+    def determine_spi_rom_wp_status(self):
+        """Determine the AP SPI-ROM's write-protection status."""
         flashrom_result = self.flashrom(args=('--wp-status',))
         logging.info('The above flashrom command returns.... %s',
                 flashrom_result.stdout)
@@ -98,16 +98,6 @@ class firmware_LockedME(test.test):
     def check_region_inaccessible(self, sectname):
         """Test and ensure a region is not accessible by host CPU."""
 
-        # flashrom should have read the section as all 0xff's. If not,
-        # the ME is not locked.
-        logging.info('%s should be all 0xff...' % sectname)
-        with open(sectname, 'rb') as f:
-            for c in f.read():
-                if c != chr(0xff):
-                    err_string = "%s was readable by flashrom" % sectname
-                    raise error.TestFail(err_string)
-
-        # See if it is writable.
         self.try_to_rewrite(sectname)
 
     def run_once(self, expect_me_present=True):
@@ -127,11 +117,13 @@ class firmware_LockedME(test.test):
                     'because an AMD device has been detected. '
                     'AMD devices do not have an ME (Management Engine)')
 
-        # If sw wp is on, and the ME regions are unlocked, they won't be
-        # writable so will appear locked.
-        if self.determine_sw_wp_status():
-            raise error.TestFail('Software wp is enabled. Please disable '
-                'software wp prior to running this test.')
+        # If the AP SPI-ROM is blocking writes to the ME regions, and the ME
+        # regions are unlocked, they won't be writable, so will appear locked
+        # (i.e. this will be a false PASS).
+        if self.determine_spi_rom_wp_status():
+            raise error.TestFail('Software wp is enabled on the AP\'s SPI-ROM, '
+                'or a protected range is set.  Please disable software wp and '
+                'clear the protected range prior to running this test.')
 
         # See if the system even has an ME, and whether we expected that.
         if self.has_ME():
@@ -169,7 +161,7 @@ class firmware_LockedME(test.test):
         # So far, so good, but we need to be certain. Rather than parse what
         # flashrom tells us about the ME-related registers, we'll just try to
         # change the ME components. We shouldn't be able to.
-        self.try_to_rewrite('SI_DESC')
+        inaccessible_sections.append('SI_DESC')
         for sectname in inaccessible_sections:
             self.check_region_inaccessible(sectname)
 

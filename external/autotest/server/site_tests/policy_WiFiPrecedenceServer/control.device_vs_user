@@ -6,7 +6,8 @@ AUTHOR = 'timkovich'
 TIME = 'SHORT'
 NAME = 'policy_WiFiPrecedenceServer.device_vs_user'
 TEST_TYPE = 'Server'
-ATTRIBUTES = 'suite:ent-wificell'
+# Disable this test until it can be fixed: http://b/171583865
+# ATTRIBUTES = 'suite:ent-wificell'
 DEPENDENCIES = 'wificell'
 
 DOC = """

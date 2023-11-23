@@ -10,6 +10,7 @@ third_party {
     value: "http://www.quut.com/gsm/gsm-1.0.18.tar.gz"
   }
   version: "1.0.18"
+  license_type: NOTICE
   last_upgrade_date {
     year: 2018
     month: 12

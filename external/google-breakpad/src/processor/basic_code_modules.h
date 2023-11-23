@@ -41,12 +41,15 @@
 #ifndef PROCESSOR_BASIC_CODE_MODULES_H__
 #define PROCESSOR_BASIC_CODE_MODULES_H__
 
+#include <stddef.h>
+
+#include <vector>
+
 #include "google_breakpad/processor/code_modules.h"
+#include "processor/linked_ptr.h"
+#include "processor/range_map.h"
 
 namespace google_breakpad {
-
-template<typename T> class linked_ptr;
-template<typename AddressType, typename EntryType> class RangeMap;
 
 class BasicCodeModules : public CodeModules {
  public:
@@ -55,7 +58,7 @@ class BasicCodeModules : public CodeModules {
   // the CodeModules and CodeModule interfaces without requiring all of the
   // resources that other implementations may require.  A copy will be
   // made of each contained CodeModule using CodeModule::Copy.
-  explicit BasicCodeModules(const CodeModules *that);
+  BasicCodeModules(const CodeModules *that, MergeRangeStrategy strategy);
 
   virtual ~BasicCodeModules();
 
@@ -66,6 +69,8 @@ class BasicCodeModules : public CodeModules {
   virtual const CodeModule* GetModuleAtSequence(unsigned int sequence) const;
   virtual const CodeModule* GetModuleAtIndex(unsigned int index) const;
   virtual const CodeModules* Copy() const;
+  virtual std::vector<linked_ptr<const CodeModule> >
+  GetShrunkRangeModules() const;
 
  protected:
   BasicCodeModules();
@@ -75,7 +80,11 @@ class BasicCodeModules : public CodeModules {
 
   // The map used to contain each CodeModule, keyed by each CodeModule's
   // address range.
-  RangeMap<uint64_t, linked_ptr<const CodeModule> > *map_;
+  RangeMap<uint64_t, linked_ptr<const CodeModule> > map_;
+
+  // A vector of all CodeModules that were shrunk downs due to
+  // address range conflicts.
+  std::vector<linked_ptr<const CodeModule> > shrunk_range_modules_;
 
  private:
   // Disallow copy constructor and assignment operator.

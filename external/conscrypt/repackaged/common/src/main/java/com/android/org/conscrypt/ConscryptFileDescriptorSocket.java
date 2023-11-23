@@ -108,15 +108,17 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
      * The session object exposed externally from this class.
      */
     private final SSLSession externalSession =
-        Platform.wrapSSLSession(new ExternalSession(new Provider() {
-            @Override
-            public ConscryptSession provideSession() {
-                return ConscryptFileDescriptorSocket.this.provideSession();
-            }
-        }));
+            Platform.wrapSSLSession(new ExternalSession(new ExternalSession.Provider() {
+                @Override
+                public ConscryptSession provideSession() {
+                    return ConscryptFileDescriptorSocket.this.provideSession();
+                }
+            }));
 
     private int writeTimeoutMilliseconds = 0;
     private int handshakeTimeoutMilliseconds = -1; // -1 = same as timeout; 0 = infinite
+
+    private long handshakeStartedMillis;
 
     // The constructors should not be called except from the Platform class, because we may
     // want to construct a subclass instead.
@@ -183,6 +185,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
         checkOpen();
         synchronized (ssl) {
             if (state == STATE_NEW) {
+                handshakeStartedMillis = Platform.getMillisSinceBoot();
                 transitionTo(STATE_HANDSHAKE_STARTED);
             } else {
                 // We've either started the handshake already or have been closed.
@@ -228,6 +231,9 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
                 // Update the session from the current state of the SSL object.
                 activeSession.onPeerCertificateAvailable(getHostnameOrIP(), getPort());
             } catch (CertificateException e) {
+                Platform.countTlsHandshake(false, activeSession.getProtocol(),
+                        activeSession.getCipherSuite(),
+                        Platform.getMillisSinceBoot() - handshakeStartedMillis);
                 SSLHandshakeException wrapper = new SSLHandshakeException(e.getMessage());
                 wrapper.initCause(e);
                 throw wrapper;
@@ -285,6 +291,10 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
                 }
             }
         } catch (SSLProtocolException e) {
+            Platform.countTlsHandshake(false, activeSession.getProtocol(),
+                    activeSession.getCipherSuite(),
+                    Platform.getMillisSinceBoot() - handshakeStartedMillis);
+
             throw(SSLHandshakeException) new SSLHandshakeException("Handshake failed").initCause(e);
         } finally {
             // on exceptional exit, treat the socket as closed
@@ -337,6 +347,10 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
         }
 
         // The handshake has completed successfully ...
+
+        Platform.countTlsHandshake(true, activeSession.getProtocol(),
+                activeSession.getCipherSuite(),
+                Platform.getMillisSinceBoot() - handshakeStartedMillis);
 
         // First, update the state.
         synchronized (ssl) {
@@ -715,7 +729,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     public final SSLSession getHandshakeSession() {
         synchronized (ssl) {
             if (state >= STATE_HANDSHAKE_STARTED && state < STATE_READY) {
-                return Platform.wrapSSLSession(new ExternalSession(new Provider() {
+                return Platform.wrapSSLSession(new ExternalSession(new ExternalSession.Provider() {
                     @Override
                     public ConscryptSession provideSession() {
                         return ConscryptFileDescriptorSocket.this.provideHandshakeSession();
@@ -788,7 +802,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
      */
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
-            publicAlternatives = "Use {@link javax.net.ssl.SSLParameters#setServerNames}.")
+            publicAlternatives = "Use {@code javax.net.ssl.SSLParameters#setServerNames}.")
     @Override
     public final void
     setHostname(String hostname) {
@@ -959,7 +973,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
      * Note write timeouts are not part of the javax.net.ssl.SSLSocket API
      */
     @Override
-    public final int getSoWriteTimeout() throws SocketException {
+    public final int getSoWriteTimeout() {
         return writeTimeoutMilliseconds;
     }
 
@@ -1071,6 +1085,7 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     protected final void finalize() throws Throwable {
         try {
             /*

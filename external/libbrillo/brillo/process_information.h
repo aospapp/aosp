@@ -31,8 +31,8 @@ class BRILLO_EXPORT ProcessInformation {
 
   const std::vector<std::string>& get_cmd_line() { return cmd_line_; }
 
-  // Set the command line array.  This method DOES swap out the contents of
-  // |value|.  The caller should expect an empty set on return.
+  // Set the collection of open files.  This method DOES swap out the contents
+  // of |value|.  The caller should expect an empty set on return.
   void set_open_files(std::set<std::string>* value) {
     open_files_.clear();
     open_files_.swap(*value);
@@ -40,8 +40,8 @@ class BRILLO_EXPORT ProcessInformation {
 
   const std::set<std::string>& get_open_files() { return open_files_; }
 
-  // Set the command line array.  This method DOES swap out the contents of
-  // |value|.  The caller should expect an empty string on return.
+  // Set the current working directory.  This method DOES swap out the contents
+  // of |value|.  The caller should expect an empty string on return.
   void set_cwd(std::string* value) {
     cwd_.clear();
     cwd_.swap(*value);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -38,11 +38,11 @@ assert_msg2:
 	mov	x6, #10		/* Divide by 10 after every loop iteration */
 	mov	x5, #MAX_DEC_DIVISOR
 dec_print_loop:
-	udiv	x0, x4, x5		/* Get the quotient */
-	msub	x4, x0, x5, x4		/* Find the remainder */
-	add	x0, x0, #ASCII_OFFSET_NUM		/* Convert to ascii */
+	udiv	x0, x4, x5			/* Get the quotient */
+	msub	x4, x0, x5, x4			/* Find the remainder */
+	add	x0, x0, #ASCII_OFFSET_NUM	/* Convert to ascii */
 	bl	plat_crash_console_putc
-	udiv	x5, x5, x6		/* Reduce divisor */
+	udiv	x5, x5, x6			/* Reduce divisor */
 	cbnz	x5, dec_print_loop
 	.endm
 
@@ -64,10 +64,13 @@ func asm_assert
 	 */
 	mov	x5, x0
 	mov	x6, x1
+
 	/* Ensure the console is initialized */
 	bl	plat_crash_console_init
+
 	/* Check if the console is initialized */
 	cbz	x0, _assert_loop
+
 	/* The console is initialized */
 	adr	x4, assert_msg1
 	bl	asm_print_str
@@ -75,6 +78,7 @@ func asm_assert
 	bl	asm_print_str
 	adr	x4, assert_msg2
 	bl	asm_print_str
+
 	/* Check if line number higher than max permitted */
 	tst	x6, #~0xffff
 	b.ne	_assert_loop
@@ -156,16 +160,32 @@ endfunc asm_print_newline
 
 /* This is for the non el3 BL stages to compile through */
 	.weak el3_panic
+	.weak elx_panic
 
 func do_panic
 #if CRASH_REPORTING
 	str	x0, [sp, #-0x10]!
 	mrs	x0, currentel
-	ubfx	x0, x0, #2, #2
-	cmp	x0, #0x3
+	ubfx	x0, x0, #MODE_EL_SHIFT, #MODE_EL_WIDTH
+	cmp	x0, #MODE_EL3
+#if !HANDLE_EA_EL3_FIRST
 	ldr	x0, [sp], #0x10
 	b.eq	el3_panic
-#endif
+#else
+	b.ne	to_panic_common
+
+	/* Check EL the exception taken from */
+	mrs	x0, spsr_el3
+	ubfx	x0, x0, #SPSR_EL_SHIFT, #SPSR_EL_WIDTH
+	cmp	x0, #MODE_EL3
+	b.ne	elx_panic
+	ldr	x0, [sp], #0x10
+	b	el3_panic
+
+to_panic_common:
+	ldr	x0, [sp], #0x10
+#endif /* HANDLE_EA_EL3_FIRST */
+#endif /* CRASH_REPORTING */
 
 panic_common:
 /*
@@ -175,12 +195,15 @@ panic_common:
 el3_panic:
 	mov	x6, x30
 	bl	plat_crash_console_init
+
 	/* Check if the console is initialized */
 	cbz	x0, _panic_handler
+
 	/* The console is initialized */
 	adr	x4, panic_msg
 	bl	asm_print_str
 	mov	x4, x6
+
 	/* The panic location is lr -4 */
 	sub	x4, x4, #4
 	bl	asm_print_hex

@@ -3,6 +3,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import os
 import signal
@@ -42,6 +46,24 @@ def _get_board_from_host(remote):
                 'Cannot determine board, please specify a --board option.')
     logging.info('Detected host board: %s', board)
     return board
+
+
+def _get_model_from_host(remote):
+    """Get the model of the remote host.
+
+    @param remote: string representing the IP of the remote host.
+
+    @return: A string representing the board of the remote host.
+   """
+    logging.info('Model unspecified, attempting to determine model from host.')
+    host = factory.create_host(remote)
+    try:
+        model = host.get_platform()
+    except error.AutoservRunError:
+        raise test_runner_utils.TestThatRunError(
+                'Cannot determine model, please specify a --model option.')
+    logging.info('Detected host model: %s', model)
+    return model
 
 
 def validate_arguments(arguments):
@@ -107,9 +129,11 @@ def _parse_arguments_internal(argv):
                         action='store',
                         help='Board for which the test will run. '
                              'Default: %(default)s')
-    parser.add_argument('-m', '--model', metavar='MODEL', default='',
+    parser.add_argument('-m',
+                        '--model',
+                        metavar='MODEL',
                         help='Specific model the test will run against. '
-                             'Matches the model:FAKE_MODEL label for the host.')
+                        'Matches the model:FAKE_MODEL label for the host.')
     parser.add_argument('-i', '--build', metavar='BUILD',
                         default=test_runner_utils.NO_BUILD,
                         help='Build to test. Device will be reimaged if '
@@ -130,11 +154,13 @@ def _parse_arguments_internal(argv):
                              'source tree changes not being reflected in the '
                              'run. If using --autotest_dir, this flag is '
                              'automatically applied.')
-    parser.add_argument('--whitelist-chrome-crashes', action='store_true',
-                        default=False, dest='whitelist_chrome_crashes',
+    parser.add_argument('--allow-chrome-crashes',
+                        action='store_true',
+                        default=False,
+                        dest='allow_chrome_crashes',
                         help='Ignore chrome crashes when producing test '
-                             'report. This flag gets passed along to the '
-                             'report generation tool.')
+                        'report. This flag gets passed along to the '
+                        'report generation tool.')
     parser.add_argument('--ssh_private_key', action='store',
                         default=test_runner_utils.TEST_KEY_PATH,
                         help='Path to the private ssh key.')
@@ -231,7 +257,7 @@ def _main_for_local_run(argv, arguments):
     @param arguments: Parsed command line arguments.
     """
     if not os.path.exists('/etc/cros_chroot_version'):
-        print >> sys.stderr, 'For local runs, script must be run inside chroot.'
+        print('For local runs, script must be run inside chroot.', file=sys.stderr)
         return 1
 
     results_directory = test_runner_utils.create_results_directory(
@@ -240,13 +266,17 @@ def _main_for_local_run(argv, arguments):
                                        arguments.ssh_private_key)
     arguments.results_dir = results_directory
 
-    # If the board has not been specified through --board, and is not set in the
-    # default_board file, determine the board by ssh-ing into the host. Also
-    # prepend it to argv so we can re-use it when we run test_that from the
-    # sysroot.
+    # If the board and/or model is not specified through --board and/or
+    # --model, and is not set in the default_board file, determine the board by
+    # ssh-ing into the host. Also prepend it to argv so we can re-use it when we
+    # run test_that from the sysroot.
     if arguments.board is None:
         arguments.board = _get_board_from_host(arguments.remote)
         argv = ['--board=%s' % (arguments.board,)] + argv
+
+    if arguments.model is None:
+        arguments.model = _get_model_from_host(arguments.remote)
+        argv = ['--model=%s' % (arguments.model, )] + argv
 
     if arguments.autotest_dir:
         autotest_path = arguments.autotest_dir
@@ -255,8 +285,8 @@ def _main_for_local_run(argv, arguments):
         sysroot_path = os.path.join('/build', arguments.board, '')
 
         if not os.path.exists(sysroot_path):
-            print >> sys.stderr, ('%s does not exist. Have you run '
-                                  'setup_board?' % sysroot_path)
+            print(('%s does not exist. Have you run '
+                   'setup_board?' % sysroot_path), file=sys.stderr)
             return 1
 
         path_ending = 'usr/local/build/autotest'
@@ -265,10 +295,10 @@ def _main_for_local_run(argv, arguments):
     site_utils_path = os.path.join(autotest_path, 'site_utils')
 
     if not os.path.exists(autotest_path):
-        print >> sys.stderr, ('%s does not exist. Have you run '
-                              'build_packages? Or if you are using '
-                              '--autotest_dir, make sure it points to '
-                              'a valid autotest directory.' % autotest_path)
+        print(('%s does not exist. Have you run '
+               'build_packages? Or if you are using '
+               '--autotest_dir, make sure it points to '
+               'a valid autotest directory.' % autotest_path), file=sys.stderr)
         return 1
 
     realpath = os.path.realpath(__file__)
@@ -282,16 +312,24 @@ def _main_for_local_run(argv, arguments):
                 arguments, autotest_path, argv)
     else:
         return test_runner_utils.perform_run_from_autotest_root(
-                autotest_path, argv, arguments.tests, arguments.remote,
-                build=arguments.build, board=arguments.board,
-                args=arguments.args, ignore_deps=not arguments.enforce_deps,
+                autotest_path,
+                argv,
+                arguments.tests,
+                arguments.remote,
+                build=arguments.build,
+                board=arguments.board,
+                model=arguments.model,
+                args=arguments.args,
+                ignore_deps=not arguments.enforce_deps,
                 results_directory=results_directory,
                 ssh_verbosity=arguments.ssh_verbosity,
                 ssh_options=arguments.ssh_options,
                 iterations=arguments.iterations,
-                fast_mode=arguments.fast_mode, debug=arguments.debug,
-                whitelist_chrome_crashes=arguments.whitelist_chrome_crashes,
-                pretend=arguments.pretend, job_retry=arguments.retry)
+                fast_mode=arguments.fast_mode,
+                debug=arguments.debug,
+                allow_chrome_crashes=arguments.allow_chrome_crashes,
+                pretend=arguments.pretend,
+                job_retry=arguments.retry)
 
 
 def _main_for_lab_run(argv, arguments):
@@ -344,7 +382,7 @@ def main(argv):
     try:
         validate_arguments(arguments)
     except ValueError as err:
-        print >> sys.stderr, ('Invalid arguments. %s' % err.message)
+        print(('Invalid arguments. %s' % str(err)), file=sys.stderr)
         return 1
 
     if arguments.remote == ':lab:':

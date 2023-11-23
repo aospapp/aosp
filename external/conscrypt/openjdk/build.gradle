@@ -1,4 +1,9 @@
+plugins {
+    id 'com.github.johnrengelman.shadow' version '6.0.0'
+}
+
 import aQute.bnd.gradle.BundleTaskConvention
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.codehaus.groovy.runtime.InvokerHelper
 
 apply plugin: 'biz.aQute.bnd.builder'
@@ -82,12 +87,18 @@ compileJava {
     dependsOn generateProperties
 }
 
-task platformJar(type: Jar) {
+tasks.register("platformJar", Jar) {
     from sourceSets.platform.output
 }
 
+tasks.register("testJar", ShadowJar) {
+    classifier = 'tests'
+    configurations = [project.configurations.testRuntime]
+    from sourceSets.test.output
+}
+
 if (isExecutableOnPath('cpplint')) {
-    task cpplint(type: Exec) {
+    def cpplint = tasks.register("cpplint", Exec) {
         executable = 'cpplint'
 
         // TODO(nmittler): Is there a better way of getting the JNI sources?
@@ -168,8 +179,8 @@ dependencies {
     // This is listed as compile-only, but we absorb its contents.
     compileOnly project(':conscrypt-constants')
 
-    testImplementation project(':conscrypt-constants'),
-            project(':conscrypt-testing'),
+    testCompile project(':conscrypt-constants'),
+            project(path: ':conscrypt-testing', configuration: 'runtime'),
             libraries.junit,
             libraries.mockito
 
@@ -190,8 +201,7 @@ nativeClassifiers.each { nativeClassifier ->
 def addNativeJar(nativeClassifier) {
     // Create a JAR for this configuration and add it to the output archives.
     SourceSet sourceSet = sourceSet(nativeClassifier)
-    def jarTaskName = sourceSet.jarTaskName
-    task "$jarTaskName"(type: Jar) { Jar t ->
+    def jarTask = tasks.register(sourceSet.jarTaskName, Jar) { Jar t ->
         // Depend on the regular classes task
         dependsOn classes
         manifest = jar.manifest
@@ -206,13 +216,11 @@ def addNativeJar(nativeClassifier) {
         }
     }
 
-    def jarTask = tasks["$jarTaskName"]
-
     // Add the jar task to the standard build.
     jar.dependsOn jarTask
 
     // Add it to the publishing archives list.
-    publishing.publications.maven.artifact jarTask
+    publishing.publications.maven.artifact jarTask.get()
 }
 
 
@@ -233,13 +241,13 @@ test {
     include suiteClass, "org/conscrypt/ConscryptOpenJdkSuite.class"
 }
 
-task testEngineSocket(type: Test) {
+def testFdSocket = tasks.register("testFdSocket", Test) {
     include suiteClass, "org/conscrypt/ConscryptOpenJdkSuite.class"
     InvokerHelper.setProperties(testLogging, test.testLogging.properties)
     systemProperties = test.systemProperties
-    systemProperty "org.conscrypt.useEngineSocketByDefault", true
+    systemProperty "org.conscrypt.useEngineSocketByDefault", false
 }
-check.dependsOn testEngineSocket
+check.dependsOn testFdSocket
 
 // Tests that involve interoperation with the OpenJDK TLS provider (generally to
 // test renegotiation, since we don't support initiating renegotiation but do
@@ -247,7 +255,7 @@ check.dependsOn testEngineSocket
 // if Conscrypt is installed as the default provider, so these need to live in
 // a different task than the other tests, most of which need Conscrypt to be
 // installed to function.
-task testInterop(type: Test) {
+def testInterop = tasks.register("testInterop", Test) {
     include "org/conscrypt/ConscryptEngineTest.class"
     include "org/conscrypt/RenegotiationTest.class"
 }
@@ -331,10 +339,18 @@ model {
                         // Static link to BoringSSL
                         linker.args "-O3",
                                 "-fvisibility=hidden",
-                                "-lstdc++",
                                 "-lpthread",
                                 libPath + "/ssl/libssl.a",
                                 libPath + "/crypto/libcrypto.a"
+                        if (targetPlatform.operatingSystem.isLinux()) {
+                            // Static link libstdc++ and libgcc because
+                            // they are not available in some restrictive Linux
+                            // environments.
+                            linker.args "-static-libstdc++",
+                                    "-static-libgcc"
+                        } else {
+                            linker.args "-lstdc++"
+                        }
                     } else if (toolChain in VisualCpp) {
                         cppCompiler.define "DLL_EXPORT"
                         cppCompiler.define "WIN32_LEAN_AND_MEAN"
@@ -400,8 +416,8 @@ model {
             def source = binary.sharedLibraryFile
 
             // Copies the native library to a resource location that will be included in the jar.
-            def copyTaskName = "copyNativeLib${sourceSetName}"
-            task "$copyTaskName"(type: Copy, dependsOn: binary.tasks.link) {
+            def copyTask = project.tasks.register("copyNativeLib${sourceSetName}", Copy) {
+                dependsOn binary.tasks.link
                 from source
                 // Rename the artifact to include the generated classifier
                 rename '(.+)(\\.[^\\.]+)', "\$1-$classifier\$2"
@@ -413,12 +429,14 @@ model {
             if (osName == 'linux' && (!rootProject.hasProperty('nostrip') ||
                     !rootProject.nostrip.toBoolean())) {
                 def stripTask = binary.tasks.taskName("strip")
-                    task "$stripTask"(type: Exec) {
-                        dependsOn binary.tasks.link
-                        executable "strip"
-                        args binary.tasks.link.linkedFile.asFile.get()
-                    }
-                project.tasks["$copyTaskName"].dependsOn stripTask
+                project.tasks.register(stripTask as String, Exec) {
+                    dependsOn binary.tasks.link
+                    executable "strip"
+                    args binary.tasks.link.linkedFile.asFile.get()
+                }
+                copyTask.configure {
+                    dependsOn stripTask
+                }
             }
         }
     }

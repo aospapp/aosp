@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,6 +6,9 @@
 """This module provides an object to record the output of command-line program.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import fcntl
 import logging
 import os
@@ -72,8 +76,8 @@ class OutputRecorder(object):
         self._stop_recording_thread_event = threading.Event()
 
         # Use pseudo terminal to prevent buffering of the program output.
-        self._master, self._slave = pty.openpty()
-        self._output = os.fdopen(self._master)
+        self._main, self._node = pty.openpty()
+        self._output = os.fdopen(self._main)
 
         # Set non-blocking flag.
         fcntl.fcntl(self._output, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -84,7 +88,7 @@ class OutputRecorder(object):
         logging.info('Recording output of "%s".', self.cmd)
         try:
             self._recorder = subprocess.Popen(
-                    self.cmd, stdout=self._slave, stderr=self._slave)
+                    self.cmd, stdout=self._node, stderr=self._node)
         except:
             raise OutputRecorderError('Failed to run "%s"' % self.cmd)
 
@@ -204,4 +208,4 @@ if __name__ == '__main__':
         recorder.stop()
 
     for line in recorder.get_contents():
-        print line
+        print(line)

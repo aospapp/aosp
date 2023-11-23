@@ -30,8 +30,17 @@ SCRATCH_DIR = os.path.expanduser('~/cros_scratch')
 RESULTS_FILE = 'results.txt'
 MACHINE_FILE = 'machine.txt'
 AUTOTEST_TARBALL = 'autotest.tbz2'
+RESULTS_TARBALL = 'results.tbz2'
 PERF_RESULTS_FILE = 'perf-results.txt'
 CACHE_KEYS_FILE = 'cache_keys.txt'
+
+
+class PidVerificationError(Exception):
+  """Error of perf PID verification in per-process mode."""
+
+
+class PerfDataReadError(Exception):
+  """Error of reading a perf.data header."""
 
 
 class Result(object):
@@ -57,6 +66,7 @@ class Result(object):
     self.results_file = []
     self.turbostat_log_file = ''
     self.cpustats_log_file = ''
+    self.cpuinfo_file = ''
     self.top_log_file = ''
     self.wait_time_log_file = ''
     self.chrome_version = ''
@@ -75,22 +85,34 @@ class Result(object):
     """Get the list of top commands consuming CPU on the machine."""
     return self.top_cmds
 
-  def FormatStringTop5(self):
-    """Get formatted top5 string.
+  def FormatStringTopCommands(self):
+    """Get formatted string of top commands.
 
-    Get the formatted string with top5 commands consuming CPU on DUT machine.
+    Get the formatted string with top commands consuming CPU on DUT machine.
+    Number of "non-chrome" processes in the list is limited to 5.
     """
     format_list = [
-        'Top 5 commands with highest CPU usage:',
+        'Top commands with highest CPU usage:',
         # Header.
         '%20s %9s %6s   %s' % ('COMMAND', 'AVG CPU%', 'COUNT', 'HIGHEST 5'),
         '-' * 50,
     ]
     if self.top_cmds:
-      for topcmd in self.top_cmds[:5]:
-        print_line = '%20s %9.2f %6s   %s' % (topcmd['cmd'], topcmd['cpu_avg'],
-                                              topcmd['count'], topcmd['top5'])
+      # After switching to top processes we have to expand the list since there
+      # will be a lot of 'chrome' processes (up to 10, sometimes more) in the
+      # top.
+      # Let's limit the list size by the number of non-chrome processes.
+      limit_of_non_chrome_procs = 5
+      num_of_non_chrome_procs = 0
+      for topcmd in self.top_cmds:
+        print_line = '%20s %9.2f %6s   %s' % (
+            topcmd['cmd'], topcmd['cpu_use_avg'], topcmd['count'],
+            topcmd['top5_cpu_use'])
         format_list.append(print_line)
+        if not topcmd['cmd'].startswith('chrome'):
+          num_of_non_chrome_procs += 1
+          if num_of_non_chrome_procs >= limit_of_non_chrome_procs:
+            break
     else:
       format_list.append('[NO DATA FROM THE TOP LOG]')
     format_list.append('-' * 50)
@@ -109,10 +131,37 @@ class Result(object):
         raise IOError('Could not copy results file: %s' % file_to_copy)
 
   def CopyResultsTo(self, dest_dir):
+    self.CopyFilesTo(dest_dir, self.results_file)
     self.CopyFilesTo(dest_dir, self.perf_data_files)
     self.CopyFilesTo(dest_dir, self.perf_report_files)
-    if self.perf_data_files or self.perf_report_files:
-      self._logger.LogOutput('Perf results files stored in %s.' % dest_dir)
+    extra_files = []
+    if self.top_log_file:
+      extra_files.append(self.top_log_file)
+    if self.cpuinfo_file:
+      extra_files.append(self.cpuinfo_file)
+    if extra_files:
+      self.CopyFilesTo(dest_dir, extra_files)
+    if self.results_file or self.perf_data_files or self.perf_report_files:
+      self._logger.LogOutput('Results files stored in %s.' % dest_dir)
+
+  def CompressResultsTo(self, dest_dir):
+    tarball = os.path.join(self.results_dir, RESULTS_TARBALL)
+    # Test_that runs hold all output under TEST_NAME_HASHTAG/results/,
+    # while tast runs hold output under TEST_NAME/.
+    # Both ensure to be unique.
+    result_dir_name = self.test_name if self.suite == 'tast' else 'results'
+    results_dir = self.FindFilesInResultsDir('-name %s' %
+                                             result_dir_name).split('\n')[0]
+
+    if not results_dir:
+      self._logger.LogOutput('WARNING: No results dir matching %r found' %
+                             result_dir_name)
+      return
+
+    self.CreateTarball(results_dir, tarball)
+    self.CopyFilesTo(dest_dir, [tarball])
+    if results_dir:
+      self._logger.LogOutput('Results files compressed into %s.' % dest_dir)
 
   def GetNewKeyvals(self, keyvals_dict):
     # Initialize 'units' dictionary.
@@ -198,8 +247,8 @@ class Result(object):
       command = 'cp -r {0}/* {1}'.format(self.results_dir, self.temp_dir)
       self.ce.RunCommand(command, print_to_console=False)
 
-    command = ('./generate_test_report --no-color --csv %s' % (os.path.join(
-        '/tmp', os.path.basename(self.temp_dir))))
+    command = ('./generate_test_report --no-color --csv %s' %
+               (os.path.join('/tmp', os.path.basename(self.temp_dir))))
     _, out, _ = self.ce.ChrootRunCommandWOutput(
         self.chromeos_root, command, print_to_console=False)
     keyvals_dict = {}
@@ -267,7 +316,10 @@ class Result(object):
     return [samples, u'samples']
 
   def GetResultsDir(self):
-    mo = re.search(r'Results placed in (\S+)', self.out)
+    if self.suite == 'tast':
+      mo = re.search(r'Writing results to (\S+)', self.out)
+    else:
+      mo = re.search(r'Results placed in (\S+)', self.out)
     if mo:
       result = mo.group(1)
       return result
@@ -313,6 +365,10 @@ class Result(object):
     """Get cpustats log path string."""
     return self.FindFilesInResultsDir('-name cpustats.log').split('\n')[0]
 
+  def GetCpuinfoFile(self):
+    """Get cpustats log path string."""
+    return self.FindFilesInResultsDir('-name cpuinfo.log').split('\n')[0]
+
   def GetTopFile(self):
     """Get cpustats log path string."""
     return self.FindFilesInResultsDir('-name top.log').split('\n')[0]
@@ -342,8 +398,8 @@ class Result(object):
                                                        perf_data_file)
       perf_report_file = '%s.report' % perf_data_file
       if os.path.exists(perf_report_file):
-        raise RuntimeError(
-            'Perf report file already exists: %s' % perf_report_file)
+        raise RuntimeError('Perf report file already exists: %s' %
+                           perf_report_file)
       chroot_perf_report_file = misc.GetInsideChrootPath(
           self.chromeos_root, perf_report_file)
       perf_path = os.path.join(self.chromeos_root, 'chroot', 'usr/bin/perf')
@@ -381,8 +437,8 @@ class Result(object):
         if self.log_level != 'verbose':
           self._logger.LogOutput('Perf report generated successfully.')
       else:
-        raise RuntimeError(
-            'Perf report not generated correctly. CMD: %s' % command)
+        raise RuntimeError('Perf report not generated correctly. CMD: %s' %
+                           command)
 
       # Add a keyval to the dictionary for the events captured.
       perf_report_files.append(
@@ -419,6 +475,7 @@ class Result(object):
     self.perf_report_files = self.GeneratePerfReportFiles()
     self.turbostat_log_file = self.GetTurbostatFile()
     self.cpustats_log_file = self.GetCpustatsFile()
+    self.cpuinfo_file = self.GetCpuinfoFile()
     self.top_log_file = self.GetTopFile()
     self.wait_time_log_file = self.GetWaitTimeFile()
     # TODO(asharif): Do something similar with perf stat.
@@ -535,9 +592,9 @@ class Result(object):
     Returns:
       List of dictionaries with the following keyvals:
        'cmd': command name (string),
-       'cpu_avg': average cpu usage (float),
+       'cpu_use_avg': average cpu usage (float),
        'count': number of occurrences (int),
-       'top5': up to 5 highest cpu usages (descending list of floats)
+       'top5_cpu_use': up to 5 highest cpu usages (descending list of floats)
 
     Example of the top log:
       PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
@@ -588,7 +645,7 @@ class Result(object):
           process = {
               # NOTE: One command may be represented by multiple processes.
               'cmd': match.group('cmd'),
-              'pid': int(match.group('pid')),
+              'pid': match.group('pid'),
               'cpu_use': float(match.group('cpu_use')),
           }
 
@@ -610,7 +667,10 @@ class Result(object):
     # not running.
     # On 1-core DUT 90% chrome cpu load occurs in 55%, 95% in 33% and 100% in 2%
     # of snapshots accordingly.
-    CHROME_HIGH_CPU_LOAD = 90
+    # Threshold of "high load" is reduced to 70% (from 90) when we switched to
+    # topstats per process. From experiment data the rest 20% are distributed
+    # among other chrome processes.
+    CHROME_HIGH_CPU_LOAD = 70
     # Number of snapshots where chrome is heavily used.
     high_load_snapshots = 0
     # Total CPU use per process in ALL active snapshots.
@@ -621,35 +681,41 @@ class Result(object):
     topcmds = []
 
     for snapshot_processes in snapshots:
-      # CPU usage per command in one snapshot.
-      cmd_cpu_use_per_snapshot = collections.defaultdict(float)
+      # CPU usage per command, per PID in one snapshot.
+      cmd_cpu_use_per_snapshot = collections.defaultdict(dict)
       for process in snapshot_processes:
         cmd = process['cmd']
         cpu_use = process['cpu_use']
+        pid = process['pid']
+        cmd_cpu_use_per_snapshot[cmd][pid] = cpu_use
 
-        # Collect CPU usage per command.
-        cmd_cpu_use_per_snapshot[cmd] += cpu_use
+      # Chrome processes, pid: cpu_usage.
+      chrome_processes = cmd_cpu_use_per_snapshot.get('chrome', {})
+      chrome_cpu_use_list = chrome_processes.values()
 
-      if cmd_cpu_use_per_snapshot.setdefault('chrome',
-                                             0.0) > CHROME_HIGH_CPU_LOAD:
-        # Combined CPU usage of "chrome" command exceeds "High load" threshold
-        # which means DUT is busy running a benchmark.
+      if chrome_cpu_use_list and max(
+          chrome_cpu_use_list) > CHROME_HIGH_CPU_LOAD:
+        # CPU usage of any of the "chrome" processes exceeds "High load"
+        # threshold which means DUT is busy running a benchmark.
         high_load_snapshots += 1
-        for cmd, cpu_use in cmd_cpu_use_per_snapshot.items():
-          # Update total CPU usage.
-          cmd_total_cpu_use[cmd] += cpu_use
+        for cmd, cpu_use_per_pid in cmd_cpu_use_per_snapshot.items():
+          for pid, cpu_use in cpu_use_per_pid.items():
+            # Append PID to the name of the command.
+            cmd_with_pid = cmd + '-' + pid
+            cmd_total_cpu_use[cmd_with_pid] += cpu_use
 
-          # Add cpu_use into command top cpu usages, sorted in descending order.
-          heapq.heappush(cmd_top5_cpu_use[cmd], round(cpu_use, 1))
+            # Add cpu_use into command top cpu usages, sorted in descending
+            # order.
+            heapq.heappush(cmd_top5_cpu_use[cmd_with_pid], round(cpu_use, 1))
 
     for consumer, usage in sorted(
         cmd_total_cpu_use.items(), key=lambda x: x[1], reverse=True):
       # Iterate through commands by descending order of total CPU usage.
       topcmd = {
           'cmd': consumer,
-          'cpu_avg': usage / high_load_snapshots,
+          'cpu_use_avg': usage / high_load_snapshots,
           'count': len(cmd_top5_cpu_use[consumer]),
-          'top5': heapq.nlargest(5, cmd_top5_cpu_use[consumer]),
+          'top5_cpu_use': heapq.nlargest(5, cmd_top5_cpu_use[consumer]),
       }
       topcmds.append(topcmd)
 
@@ -786,6 +852,88 @@ class Result(object):
       keyvals[key] = [result, unit]
     return keyvals
 
+  def ReadPidFromPerfData(self):
+    """Read PIDs from perf.data files.
+
+    Extract PID from perf.data if "perf record" was running per process,
+    i.e. with "-p <PID>" and no "-a".
+
+    Returns:
+      pids: list of PIDs.
+
+    Raises:
+      PerfDataReadError when perf.data header reading fails.
+    """
+    cmd = ['/usr/bin/perf', 'report', '--header-only', '-i']
+    pids = []
+
+    for perf_data_path in self.perf_data_files:
+      perf_data_path_in_chroot = misc.GetInsideChrootPath(
+          self.chromeos_root, perf_data_path)
+      path_str = ' '.join(cmd + [perf_data_path_in_chroot])
+      status, output, _ = self.ce.ChrootRunCommandWOutput(
+          self.chromeos_root, path_str)
+      if status:
+        # Error of reading a perf.data profile is fatal.
+        raise PerfDataReadError(f'Failed to read perf.data profile: {path_str}')
+
+      # Pattern to search a line with "perf record" command line:
+      # # cmdline : /usr/bin/perf record -e instructions -p 123"
+      cmdline_regex = re.compile(
+          r'^\#\scmdline\s:\s+(?P<cmd>.*perf\s+record\s+.*)$')
+      # Pattern to search PID in a command line.
+      pid_regex = re.compile(r'^.*\s-p\s(?P<pid>\d+)\s*.*$')
+      for line in output.splitlines():
+        cmd_match = cmdline_regex.match(line)
+        if cmd_match:
+          # Found a perf command line.
+          cmdline = cmd_match.group('cmd')
+          # '-a' is a system-wide mode argument.
+          if '-a' not in cmdline.split():
+            # It can be that perf was attached to PID and was still running in
+            # system-wide mode.
+            # We filter out this case here since it's not per-process.
+            pid_match = pid_regex.match(cmdline)
+            if pid_match:
+              pids.append(pid_match.group('pid'))
+          # Stop the search and move to the next perf.data file.
+          break
+      else:
+        # cmdline wasn't found in the header. It's a fatal error.
+        raise PerfDataReadError(f'Perf command line is not found in {path_str}')
+    return pids
+
+  def VerifyPerfDataPID(self):
+    """Verify PIDs in per-process perf.data profiles.
+
+    Check that at list one top process is profiled if perf was running in
+    per-process mode.
+
+    Raises:
+      PidVerificationError if PID verification of per-process perf.data profiles
+      fail.
+    """
+    perf_data_pids = self.ReadPidFromPerfData()
+    if not perf_data_pids:
+      # In system-wide mode there are no PIDs.
+      self._logger.LogOutput('System-wide perf mode. Skip verification.')
+      return
+
+    # PIDs will be present only in per-process profiles.
+    # In this case we need to verify that profiles are collected on the
+    # hottest processes.
+    top_processes = [top_cmd['cmd'] for top_cmd in self.top_cmds]
+    # top_process structure: <cmd>-<pid>
+    top_pids = [top_process.split('-')[-1] for top_process in top_processes]
+    for top_pid in top_pids:
+      if top_pid in perf_data_pids:
+        self._logger.LogOutput('PID verification passed! '
+                               f'Top process {top_pid} is profiled.')
+        return
+    raise PidVerificationError(
+        f'top processes {top_processes} are missing in perf.data traces with'
+        f' PID: {perf_data_pids}.')
+
   def ProcessResults(self, use_cache=False):
     # Note that this function doesn't know anything about whether there is a
     # cache hit or miss. It should process results agnostic of the cache hit
@@ -824,6 +972,9 @@ class Result(object):
       cpustats = self.ProcessCpustatsResults()
     if self.top_log_file:
       self.top_cmds = self.ProcessTopResults()
+    # Verify that PID in non system-wide perf.data and top_cmds are matching.
+    if self.perf_data_files and self.top_cmds:
+      self.VerifyPerfDataPID()
     if self.wait_time_log_file:
       with open(self.wait_time_log_file) as f:
         wait_time = f.readline().strip()
@@ -902,6 +1053,19 @@ class Result(object):
       command = 'rm -rf %s' % self.temp_dir
       self.ce.RunCommand(command)
 
+  def CreateTarball(self, results_dir, tarball):
+    if not results_dir.strip():
+      raise ValueError('Refusing to `tar` an empty results_dir: %r' %
+                       results_dir)
+
+    ret = self.ce.RunCommand('cd %s && '
+                             'tar '
+                             '--exclude=var/spool '
+                             '--exclude=var/log '
+                             '-cjf %s .' % (results_dir, tarball))
+    if ret:
+      raise RuntimeError("Couldn't compress test output directory.")
+
   def StoreToCacheDir(self, cache_dir, machine_manager, key_list):
     # Create the dir if it doesn't exist.
     temp_dir = tempfile.mkdtemp()
@@ -923,14 +1087,8 @@ class Result(object):
 
     if self.results_dir:
       tarball = os.path.join(temp_dir, AUTOTEST_TARBALL)
-      command = ('cd %s && '
-                 'tar '
-                 '--exclude=var/spool '
-                 '--exclude=var/log '
-                 '-cjf %s .' % (self.results_dir, tarball))
-      ret = self.ce.RunCommand(command)
-      if ret:
-        raise RuntimeError("Couldn't store autotest output directory.")
+      self.CreateTarball(self.results_dir, tarball)
+
     # Store machine info.
     # TODO(asharif): Make machine_manager a singleton, and don't pass it into
     # this function.
@@ -948,8 +1106,8 @@ class Result(object):
     if ret:
       command = 'rm -rf {0}'.format(temp_dir)
       self.ce.RunCommand(command)
-      raise RuntimeError(
-          'Could not move dir %s to dir %s' % (temp_dir, cache_dir))
+      raise RuntimeError('Could not move dir %s to dir %s' %
+                         (temp_dir, cache_dir))
 
   @classmethod
   def CreateFromRun(cls,

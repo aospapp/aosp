@@ -6,6 +6,7 @@
 #define LIBBRILLO_BRILLO_MESSAGE_LOOPS_MESSAGE_LOOP_H_
 
 #include <string>
+#include <utility>
 
 #include <base/callback.h>
 #include <base/location.h>
@@ -50,49 +51,20 @@ class BRILLO_EXPORT MessageLoop {
   // at a later point.
   // This methond can only be called from the same thread running the main loop.
   virtual TaskId PostDelayedTask(const base::Location& from_here,
-                                 const base::Closure& task,
+                                 base::OnceClosure task,
                                  base::TimeDelta delay) = 0;
   // Variant without the Location for easier usage.
-  TaskId PostDelayedTask(const base::Closure& task, base::TimeDelta delay) {
-    return PostDelayedTask(base::Location(), task, delay);
+  TaskId PostDelayedTask(base::OnceClosure task, base::TimeDelta delay) {
+    return PostDelayedTask(base::Location(), std::move(task), delay);
   }
 
   // A convenience method to schedule a call with no delay.
   // This methond can only be called from the same thread running the main loop.
-  TaskId PostTask(const base::Closure& task) {
-    return PostDelayedTask(task, base::TimeDelta());
+  TaskId PostTask(base::OnceClosure task) {
+    return PostDelayedTask(std::move(task), base::TimeDelta());
   }
-  TaskId PostTask(const base::Location& from_here,
-                  const base::Closure& task) {
-    return PostDelayedTask(from_here, task, base::TimeDelta());
-  }
-
-  // Watch mode flag used to watch for file descriptors.
-  enum WatchMode {
-    kWatchRead,
-    kWatchWrite,
-  };
-
-  // Watch a file descriptor |fd| for it to be ready to perform the operation
-  // passed in |mode| without blocking. When that happens, the |task| closure
-  // will be executed. If |persistent| is true, the file descriptor will
-  // continue to be watched and |task| will continue to be called until the task
-  // is canceled with CancelTask().
-  // Returns the TaskId describing this task. In case of error, returns
-  // kTaskIdNull.
-  virtual TaskId WatchFileDescriptor(const base::Location& from_here,
-                                     int fd,
-                                     WatchMode mode,
-                                     bool persistent,
-                                     const base::Closure& task) = 0;
-
-  // Convenience function to call WatchFileDescriptor() without a location.
-  TaskId WatchFileDescriptor(int fd,
-                             WatchMode mode,
-                             bool persistent,
-                             const base::Closure& task) {
-    return WatchFileDescriptor(
-        base::Location(), fd, mode, persistent, task);
+  TaskId PostTask(const base::Location& from_here, base::OnceClosure task) {
+    return PostDelayedTask(from_here, std::move(task), base::TimeDelta());
   }
 
   // Cancel a scheduled task. Returns whether the task was canceled. For

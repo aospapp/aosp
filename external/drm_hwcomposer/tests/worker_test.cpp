@@ -1,9 +1,9 @@
+#include "utils/Worker.h"
+
 #include <gtest/gtest.h>
 #include <hardware/hardware.h>
 
 #include <chrono>
-
-#include "worker.h"
 
 using android::Worker;
 

@@ -19,6 +19,8 @@ class FioTest(test.test):
     version = 7
     DEFAULT_FILE_SIZE = 1024 * 1024 * 1024
     VERIFY_OPTION = 'v'
+    CONTINUE_ERRORS = 'verify'
+    REMOVABLE = False
 
     # Initialize fail counter used to determine test pass/fail.
     _fail_count = 0
@@ -53,6 +55,12 @@ class FioTest(test.test):
         findsys = utils.run('find /sys/devices -name %s | grep -v virtual'
                             % device)
         device_path = findsys.stdout.rstrip()
+
+        removable_file = os.path.join(device_path, "removable")
+        if os.path.exists(removable_file):
+            if utils.read_one_line(removable_file).strip() == '1' :
+                self.REMOVABLE = True
+                self.CONTINUE_ERRORS="'all'"
 
         if "nvme" in device:
             dir_path = utils.run('dirname %s' % device_path).stdout.rstrip()
@@ -179,6 +187,7 @@ class FioTest(test.test):
                 fcntl.ioctl(fd, self.IOCTL_TRIM_CMD,
                             struct.pack('QQ', 0, self.__filesize))
             except IOError, err:
+                logging.info("blkdiscard failed %s", err)
                 pass
             finally:
                 os.close(fd)
@@ -195,7 +204,8 @@ class FioTest(test.test):
             env_vars = ' '.join(
                 ['FILENAME=' + self.__filename,
                  'FILESIZE=' + str(self.__filesize),
-                 'VERIFY_ONLY=' + str(int(self.__verify_only))
+                 'VERIFY_ONLY=' + str(int(self.__verify_only)),
+                 'CONTINUE_ERRORS=' + str(self.CONTINUE_ERRORS)
                 ])
             client_dir = os.path.dirname(os.path.dirname(self.bindir))
             storage_dir = os.path.join(client_dir, 'cros/storage_tests')
@@ -218,6 +228,11 @@ class FioTest(test.test):
             elif k.endswith('_total_err'):
                 self._fail_count = int(v)
         if self._fail_count > 0:
-            raise error.TestFail('%s failed verifications, '
+            if self.REMOVABLE and not self.__verify_only:
+                raise error.TestWarn('%s failed verifications, '
+                                     'first error code is %s' %
+                                     (str(self._fail_count),
+                                      str(self._error_code)))
+            raise error.TestFail('%s failures, '
                                  'first error code is %s' %
                                  (str(self._fail_count), str(self._error_code)))

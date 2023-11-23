@@ -37,7 +37,7 @@ from tensorflow.python.util.tf_export import tf_export
 @deprecation.deprecated(
     None,
     "Use `tf.data.Dataset.interleave(map_func, cycle_length, block_length, "
-    "num_parallel_calls=tf.data.experimental.AUTOTUNE)` instead. If sloppy "
+    "num_parallel_calls=tf.data.AUTOTUNE)` instead. If sloppy "
     "execution is desired, use `tf.data.Options.experimental_deterministic`.")
 @tf_export("data.experimental.parallel_interleave")
 def parallel_interleave(map_func,
@@ -76,9 +76,11 @@ def parallel_interleave(map_func,
     cycle_length: The number of input `Dataset`s to interleave from in parallel.
     block_length: The number of consecutive elements to pull from an input
       `Dataset` before advancing to the next input `Dataset`.
-    sloppy: If false, elements are produced in deterministic order. Otherwise,
-      the implementation is allowed, for the sake of expediency, to produce
-      elements in a non-deterministic order.
+    sloppy: A boolean controlling whether determinism should be traded for
+      performance by allowing elements to be produced out of order.  If
+      `sloppy` is `None`, the `tf.data.Options.experimental_deterministic`
+      dataset option (`True` by default) is used to decide whether to enforce a
+      deterministic order.
     buffer_output_elements: The number of elements each iterator being
       interleaved should buffer (similar to the `.prefetch()` transformation for
       each interleaved iterator).
@@ -109,11 +111,17 @@ class _DirectedInterleaveDataset(dataset_ops.DatasetV2):
     first_output_types = dataset_ops.get_legacy_output_types(data_inputs[0])
     first_output_classes = dataset_ops.get_legacy_output_classes(data_inputs[0])
 
-    for data_input in data_inputs[1:]:
+    for i, data_input in enumerate(data_inputs[1:]):
       if (dataset_ops.get_legacy_output_types(data_input) != first_output_types
           or dataset_ops.get_legacy_output_classes(data_input)
           != first_output_classes):
-        raise TypeError("All datasets must have the same type and class.")
+        raise TypeError("All datasets must have the same type and class.\n"
+                        "dataset 0 vs dataset %s types: %s ; %s\n"
+                        "classes: %s ; %s" %
+                        (i + 1, first_output_types,
+                         dataset_ops.get_legacy_output_types(data_input),
+                         first_output_classes,
+                         dataset_ops.get_legacy_output_classes(data_input)))
 
     output_shapes = dataset_ops.get_legacy_output_shapes(self._data_inputs[0])
     for data_input in self._data_inputs[1:]:

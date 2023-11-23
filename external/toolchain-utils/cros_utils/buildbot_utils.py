@@ -21,13 +21,12 @@ INITIAL_SLEEP_TIME = 7200  # 2 hours; wait time before polling buildbot.
 SLEEP_TIME = 600  # 10 minutes; time between polling of buildbot.
 
 # Some of our slower builders (llvm-next) are taking more
-# than 11 hours. So, increase this TIME_OUT to 12 hours.
-TIME_OUT = 43200  # Decide the build is dead or will never finish
+# than 12 hours. So, increase this TIME_OUT to 15 hours.
+TIME_OUT = 15 * 60 * 60  # Decide the build is dead or will never finish
 
 
 class BuildbotTimeout(Exception):
   """Exception to throw when a buildbot operation timesout."""
-  pass
 
 
 def RunCommandInPath(path, cmd):
@@ -51,8 +50,8 @@ def PeekTrybotImage(chromeos_root, buildbucket_id):
                   and url looks like:
     gs://chromeos-image-archive/trybot-elm-release-tryjob/R67-10468.0.0-b20789
   """
-  command = (
-      'cros buildresult --report json --buildbucket-id %s' % buildbucket_id)
+  command = ('cros buildresult --report json --buildbucket-id %s' %
+             buildbucket_id)
   rc, out, _ = RunCommandInPath(chromeos_root, command)
 
   # Current implementation of cros buildresult returns fail when a job is still
@@ -195,9 +194,9 @@ def GetTrybotImage(chromeos_root,
     image = ''
 
   if not image:
-    logger.GetLogger().LogError(
-        'Trybot job (buildbucket id: %s) failed with'
-        'status %s; no trybot image generated. ' % (buildbucket_id, status))
+    logger.GetLogger().LogError('Trybot job (buildbucket id: %s) failed with'
+                                'status %s; no trybot image generated. ' %
+                                (buildbucket_id, status))
   else:
     # Convert full gs path to what crosperf expects. For example, convert
     # gs://chromeos-image-archive/trybot-elm-release-tryjob/R67-10468.0.0-b20789
@@ -227,13 +226,13 @@ def WaitForImage(chromeos_root, build):
   while elapsed_time < TIME_OUT:
     if DoesImageExist(chromeos_root, build):
       return
-    logger.GetLogger().LogOutput(
-        'Image %s not ready, waiting for 10 minutes' % build)
+    logger.GetLogger().LogOutput('Image %s not ready, waiting for 10 minutes' %
+                                 build)
     time.sleep(SLEEP_TIME)
     elapsed_time += SLEEP_TIME
 
-  logger.GetLogger().LogOutput(
-      'Image %s not found, waited for %d hours' % (build, (TIME_OUT / 3600)))
+  logger.GetLogger().LogOutput('Image %s not found, waited for %d hours' %
+                               (build, (TIME_OUT / 3600)))
   raise BuildbotTimeout('Timeout while waiting for image %s' % build)
 
 
@@ -244,18 +243,50 @@ def GetLatestImage(chromeos_root, path):
 
   ce = command_executer.GetCommandExecuter()
   command = ('gsutil ls gs://chromeos-image-archive/%s' % path)
-  _, out, _ = ce.ChrootRunCommandWOutput(
+  ret, out, _ = ce.ChrootRunCommandWOutput(
       chromeos_root, command, print_to_console=False)
+  if ret != 0:
+    raise RuntimeError('Failed to list buckets with command: %s.' % command)
   candidates = [l.split('/')[-2] for l in out.split()]
   candidates = [fmt.match(c) for c in candidates]
   candidates = [[int(r) for r in m.group(1, 2, 3, 4)] for m in candidates if m]
   candidates.sort(reverse=True)
   for c in candidates:
     build = '%s/R%d-%d.%d.%d' % (path, c[0], c[1], c[2], c[3])
-    # Blacklist "R79-12384.0.0" image released by mistake.
+    # Denylist "R79-12384.0.0" image released by mistake.
     # TODO(crbug.com/992242): Remove the filter by 2019-09-05.
     if c == [79, 12384, 0, 0]:
       continue
 
+    if DoesImageExist(chromeos_root, build):
+      return build
+
+
+def GetLatestRecipeImage(chromeos_root, path):
+  """Get latest nightly test image from recipe bucket.
+
+  Image location example:
+  $ARCHIVE/lulu-llvm-next-nightly/R84-13037.0.0-31011-8883172717979984032
+  """
+
+  fmt = re.compile(r'R([0-9]+)-([0-9]+).([0-9]+).([0-9]+)-([0-9]+)')
+
+  ce = command_executer.GetCommandExecuter()
+  command = ('gsutil ls gs://chromeos-image-archive/%s' % path)
+  ret, out, _ = ce.ChrootRunCommandWOutput(
+      chromeos_root, command, print_to_console=False)
+  if ret != 0:
+    raise RuntimeError('Failed to list buckets with command: %s.' % command)
+  candidates = [l.split('/')[-2] for l in out.split()]
+  candidates = [(fmt.match(c), c) for c in candidates]
+  candidates = [([int(r)
+                  for r in m[0].group(1, 2, 3, 4, 5)], m[1])
+                for m in candidates
+                if m]
+  candidates.sort(key=lambda x: x[0], reverse=True)
+  # Try to get ony last two days of images since nightly tests are run once
+  # another day.
+  for c in candidates[:2]:
+    build = '%s/%s' % (path, c[1])
     if DoesImageExist(chromeos_root, build):
       return build

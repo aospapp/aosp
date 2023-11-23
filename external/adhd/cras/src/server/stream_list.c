@@ -3,11 +3,18 @@
  * found in the LICENSE file.
  */
 
+#include <syslog.h>
 #include "cras_rstream.h"
 #include "cras_tm.h"
 #include "cras_types.h"
 #include "stream_list.h"
 #include "utlist.h"
+
+/*
+ * If the time difference of two streams is short than 10s, they may be the RTC
+ * streams.
+ */
+static const struct timespec RTC_STREAM_THRESHOLD = { 10, 0 };
 
 struct stream_list {
 	struct cras_rstream *streams;
@@ -81,12 +88,19 @@ int stream_list_add(struct stream_list *list,
 		    struct cras_rstream **stream)
 {
 	int rc;
+	struct cras_rstream *next_stream;
 
 	rc = list->stream_create_cb(stream_config, stream);
 	if (rc)
 		return rc;
 
-	DL_APPEND(list->streams, *stream);
+	/* Keep stream list in descending order by channel count. */
+	DL_FOREACH (list->streams, next_stream) {
+		if ((*stream)->format.num_channels >=
+		    next_stream->format.num_channels)
+			break;
+	}
+	DL_INSERT(list->streams, next_stream, *stream);
 	rc = list->stream_added_cb(*stream);
 	if (rc) {
 		DL_DELETE(list->streams, *stream);
@@ -146,4 +160,29 @@ bool stream_list_has_pinned_stream(struct stream_list *list,
 			return true;
 	}
 	return false;
+}
+
+void detect_rtc_stream_pair(struct stream_list *list,
+			    struct cras_rstream *stream)
+{
+	struct cras_rstream *next_stream;
+	if (stream->cb_threshold != 480)
+		return;
+	if (stream->client_type != CRAS_CLIENT_TYPE_CHROME &&
+	    stream->client_type != CRAS_CLIENT_TYPE_LACROS)
+		return;
+	DL_FOREACH (list->streams, next_stream) {
+		if (next_stream->cb_threshold == 480 &&
+		    next_stream->direction != stream->direction &&
+		    next_stream->client_type == stream->client_type &&
+		    timespec_diff_shorter_than(&stream->start_ts,
+					       &next_stream->start_ts,
+					       &RTC_STREAM_THRESHOLD)) {
+			stream->stream_type =
+				CRAS_STREAM_TYPE_VOICE_COMMUNICATION;
+			next_stream->stream_type =
+				CRAS_STREAM_TYPE_VOICE_COMMUNICATION;
+			return;
+		}
+	}
 }

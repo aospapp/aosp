@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +9,8 @@
 
 #include <arch.h>
 #include <asm_macros.S>
+#include <context.h>
+#include <lib/xlat_tables/xlat_tables_defs.h>
 
 	/*
 	 * Helper macro to initialise EL3 registers we care about.
@@ -275,6 +277,10 @@
 		isb
 	.endif /* _init_sctlr */
 
+#if DISABLE_MTPMU
+		bl	mtpmu_disable
+#endif
+
 	.if \_warm_boot_mailbox
 		/* -------------------------------------------------------------
 		 * This code will be executed for both warm and cold resets.
@@ -303,7 +309,7 @@
 		 */
 	pie_fixup:
 		ldr	x0, =pie_fixup
-		and	x0, x0, #~(PAGE_SIZE - 1)
+		and	x0, x0, #~(PAGE_SIZE_MASK)
 		mov_imm	x1, \_pie_fixup_size
 		add	x1, x1, x0
 		bl	fixup_gdt_reloc
@@ -439,6 +445,44 @@
 	.if \_init_c_runtime
 	bl	update_stack_protector_canary
 	.endif /* _init_c_runtime */
+#endif
+	.endm
+
+	.macro	apply_at_speculative_wa
+#if ERRATA_SPECULATIVE_AT
+	/*
+	 * Explicitly save x30 so as to free up a register and to enable
+	 * branching and also, save x29 which will be used in the called
+	 * function
+	 */
+	stp	x29, x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_X29]
+	bl	save_and_update_ptw_el1_sys_regs
+	ldp	x29, x30, [sp, #CTX_GPREGS_OFFSET + CTX_GPREG_X29]
+#endif
+	.endm
+
+	.macro	restore_ptw_el1_sys_regs
+#if ERRATA_SPECULATIVE_AT
+	/* -----------------------------------------------------------
+	 * In case of ERRATA_SPECULATIVE_AT, must follow below order
+	 * to ensure that page table walk is not enabled until
+	 * restoration of all EL1 system registers. TCR_EL1 register
+	 * should be updated at the end which restores previous page
+	 * table walk setting of stage1 i.e.(TCR_EL1.EPDx) bits. ISB
+	 * ensures that CPU does below steps in order.
+	 *
+	 * 1. Ensure all other system registers are written before
+	 *    updating SCTLR_EL1 using ISB.
+	 * 2. Restore SCTLR_EL1 register.
+	 * 3. Ensure SCTLR_EL1 written successfully using ISB.
+	 * 4. Restore TCR_EL1 register.
+	 * -----------------------------------------------------------
+	 */
+	isb
+	ldp	x28, x29, [sp, #CTX_EL1_SYSREGS_OFFSET + CTX_SCTLR_EL1]
+	msr	sctlr_el1, x28
+	isb
+	msr	tcr_el1, x29
 #endif
 	.endm
 

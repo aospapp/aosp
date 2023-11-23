@@ -241,6 +241,7 @@ enum quniform_contents {
         QUNIFORM_TEXTURE_DEPTH,
         QUNIFORM_TEXTURE_ARRAY_SIZE,
         QUNIFORM_TEXTURE_LEVELS,
+        QUNIFORM_TEXTURE_SAMPLES,
 
         QUNIFORM_UBO_ADDR,
 
@@ -250,8 +251,9 @@ enum quniform_contents {
         /* Returns the base offset of the SSBO given by the data value. */
         QUNIFORM_SSBO_OFFSET,
 
-        /* Returns the size of the SSBO given by the data value. */
-        QUNIFORM_GET_BUFFER_SIZE,
+        /* Returns the size of the SSBO or UBO given by the data value. */
+        QUNIFORM_GET_SSBO_SIZE,
+        QUNIFORM_GET_UBO_SIZE,
 
         /* Sizes (in pixels) of a shader image given by the data value. */
         QUNIFORM_IMAGE_WIDTH,
@@ -260,6 +262,13 @@ enum quniform_contents {
         QUNIFORM_IMAGE_ARRAY_SIZE,
 
         QUNIFORM_ALPHA_REF,
+
+        QUNIFORM_LINE_WIDTH,
+
+        /* The line width sent to hardware. This includes the expanded width
+         * when anti-aliasing is enabled.
+         */
+        QUNIFORM_AA_LINE_WIDTH,
 
         /* Number of workgroups passed to glDispatchCompute in the dimension
          * selected by the data value.
@@ -279,6 +288,14 @@ enum quniform_contents {
          * L2T cache will effectively be the shared memory area.
          */
         QUNIFORM_SHARED_OFFSET,
+
+        /**
+         * Returns the number of layers in the framebuffer.
+         *
+         * This is used to cap gl_Layer in geometry shaders to avoid
+         * out-of-bounds accesses into the tile state during binning.
+         */
+        QUNIFORM_FB_LAYERS,
 };
 
 static inline uint32_t v3d_unit_data_create(uint32_t unit, uint32_t value)
@@ -318,6 +335,11 @@ static inline uint8_t v3d_slot_get_component(struct v3d_varying_slot slot)
         return slot.slot_and_component & 3;
 }
 
+enum v3d_execution_environment {
+   V3D_ENVIRONMENT_OPENGL = 0,
+   V3D_ENVIRONMENT_VULKAN,
+};
+
 struct v3d_key {
         void *shader_state;
         struct {
@@ -328,14 +350,19 @@ struct v3d_key {
                 bool clamp_t:1;
                 bool clamp_r:1;
         } tex[V3D_MAX_TEXTURE_SAMPLERS];
+        uint8_t num_tex_used;
         uint8_t ucp_enables;
+        bool is_last_geometry_stage;
+        bool robust_buffer_access;
+
+        enum v3d_execution_environment environment;
 };
 
 struct v3d_fs_key {
         struct v3d_key base;
-        bool depth_enabled;
         bool is_points;
         bool is_lines;
+        bool line_smoothing;
         bool alpha_test;
         bool point_coord_upper_left;
         bool light_twoside;
@@ -355,6 +382,15 @@ struct v3d_fs_key {
          */
         uint8_t int_color_rb;
         uint8_t uint_color_rb;
+
+        /* Color format information per render target. Only set when logic
+         * operations are enabled.
+         */
+        struct {
+                enum pipe_format format;
+                const uint8_t *swizzle;
+        } color_fmt[V3D_MAX_DRAW_BUFFERS];
+
         uint8_t alpha_test_func;
         uint8_t logicop_func;
         uint32_t point_sprite_mask;
@@ -362,11 +398,27 @@ struct v3d_fs_key {
         struct pipe_rt_blend_state blend;
 };
 
+struct v3d_gs_key {
+        struct v3d_key base;
+
+        struct v3d_varying_slot used_outputs[V3D_MAX_FS_INPUTS];
+        uint8_t num_used_outputs;
+
+        bool is_coord;
+        bool per_vertex_point_size;
+};
+
 struct v3d_vs_key {
         struct v3d_key base;
 
-        struct v3d_varying_slot fs_inputs[V3D_MAX_FS_INPUTS];
-        uint8_t num_fs_inputs;
+        struct v3d_varying_slot used_outputs[V3D_MAX_ANY_STAGE_INPUTS];
+        uint8_t num_used_outputs;
+
+        /* A bit-mask indicating if we need to swap the R/B channels for
+         * vertex attributes. Since the hardware doesn't provide any
+         * means to swizzle vertex attributes we need to do it in the shader.
+         */
+        uint32_t va_swap_rb_mask;
 
         bool is_coord;
         bool per_vertex_point_size;
@@ -453,6 +505,12 @@ vir_after_block(struct qblock *block)
         return (struct vir_cursor){ vir_cursor_addtail, &block->instructions };
 }
 
+enum v3d_compilation_result {
+        V3D_COMPILATION_SUCCEEDED,
+        V3D_COMPILATION_FAILED_REGISTER_ALLOCATION,
+        V3D_COMPILATION_FAILED,
+};
+
 /**
  * Compiler state saved across compiler invocations, for any expensive global
  * setup.
@@ -464,6 +522,17 @@ struct v3d_compiler {
         unsigned int reg_class_r5[3];
         unsigned int reg_class_phys[3];
         unsigned int reg_class_phys_or_acc[3];
+};
+
+/**
+ * This holds partially interpolated inputs as provided by hardware
+ * (The Vp = A*(x - x0) + B*(y - y0) term), as well as the C coefficient
+ * required to compute the final interpolated value.
+ */
+struct v3d_interp_input {
+   struct qreg vp;
+   struct qreg C;
+   unsigned mode; /* interpolation mode */
 };
 
 struct v3d_compile {
@@ -493,10 +562,14 @@ struct v3d_compile {
          * Not all fragment shader QFILE_VARY reads are present in this array.
          */
         struct qreg *inputs;
+        /**
+         * Partially interpolated inputs to the shader.
+         */
+        struct v3d_interp_input *interp;
         struct qreg *outputs;
         bool msaa_per_sample_output;
-        struct qreg color_reads[V3D_MAX_SAMPLES];
-        struct qreg sample_colors[V3D_MAX_SAMPLES];
+        struct qreg color_reads[V3D_MAX_DRAW_BUFFERS * V3D_MAX_SAMPLES * 4];
+        struct qreg sample_colors[V3D_MAX_DRAW_BUFFERS * V3D_MAX_SAMPLES * 4];
         uint32_t inputs_array_size;
         uint32_t outputs_array_size;
         uint32_t uniforms_array_size;
@@ -513,6 +586,17 @@ struct v3d_compile {
 
         bool uses_center_w;
         bool writes_z;
+        bool uses_implicit_point_line_varyings;
+
+        /* If the fragment shader does anything that requires to force
+         * per-sample MSAA, such as reading gl_SampleID.
+         */
+        bool force_per_sample_msaa;
+
+        /* Whether we are using the fallback scheduler. This will be set after
+         * register allocation has failed once.
+         */
+        bool fallback_scheduler;
 
         /* State for whether we're executing on each channel currently.  0 if
          * yes, otherwise a block number + 1 that the channel jumped to.
@@ -529,8 +613,14 @@ struct v3d_compile {
         struct qreg iid;
 
         /**
-         * Vertex ID, which comes in before the vertex attribute payload
+         * Base Instance ID, which comes in before the vertex attribute payload
          * (after Instance ID) if the shader record requests it.
+         */
+        struct qreg biid;
+
+        /**
+         * Vertex ID, which comes in before the vertex attribute payload
+         * (after Base Instance) if the shader record requests it.
          */
         struct qreg vid;
 
@@ -576,6 +666,7 @@ struct v3d_compile {
         struct pipe_shader_state *shader_state;
         struct v3d_key *key;
         struct v3d_fs_key *fs_key;
+        struct v3d_gs_key *gs_key;
         struct v3d_vs_key *vs_key;
 
         /* Live ranges of temps. */
@@ -603,6 +694,7 @@ struct v3d_compile {
         uint64_t *qpu_insts;
         uint32_t qpu_inst_count;
         uint32_t qpu_inst_size;
+        uint32_t qpu_inst_stalled_count;
 
         /* For the FS, the number of varying inputs not counting the
          * point/line varyings payload
@@ -624,7 +716,15 @@ struct v3d_compile {
         struct qinst *last_thrsw;
         bool last_thrsw_at_top_level;
 
-        bool failed;
+        bool emitted_tlb_load;
+        bool lock_scoreboard_on_first_thrsw;
+
+        /* Total number of spilled registers in the program */
+        uint32_t spill_count;
+
+        enum v3d_compilation_result compilation_result;
+
+        bool tmu_dirty_rcl;
 };
 
 struct v3d_uniform_list {
@@ -644,12 +744,14 @@ struct v3d_prog_data {
          * after-final-THRSW state.
          */
         bool single_seg;
+
+        bool tmu_dirty_rcl;
 };
 
 struct v3d_vs_prog_data {
         struct v3d_prog_data base;
 
-        bool uses_iid, uses_vid;
+        bool uses_iid, uses_biid, uses_vid;
 
         /* Number of components read from each vertex attribute. */
         uint8_t vattr_sizes[V3D_MAX_VS_INPUTS / 4];
@@ -667,6 +769,36 @@ struct v3d_vs_prog_data {
 
         /* Value to be programmed in VCM_CACHE_SIZE. */
         uint8_t vcm_cache_size;
+};
+
+struct v3d_gs_prog_data {
+        struct v3d_prog_data base;
+
+        /* Whether the program reads gl_PrimitiveIDIn */
+        bool uses_pid;
+
+        /* Number of components read from each input varying. */
+        uint8_t input_sizes[V3D_MAX_GS_INPUTS / 4];
+
+        /* Number of inputs */
+        uint8_t num_inputs;
+        struct v3d_varying_slot input_slots[V3D_MAX_GS_INPUTS];
+
+        /* Total number of components written, for the shader state record. */
+        uint32_t vpm_output_size;
+
+        /* Maximum SIMD dispatch width to not exceed VPM output size limits
+         * in the geometry shader. Notice that the final dispatch width has to
+         * be decided at draw time and could be lower based on the VPM pressure
+         * added by other shader stages.
+         */
+        uint8_t simd_width;
+
+        /* Output primitive type */
+        uint8_t out_prim_type;
+
+        /* Number of GS invocations */
+        uint8_t num_invocations;
 };
 
 struct v3d_fs_prog_data {
@@ -689,6 +821,9 @@ struct v3d_fs_prog_data {
         bool writes_z;
         bool disable_ez;
         bool uses_center_w;
+        bool uses_implicit_point_line_varyings;
+        bool lock_scoreboard_on_first_thrsw;
+        bool force_per_sample_msaa;
 };
 
 struct v3d_compute_prog_data {
@@ -702,13 +837,6 @@ vir_has_uniform(struct qinst *inst)
 {
         return inst->uniform != ~0;
 }
-
-/* Special nir_load_input intrinsic index for loading the current TLB
- * destination color.
- */
-#define V3D_NIR_TLB_COLOR_READ_INPUT		2000000000
-
-#define V3D_NIR_MS_MASK_OUTPUT			2000000000
 
 extern const nir_shader_compiler_options v3d_nir_options;
 
@@ -726,6 +854,7 @@ uint64_t *v3d_compile(const struct v3d_compiler *compiler,
                       int program_id, int variant_id,
                       uint32_t *final_assembly_size);
 
+uint32_t v3d_prog_data_size(gl_shader_stage stage);
 void v3d_nir_to_vir(struct v3d_compile *c);
 
 void vir_compile_destroy(struct v3d_compile *c);
@@ -759,6 +888,7 @@ void vir_set_pf(struct qinst *inst, enum v3d_qpu_pf pf);
 void vir_set_uf(struct qinst *inst, enum v3d_qpu_uf uf);
 void vir_set_unpack(struct qinst *inst, int src,
                     enum v3d_qpu_input_unpack unpack);
+void vir_set_pack(struct qinst *inst, enum v3d_qpu_output_pack pack);
 
 struct qreg vir_get_temp(struct v3d_compile *c);
 void vir_emit_last_thrsw(struct v3d_compile *c);
@@ -797,6 +927,9 @@ bool vir_opt_small_immediates(struct v3d_compile *c);
 bool vir_opt_vpm(struct v3d_compile *c);
 void v3d_nir_lower_blend(nir_shader *s, struct v3d_compile *c);
 void v3d_nir_lower_io(nir_shader *s, struct v3d_compile *c);
+void v3d_nir_lower_line_smooth(nir_shader *shader);
+void v3d_nir_lower_logic_ops(nir_shader *s, struct v3d_compile *c);
+void v3d_nir_lower_robust_buffer_access(nir_shader *shader, struct v3d_compile *c);
 void v3d_nir_lower_scratch(nir_shader *s);
 void v3d_nir_lower_txf_ms(nir_shader *s, struct v3d_compile *c);
 void v3d_nir_lower_image_load_store(nir_shader *s);
@@ -815,7 +948,12 @@ void qpu_validate(struct v3d_compile *c);
 struct qpu_reg *v3d_register_allocate(struct v3d_compile *c, bool *spilled);
 bool vir_init_reg_sets(struct v3d_compiler *compiler);
 
+int v3d_shaderdb_dump(struct v3d_compile *c, char **shaderdb_str);
+
 bool v3d_gl_format_is_return_32(GLenum format);
+
+uint32_t
+v3d_get_op_for_atomic_add(nir_intrinsic_instr *instr, unsigned src);
 
 static inline bool
 quniform_contents_is_texture_p0(enum quniform_contents contents)
@@ -970,6 +1108,7 @@ VIR_A_ALU2(XOR)
 VIR_A_ALU2(VADD)
 VIR_A_ALU2(VSUB)
 VIR_A_NODST_2(STVPMV)
+VIR_A_NODST_2(STVPMD)
 VIR_A_ALU1(NOT)
 VIR_A_ALU1(NEG)
 VIR_A_ALU1(FLAPUSH)
@@ -981,8 +1120,13 @@ VIR_A_ALU0(TIDX)
 VIR_A_ALU0(EIDX)
 VIR_A_ALU1(LDVPMV_IN)
 VIR_A_ALU1(LDVPMV_OUT)
+VIR_A_ALU1(LDVPMD_IN)
+VIR_A_ALU1(LDVPMD_OUT)
+VIR_A_ALU2(LDVPMG_IN)
+VIR_A_ALU2(LDVPMG_OUT)
 VIR_A_ALU0(TMUWT)
 
+VIR_A_ALU0(IID)
 VIR_A_ALU0(FXCD)
 VIR_A_ALU0(XCD)
 VIR_A_ALU0(FYCD)
@@ -990,6 +1134,7 @@ VIR_A_ALU0(YCD)
 VIR_A_ALU0(MSF)
 VIR_A_ALU0(REVF)
 VIR_A_ALU0(BARRIERID)
+VIR_A_ALU0(SAMPID)
 VIR_A_NODST_1(VPMSETUP)
 VIR_A_NODST_0(VPMWT)
 VIR_A_ALU2(FCMP)
@@ -1072,6 +1217,30 @@ vir_UMUL(struct v3d_compile *c, struct qreg src0, struct qreg src1)
 {
         vir_MULTOP(c, src0, src1);
         return vir_UMUL24(c, src0, src1);
+}
+
+static inline struct qreg
+vir_TLBU_COLOR_READ(struct v3d_compile *c, uint32_t config)
+{
+        assert(c->devinfo->ver >= 41); /* XXX */
+        assert((config & 0xffffff00) == 0xffffff00);
+
+        struct qinst *ldtlb = vir_add_inst(V3D_QPU_A_NOP, c->undef,
+                                           c->undef, c->undef);
+        ldtlb->qpu.sig.ldtlbu = true;
+        ldtlb->uniform = vir_get_uniform_index(c, QUNIFORM_CONSTANT, config);
+        return vir_emit_def(c, ldtlb);
+}
+
+static inline struct qreg
+vir_TLB_COLOR_READ(struct v3d_compile *c)
+{
+        assert(c->devinfo->ver >= 41); /* XXX */
+
+        struct qinst *ldtlb = vir_add_inst(V3D_QPU_A_NOP, c->undef,
+                                           c->undef, c->undef);
+        ldtlb->qpu.sig.ldtlb = true;
+        return vir_emit_def(c, ldtlb);
 }
 
 /*

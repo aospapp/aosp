@@ -75,7 +75,7 @@ class BufferedReader(object):
                 chunk = b""
             else:
                 chunk = self._sock.recv(8 << 10)
-            # print('!!! recv', chunk)
+            # print("!!! recv", chunk)
             if not chunk:
                 self._end = True
                 if untilend:
@@ -406,10 +406,12 @@ def server_request(request_handler, **kwargs):
             request = HttpRequest.from_buffered(buf)
             if request is None:
                 break
+            # print("--- debug request\n" + request.raw.decode("ascii", "replace"))
             i += 1
             request.client_sock = sock
             request.number = i
             response = request_handler(request=request)
+            # print("--- debug response\n" + response.decode("ascii", "replace"))
             sock.sendall(response)
             request.client_sock = None
             if not tick(request):

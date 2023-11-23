@@ -18,7 +18,7 @@
 -->
 
 <!--
-  This manifest file is for the standalone TCS used for testing.
+  This manifest file is for the tcs library.
   The TCS is typically shipped as part of ExtServices and is configured
   in ExtServices's manifest.
 -->
@@ -27,21 +27,23 @@
           android:versionCode="1"
           android:versionName="1.0.0">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30"/>
 
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <application android:label="@string/tcs_app_name"
-                 android:icon="@drawable/tcs_app_icon"
-                 android:extractNativeLibs="false">
+
+    <application>
+
         <service
             android:exported="true"
+            android:directBootAware="false"
             android:name=".DefaultTextClassifierService"
             android:permission="android.permission.BIND_TEXTCLASSIFIER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.textclassifier.TextClassifierService"/>
             </intent-filter>
         </service>
-
     </application>
+
 </manifest>

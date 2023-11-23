@@ -5,7 +5,7 @@
 
 $assert CHANNEL_TILE >= 1
 $assert ROW_TILE >= 1
-$ABC = "0123456789ABCDEFGHIJKLMN"
+$ABC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #include <assert.h>
 
 #include <xnnpack/math.h>
@@ -14,7 +14,7 @@ $ABC = "0123456789ABCDEFGHIJKLMN"
 
 $MIN_F32 = "__builtin_wasm_min_f32" if WASM else "math_min_f32"
 $MAX_F32 = "__builtin_wasm_max_f32" if WASM else "math_max_f32"
-void xnn_f32_vmulcaddc_ukernel_c${CHANNEL_TILE}__${"wasm" if WASM else "scalar"}_${ROW_TILE}x(
+void xnn_f32_vmulcaddc_minmax_ukernel_c${CHANNEL_TILE}__${"wasm" if WASM else "scalar"}_${ROW_TILE}x(
     size_t rows,
     size_t channels,
     const float*restrict input,
@@ -22,7 +22,7 @@ void xnn_f32_vmulcaddc_ukernel_c${CHANNEL_TILE}__${"wasm" if WASM else "scalar"}
     const float*restrict weights,
     float*restrict output,
     size_t output_stride,
-    const union xnn_f32_output_params params[restrict static 1])
+    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(rows != 0);
   assert(channels != 0);

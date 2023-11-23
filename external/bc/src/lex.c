@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,14 +38,13 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include <status.h>
 #include <lex.h>
 #include <vm.h>
 #include <bc.h>
 
-BcStatus bc_lex_invalidChar(BcLex *l, char c) {
+void bc_lex_invalidChar(BcLex *l, char c) {
 	l->t = BC_LEX_INVALID;
-	return bc_lex_verr(l, BC_ERROR_PARSE_CHAR, c);
+	bc_lex_verr(l, BC_ERR_PARSE_CHAR, c);
 }
 
 void bc_lex_lineComment(BcLex *l) {
@@ -53,7 +52,7 @@ void bc_lex_lineComment(BcLex *l) {
 	while (l->i < l->len && l->buf[l->i] != '\n') l->i += 1;
 }
 
-BcStatus bc_lex_comment(BcLex *l) {
+void bc_lex_comment(BcLex *l) {
 
 	size_t i, nlines = 0;
 	const char *buf = l->buf;
@@ -69,7 +68,7 @@ BcStatus bc_lex_comment(BcLex *l) {
 
 		if (BC_ERR(!c || buf[i + 1] == '\0')) {
 			l->i = i;
-			return bc_lex_err(l, BC_ERROR_PARSE_COMMENT);
+			bc_lex_err(l, BC_ERR_PARSE_COMMENT);
 		}
 
 		end = buf[i + 1] == '/';
@@ -77,8 +76,6 @@ BcStatus bc_lex_comment(BcLex *l) {
 
 	l->i = i + 2;
 	l->line += nlines;
-
-	return BC_STATUS_SUCCESS;
 }
 
 void bc_lex_whitespace(BcLex *l) {
@@ -129,11 +126,11 @@ static size_t bc_lex_num(BcLex *l, char start, bool int_only) {
 	return i;
 }
 
-BcStatus bc_lex_number(BcLex *l, char start) {
+void bc_lex_number(BcLex *l, char start) {
 
 	l->t = BC_LEX_NUMBER;
 
-	bc_vec_npop(&l->str, l->str.len);
+	bc_vec_popAll(&l->str);
 	bc_vec_push(&l->str, &start);
 
 	l->i += bc_lex_num(l, start, false);
@@ -145,10 +142,7 @@ BcStatus bc_lex_number(BcLex *l, char start) {
 		if (c == 'e') {
 
 #if BC_ENABLED
-			if (BC_IS_POSIX) {
-				BcStatus s = bc_lex_err(l, BC_ERROR_POSIX_EXP_NUM);
-				if (BC_ERR(s)) return s;
-			}
+			if (BC_IS_POSIX) bc_lex_err(l, BC_ERR_POSIX_EXP_NUM);
 #endif // BC_ENABLED
 
 			bc_vec_push(&l->str, &c);
@@ -162,7 +156,7 @@ BcStatus bc_lex_number(BcLex *l, char start) {
 			}
 
 			if (BC_ERR(!BC_LEX_NUM_CHAR(c, false, true)))
-				return bc_lex_verr(l, BC_ERROR_PARSE_CHAR, c);
+				bc_lex_verr(l, BC_ERR_PARSE_CHAR, c);
 
 			l->i += bc_lex_num(l, 0, true);
 		}
@@ -170,8 +164,6 @@ BcStatus bc_lex_number(BcLex *l, char start) {
 #endif // BC_ENABLE_EXTRA_MATH
 
 	bc_vec_pushByte(&l->str, '\0');
-
-	return BC_STATUS_SUCCESS;
 }
 
 void bc_lex_name(BcLex *l) {
@@ -191,11 +183,13 @@ void bc_lex_name(BcLex *l) {
 }
 
 void bc_lex_init(BcLex *l) {
+	BC_SIG_ASSERT_LOCKED;
 	assert(l != NULL);
 	bc_vec_init(&l->str, sizeof(char), NULL);
 }
 
 void bc_lex_free(BcLex *l) {
+	BC_SIG_ASSERT_LOCKED;
 	assert(l != NULL);
 	bc_vec_free(&l->str);
 }
@@ -203,38 +197,34 @@ void bc_lex_free(BcLex *l) {
 void bc_lex_file(BcLex *l, const char *file) {
 	assert(l != NULL && file != NULL);
 	l->line = 1;
-	vm->file = file;
+	vm.file = file;
 }
 
-BcStatus bc_lex_next(BcLex *l) {
-
-	BcStatus s;
+void bc_lex_next(BcLex *l) {
 
 	assert(l != NULL);
 
 	l->last = l->t;
 	l->line += (l->i != 0 && l->buf[l->i - 1] == '\n');
 
-	if (BC_ERR(l->last == BC_LEX_EOF)) return bc_lex_err(l, BC_ERROR_PARSE_EOF);
+	if (BC_ERR(l->last == BC_LEX_EOF)) bc_lex_err(l, BC_ERR_PARSE_EOF);
 
 	l->t = BC_LEX_EOF;
 
-	if (l->i == l->len) return BC_STATUS_SUCCESS;
+	if (l->i == l->len) return;
 
 	// Loop until failure or we don't have whitespace. This
 	// is so the parser doesn't get inundated with whitespace.
 	do {
-		s = vm->next(l);
-	} while (BC_NO_ERR(!s) && l->t == BC_LEX_WHITESPACE);
-
-	return s;
+		vm.next(l);
+	} while (l->t == BC_LEX_WHITESPACE);
 }
 
-BcStatus bc_lex_text(BcLex *l, const char *text) {
+void bc_lex_text(BcLex *l, const char *text) {
 	assert(l != NULL && text != NULL);
 	l->buf = text;
 	l->i = 0;
 	l->len = strlen(text);
 	l->t = l->last = BC_LEX_INVALID;
-	return bc_lex_next(l);
+	bc_lex_next(l);
 }

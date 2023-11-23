@@ -112,7 +112,7 @@ struct wl_egl_window_v3 {
     do {                                                                            \
         if (offsetof(struct wl_egl_window ## a_ver, a_member) !=                    \
             offsetof(struct wl_egl_window ## b_ver, b_member)) {                    \
-            printf("Backards incompatible change detected!\n   "                    \
+            printf("Backwards incompatible change detected!\n   "                    \
                    "offsetof(struct wl_egl_window" #a_ver "::" #a_member ") != "    \
                    "offsetof(struct wl_egl_window" #b_ver "::" #b_member ")\n");    \
             return 1;                                                               \
@@ -120,7 +120,7 @@ struct wl_egl_window_v3 {
                                                                                     \
         if (MEMBER_SIZE(struct wl_egl_window ## a_ver, a_member) !=                 \
             MEMBER_SIZE(struct wl_egl_window ## b_ver, b_member)) {                 \
-            printf("Backards incompatible change detected!\n   "                    \
+            printf("Backwards incompatible change detected!\n   "                    \
                    "MEMBER_SIZE(struct wl_egl_window" #a_ver "::" #a_member ") != " \
                    "MEMBER_SIZE(struct wl_egl_window" #b_ver "::" #b_member ")\n"); \
             return 1;                                                               \
@@ -134,7 +134,7 @@ struct wl_egl_window_v3 {
     do {                                                                            \
         if (sizeof(struct wl_egl_window ## a_ver) >                                 \
             sizeof(struct wl_egl_window ## b_ver)) {                                \
-            printf("Backards incompatible change detected!\n   "                    \
+            printf("Backwards incompatible change detected!\n   "                    \
                    "sizeof(struct wl_egl_window" #a_ver ") > "                      \
                    "sizeof(struct wl_egl_window" #b_ver ")\n");                     \
             return 1;                                                               \
@@ -145,7 +145,7 @@ struct wl_egl_window_v3 {
     do {                                                                            \
         if (sizeof(struct wl_egl_window ## a_ver) !=                                \
             sizeof(struct wl_egl_window)) {                                         \
-            printf("Backards incompatible change detected!\n   "                    \
+            printf("Backwards incompatible change detected!\n   "                    \
                    "sizeof(struct wl_egl_window" #a_ver ") != "                     \
                    "sizeof(struct wl_egl_window)\n");                               \
             return 1;                                                               \
@@ -156,7 +156,7 @@ struct wl_egl_window_v3 {
     do {                                                                            \
         if ((WL_EGL_WINDOW_VERSION ## a_ver) >=                                     \
             (WL_EGL_WINDOW_VERSION ## b_ver)) {                                     \
-            printf("Backards incompatible change detected!\n   "                    \
+            printf("Backwards incompatible change detected!\n   "                    \
                    "WL_EGL_WINDOW_VERSION" #a_ver " >= "                            \
                    "WL_EGL_WINDOW_VERSION" #b_ver "\n");                            \
             return 1;                                                               \
@@ -167,7 +167,7 @@ struct wl_egl_window_v3 {
     do {                                                                            \
         if ((WL_EGL_WINDOW_VERSION ## a_ver) !=                                     \
             (WL_EGL_WINDOW_VERSION)) {                                              \
-            printf("Backards incompatible change detected!\n   "                    \
+            printf("Backwards incompatible change detected!\n   "                    \
                    "WL_EGL_WINDOW_VERSION" #a_ver " != "                            \
                    "WL_EGL_WINDOW_VERSION\n");                                      \
             return 1;                                                               \

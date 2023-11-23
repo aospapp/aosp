@@ -16,6 +16,8 @@ extern "C" {
 #include "cras_shm.h"
 }
 
+#include "metrics_stub.h"
+
 namespace {
 
 class RstreamTestSuite : public testing::Test {
@@ -30,6 +32,7 @@ class RstreamTestSuite : public testing::Test {
 
     config_.stream_id = 555;
     config_.stream_type = CRAS_STREAM_TYPE_DEFAULT;
+    config_.client_type = CRAS_CLIENT_TYPE_UNKNOWN;
     config_.direction = CRAS_STREAM_OUTPUT;
     config_.dev_idx = NO_DEVICE;
     config_.flags = 0;
@@ -376,7 +379,7 @@ unsigned int buffer_share_get_new_write_point(struct buffer_share* mix) {
   return 0;
 }
 
-int buffer_share_add_id(struct buffer_share* mix, unsigned int id) {
+int buffer_share_add_id(struct buffer_share* mix, unsigned int id, void* data) {
   return 0;
 }
 
@@ -388,13 +391,35 @@ unsigned int buffer_share_id_offset(const struct buffer_share* mix,
                                     unsigned int id) {
   return 0;
 }
+void ewma_power_init(struct ewma_power* ewma, unsigned int rate) {}
 
-void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction) {}
+void ewma_power_calculate(struct ewma_power* ewma,
+                          const int16_t* buf,
+                          unsigned int channels,
+                          unsigned int size) {}
 
-void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction) {}
+void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction,
+                                    enum CRAS_CLIENT_TYPE client_type) {}
+
+void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction,
+                                      enum CRAS_CLIENT_TYPE client_type) {}
+
+int cras_server_metrics_stream_create(
+    const struct cras_rstream_config* config) {
+  return 0;
+}
+
+int cras_server_metrics_stream_destroy(const struct cras_rstream* stream) {
+  return 0;
+}
+
 #ifdef HAVE_WEBRTC_APM
+#define FAKE_CRAS_APM_PTR reinterpret_cast<struct cras_apm*>(0x99)
 struct cras_apm_list* cras_apm_list_create(void* stream_ptr, uint64_t effects) {
   return NULL;
+}
+struct cras_apm* cras_apm_list_get_active_apm(void* stream_ptr, void* dev_ptr) {
+  return FAKE_CRAS_APM_PTR;
 }
 int cras_apm_list_destroy(struct cras_apm_list* list) {
   return 0;
@@ -409,8 +434,4 @@ struct cras_audio_format* cras_apm_list_get_format(struct cras_apm* apm) {
   return NULL;
 }
 #endif
-
-int cras_server_metrics_missed_cb_frequency(const struct cras_rstream* stream) {
-  return 0;
-}
 }

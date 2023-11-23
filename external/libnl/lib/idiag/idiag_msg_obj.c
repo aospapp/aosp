@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/idiag/idiagnl_msg_obj.c Inet Diag Message Object
  *
@@ -10,10 +11,39 @@
  */
 
 #include <netlink-private/netlink.h>
+#include <netlink/hashtable.h>
 #include <netlink/idiag/msg.h>
 #include <netlink/idiag/meminfo.h>
 #include <netlink/idiag/vegasinfo.h>
 #include <linux/inet_diag.h>
+
+
+/** @cond SKIP */
+#define IDIAGNL_ATTR_FAMILY                     (0x1 << 1)
+#define IDIAGNL_ATTR_STATE                      (0x1 << 2)
+#define IDIAGNL_ATTR_TIMER                      (0x1 << 3)
+#define IDIAGNL_ATTR_RETRANS                    (0x1 << 4)
+#define IDIAGNL_ATTR_SPORT                      (0x1 << 5)
+#define IDIAGNL_ATTR_DPORT                      (0x1 << 6)
+#define IDIAGNL_ATTR_SRC                        (0x1 << 7)
+#define IDIAGNL_ATTR_DST                        (0x1 << 8)
+#define IDIAGNL_ATTR_IFINDEX                    (0x1 << 9)
+#define IDIAGNL_ATTR_EXPIRES                    (0x1 << 10)
+#define IDIAGNL_ATTR_RQUEUE                     (0x1 << 11)
+#define IDIAGNL_ATTR_WQUEUE                     (0x1 << 12)
+#define IDIAGNL_ATTR_UID                        (0x1 << 13)
+#define IDIAGNL_ATTR_INODE                      (0x1 << 14)
+#define IDIAGNL_ATTR_TOS                        (0x1 << 15)
+#define IDIAGNL_ATTR_TCLASS                     (0x1 << 16)
+#define IDIAGNL_ATTR_SHUTDOWN                   (0x1 << 17)
+#define IDIAGNL_ATTR_CONG                       (0x1 << 18)
+#define IDIAGNL_ATTR_MEMINFO                    (0x1 << 19)
+#define IDIAGNL_ATTR_VEGASINFO                  (0x1 << 20)
+#define IDIAGNL_ATTR_TCPINFO                    (0x1 << 21)
+#define IDIAGNL_ATTR_SKMEMINFO                  (0x1 << 22)
+
+#define _INET_DIAG_ALL ((1<<(INET_DIAG_MAX+1))-1)
+/** @endcond */
 
 /**
  * @ingroup idiag
@@ -60,15 +90,25 @@ static int idiagnl_request_update(struct nl_cache *cache, struct nl_sock *sk)
 	int family = cache->c_iarg1;
 	int states = cache->c_iarg2;
 
-	return idiagnl_send_simple(sk, 0, family, states, IDIAG_ATTR_ALL);
+	/* idiagnl_send_simple()'s "ext" argument is u16, which is too small for _INET_DIAG_ALL,
+	 * which is more than 16 bits on recent kernels.
+	 *
+	 * Actually, internally idiagnl_send_simple() sets "struct inet_diag_req"'s "idiag_ext"
+	 * field, which is only 8 bits. So, it's even worse.
+	 *
+	 * FIXME: this probably should be fixed (by adding idiagnl_send_simple2() function), but for
+	 *    the moment it means we cannot request more than 0xFF.
+	 */
+
+	return idiagnl_send_simple(sk, 0, family, states, (uint16_t) _INET_DIAG_ALL);
 }
 
 static struct nl_cache_ops idiagnl_msg_ops = {
 	.co_name		= "idiag/idiag",
 	.co_hdrsize		= sizeof(struct inet_diag_msg),
 	.co_msgtypes		= {
-		{ IDIAG_TCPDIAG_GETSOCK, NL_ACT_NEW, "new" },
-		{ IDIAG_DCCPDIAG_GETSOCK, NL_ACT_NEW, "new" },
+		{ TCPDIAG_GETSOCK, NL_ACT_NEW, "new" },
+		{ DCCPDIAG_GETSOCK, NL_ACT_NEW, "new" },
 		END_OF_MSGTYPES_LIST,
 	},
 	.co_protocol		= NETLINK_INET_DIAG,
@@ -139,6 +179,7 @@ uint8_t idiagnl_msg_get_family(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_family(struct idiagnl_msg *msg, uint8_t family)
 {
 	msg->idiag_family = family;
+	msg->ce_mask |= IDIAGNL_ATTR_FAMILY;
 }
 
 uint8_t idiagnl_msg_get_state(const struct idiagnl_msg *msg)
@@ -149,6 +190,7 @@ uint8_t idiagnl_msg_get_state(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_state(struct idiagnl_msg *msg, uint8_t state)
 {
 	msg->idiag_state = state;
+	msg->ce_mask |= IDIAGNL_ATTR_STATE;
 }
 
 uint8_t idiagnl_msg_get_timer(const struct idiagnl_msg *msg)
@@ -159,6 +201,7 @@ uint8_t idiagnl_msg_get_timer(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_timer(struct idiagnl_msg *msg, uint8_t timer)
 {
 	msg->idiag_timer = timer;
+	msg->ce_mask |= IDIAGNL_ATTR_TIMER;
 }
 
 uint8_t idiagnl_msg_get_retrans(const struct idiagnl_msg *msg)
@@ -169,6 +212,7 @@ uint8_t idiagnl_msg_get_retrans(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_retrans(struct idiagnl_msg *msg, uint8_t retrans)
 {
 	msg->idiag_retrans = retrans;
+	msg->ce_mask |= IDIAGNL_ATTR_RETRANS;
 }
 
 uint16_t idiagnl_msg_get_sport(struct idiagnl_msg *msg)
@@ -179,6 +223,7 @@ uint16_t idiagnl_msg_get_sport(struct idiagnl_msg *msg)
 void idiagnl_msg_set_sport(struct idiagnl_msg *msg, uint16_t port)
 {
 	msg->idiag_sport = port;
+	msg->ce_mask |= IDIAGNL_ATTR_SPORT;
 }
 
 uint16_t idiagnl_msg_get_dport(struct idiagnl_msg *msg)
@@ -189,6 +234,7 @@ uint16_t idiagnl_msg_get_dport(struct idiagnl_msg *msg)
 void idiagnl_msg_set_dport(struct idiagnl_msg *msg, uint16_t port)
 {
 	msg->idiag_dport = port;
+	msg->ce_mask |= IDIAGNL_ATTR_DPORT;
 }
 
 struct nl_addr *idiagnl_msg_get_src(const struct idiagnl_msg *msg)
@@ -203,6 +249,7 @@ int idiagnl_msg_set_src(struct idiagnl_msg *msg, struct nl_addr *addr)
 
 	nl_addr_get(addr);
 	msg->idiag_src = addr;
+	msg->ce_mask |= IDIAGNL_ATTR_SRC;
 
 	return 0;
 }
@@ -219,6 +266,7 @@ int idiagnl_msg_set_dst(struct idiagnl_msg *msg, struct nl_addr *addr)
 
 	nl_addr_get(addr);
 	msg->idiag_dst = addr;
+	msg->ce_mask |= IDIAGNL_ATTR_DST;
 
 	return 0;
 }
@@ -231,6 +279,7 @@ uint32_t idiagnl_msg_get_ifindex(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_ifindex(struct idiagnl_msg *msg, uint32_t ifindex)
 {
 	msg->idiag_ifindex = ifindex;
+	msg->ce_mask |= IDIAGNL_ATTR_IFINDEX;
 }
 
 uint32_t idiagnl_msg_get_expires(const struct idiagnl_msg *msg)
@@ -241,6 +290,7 @@ uint32_t idiagnl_msg_get_expires(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_expires(struct idiagnl_msg *msg, uint32_t expires)
 {
 	msg->idiag_expires = expires;
+	msg->ce_mask |= IDIAGNL_ATTR_EXPIRES;
 }
 
 uint32_t idiagnl_msg_get_rqueue(const struct idiagnl_msg *msg)
@@ -251,6 +301,7 @@ uint32_t idiagnl_msg_get_rqueue(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_rqueue(struct idiagnl_msg *msg, uint32_t rqueue)
 {
 	msg->idiag_rqueue = rqueue;
+	msg->ce_mask |= IDIAGNL_ATTR_RQUEUE;
 }
 
 uint32_t idiagnl_msg_get_wqueue(const struct idiagnl_msg *msg)
@@ -261,6 +312,7 @@ uint32_t idiagnl_msg_get_wqueue(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_wqueue(struct idiagnl_msg *msg, uint32_t wqueue)
 {
 	msg->idiag_wqueue = wqueue;
+	msg->ce_mask |= IDIAGNL_ATTR_WQUEUE;
 }
 
 uint32_t idiagnl_msg_get_uid(const struct idiagnl_msg *msg)
@@ -271,6 +323,7 @@ uint32_t idiagnl_msg_get_uid(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_uid(struct idiagnl_msg *msg, uint32_t uid)
 {
 	msg->idiag_uid = uid;
+	msg->ce_mask |= IDIAGNL_ATTR_UID;
 }
 
 uint32_t idiagnl_msg_get_inode(const struct idiagnl_msg *msg)
@@ -281,6 +334,7 @@ uint32_t idiagnl_msg_get_inode(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_inode(struct idiagnl_msg *msg, uint32_t inode)
 {
 	msg->idiag_inode = inode;
+	msg->ce_mask |= IDIAGNL_ATTR_INODE;
 }
 
 uint8_t idiagnl_msg_get_tos(const struct idiagnl_msg *msg)
@@ -291,6 +345,7 @@ uint8_t idiagnl_msg_get_tos(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_tos(struct idiagnl_msg *msg, uint8_t tos)
 {
 	msg->idiag_tos = tos;
+	msg->ce_mask |= IDIAGNL_ATTR_TOS;
 }
 
 uint8_t idiagnl_msg_get_tclass(const struct idiagnl_msg *msg)
@@ -301,6 +356,7 @@ uint8_t idiagnl_msg_get_tclass(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_tclass(struct idiagnl_msg *msg, uint8_t tclass)
 {
 	msg->idiag_tclass = tclass;
+	msg->ce_mask |= IDIAGNL_ATTR_TCLASS;
 }
 
 uint8_t	idiagnl_msg_get_shutdown(const struct idiagnl_msg *msg)
@@ -311,6 +367,7 @@ uint8_t	idiagnl_msg_get_shutdown(const struct idiagnl_msg *msg)
 void  idiagnl_msg_set_shutdown(struct idiagnl_msg *msg, uint8_t shutdown)
 {
 	msg->idiag_shutdown = shutdown;
+	msg->ce_mask |= IDIAGNL_ATTR_SHUTDOWN;
 }
 
 char *idiagnl_msg_get_cong(const struct idiagnl_msg *msg)
@@ -320,7 +377,9 @@ char *idiagnl_msg_get_cong(const struct idiagnl_msg *msg)
 
 void idiagnl_msg_set_cong(struct idiagnl_msg *msg, char *cong)
 {
+	free (msg->idiag_cong);
 	msg->idiag_cong = strdup(cong);
+	msg->ce_mask |= IDIAGNL_ATTR_CONG;
 }
 
 struct idiagnl_meminfo *idiagnl_msg_get_meminfo(const struct idiagnl_msg *msg)
@@ -328,14 +387,14 @@ struct idiagnl_meminfo *idiagnl_msg_get_meminfo(const struct idiagnl_msg *msg)
 	return msg->idiag_meminfo;
 }
 
-void idiagnl_msg_set_meminfo(struct idiagnl_msg *msg, struct idiagnl_meminfo
-		*minfo)
+void idiagnl_msg_set_meminfo(struct idiagnl_msg *msg, struct idiagnl_meminfo *minfo)
 {
 	if (msg->idiag_meminfo)
 		idiagnl_meminfo_put(msg->idiag_meminfo);
 
 	idiagnl_meminfo_get(minfo);
 	msg->idiag_meminfo = minfo;
+	msg->ce_mask |= IDIAGNL_ATTR_MEMINFO;
 }
 
 struct idiagnl_vegasinfo *idiagnl_msg_get_vegasinfo(const struct idiagnl_msg *msg)
@@ -343,14 +402,14 @@ struct idiagnl_vegasinfo *idiagnl_msg_get_vegasinfo(const struct idiagnl_msg *ms
 	return msg->idiag_vegasinfo;
 }
 
-void idiagnl_msg_set_vegasinfo(struct idiagnl_msg *msg, struct idiagnl_vegasinfo
-		*vinfo)
+void idiagnl_msg_set_vegasinfo(struct idiagnl_msg *msg, struct idiagnl_vegasinfo *vinfo)
 {
 	if (msg->idiag_vegasinfo)
 		idiagnl_vegasinfo_put(msg->idiag_vegasinfo);
 
 	idiagnl_vegasinfo_get(vinfo);
 	msg->idiag_vegasinfo = vinfo;
+	msg->ce_mask |= IDIAGNL_ATTR_VEGASINFO;
 }
 
 struct tcp_info idiagnl_msg_get_tcpinfo(const struct idiagnl_msg *msg)
@@ -361,6 +420,7 @@ struct tcp_info idiagnl_msg_get_tcpinfo(const struct idiagnl_msg *msg)
 void idiagnl_msg_set_tcpinfo(struct idiagnl_msg *msg, struct tcp_info *tinfo)
 {
 	memcpy(&msg->idiag_tcpinfo, tinfo, sizeof(struct tcp_info));
+	msg->ce_mask |= IDIAGNL_ATTR_TCPINFO;
 }
 
 /** @} */
@@ -409,7 +469,7 @@ static void idiag_msg_dump_details(struct nl_object *a, struct nl_dump_params *p
 
 	nl_dump(p, "tos: 0x%x\n", msg->idiag_tos);
 	nl_dump(p, "traffic class: %d\n", msg->idiag_tclass);
-	nl_dump(p, "congestion algorithm: %s\n", msg->idiag_cong);
+	nl_dump(p, "congestion algorithm: %s\n", msg->idiag_cong ? msg->idiag_cong : "");
 }
 
 static void idiag_msg_dump_stats(struct nl_object *obj, struct nl_dump_params *p)
@@ -526,27 +586,29 @@ static void idiag_msg_dump_stats(struct nl_object *obj, struct nl_dump_params *p
 		nl_dump(p, "]\n");
 	}
 
-	nl_dump(p, "skmeminfo:  [\n");
-	nl_dump(p, "\trmem alloc: %d\n",
-			msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_RMEM_ALLOC]);
-	nl_dump(p, "\trcv buf: %s\n",
-			nl_size2str(msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_RCVBUF],
-				buf, sizeof(buf)));
-	nl_dump(p, "\twmem alloc: %d\n",
-			msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_WMEM_ALLOC]);
-	nl_dump(p, "\tsnd buf: %s\n",
-			nl_size2str(msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_SNDBUF],
-				buf, sizeof(buf)));
-	nl_dump(p, "\tfwd alloc: %d\n",
-			msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_FWD_ALLOC]);
-	nl_dump(p, "\twmem queued: %s\n",
-			nl_size2str(msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_WMEM_QUEUED],
-				buf, sizeof(buf)));
-	nl_dump(p, "\topt mem: %d\n",
-			msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_OPTMEM]);
-	nl_dump(p, "\tbacklog: %d\n",
-			msg->idiag_skmeminfo[IDIAG_SK_MEMINFO_BACKLOG]);
-	nl_dump(p, "]\n\n");
+	if (msg->ce_mask & IDIAGNL_ATTR_MEMINFO) {
+		nl_dump(p, "skmeminfo:  [\n");
+		nl_dump(p, "\trmem alloc: %d\n",
+				msg->idiag_skmeminfo[SK_MEMINFO_RMEM_ALLOC]);
+		nl_dump(p, "\trcv buf: %s\n",
+				nl_size2str(msg->idiag_skmeminfo[SK_MEMINFO_RCVBUF],
+					buf, sizeof(buf)));
+		nl_dump(p, "\twmem alloc: %d\n",
+				msg->idiag_skmeminfo[SK_MEMINFO_WMEM_ALLOC]);
+		nl_dump(p, "\tsnd buf: %s\n",
+				nl_size2str(msg->idiag_skmeminfo[SK_MEMINFO_SNDBUF],
+					buf, sizeof(buf)));
+		nl_dump(p, "\tfwd alloc: %d\n",
+				msg->idiag_skmeminfo[SK_MEMINFO_FWD_ALLOC]);
+		nl_dump(p, "\twmem queued: %s\n",
+				nl_size2str(msg->idiag_skmeminfo[SK_MEMINFO_WMEM_QUEUED],
+					buf, sizeof(buf)));
+		nl_dump(p, "\topt mem: %d\n",
+				msg->idiag_skmeminfo[SK_MEMINFO_OPTMEM]);
+		nl_dump(p, "\tbacklog: %d\n",
+				msg->idiag_skmeminfo[SK_MEMINFO_BACKLOG]);
+		nl_dump(p, "]\n\n");
+	}
 }
 
 static void idiagnl_msg_free(struct nl_object *a)
@@ -567,26 +629,60 @@ static int idiagnl_msg_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct idiagnl_msg *dst = (struct idiagnl_msg *) _dst;
 	struct idiagnl_msg *src = (struct idiagnl_msg *) _src;
 
-	if (src->idiag_src)
+	dst->idiag_cong = NULL;
+	dst->idiag_src = NULL;
+	dst->idiag_dst = NULL;
+	dst->idiag_meminfo = NULL;
+	dst->idiag_vegasinfo = NULL;
+	dst->ce_mask &= ~(IDIAGNL_ATTR_CONG |
+	                  IDIAGNL_ATTR_SRC |
+	                  IDIAGNL_ATTR_DST |
+	                  IDIAGNL_ATTR_MEMINFO |
+	                  IDIAGNL_ATTR_VEGASINFO);
+
+	if (src->idiag_cong) {
+		if (!(dst->idiag_cong = strdup(src->idiag_cong)))
+			return -NLE_NOMEM;
+		dst->ce_mask |= IDIAGNL_ATTR_CONG;
+	}
+
+	if (src->idiag_src) {
 		if (!(dst->idiag_src = nl_addr_clone(src->idiag_src)))
 			return -NLE_NOMEM;
+		dst->ce_mask |= IDIAGNL_ATTR_SRC;
+	}
 
-	if (src->idiag_dst)
+	if (src->idiag_dst) {
 		if (!(dst->idiag_dst = nl_addr_clone(src->idiag_dst)))
 			return -NLE_NOMEM;
+		dst->ce_mask |= IDIAGNL_ATTR_DST;
+	}
+
+	if (src->idiag_meminfo) {
+		if (!(dst->idiag_meminfo = (struct idiagnl_meminfo *) nl_object_clone((struct nl_object *) src->idiag_meminfo)))
+			return -NLE_NOMEM;
+		dst->ce_mask |= IDIAGNL_ATTR_MEMINFO;
+	}
+
+	if (src->idiag_vegasinfo) {
+		if (!(dst->idiag_vegasinfo = (struct idiagnl_vegasinfo *) nl_object_clone((struct nl_object *) src->idiag_vegasinfo)))
+			return -NLE_NOMEM;
+		dst->ce_mask |= IDIAGNL_ATTR_VEGASINFO;
+	}
 
 	return 0;
 }
 
-static struct nla_policy ext_policy[IDIAG_ATTR_MAX] = {
-	[IDIAG_ATTR_MEMINFO]    = { .minlen = sizeof(struct inet_diag_meminfo) },
-	[IDIAG_ATTR_INFO]       = { .minlen = sizeof(struct tcp_info)	},
-	[IDIAG_ATTR_VEGASINFO]  = { .minlen = sizeof(struct tcpvegas_info) },
-	[IDIAG_ATTR_CONG]       = { .type = NLA_STRING },
-	[IDIAG_ATTR_TOS]        = { .type = NLA_U8 },
-	[IDIAG_ATTR_TCLASS]     = { .type = NLA_U8 },
-	[IDIAG_ATTR_SKMEMINFO]  = { .minlen = (sizeof(uint32_t) * IDIAG_SK_MEMINFO_VARS)  },
-	[IDIAG_ATTR_SHUTDOWN]   = { .type = NLA_U8 },
+static struct nla_policy ext_policy[INET_DIAG_MAX+1] = {
+	[INET_DIAG_MEMINFO]    = { .minlen = sizeof(struct inet_diag_meminfo) },
+	[INET_DIAG_INFO]       = { .minlen = sizeof(struct tcp_info)	},
+	[INET_DIAG_VEGASINFO]  = { .minlen = sizeof(struct tcpvegas_info) },
+	[INET_DIAG_CONG]       = { .type = NLA_STRING },
+	[INET_DIAG_TOS]        = { .type = NLA_U8 },
+	[INET_DIAG_TCLASS]     = { .type = NLA_U8 },
+	/* Older kernel doesn't have SK_MEMINFO_BACKLOG */
+	[INET_DIAG_SKMEMINFO]  = { .minlen = (sizeof(uint32_t) * (SK_MEMINFO_OPTMEM + 1)) },
+	[INET_DIAG_SHUTDOWN]   = { .type = NLA_U8 },
 };
 
 int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
@@ -594,14 +690,14 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 	struct idiagnl_msg *msg = NULL;
 	struct inet_diag_msg *raw_msg = NULL;
 	struct nl_addr *src = NULL, *dst = NULL;
-	struct nlattr *tb[IDIAG_ATTR_MAX];
+	struct nlattr *tb[INET_DIAG_MAX+1];
 	int err = 0;
 
 	msg = idiagnl_msg_alloc();
 	if (!msg)
 		goto errout_nomem;
 
-	err = nlmsg_parse(nlh, sizeof(struct inet_diag_msg), tb, IDIAG_ATTR_MAX,
+	err = nlmsg_parse(nlh, sizeof(struct inet_diag_msg), tb, INET_DIAG_MAX,
 			ext_policy);
 	if (err < 0)
 		goto errout;
@@ -619,6 +715,19 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 	msg->idiag_sport = raw_msg->id.idiag_sport;
 	msg->idiag_dport = raw_msg->id.idiag_dport;
 	msg->idiag_ifindex = raw_msg->id.idiag_if;
+
+	msg->ce_mask = (IDIAGNL_ATTR_FAMILY |
+	                IDIAGNL_ATTR_STATE |
+	                IDIAGNL_ATTR_TIMER |
+	                IDIAGNL_ATTR_RETRANS |
+	                IDIAGNL_ATTR_EXPIRES |
+	                IDIAGNL_ATTR_RQUEUE |
+	                IDIAGNL_ATTR_WQUEUE |
+	                IDIAGNL_ATTR_UID |
+	                IDIAGNL_ATTR_INODE |
+	                IDIAGNL_ATTR_SPORT |
+	                IDIAGNL_ATTR_DPORT |
+	                IDIAGNL_ATTR_IFINDEX);
 
 	dst = nl_addr_build(raw_msg->idiag_family, raw_msg->id.idiag_dst,
 			sizeof(raw_msg->id.idiag_dst));
@@ -642,23 +751,33 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 
 	nl_addr_put(src);
 
-	if (tb[IDIAG_ATTR_TOS])
-		msg->idiag_tos = nla_get_u8(tb[IDIAG_ATTR_TOS]);
+	if (tb[INET_DIAG_TOS]) {
+		msg->idiag_tos = nla_get_u8(tb[INET_DIAG_TOS]);
+		msg->ce_mask |= IDIAGNL_ATTR_TOS;
+	}
 
-	if (tb[IDIAG_ATTR_TCLASS])
-		msg->idiag_tclass = nla_get_u8(tb[IDIAG_ATTR_TCLASS]);
+	if (tb[INET_DIAG_TCLASS]) {
+		msg->idiag_tclass = nla_get_u8(tb[INET_DIAG_TCLASS]);
+		msg->ce_mask |= IDIAGNL_ATTR_TCLASS;
+	}
 
-	if (tb[IDIAG_ATTR_SHUTDOWN])
-		msg->idiag_shutdown = nla_get_u8(tb[IDIAG_ATTR_SHUTDOWN]);
+	if (tb[INET_DIAG_SHUTDOWN]) {
+		msg->idiag_shutdown = nla_get_u8(tb[INET_DIAG_SHUTDOWN]);
+		msg->ce_mask |= IDIAGNL_ATTR_SHUTDOWN;
+	}
 
-	if (tb[IDIAG_ATTR_CONG])
-		msg->idiag_cong = nla_strdup(tb[IDIAG_ATTR_CONG]);
+	if (tb[INET_DIAG_CONG]) {
+		msg->idiag_cong = nla_strdup(tb[INET_DIAG_CONG]);
+		msg->ce_mask |= IDIAGNL_ATTR_CONG;
+	}
 
-	if (tb[IDIAG_ATTR_INFO])
-		nla_memcpy(&msg->idiag_tcpinfo, tb[IDIAG_ATTR_INFO],
+	if (tb[INET_DIAG_INFO]) {
+		nla_memcpy(&msg->idiag_tcpinfo, tb[INET_DIAG_INFO],
 				sizeof(msg->idiag_tcpinfo));
+		msg->ce_mask |= IDIAGNL_ATTR_TCPINFO;
+	}
 
-	if (tb[IDIAG_ATTR_MEMINFO]) {
+	if (tb[INET_DIAG_MEMINFO]) {
 		struct idiagnl_meminfo *minfo = idiagnl_meminfo_alloc();
 		struct inet_diag_meminfo *raw_minfo = NULL;
 
@@ -666,7 +785,7 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 			goto errout_nomem;
 
 		raw_minfo = (struct inet_diag_meminfo *)
-			nla_data(tb[IDIAG_ATTR_MEMINFO]);
+			nla_data(tb[INET_DIAG_MEMINFO]);
 
 		idiagnl_meminfo_set_rmem(minfo, raw_minfo->idiag_rmem);
 		idiagnl_meminfo_set_wmem(minfo, raw_minfo->idiag_wmem);
@@ -674,9 +793,10 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 		idiagnl_meminfo_set_tmem(minfo, raw_minfo->idiag_tmem);
 
 		msg->idiag_meminfo = minfo;
+		msg->ce_mask |= IDIAGNL_ATTR_MEMINFO;
 	}
 
-	if (tb[IDIAG_ATTR_VEGASINFO]) {
+	if (tb[INET_DIAG_VEGASINFO]) {
 		struct idiagnl_vegasinfo *vinfo = idiagnl_vegasinfo_alloc();
 		struct tcpvegas_info *raw_vinfo = NULL;
 
@@ -684,7 +804,7 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 			goto errout_nomem;
 
 		raw_vinfo = (struct tcpvegas_info *)
-			nla_data(tb[IDIAG_ATTR_VEGASINFO]);
+			nla_data(tb[INET_DIAG_VEGASINFO]);
 
 		idiagnl_vegasinfo_set_enabled(vinfo, raw_vinfo->tcpv_enabled);
 		idiagnl_vegasinfo_set_rttcnt(vinfo, raw_vinfo->tcpv_rttcnt);
@@ -692,11 +812,14 @@ int idiagnl_msg_parse(struct nlmsghdr *nlh, struct idiagnl_msg **result)
 		idiagnl_vegasinfo_set_minrtt(vinfo, raw_vinfo->tcpv_minrtt);
 
 		msg->idiag_vegasinfo = vinfo;
+		msg->ce_mask |= IDIAGNL_ATTR_VEGASINFO;
 	}
 
-	if (tb[IDIAG_ATTR_SKMEMINFO])
-		nla_memcpy(&msg->idiag_skmeminfo, tb[IDIAG_ATTR_SKMEMINFO],
+	if (tb[INET_DIAG_SKMEMINFO]) {
+		nla_memcpy(&msg->idiag_skmeminfo, tb[INET_DIAG_SKMEMINFO],
 				sizeof(msg->idiag_skmeminfo));
+		msg->ce_mask |= IDIAGNL_ATTR_SKMEMINFO;
+	}
 
 	*result = msg;
 	return 0;
@@ -710,6 +833,108 @@ errout_nomem:
 	goto errout;
 }
 
+static const struct trans_tbl idiagnl_attrs[] = {
+	__ADD(IDIAGNL_ATTR_FAMILY, family),
+	__ADD(IDIAGNL_ATTR_STATE, state),
+	__ADD(IDIAGNL_ATTR_TIMER, timer),
+	__ADD(IDIAGNL_ATTR_RETRANS, retrans),
+	__ADD(IDIAGNL_ATTR_SPORT, sport),
+	__ADD(IDIAGNL_ATTR_DPORT, dport),
+	__ADD(IDIAGNL_ATTR_SRC, src),
+	__ADD(IDIAGNL_ATTR_DST, dst),
+	__ADD(IDIAGNL_ATTR_IFINDEX, ifindex),
+	__ADD(IDIAGNL_ATTR_EXPIRES, expires),
+	__ADD(IDIAGNL_ATTR_RQUEUE, rqueue),
+	__ADD(IDIAGNL_ATTR_WQUEUE, wqueue),
+	__ADD(IDIAGNL_ATTR_UID, uid),
+	__ADD(IDIAGNL_ATTR_INODE, inode),
+	__ADD(IDIAGNL_ATTR_TOS, tos),
+	__ADD(IDIAGNL_ATTR_TCLASS, tclass),
+	__ADD(IDIAGNL_ATTR_SHUTDOWN, shutdown),
+	__ADD(IDIAGNL_ATTR_CONG, cong),
+	__ADD(IDIAGNL_ATTR_MEMINFO, meminfo),
+	__ADD(IDIAGNL_ATTR_VEGASINFO, vegasinfo),
+	__ADD(IDIAGNL_ATTR_TCPINFO, tcpinfo),
+	__ADD(IDIAGNL_ATTR_SKMEMINFO, skmeminfo),
+};
+
+static char *_idiagnl_attrs2str(int attrs, char *buf, size_t len)
+{
+	return __flags2str(attrs, buf, len, idiagnl_attrs,
+	                   ARRAY_SIZE(idiagnl_attrs));
+}
+
+static uint64_t idiagnl_compare(struct nl_object *_a, struct nl_object *_b,
+                                uint64_t attrs, int flags)
+{
+	struct idiagnl_msg *a = (struct idiagnl_msg *) _a;
+	struct idiagnl_msg *b = (struct idiagnl_msg *) _b;
+	uint64_t diff = 0;
+
+#define _DIFF(ATTR, EXPR) ATTR_DIFF(attrs, IDIAGNL_ATTR_##ATTR, a, b, EXPR)
+	diff |= _DIFF(FAMILY,    a->idiag_family != b->idiag_family);
+	diff |= _DIFF(STATE,     a->idiag_state != b->idiag_state);
+	diff |= _DIFF(TIMER,     a->idiag_timer != b->idiag_timer);
+	diff |= _DIFF(RETRANS,   a->idiag_retrans != b->idiag_retrans);
+	diff |= _DIFF(SPORT,     a->idiag_sport != b->idiag_sport);
+	diff |= _DIFF(DPORT,     a->idiag_dport != b->idiag_dport);
+	diff |= _DIFF(SRC,       nl_addr_cmp (a->idiag_src, b->idiag_src));
+	diff |= _DIFF(DST,       nl_addr_cmp (a->idiag_dst, b->idiag_dst));
+	diff |= _DIFF(IFINDEX,   a->idiag_ifindex != b->idiag_ifindex);
+	diff |= _DIFF(EXPIRES,   a->idiag_expires != b->idiag_expires);
+	diff |= _DIFF(RQUEUE,    a->idiag_rqueue != b->idiag_rqueue);
+	diff |= _DIFF(WQUEUE,    a->idiag_wqueue != b->idiag_wqueue);
+	diff |= _DIFF(UID,       a->idiag_uid != b->idiag_uid);
+	diff |= _DIFF(INODE,     a->idiag_inode != b->idiag_inode);
+	diff |= _DIFF(TOS,       a->idiag_tos != b->idiag_tos);
+	diff |= _DIFF(TCLASS,    a->idiag_tclass != b->idiag_tclass);
+	diff |= _DIFF(SHUTDOWN,  a->idiag_shutdown != b->idiag_shutdown);
+	diff |= _DIFF(CONG,      strcmp(a->idiag_cong, b->idiag_cong));
+	diff |= _DIFF(MEMINFO,   nl_object_diff((struct nl_object *) a->idiag_meminfo, (struct nl_object *) b->idiag_meminfo));
+	diff |= _DIFF(VEGASINFO, nl_object_diff((struct nl_object *) a->idiag_vegasinfo, (struct nl_object *) b->idiag_vegasinfo));
+	diff |= _DIFF(TCPINFO,   memcmp(&a->idiag_tcpinfo, &b->idiag_tcpinfo, sizeof(a->idiag_tcpinfo)));
+	diff |= _DIFF(SKMEMINFO, memcmp(a->idiag_skmeminfo, b->idiag_skmeminfo, sizeof(a->idiag_skmeminfo)));
+#undef _DIFF
+	return diff;
+}
+
+static void idiagnl_keygen(struct nl_object *obj, uint32_t *hashkey,
+        uint32_t table_sz)
+{
+	struct idiagnl_msg *msg = (struct idiagnl_msg *)obj;
+	unsigned int key_sz;
+	struct idiagnl_hash_key {
+		uint8_t	family;
+		uint32_t src_hash;
+		uint32_t dst_hash;
+		uint16_t sport;
+		uint16_t dport;
+	} __attribute__((packed)) key;
+
+	key_sz = sizeof(key);
+	key.family = msg->idiag_family;
+	key.src_hash = 0;
+	key.dst_hash = 0;
+	key.sport = msg->idiag_sport;
+	key.dport = msg->idiag_dport;
+
+	if (msg->idiag_src) {
+		key.src_hash = nl_hash (nl_addr_get_binary_addr(msg->idiag_src),
+		                        nl_addr_get_len(msg->idiag_src), 0);
+	}
+	if (msg->idiag_dst) {
+		key.dst_hash = nl_hash (nl_addr_get_binary_addr(msg->idiag_dst),
+		                        nl_addr_get_len(msg->idiag_dst), 0);
+	}
+
+	*hashkey = nl_hash(&key, key_sz, 0) % table_sz;
+
+	NL_DBG(5, "idiagnl %p key (fam %d src_hash %d dst_hash %d sport %d dport %d) keysz %d, hash 0x%x\n",
+	       msg, key.family, key.src_hash, key.dst_hash, key.sport, key.dport, key_sz, *hashkey);
+
+	return;
+}
+
 /** @cond SKIP */
 struct nl_object_ops idiagnl_msg_obj_ops = {
 	.oo_name			 = "idiag/idiag_msg",
@@ -721,8 +946,14 @@ struct nl_object_ops idiagnl_msg_obj_ops = {
 		[NL_DUMP_DETAILS]	 = idiag_msg_dump_details,
 		[NL_DUMP_STATS]		 = idiag_msg_dump_stats,
 	},
-	.oo_attrs2str			= idiagnl_attrs2str,
-	.oo_id_attrs			= (IDIAG_ATTR_INFO)
+	.oo_compare			= idiagnl_compare,
+	.oo_keygen			= idiagnl_keygen,
+	.oo_attrs2str			= _idiagnl_attrs2str,
+	.oo_id_attrs                    = (IDIAGNL_ATTR_FAMILY |
+	                                   IDIAGNL_ATTR_SRC |
+	                                   IDIAGNL_ATTR_DST |
+	                                   IDIAGNL_ATTR_SPORT |
+	                                   IDIAGNL_ATTR_DPORT),
 };
 /** @endcond */
 

@@ -45,7 +45,7 @@ public @interface EnsuresNonNullIf {
 
   boolean result() default false;
 
-  String expression() default "";
+  String[] expression() default {};
 
   MigrationStatus status() default MigrationStatus.IGNORE;
 

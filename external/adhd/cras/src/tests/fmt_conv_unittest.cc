@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <gtest/gtest.h>
+#include <math.h>
 #include <sys/param.h>
 
 extern "C" {
@@ -454,6 +455,81 @@ TEST(FormatConverterTest, SurroundToStereo) {
     EXPECT_GT(0, out_buff[i * 2 + 1]);
   }
 
+  cras_fmt_conv_destroy(&c);
+  free(in_buff);
+  free(out_buff);
+}
+
+// Test 5.1 to Quad mix.
+TEST(FormatConverterTest, SurroundToQuad) {
+  struct cras_fmt_conv* c;
+  struct cras_audio_format in_fmt;
+  struct cras_audio_format out_fmt;
+
+  size_t out_frames;
+  int16_t* in_buff;
+  int16_t* out_buff;
+  unsigned int i;
+  const size_t buf_size = 4096;
+  unsigned int in_buf_size = 4096;
+
+  ResetStub();
+  in_fmt.format = SND_PCM_FORMAT_S16_LE;
+  out_fmt.format = SND_PCM_FORMAT_S16_LE;
+  in_fmt.num_channels = 6;
+  out_fmt.num_channels = 4;
+  in_fmt.frame_rate = 48000;
+  out_fmt.frame_rate = 48000;
+  for (i = 0; i < CRAS_CH_MAX; i++)
+    in_fmt.channel_layout[i] = surround_channel_center_layout[i];
+
+  c = cras_fmt_conv_create(&in_fmt, &out_fmt, buf_size, 0);
+  ASSERT_NE(c, (void*)NULL);
+
+  out_frames = cras_fmt_conv_out_frames_to_in(c, buf_size);
+  EXPECT_EQ(buf_size, out_frames);
+
+  out_frames = cras_fmt_conv_in_frames_to_out(c, buf_size);
+  EXPECT_EQ(buf_size, out_frames);
+
+  in_buff = (int16_t*)malloc(buf_size * 2 * cras_get_format_bytes(&in_fmt));
+
+  const int16_t in_fl = 100;
+  const int16_t in_fr = 200;
+  const int16_t in_rl = 200;
+  const int16_t in_rr = 300;
+  const int16_t in_fc = 60;
+  const int16_t in_lfe = 90;
+
+  for (i = 0; i < buf_size; i++) {
+    in_buff[i * 6 + CRAS_CH_FL] = in_fl;
+    in_buff[i * 6 + CRAS_CH_FR] = in_fr;
+    in_buff[i * 6 + CRAS_CH_RL] = in_rl;
+    in_buff[i * 6 + CRAS_CH_RR] = in_rr;
+    in_buff[i * 6 + CRAS_CH_FC] = in_fc;
+    in_buff[i * 6 + CRAS_CH_LFE] = in_lfe;
+  }
+  out_buff = (int16_t*)malloc(buf_size * 2 * cras_get_format_bytes(&out_fmt));
+  out_frames = cras_fmt_conv_convert_frames(
+      c, (uint8_t*)in_buff, (uint8_t*)out_buff, &in_buf_size, buf_size);
+  EXPECT_EQ(buf_size, out_frames);
+
+  // This is the sum of mtx[CRAS_CH_FL] coefficients.
+  const float normalize_factor = 1.0 / (1 + 0.707 + 0.5);
+
+  for (i = 0; i < buf_size; i++) {
+    int16_t lfe = 0.5 * normalize_factor * in_lfe;
+    int16_t center = 0.707 * normalize_factor * in_fc;
+    int16_t fl = normalize_factor * in_fl + center + lfe;
+    int16_t fr = normalize_factor * in_fr + center + lfe;
+    int16_t rl = normalize_factor * in_rl + lfe;
+    int16_t rr = normalize_factor * in_rr + lfe;
+
+    EXPECT_EQ(fl, out_buff[i * 4 + CRAS_CH_FL]);
+    EXPECT_EQ(fr, out_buff[i * 4 + CRAS_CH_FR]);
+    EXPECT_EQ(rl, out_buff[i * 4 + CRAS_CH_RL]);
+    EXPECT_EQ(rr, out_buff[i * 4 + CRAS_CH_RR]);
+  }
   cras_fmt_conv_destroy(&c);
   free(in_buff);
   free(out_buff);

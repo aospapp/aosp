@@ -65,6 +65,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 
 #include <base/bind.h>
 #include <base/files/scoped_file.h>
@@ -91,19 +92,19 @@ namespace dbus_utils {
 // [dbus/dbus.h]).
 // Returns a dbus::Response object on success. On failure, returns nullptr and
 // fills in additional error details into the |error| object.
-template<typename... Args>
-inline std::unique_ptr<dbus::Response> CallMethodAndBlockWithTimeout(
+template <typename... Args>
+inline std::unique_ptr<::dbus::Response> CallMethodAndBlockWithTimeout(
     int timeout_ms,
-    dbus::ObjectProxy* object,
+    ::dbus::ObjectProxy* object,
     const std::string& interface_name,
     const std::string& method_name,
     ErrorPtr* error,
     const Args&... args) {
-  dbus::MethodCall method_call(interface_name, method_name);
+  ::dbus::MethodCall method_call(interface_name, method_name);
   // Add method arguments to the message buffer.
-  dbus::MessageWriter writer(&method_call);
+  ::dbus::MessageWriter writer(&method_call);
   DBusParamWriter::Append(&writer, args...);
-  dbus::ScopedDBusError dbus_error;
+  ::dbus::ScopedDBusError dbus_error;
   auto response = object->CallMethodAndBlockWithErrorDetails(
       &method_call, timeout_ms, &dbus_error);
   if (!response) {
@@ -127,19 +128,16 @@ inline std::unique_ptr<dbus::Response> CallMethodAndBlockWithTimeout(
 }
 
 // Same as CallMethodAndBlockWithTimeout() but uses a default timeout value.
-template<typename... Args>
-inline std::unique_ptr<dbus::Response> CallMethodAndBlock(
-    dbus::ObjectProxy* object,
+template <typename... Args>
+inline std::unique_ptr<::dbus::Response> CallMethodAndBlock(
+    ::dbus::ObjectProxy* object,
     const std::string& interface_name,
     const std::string& method_name,
     ErrorPtr* error,
     const Args&... args) {
-  return CallMethodAndBlockWithTimeout(dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-                                       object,
-                                       interface_name,
-                                       method_name,
-                                       error,
-                                       args...);
+  return CallMethodAndBlockWithTimeout(::dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+                                       object, interface_name, method_name,
+                                       error, args...);
 }
 
 namespace internal {
@@ -169,9 +167,9 @@ inline FileDescriptor HackMove(const FileDescriptor& val) {
 // Extracts the parameters of |ResultTypes...| types from the message reader
 // and puts the values in the resulting |tuple|. Returns false on error and
 // provides additional error details in |error| object.
-template<typename... ResultTypes>
+template <typename... ResultTypes>
 inline bool ExtractMessageParametersAsTuple(
-    dbus::MessageReader* reader,
+    ::dbus::MessageReader* reader,
     ErrorPtr* error,
     std::tuple<ResultTypes...>* val_tuple) {
   auto callback = [val_tuple](const ResultTypes&... params) {
@@ -182,9 +180,9 @@ inline bool ExtractMessageParametersAsTuple(
 }
 // Overload of ExtractMessageParametersAsTuple to handle reference types in
 // tuples created with std::tie().
-template<typename... ResultTypes>
+template <typename... ResultTypes>
 inline bool ExtractMessageParametersAsTuple(
-    dbus::MessageReader* reader,
+    ::dbus::MessageReader* reader,
     ErrorPtr* error,
     std::tuple<ResultTypes&...>* ref_tuple) {
   auto callback = [ref_tuple](const ResultTypes&... params) {
@@ -207,8 +205,8 @@ inline bool ExtractMessageParametersAsTuple(
 //  if (ExtractMessageParameters(reader, &error, &data1, &data2)) { ... }
 //
 // The above example extracts an Int32 and a String from D-Bus message buffer.
-template<typename... ResultTypes>
-inline bool ExtractMessageParameters(dbus::MessageReader* reader,
+template <typename... ResultTypes>
+inline bool ExtractMessageParameters(::dbus::MessageReader* reader,
                                      ErrorPtr* error,
                                      ResultTypes*... results) {
   auto ref_tuple = std::tie(*results...);
@@ -225,14 +223,14 @@ inline bool ExtractMessageParameters(dbus::MessageReader* reader,
 // any return values. Just do not specify any output |results|. In this case,
 // ExtractMethodCallResults() will verify that the method didn't return any
 // data in the |message|.
-template<typename... ResultTypes>
-inline bool ExtractMethodCallResults(dbus::Message* message,
+template <typename... ResultTypes>
+inline bool ExtractMethodCallResults(::dbus::Message* message,
                                      ErrorPtr* error,
                                      ResultTypes*... results) {
   CHECK(message) << "Unable to extract parameters from a NULL message.";
 
-  dbus::MessageReader reader(message);
-  if (message->GetMessageType() == dbus::Message::MESSAGE_ERROR) {
+  ::dbus::MessageReader reader(message);
+  if (message->GetMessageType() == ::dbus::Message::MESSAGE_ERROR) {
     std::string error_message;
     if (ExtractMessageParameters(&reader, error, &error_message))
       AddDBusError(error, message->GetErrorName(), error_message);
@@ -249,24 +247,24 @@ using AsyncErrorCallback = base::Callback<void(Error* error)>;
 // A helper function that translates dbus::ErrorResponse response
 // from D-Bus into brillo::Error* and invokes the |callback|.
 void BRILLO_EXPORT TranslateErrorResponse(const AsyncErrorCallback& callback,
-                                            dbus::ErrorResponse* resp);
+                                          ::dbus::ErrorResponse* resp);
 
 // A helper function that translates dbus::Response from D-Bus into
 // a list of C++ values passed as parameters to |success_callback|. If the
 // response message doesn't have the correct number of parameters, or they
 // are of wrong types, an error is sent to |error_callback|.
-template<typename... OutArgs>
+template <typename... OutArgs>
 void TranslateSuccessResponse(
     const base::Callback<void(OutArgs...)>& success_callback,
     const AsyncErrorCallback& error_callback,
-    dbus::Response* resp) {
+    ::dbus::Response* resp) {
   auto callback = [&success_callback](const OutArgs&... params) {
     if (!success_callback.is_null()) {
       success_callback.Run(params...);
     }
   };
   ErrorPtr error;
-  dbus::MessageReader reader(resp);
+  ::dbus::MessageReader reader(resp);
   if (!DBusParamReader<false, OutArgs...>::Invoke(callback, &reader, &error) &&
       !error_callback.is_null()) {
     error_callback.Run(error.get());
@@ -283,43 +281,40 @@ void TranslateSuccessResponse(
 // a problem invoking a method (e.g. object or method doesn't exist).
 // If the response is not received within |timeout_ms|, an error callback is
 // called with DBUS_ERROR_NO_REPLY error code.
-template<typename... InArgs, typename... OutArgs>
+template <typename... InArgs, typename... OutArgs>
 inline void CallMethodWithTimeout(
     int timeout_ms,
-    dbus::ObjectProxy* object,
+    ::dbus::ObjectProxy* object,
     const std::string& interface_name,
     const std::string& method_name,
     const base::Callback<void(OutArgs...)>& success_callback,
     const AsyncErrorCallback& error_callback,
     const InArgs&... params) {
-  dbus::MethodCall method_call(interface_name, method_name);
-  dbus::MessageWriter writer(&method_call);
+  ::dbus::MethodCall method_call(interface_name, method_name);
+  ::dbus::MessageWriter writer(&method_call);
   DBusParamWriter::Append(&writer, params...);
 
-  dbus::ObjectProxy::ErrorCallback dbus_error_callback =
+  ::dbus::ObjectProxy::ErrorCallback dbus_error_callback =
       base::Bind(&TranslateErrorResponse, error_callback);
-  dbus::ObjectProxy::ResponseCallback dbus_success_callback = base::Bind(
+  ::dbus::ObjectProxy::ResponseCallback dbus_success_callback = base::Bind(
       &TranslateSuccessResponse<OutArgs...>, success_callback, error_callback);
 
-  object->CallMethodWithErrorCallback(
-      &method_call, timeout_ms, dbus_success_callback, dbus_error_callback);
+  object->CallMethodWithErrorCallback(&method_call, timeout_ms,
+                                      std::move(dbus_success_callback),
+                                      std::move(dbus_error_callback));
 }
 
 // Same as CallMethodWithTimeout() but uses a default timeout value.
-template<typename... InArgs, typename... OutArgs>
-inline void CallMethod(dbus::ObjectProxy* object,
+template <typename... InArgs, typename... OutArgs>
+inline void CallMethod(::dbus::ObjectProxy* object,
                        const std::string& interface_name,
                        const std::string& method_name,
                        const base::Callback<void(OutArgs...)>& success_callback,
                        const AsyncErrorCallback& error_callback,
                        const InArgs&... params) {
-  return CallMethodWithTimeout(dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-                               object,
-                               interface_name,
-                               method_name,
-                               success_callback,
-                               error_callback,
-                               params...);
+  return CallMethodWithTimeout(::dbus::ObjectProxy::TIMEOUT_USE_DEFAULT, object,
+                               interface_name, method_name, success_callback,
+                               error_callback, params...);
 }
 
 }  // namespace dbus_utils

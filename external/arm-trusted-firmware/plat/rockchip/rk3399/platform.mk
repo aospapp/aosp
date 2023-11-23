@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -24,19 +24,22 @@ PLAT_INCLUDES		:=	-I${RK_PLAT_COMMON}/			\
 				-I${RK_PLAT_SOC}/include/		\
 				-I${RK_PLAT_SOC}/include/shared/	\
 
-RK_GIC_SOURCES		:=	drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v3/arm_gicv3_common.c	\
-				drivers/arm/gic/v3/gic500.c		\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/v3/gicv3_helpers.c	\
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+RK_GIC_SOURCES		:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				${RK_PLAT}/common/rockchip_gicv3.c
 
-PLAT_BL_COMMON_SOURCES	:=	lib/bl_aux_params/bl_aux_params.c	\
+PLAT_BL_COMMON_SOURCES	:=	lib/bl_aux_params/bl_aux_params.c		\
 				lib/xlat_tables/xlat_tables_common.c	\
 				lib/xlat_tables/aarch64/xlat_tables.c	\
 				plat/common/aarch64/crash_console_helpers.S \
 				plat/common/plat_psci_common.c
+
+ifneq (${ENABLE_STACK_PROTECTOR},0)
+PLAT_BL_COMMON_SOURCES	+=	${RK_PLAT_COMMON}/rockchip_stack_protector.c
+endif
 
 BL31_SOURCES	+=	${RK_GIC_SOURCES}				\
 			drivers/arm/cci/cci.c				\

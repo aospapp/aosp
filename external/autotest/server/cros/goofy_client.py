@@ -1,9 +1,10 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import collections
-import httplib
+import six.moves.http_client
 import logging
 import os
 import re
@@ -150,7 +151,7 @@ class GoofyProxy(object):
                 GOOFY_JSONRPC_SERVER_PORT)
 
 
-    @retry.retry((httplib.BadStatusLine, socket.error),
+    @retry.retry((six.moves.http_client.BadStatusLine, socket.error),
                  timeout_min=BASE_RPC_TIMEOUT)
     def _raw_stop_running_tests(self):
         """Stop running tests by shelling out to the DUT.
@@ -168,7 +169,7 @@ class GoofyProxy(object):
         self._host.run('factory clear')
 
 
-    @retry_goofy_rpc((httplib.BadStatusLine, socket.error),
+    @retry_goofy_rpc((six.moves.http_client.BadStatusLine, socket.error),
                      timeout_min=BASE_RPC_TIMEOUT)
     def _get_goofy_status(self):
         """Return status of goofy, ignoring socket timeouts and http exceptions.
@@ -229,11 +230,11 @@ class GoofyProxy(object):
             # In partial automation mode manual tests and barrier are enabled
             # and user intervention is required; none disables automation.
             self._client.SwitchTestList(next_list, 'full')
-        except httplib.BadStatusLine:
+        except six.moves.http_client.BadStatusLine:
             logging.info('Switched to list %s, goofy restarting', next_list)
 
 
-    @retry_goofy_rpc((httplib.BadStatusLine, socket.error),
+    @retry_goofy_rpc((six.moves.http_client.BadStatusLine, socket.error),
                      timeout_min=BASE_RPC_TIMEOUT*2)
     def _stop_running_tests(self):
         """Stop all running tests.
@@ -277,7 +278,7 @@ class GoofyProxy(object):
             logging.error('Could not gather results for current test: %s', e)
 
 
-    @retry_goofy_rpc((httplib.BadStatusLine, socket.error),
+    @retry_goofy_rpc((six.moves.http_client.BadStatusLine, socket.error),
                      timeout_min=BASE_RPC_TIMEOUT*2)
     def _get_test_info(self, test_name):
         """Get the status of one test.
@@ -293,7 +294,7 @@ class GoofyProxy(object):
                           test_name)
 
 
-    @retry_goofy_rpc((httplib.BadStatusLine, socket.error),
+    @retry_goofy_rpc((six.moves.http_client.BadStatusLine, socket.error),
                      timeout_min=BASE_RPC_TIMEOUT*2)
     def _get_test_run_info(self, run_id):
         """Get the information about the given test run.
@@ -391,7 +392,7 @@ class GoofyProxy(object):
                                        current_suite)
 
 
-    @retry_goofy_rpc((httplib.BadStatusLine, socket.error),
+    @retry_goofy_rpc((six.moves.http_client.BadStatusLine, socket.error),
                      timeout_min=BASE_RPC_TIMEOUT*2)
     def get_results(self, resultsdir):
         """Copies results from the DUT to a local results directory.

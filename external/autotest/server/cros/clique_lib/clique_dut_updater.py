@@ -9,7 +9,7 @@ import sys
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.server.cros import autoupdater
+from autotest_lib.server.cros import provisioner
 from autotest_lib.server.cros.dynamic_suite import constants
 
 #Update status
@@ -137,9 +137,6 @@ class CliqueDUTUpdater(object):
 
         try:
             ds = dev_server.ImageServer.resolve(image)
-            # We need the autotest packages to run the tests.
-            ds.stage_artifacts(image, ['full_payload', 'stateful',
-                                       'autotest_packages'])
         except dev_server.DevServerException as e:
             error_str = 'Host: ' + dut_host + '. ' + e
             logging.error(error_str)
@@ -148,7 +145,8 @@ class CliqueDUTUpdater(object):
         url = self._get_update_url(ds.url(), image)
         logging.debug('Host: %s. Installing image from %s', dut_host, url)
         try:
-            autoupdater.ChromiumOSUpdater(url, host=dut_host).run_update()
+            provisioner.ChromiumOSProvisioner(url,
+                                              host=dut_host).run_provision()
         except error.TestFail as e:
             error_str = 'Host: ' + dut_host + '. ' + e
             logging.error(error_str)

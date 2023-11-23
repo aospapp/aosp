@@ -1,8 +1,13 @@
+# Lint as: python2, python3
 """
 Functions to handle software packages. The functions covered here aim to be
 generic, with implementations that deal with different package managers, such
 as dpkg and rpm.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 __author__ = 'lucasmr@br.ibm.com (Lucas Meneghel Rodrigues)'
 
@@ -281,8 +286,8 @@ def convert(package, destination_format):
         e_msg = 'Convertion to format %s not implemented' % destination_format
         raise NotImplementedError(e_msg)
 
-    print 'Package %s successfuly converted to %s' % \
-            (os.path.basename(package), os.path.basename(converted_package))
+    print('Package %s successfuly converted to %s' % \
+            (os.path.basename(package), os.path.basename(converted_package)))
     return os.path.abspath(converted_package)
 
 

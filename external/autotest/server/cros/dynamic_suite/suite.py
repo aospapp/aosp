@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import abc
 import datetime
@@ -11,13 +16,14 @@ import logging
 import operator
 import os
 import re
+import six
 import sys
 import warnings
 
 import common
 
 from autotest_lib.frontend.afe.json_rpc import proxy
-from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import autotest_enum
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import priorities
@@ -37,11 +43,11 @@ from autotest_lib.server.cros.dynamic_suite.job_status import Status
 try:
     from autotest_lib.server.cros.dynamic_suite import boolparse_lib
 except ImportError as e:
-    print 'Unable to import boolparse_lib: %s' % (e,)
-    print 'This script must be either:'
-    print '  - Be run in the chroot.'
-    print '  - (not yet supported) be run after running '
-    print '    ../utils/build_externals.py'
+    print('Unable to import boolparse_lib: %s' % (e,))
+    print('This script must be either:')
+    print('  - Be run in the chroot.')
+    print('  - (not yet supported) be run after running ')
+    print('    ../utils/build_externals.py')
 
 _FILE_BUG_SUITES = ['au', 'bvt', 'bvt-cq', 'bvt-inline', 'paygen_au_beta',
                     'paygen_au_canary', 'paygen_au_dev', 'paygen_au_stable',
@@ -86,8 +92,8 @@ class RetryHandler(object):
                      the suite can't exceed _max_retries.
     """
 
-    States = enum.Enum('NOT_ATTEMPTED', 'ATTEMPTED', 'RETRIED',
-                       start_value=1, step=1)
+    States = autotest_enum.AutotestEnum('NOT_ATTEMPTED', 'ATTEMPTED', 'RETRIED',
+                                        start_value=1, step=1)
 
     def __init__(self, initial_jobs_to_tests, retry_level='WARN',
                  max_retries=None):
@@ -104,7 +110,7 @@ class RetryHandler(object):
         self._retry_map = {}
         self._retry_level = retry_level
         self._max_retries = (max_retries
-                             if max_retries is not None else sys.maxint)
+                             if max_retries is not None else sys.maxsize)
         for job_id, test in initial_jobs_to_tests.items():
             if test.job_retries > 0:
                 self._add_job(new_job_id=job_id,
@@ -363,7 +369,7 @@ class _SuiteChildJobCreator(object):
         # sure what the implications of this are, but it's probably not a
         # good thing.
         return self._builds.get(provision.CROS_VERSION_PREFIX,
-                                self._builds.values()[0])
+                                list(self._builds.values())[0])
 
 
     def create_job(self, test, retry_for=None):
@@ -456,7 +462,7 @@ class _SuiteChildJobCreator(object):
              len(self._builds) > 1)):
             keyvals[constants.JOB_TEST_SOURCE_BUILD_KEY] = \
                     self._test_source_build
-            for prefix, build in self._builds.iteritems():
+            for prefix, build in six.iteritems(self._builds):
                 if prefix == provision.FW_RW_VERSION_PREFIX:
                     keyvals[constants.FWRW_BUILD]= build
                 elif prefix == provision.FW_RO_VERSION_PREFIX:
@@ -543,7 +549,7 @@ class _ControlFileRetriever(object):
                 self._cf_getter, suite_name, self._forgiving_parser,
                 self._test_args)
         if self._run_prod_code:
-            for test in tests.itervalues():
+            for test in six.itervalues(tests):
                 test.require_ssp = False
 
         return tests
@@ -802,7 +808,7 @@ def find_possible_tests(cf_getter, predicate, suite_name='', count=10):
     tests = _ControlFileRetriever(cf_getter).retrieve_for_suite(suite_name)
     logging.debug('Parsed %s control files.', len(tests))
     similarities = {}
-    for test in tests.itervalues():
+    for test in six.itervalues(tests):
         ratios = predicate(test)
         # Some predicates may return a list of tuples, e.g.,
         # name_in_tag_similarity_predicate. Convert all returns to a list.
@@ -811,7 +817,7 @@ def find_possible_tests(cf_getter, predicate, suite_name='', count=10):
         for name, ratio in ratios:
             similarities[name] = ratio
     return [s[0] for s in
-            sorted(similarities.items(), key=operator.itemgetter(1),
+            sorted(list(similarities.items()), key=operator.itemgetter(1),
                    reverse=True)][:count]
 
 
@@ -874,7 +880,7 @@ class _BaseSuite(object):
             priority=priorities.Priority.DEFAULT,
             wait_for_results=True,
             job_retry=False,
-            max_retries=sys.maxint,
+            max_retries=sys.maxsize,
             offload_failures_only=False,
             test_source_build=None,
             job_keyvals=None,
@@ -1437,7 +1443,7 @@ class Suite(_BaseSuite):
             forgiving_parser=True,
             wait_for_results=True,
             job_retry=False,
-            max_retries=sys.maxint,
+            max_retries=sys.maxsize,
             offload_failures_only=False,
             test_source_build=None,
             job_keyvals=None,
@@ -1698,13 +1704,11 @@ def _is_nonexistent_board_error(e):
             and 'meta_hosts' in e.problem_keys)
 
 
-class _ResultReporter(object):
+class _ResultReporter(six.with_metaclass(abc.ABCMeta, object)):
     """Abstract base class for reporting test results.
 
     Usually, this is used to report test failures.
     """
-
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def report(self, result):

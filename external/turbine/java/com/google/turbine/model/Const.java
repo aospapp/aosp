@@ -18,6 +18,9 @@ package com.google.turbine.model;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.escape.SourceCodeEscapers;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.AnnotationValueVisitor;
 
 /**
  * Compile-time constant expressions, including literals of primitive or String type, class
@@ -30,6 +33,9 @@ public abstract class Const {
 
   @Override
   public abstract boolean equals(Object obj);
+
+  @Override
+  public abstract String toString();
 
   /** The constant kind. */
   public abstract Kind kind();
@@ -51,7 +57,7 @@ public abstract class Const {
   }
 
   /** Subtypes of {@link Const} for primitive and String literals. */
-  public abstract static class Value extends Const {
+  public abstract static class Value extends Const implements AnnotationValue {
     public abstract TurbineConstantTypeKind constantTypeKind();
 
     @Override
@@ -110,11 +116,21 @@ public abstract class Const {
     }
 
     @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitBoolean(value, p);
+    }
+
+    @Override
     public TurbineConstantTypeKind constantTypeKind() {
       return TurbineConstantTypeKind.BOOLEAN;
     }
 
     public boolean value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -154,11 +170,21 @@ public abstract class Const {
     }
 
     @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitInt(value, p);
+    }
+
+    @Override
     public TurbineConstantTypeKind constantTypeKind() {
       return TurbineConstantTypeKind.INT;
     }
 
     public int value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -227,11 +253,21 @@ public abstract class Const {
     }
 
     @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitLong(value, p);
+    }
+
+    @Override
     public TurbineConstantTypeKind constantTypeKind() {
       return TurbineConstantTypeKind.LONG;
     }
 
     public long value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -296,7 +332,12 @@ public abstract class Const {
 
     @Override
     public String toString() {
-      return "'" + value + "'";
+      return "'" + SourceCodeEscapers.javaCharEscaper().escape(String.valueOf(value)) + "'";
+    }
+
+    @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitChar(value, p);
     }
 
     @Override
@@ -305,6 +346,11 @@ public abstract class Const {
     }
 
     public char value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -369,7 +415,15 @@ public abstract class Const {
 
     @Override
     public String toString() {
+      if (Float.isNaN(value)) {
+        return "0.0f/0.0f";
+      }
       return value + "f";
+    }
+
+    @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitFloat(value, p);
     }
 
     @Override
@@ -378,6 +432,11 @@ public abstract class Const {
     }
 
     public float value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -442,7 +501,21 @@ public abstract class Const {
 
     @Override
     public String toString() {
+      if (Double.isNaN(value)) {
+        return "0.0/0.0";
+      }
+      if (value == Double.POSITIVE_INFINITY) {
+        return "1.0/0.0";
+      }
+      if (value == Double.NEGATIVE_INFINITY) {
+        return "-1.0/0.0";
+      }
       return String.valueOf(value);
+    }
+
+    @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitDouble(value, p);
     }
 
     @Override
@@ -451,6 +524,11 @@ public abstract class Const {
     }
 
     public double value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -515,7 +593,12 @@ public abstract class Const {
 
     @Override
     public String toString() {
-      return String.format("\"%s\"", value);
+      return '"' + SourceCodeEscapers.javaCharEscaper().escape(value) + '"';
+    }
+
+    @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitString(value, p);
     }
 
     @Override
@@ -524,6 +607,11 @@ public abstract class Const {
     }
 
     public String value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -557,11 +645,21 @@ public abstract class Const {
     }
 
     @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitShort(value, p);
+    }
+
+    @Override
     public TurbineConstantTypeKind constantTypeKind() {
       return TurbineConstantTypeKind.SHORT;
     }
 
     public short value() {
+      return value;
+    }
+
+    @Override
+    public Object getValue() {
       return value;
     }
 
@@ -635,6 +733,11 @@ public abstract class Const {
     }
 
     @Override
+    public Object getValue() {
+      return value;
+    }
+
+    @Override
     public IntValue asInteger() {
       return new IntValue((int) value);
     }
@@ -686,7 +789,12 @@ public abstract class Const {
 
     @Override
     public String toString() {
-      return String.valueOf(value);
+      return String.format("(byte)0x%02x", value);
+    }
+
+    @Override
+    public <R, P> R accept(AnnotationValueVisitor<R, P> v, P p) {
+      return v.visitByte(value, p);
     }
   }
 

@@ -19,30 +19,32 @@
 //
 // With the exception of a few special cases like host apex build targets,
 // host binaries should use libicuuc + libicui18n directly.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-Unicode-DFS
+    default_applicable_licenses: ["external_icu_license"],
+}
+
 cc_library_shared {
     name: "libandroidicu",
 
-    // Most code is imported via libandroidicu_static.
-    srcs: [
-        "aicu/AIcu.cpp",
-    ],
-    // host_supported is required for host apex. This library is not intended
-    // for general host use.
+    // All code is imported via libandroidicu_static.
+    srcs: [],
+    // host_supported is required for some cases, e.g. host apex. This library
+    // is not intended for general host use.  Please refer to
+    // external/icu/build/icu.go for the full allowlist.
     host_supported: true,
     native_bridge_supported: true,
     unique_host_soname: true,
     apex_available: [
-        "com.android.art.release",
-        "com.android.art.debug",
+        "com.android.i18n",
         // b/133140750 Clean this up. This is due to the dependency to from libmedia
         "//apex_available:platform",
     ],
-
-    // include/aicu/: extra utility APIs added by android
-    // include/unicode/: Includes modified C headers from ICU4C,
-    //                   but excludes C++ headers.
-    // include/uconfig_local.h: local configuration specific for libandroidicu
-    export_include_dirs: ["include"],
 
     // The implementation of libandroidicu depends on libicuuc and and libicui18n,
     // but we need to export the headers in include/.
@@ -62,6 +64,8 @@ cc_library_shared {
         "libicui18n",
         "liblog",
     ],
+    header_libs: ["libandroidicu_headers"],
+    export_header_lib_headers: ["libandroidicu_headers"],
     stubs: {
         symbol_file: "libandroidicu.map.txt",
         versions: [
@@ -81,10 +85,38 @@ cc_library_shared {
                 "-DANDROID_LINK_SHARED_ICU4C",
             ],
             version_script: "libandroidicu.map.txt",
-            static_libs: [
-                "libandroidicuinit",
+        },
+        native_bridge: {
+            exclude_shared_libs: [
+                "libicuuc",
+                "libicui18n",
+            ],
+            shared_libs: [
+                "libnative_bridge_guest_libicuuc",
+                "libnative_bridge_guest_libicui18n",
             ],
         },
+        windows: {
+            enabled: true,
+        },
+    },
+}
+
+cc_library_headers {
+    name: "libandroidicu_headers",
+    host_supported: true,
+    native_bridge_supported: true,
+    apex_available: [
+        "com.android.art",
+        "com.android.art.debug",
+        "com.android.i18n",
+    ],
+
+    // include/unicode/: Includes modified C headers from ICU4C,
+    //                   but excludes C++ headers.
+    // include/uconfig_local.h: local configuration specific for libandroidicu
+    export_include_dirs: ["include"],
+    target: {
         windows: {
             enabled: true,
         },

@@ -1,15 +1,4 @@
-URL: https://aomedia.googlesource.com/aom/+archive/250bc3a61c501344523eec07fec35f304767260b.tar.gz
-Version: v1.0.0
+URL: https://aomedia.googlesource.com/aom/+archive/bb35ba9148543f22ba7d8642e4fbd29ae301f5dc.tar.gz
+Version: v2.0.0
 Local Modifications:
-  Rename files to avoid object collisions:
-    aom_dsp/x86/highbd_intrapred_sse2.asm
-    aom_dsp/x86/intrapred_sse2.asm
-  7ad847ac6 Seq header shouldn't change in the middle of frame
-Updates to libaom/examples/av1_dec_fuzzer.cc to include the following commits from upstream
-139efd2c8 av1_dec_fuzzer: get thread count from 1st byte of frame header
-adfc4b7f8 av1_dec_fuzzer: Remove fmemopen dependency
-338f1e688 av1_dec_fuzzer: Remove dependency on ivfdec.o and tools_common.o
-690a08a34 av1_dec_fuzzer: Updated fsanitize flags in build script
-c2632bb3f av1_dec_fuzzer: Fix missing field initializer for 'cfg'
-cherry-picks:
-0e07ea54d disable av1_(apply_|)selfguided_restoration_neon
+None

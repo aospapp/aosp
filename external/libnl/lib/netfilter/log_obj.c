@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/log_obj.c	Netfilter Log Object
  *
@@ -57,9 +58,9 @@ static void nfnl_log_dump(struct nl_object *a, struct nl_dump_params *p)
 }
 
 static const struct trans_tbl copy_modes[] = {
-	__ADD(NFNL_LOG_COPY_NONE,	none)
-	__ADD(NFNL_LOG_COPY_META,	meta)
-	__ADD(NFNL_LOG_COPY_PACKET,	packet)
+	__ADD(NFNL_LOG_COPY_NONE,	none),
+	__ADD(NFNL_LOG_COPY_META,	meta),
+	__ADD(NFNL_LOG_COPY_PACKET,	packet),
 };
 
 char *nfnl_log_copy_mode2str(enum nfnl_log_copy_mode copy_mode, char *buf,
@@ -69,7 +70,7 @@ char *nfnl_log_copy_mode2str(enum nfnl_log_copy_mode copy_mode, char *buf,
 			  ARRAY_SIZE(copy_modes));
 }
 
-enum nfnl_log_copy_mode nfnl_log_str2copy_mode(const char *name)
+int nfnl_log_str2copy_mode(const char *name)
 {
 	return __str2type(name, copy_modes, ARRAY_SIZE(copy_modes));
 }
@@ -215,8 +216,8 @@ void nfnl_log_unset_flags(struct nfnl_log *log, unsigned int flags)
 }
 
 static const struct trans_tbl log_flags[] = {
-	__ADD(NFNL_LOG_FLAG_SEQ,	seq)
-	__ADD(NFNL_LOG_FLAG_SEQ_GLOBAL,	seq_global)
+	__ADD(NFNL_LOG_FLAG_SEQ,	seq),
+	__ADD(NFNL_LOG_FLAG_SEQ_GLOBAL,	seq_global),
 };
 
 char *nfnl_log_flags2str(unsigned int flags, char *buf, size_t len)
@@ -229,12 +230,12 @@ unsigned int nfnl_log_str2flags(const char *name)
 	return __str2flags(name, log_flags, ARRAY_SIZE(log_flags));
 }
 
-static int nfnl_log_compare(struct nl_object *_a, struct nl_object *_b,
-			    uint32_t attrs, int flags)
+static uint64_t nfnl_log_compare(struct nl_object *_a, struct nl_object *_b,
+				 uint64_t attrs, int flags)
 {
 	struct nfnl_log *a = (struct nfnl_log *) _a;
 	struct nfnl_log *b = (struct nfnl_log *) _b;
-	int diff = 0;
+	uint64_t diff = 0;
 
 #define NFNL_LOG_DIFF(ATTR, EXPR) \
 	ATTR_DIFF(attrs, LOG_ATTR_##ATTR, a, b, EXPR)
@@ -255,12 +256,12 @@ static int nfnl_log_compare(struct nl_object *_a, struct nl_object *_b,
 }
 
 static const struct trans_tbl nfnl_log_attrs[] = {
-	__ADD(LOG_ATTR_GROUP,		group)
-	__ADD(LOG_ATTR_COPY_MODE,	copy_mode)
-	__ADD(LOG_ATTR_COPY_RANGE,	copy_range)
-	__ADD(LOG_ATTR_FLUSH_TIMEOUT,	flush_timeout)
-	__ADD(LOG_ATTR_ALLOC_SIZE,	alloc_size)
-	__ADD(LOG_ATTR_QUEUE_THRESHOLD, queue_threshold)
+	__ADD(LOG_ATTR_GROUP,		group),
+	__ADD(LOG_ATTR_COPY_MODE,	copy_mode),
+	__ADD(LOG_ATTR_COPY_RANGE,	copy_range),
+	__ADD(LOG_ATTR_FLUSH_TIMEOUT,	flush_timeout),
+	__ADD(LOG_ATTR_ALLOC_SIZE,	alloc_size),
+	__ADD(LOG_ATTR_QUEUE_THRESHOLD, queue_threshold),
 };
 
 static char *nfnl_log_attrs2str(int attrs, char *buf, size_t len)

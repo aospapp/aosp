@@ -161,10 +161,16 @@ int Rules::AddNewNonterminal() {
 
 void Rules::AddAlias(const std::string& nonterminal_name,
                      const std::string& alias) {
+#ifndef TC3_USE_CXX14
   TC3_CHECK_EQ(nonterminal_alias_.insert_or_assign(alias, nonterminal_name)
                    .first->second,
                nonterminal_name)
       << "Cannot redefine alias: " << alias;
+#else
+  nonterminal_alias_[alias] = nonterminal_name;
+  TC3_CHECK_EQ(nonterminal_alias_[alias], nonterminal_name)
+      << "Cannot redefine alias: " << alias;
+#endif
 }
 
 // Defines a nonterminal for an externally provided annotation.
@@ -258,7 +264,7 @@ std::vector<Rules::RhsElement> Rules::ResolveAnchors(
 }
 
 std::vector<Rules::RhsElement> Rules::ResolveFillers(
-    const std::vector<RhsElement>& rhs) {
+    const std::vector<RhsElement>& rhs, int shard) {
   std::vector<RhsElement> result;
   for (int i = 0; i < rhs.size();) {
     if (i == rhs.size() - 1 || IsNonterminalOfName(rhs[i], kFiller) ||
@@ -278,15 +284,27 @@ std::vector<Rules::RhsElement> Rules::ResolveFillers(
                            /*is_optional=*/false);
     if (rhs[i + 1].is_optional) {
       // <a_with_tokens> ::= <a>
-      Add(with_tokens_nonterminal, {rhs[i]});
+      Add(with_tokens_nonterminal, {rhs[i]},
+          /*callback=*/kNoCallback,
+          /*callback_param=*/0,
+          /*max_whitespace_gap=*/-1,
+          /*case_sensitive=*/false, shard);
     } else {
       // <a_with_tokens> ::= <a> <token>
-      Add(with_tokens_nonterminal, {rhs[i], token});
+      Add(with_tokens_nonterminal, {rhs[i], token},
+          /*callback=*/kNoCallback,
+          /*callback_param=*/0,
+          /*max_whitespace_gap=*/-1,
+          /*case_sensitive=*/false, shard);
     }
     // <a_with_tokens> ::= <a_with_tokens> <token>
     const RhsElement with_tokens(with_tokens_nonterminal,
                                  /*is_optional=*/false);
-    Add(with_tokens_nonterminal, {with_tokens, token});
+    Add(with_tokens_nonterminal, {with_tokens, token},
+        /*callback=*/kNoCallback,
+        /*callback_param=*/0,
+        /*max_whitespace_gap=*/-1,
+        /*case_sensitive=*/false, shard);
     result.push_back(with_tokens);
     i += 2;
   }
@@ -294,8 +312,8 @@ std::vector<Rules::RhsElement> Rules::ResolveFillers(
 }
 
 std::vector<Rules::RhsElement> Rules::OptimizeRhs(
-    const std::vector<RhsElement>& rhs) {
-  return ResolveFillers(ResolveAnchors(rhs));
+    const std::vector<RhsElement>& rhs, int shard) {
+  return ResolveFillers(ResolveAnchors(rhs), shard);
 }
 
 void Rules::Add(const int lhs, const std::vector<RhsElement>& rhs,
@@ -379,6 +397,14 @@ void Rules::AddValueMapping(const std::string& lhs,
       /*callback_param=*/value, max_whitespace_gap, case_sensitive, shard);
 }
 
+void Rules::AddValueMapping(const int lhs, const std::vector<RhsElement>& rhs,
+                            int64 value, const int8 max_whitespace_gap,
+                            const bool case_sensitive, const int shard) {
+  Add(lhs, rhs,
+      /*callback=*/static_cast<CallbackId>(DefaultCallback::kMapping),
+      /*callback_param=*/value, max_whitespace_gap, case_sensitive, shard);
+}
+
 void Rules::AddRegex(const std::string& lhs, const std::string& regex_pattern) {
   AddRegex(AddNonterminal(lhs), regex_pattern);
 }
@@ -388,8 +414,19 @@ void Rules::AddRegex(int lhs, const std::string& regex_pattern) {
   regex_rules_.push_back(regex_pattern);
 }
 
+bool Rules::UsesFillers() const {
+  for (const Rule& rule : rules_) {
+    for (const RhsElement& rhs_element : rule.rhs) {
+      if (IsNonterminalOfName(rhs_element, kFiller)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 Ir Rules::Finalize(const std::set<std::string>& predefined_nonterminals) const {
-  Ir rules(filters_, num_shards_);
+  Ir rules(locale_shard_map_);
   std::unordered_map<int, Nonterm> nonterminal_ids;
 
   // Pending rules to process.
@@ -405,22 +442,21 @@ Ir Rules::Finalize(const std::set<std::string>& predefined_nonterminals) const {
   }
 
   // Assign (unmergeable) Nonterm values to any nonterminals that have
-  // multiple rules or that have a filter callback on some rule.
+  // multiple rules.
   for (int i = 0; i < nonterminals_.size(); i++) {
     const NontermInfo& nonterminal = nonterminals_[i];
+
+    // Skip predefined nonterminals, they have already been assigned.
+    if (rules.GetNonterminalForName(nonterminal.name) != kUnassignedNonterm) {
+      continue;
+    }
+
     bool unmergeable =
         (nonterminal.from_annotation || nonterminal.rules.size() > 1 ||
          !nonterminal.regex_rules.empty());
     for (const int rule_index : nonterminal.rules) {
-      const Rule& rule = rules_[rule_index];
-
       // Schedule rule.
       scheduled_rules.insert({i, rule_index});
-
-      if (rule.callback != kNoCallback &&
-          filters_.find(rule.callback) != filters_.end()) {
-        unmergeable = true;
-      }
     }
 
     if (unmergeable) {
@@ -439,6 +475,22 @@ Ir Rules::Finalize(const std::set<std::string>& predefined_nonterminals) const {
   // Define annotations.
   for (const auto& [annotation, nonterminal] : annotation_nonterminals_) {
     rules.AddAnnotation(nonterminal_ids[nonterminal], annotation);
+  }
+
+  // Check whether fillers are still referenced (if they couldn't get optimized
+  // away).
+  if (UsesFillers()) {
+    TC3_LOG(WARNING) << "Rules use fillers that couldn't be optimized, grammar "
+                        "matching performance might be impacted.";
+
+    // Add a definition for the filler:
+    // <filler> = <token>
+    // <filler> = <token> <filler>
+    const Nonterm filler = rules.GetNonterminalForName(kFiller);
+    const Nonterm token =
+        rules.DefineNonterminal(rules.GetNonterminalForName(kTokenNonterm));
+    rules.Add(filler, token);
+    rules.Add(filler, std::vector<Nonterm>{token, filler});
   }
 
   // Now, keep adding eligible rules (rules whose rhs is completely assigned)

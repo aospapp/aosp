@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2018 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.text;
 
 import java.text.AttributedCharacterIterator;
@@ -12,8 +12,6 @@ import android.icu.util.ICUUncheckedIOException;
  * Many formatters format to classes implementing FormattedValue.
  *
  * @author sffc
- * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public interface FormattedValue extends CharSequence {
     /**
@@ -22,7 +20,6 @@ public interface FormattedValue extends CharSequence {
      * Consider using {@link #appendTo} for greater efficiency.
      *
      * @return The formatted string.
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public String toString();
@@ -36,7 +33,6 @@ public interface FormattedValue extends CharSequence {
      * @param appendable The Appendable to which to append the string output.
      * @return The same Appendable, for chaining.
      * @throws ICUUncheckedIOException if the Appendable throws IOException
-     * @hide draft / provisional / internal are hidden on Android
      */
     public <A extends Appendable> A appendTo(A appendable);
 
@@ -58,7 +54,6 @@ public interface FormattedValue extends CharSequence {
      *         only one specific field; see {@link ConstrainedFieldPosition#constrainField}.
      * @return true if a new occurrence of the field was found;
      *         false otherwise.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public boolean nextPosition(ConstrainedFieldPosition cfpos);
 
@@ -68,7 +63,6 @@ public interface FormattedValue extends CharSequence {
      * Consider using {@link #nextPosition} if you are trying to get field information.
      *
      * @return An AttributedCharacterIterator containing full field information.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public AttributedCharacterIterator toCharacterIterator();
 }

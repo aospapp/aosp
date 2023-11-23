@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -39,7 +39,7 @@ extern MagickPrivate void
 static inline RandomInfo **DestroyRandomInfoThreadSet(
   RandomInfo **random_info)
 {
-  register ssize_t
+  ssize_t
     i;
 
   assert(random_info != (RandomInfo **) NULL);
@@ -51,7 +51,7 @@ static inline RandomInfo **DestroyRandomInfoThreadSet(
 
 static inline RandomInfo **AcquireRandomInfoThreadSet(void)
 {
-  register ssize_t
+  ssize_t
     i;
 
   RandomInfo

@@ -24,9 +24,11 @@
 #ifndef RADV_DESCRIPTOR_SET_H
 #define RADV_DESCRIPTOR_SET_H
 
-#include <vulkan/vulkan.h>
+#include "radv_constants.h"
 
-#define MAX_SETS         32
+#include "vulkan/util/vk_object.h"
+
+#include <vulkan/vulkan.h>
 
 struct radv_descriptor_set_binding_layout {
    VkDescriptorType type;
@@ -49,6 +51,8 @@ struct radv_descriptor_set_binding_layout {
 };
 
 struct radv_descriptor_set_layout {
+   struct vk_object_base base;
+
    /* The create flags for this descriptor set layout */
    VkDescriptorSetLayoutCreateFlags flags;
 
@@ -81,10 +85,13 @@ struct radv_descriptor_set_layout {
 };
 
 struct radv_pipeline_layout {
+   struct vk_object_base base;
    struct {
       struct radv_descriptor_set_layout *layout;
       uint32_t size;
-      uint32_t dynamic_offset_start;
+      uint16_t dynamic_offset_start;
+      uint16_t dynamic_offset_count;
+      VkShaderStageFlags dynamic_offset_stages;
    } set[MAX_SETS];
 
    uint32_t num_sets;

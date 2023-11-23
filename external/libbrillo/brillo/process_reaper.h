@@ -19,7 +19,7 @@ namespace brillo {
 class BRILLO_EXPORT ProcessReaper final {
  public:
   // The callback called when a child exits.
-  using ChildCallback = base::Callback<void(const siginfo_t&)>;
+  using ChildCallback = base::OnceCallback<void(const siginfo_t&)>;
 
   ProcessReaper() = default;
   ~ProcessReaper();
@@ -41,7 +41,7 @@ class BRILLO_EXPORT ProcessReaper final {
   // as a siginfo_t. See wait(2) for details about siginfo_t.
   bool WatchForChild(const base::Location& from_here,
                      pid_t pid,
-                     const ChildCallback& callback);
+                     ChildCallback callback);
 
   // Stop watching child process |pid|.  This is useful in situations
   // where the child process may have been reaped outside of the signal

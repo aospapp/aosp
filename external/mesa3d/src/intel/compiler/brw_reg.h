@@ -43,7 +43,7 @@
 #define BRW_REG_H
 
 #include <stdbool.h>
-#include "main/compiler.h"
+#include "util/compiler.h"
 #include "main/macros.h"
 #include "program/prog_instruction.h"
 #include "brw_eu_defines.h"
@@ -318,6 +318,7 @@ type_sz(unsigned type)
    case BRW_REGISTER_TYPE_UQ:
    case BRW_REGISTER_TYPE_Q:
    case BRW_REGISTER_TYPE_DF:
+   case BRW_REGISTER_TYPE_NF:
       return 8;
    case BRW_REGISTER_TYPE_UD:
    case BRW_REGISTER_TYPE_D:
@@ -939,6 +940,21 @@ brw_dmask_reg()
 }
 
 static inline struct brw_reg
+brw_mask_stack_reg(unsigned subnr)
+{
+   return suboffset(retype(brw_vec16_reg(BRW_ARCHITECTURE_REGISTER_FILE,
+                                         BRW_ARF_MASK_STACK, 0),
+                           BRW_REGISTER_TYPE_UB), subnr);
+}
+
+static inline struct brw_reg
+brw_mask_stack_depth_reg(unsigned subnr)
+{
+   return brw_uw1_reg(BRW_ARCHITECTURE_REGISTER_FILE,
+                      BRW_ARF_MASK_STACK_DEPTH, subnr);
+}
+
+static inline struct brw_reg
 brw_message_reg(unsigned nr)
 {
    return brw_vec8_reg(BRW_MESSAGE_REGISTER_FILE, nr, 0);
@@ -985,7 +1001,7 @@ static inline struct brw_reg
 spread(struct brw_reg reg, unsigned s)
 {
    if (s) {
-      assert(_mesa_is_pow_two(s));
+      assert(util_is_power_of_two_nonzero(s));
 
       if (reg.hstride)
          reg.hstride += cvt(s) - 1;

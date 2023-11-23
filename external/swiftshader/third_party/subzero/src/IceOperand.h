@@ -19,8 +19,8 @@
 #ifndef SUBZERO_SRC_ICEOPERAND_H
 #define SUBZERO_SRC_ICEOPERAND_H
 
-#include "IceDefs.h"
 #include "IceCfg.h"
+#include "IceDefs.h"
 #include "IceGlobalContext.h"
 #include "IceStringPool.h"
 #include "IceTypes.h"
@@ -106,8 +106,8 @@ public:
     return 0;
   }
 
-  inline void* getExternalData() const { return externalData; }
-  inline void setExternalData(void* data) { externalData = data; }
+  inline void *getExternalData() const { return externalData; }
+  inline void setExternalData(void *data) { externalData = data; }
 
 protected:
   Operand(OperandKind Kind, Type Ty) : Ty(Ty), Kind(Kind) {
@@ -124,7 +124,7 @@ protected:
   /// External data can be set by an optimizer to compute and retain any
   /// information related to the current operand. All the memory used to
   /// store this information must be managed by the optimizer.
-  void* externalData = nullptr;
+  void *externalData = nullptr;
 };
 
 template <class StreamType>
@@ -153,11 +153,6 @@ public:
   }
 
   const GlobalString getLabelName() const { return LabelName; }
-
-  /// Judge if this given immediate should be randomized or pooled By default
-  /// should return false, only constant integers should truly go through this
-  /// method.
-  virtual bool shouldBeRandomizedOrPooled() const { return false; }
 
   bool getShouldBePooled() const { return ShouldBePooled; }
 
@@ -222,8 +217,6 @@ public:
   }
 
   SizeT hashValue() const override { return std::hash<PrimType>()(Value); }
-
-  virtual bool shouldBeRandomizedOrPooled() const override { return false; }
 
 private:
   ConstantPrimitive(Type Ty, PrimType Value) : Constant(K, Ty), Value(Value) {}
@@ -292,22 +285,6 @@ inline void ConstantInteger32::dump(const Cfg *, Ostream &Str) const {
     Str << (getValue() ? "true" : "false");
   else
     Str << static_cast<int32_t>(getValue());
-}
-
-// =========== Immediate Randomization and Pooling routines ==============
-// Specialization of the template member function for ConstantInteger32
-// TODO(stichnot): try to move this specialization into a target-specific file.
-template <> inline bool ConstantInteger32::shouldBeRandomizedOrPooled() const {
-  uint32_t Threshold = getFlags().getRandomizeAndPoolImmediatesThreshold();
-  if (getFlags().getRandomizeAndPoolImmediatesOption() == RPI_None)
-    return false;
-  if (getType() != IceType_i32 && getType() != IceType_i16 &&
-      getType() != IceType_i8)
-    return false;
-  // The Following checks if the signed representation of Value is between
-  // -Threshold/2 and +Threshold/2
-  bool largerThanThreshold = Threshold / 2 + Value >= Threshold;
-  return largerThanThreshold;
 }
 
 template <>
@@ -862,8 +839,8 @@ public:
 
   SizeT hashValue() const override { return std::hash<SizeT>()(getIndex()); }
 
-  inline void* getExternalData() const { return externalData; }
-  inline void setExternalData(void* data) { externalData = data; }
+  inline void *getExternalData() const { return externalData; }
+  inline void setExternalData(void *data) { externalData = data; }
 
 protected:
   Variable(const Cfg *Func, OperandKind K, Type Ty, SizeT Index)
@@ -909,7 +886,7 @@ protected:
   /// External data can be set by an optimizer to compute and retain any
   /// information related to the current variable. All the memory used to
   /// store this information must be managed by the optimizer.
-  void* externalData = nullptr;
+  void *externalData = nullptr;
 };
 
 // Variable64On32 represents a 64-bit variable on a 32-bit architecture. In

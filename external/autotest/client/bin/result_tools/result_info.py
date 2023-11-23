@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -9,8 +10,12 @@ import contextlib
 import json
 import os
 
-import result_info_lib
-import utils_lib
+try:
+    from autotest_lib.client.bin.result_tools import result_info_lib
+    from autotest_lib.client.bin.result_tools import utils_lib
+except ImportError:
+    import result_info_lib
+    import utils_lib
 
 
 class ResultInfoError(Exception):
@@ -180,7 +185,7 @@ class ResultInfo(dict):
         assert original_info
         # The result information dictionary has only 1 key, which is the file or
         # directory name.
-        self._name = original_info.keys()[0]
+        self._name = list(original_info.keys())[0]
 
         # Dictionary to store details of the given path is set to a keyval of
         # the wrapper class. Save the dictionary to an attribute for faster
@@ -459,7 +464,7 @@ class ResultInfo(dict):
     def get_file_names(self):
         """Get a set of all the files under the result.
         """
-        return set([f.keys()[0] for f in self.files])
+        return set([list(f.keys())[0] for f in self.files])
 
     def get_file(self, name):
         """Get a file with the given name under the result.

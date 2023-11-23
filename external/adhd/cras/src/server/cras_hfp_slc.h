@@ -18,7 +18,7 @@ struct cras_bt_device;
 #define HF_THREE_WAY_CALLING 0x0002
 #define HF_CLI_PRESENTATION_CAP 0x0004
 #define HF_VOICE_RECOGNITION 0x0008
-#define HF_REMOVE_VOLUME_CTONTROL 0x0010
+#define HF_REMOTE_VOLUME_CONTROL 0x0010
 #define HF_ENHANCED_CALL_STATUS 0x0020
 #define HF_ENHANCED_CALL_CONTROL 0x0040
 #define HF_CODEC_NEGOTIATION 0x0080
@@ -38,11 +38,31 @@ struct cras_bt_device;
 #define AG_HF_INDICATORS 0x0400
 #define AG_ESCO_S4_T2_SETTINGS 0x0800
 
+/*
+ * Apple specific bluetooth commands that extend accessory capabilities.
+ * Per Accessory Design Guidelines for Apple devices, command AT+XAPL
+ */
+
+#define APL_RESERVED 0x01
+#define APL_BATTERY 0x02
+#define APL_DOCKED_OR_POWERED 0x04
+#define APL_SIRI 0x08
+#define APL_NOISE_REDUCTION 0x10
+
+#define CRAS_APL_SUPPORTED_FEATURES (APL_BATTERY)
+
 /* Codec ids for codec negotiation, per HFP 1.7.1 spec appendix B. */
 #define HFP_CODEC_UNUSED 0
 #define HFP_CODEC_ID_CVSD 1
 #define HFP_CODEC_ID_MSBC 2
 #define HFP_MAX_CODECS 3
+
+/* Hands-free HFP supported battery indicator bit definition.
+ * This is currently only used for logging purpose. */
+#define CRAS_HFP_BATTERY_INDICATOR_NONE 0x0
+#define CRAS_HFP_BATTERY_INDICATOR_HFP 0x1
+#define CRAS_HFP_BATTERY_INDICATOR_APPLE 0x2
+#define CRAS_HFP_BATTERY_INDICATOR_PLANTRONICS 0x4
 
 /* Callback to call when service level connection initialized. */
 typedef int (*hfp_slc_init_cb)(struct hfp_slc_handle *handle);
@@ -70,6 +90,11 @@ struct hfp_slc_handle *hfp_slc_create(int fd, int is_hsp,
 
 /* Destroys an hfp_slc_handle. */
 void hfp_slc_destroy(struct hfp_slc_handle *handle);
+
+/* Returns true if this SLC is created for headset profile(HSP), false
+ * means it's created for hands-free profile(HFP).
+ */
+int hfp_slc_is_hsp(struct hfp_slc_handle *handle);
 
 /* Sets the call status to notify handsfree device. */
 int hfp_set_call_status(struct hfp_slc_handle *handle, int call);
@@ -107,5 +132,25 @@ int hfp_slc_get_selected_codec(struct hfp_slc_handle *handle);
 
 /* Gets if the remote HF supports codec negotiation. */
 int hfp_slc_get_hf_codec_negotiation_supported(struct hfp_slc_handle *handle);
+
+/* Gets if the remote HF supports HF indicator. */
+int hfp_slc_get_hf_hf_indicators_supported(struct hfp_slc_handle *handle);
+
+/* Gets if the HF side supports wideband speech. */
+bool hfp_slc_get_wideband_speech_supported(struct hfp_slc_handle *handle);
+
+/* Gets if the AG side supports codec negotiation. */
+int hfp_slc_get_ag_codec_negotiation_supported(struct hfp_slc_handle *handle);
+
+/* Gets an enum representing which spec the HF supports battery indicator.
+ * Apple, HFP, none, or both. */
+int hfp_slc_get_hf_supports_battery_indicator(struct hfp_slc_handle *handle);
+
+/* Init the codec negotiation process if needed. */
+int hfp_slc_codec_connection_setup(struct hfp_slc_handle *handle);
+
+// Expose internal AT command handling for fuzzing.
+int handle_at_command_for_test(struct hfp_slc_handle *slc_handle,
+			       const char *cmd);
 
 #endif /* CRAS_HFP_SLC_H_ */

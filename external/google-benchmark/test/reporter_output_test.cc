@@ -15,7 +15,7 @@ ADD_CASES(TC_ConsoleOut, {{"^[-]+$", MR_Next},
 static int AddContextCases() {
   AddCases(TC_ConsoleErr,
            {
-               {"%int[-/]%int[-/]%int %int:%int:%int$", MR_Default},
+               {"^%int-%int-%intT%int:%int:%int[-+]%int:%int$", MR_Default},
                {"Running .*/reporter_output_test(\\.exe)?$", MR_Next},
                {"Run on \\(%int X %float MHz CPU s?\\)", MR_Next},
            });
@@ -28,8 +28,7 @@ static int AddContextCases() {
              MR_Next},
             {"\"num_cpus\": %int,$", MR_Next},
             {"\"mhz_per_cpu\": %float,$", MR_Next},
-            {"\"cpu_scaling_enabled\": ", MR_Next},
-            {"\"caches\": \\[$", MR_Next}});
+            {"\"caches\": \\[$", MR_Default}});
   auto const& Info = benchmark::CPUInfo::Get();
   auto const& Caches = Info.caches;
   if (!Caches.empty()) {
@@ -168,6 +167,93 @@ ADD_CASES(TC_JSONOut, {{"\"name\": \"BM_label\",$"},
                        {"}", MR_Next}});
 ADD_CASES(TC_CSVOut, {{"^\"BM_label\",%csv_label_report_begin\"some "
                        "label\"%csv_label_report_end$"}});
+
+// ========================================================================= //
+// ------------------------ Testing Time Label Output ---------------------- //
+// ========================================================================= //
+
+void BM_time_label_nanosecond(benchmark::State& state) {
+  for (auto _ : state) {
+  }
+}
+BENCHMARK(BM_time_label_nanosecond)->Unit(benchmark::kNanosecond);
+
+ADD_CASES(TC_ConsoleOut, {{"^BM_time_label_nanosecond %console_report$"}});
+ADD_CASES(TC_JSONOut,
+          {{"\"name\": \"BM_time_label_nanosecond\",$"},
+           {"\"run_name\": \"BM_time_label_nanosecond\",$", MR_Next},
+           {"\"run_type\": \"iteration\",$", MR_Next},
+           {"\"repetitions\": 0,$", MR_Next},
+           {"\"repetition_index\": 0,$", MR_Next},
+           {"\"threads\": 1,$", MR_Next},
+           {"\"iterations\": %int,$", MR_Next},
+           {"\"real_time\": %float,$", MR_Next},
+           {"\"cpu_time\": %float,$", MR_Next},
+           {"\"time_unit\": \"ns\"$", MR_Next},
+           {"}", MR_Next}});
+ADD_CASES(TC_CSVOut, {{"^\"BM_time_label_nanosecond\",%csv_report$"}});
+
+void BM_time_label_microsecond(benchmark::State& state) {
+  for (auto _ : state) {
+  }
+}
+BENCHMARK(BM_time_label_microsecond)->Unit(benchmark::kMicrosecond);
+
+ADD_CASES(TC_ConsoleOut, {{"^BM_time_label_microsecond %console_us_report$"}});
+ADD_CASES(TC_JSONOut,
+          {{"\"name\": \"BM_time_label_microsecond\",$"},
+           {"\"run_name\": \"BM_time_label_microsecond\",$", MR_Next},
+           {"\"run_type\": \"iteration\",$", MR_Next},
+           {"\"repetitions\": 0,$", MR_Next},
+           {"\"repetition_index\": 0,$", MR_Next},
+           {"\"threads\": 1,$", MR_Next},
+           {"\"iterations\": %int,$", MR_Next},
+           {"\"real_time\": %float,$", MR_Next},
+           {"\"cpu_time\": %float,$", MR_Next},
+           {"\"time_unit\": \"us\"$", MR_Next},
+           {"}", MR_Next}});
+ADD_CASES(TC_CSVOut, {{"^\"BM_time_label_microsecond\",%csv_us_report$"}});
+
+void BM_time_label_millisecond(benchmark::State& state) {
+  for (auto _ : state) {
+  }
+}
+BENCHMARK(BM_time_label_millisecond)->Unit(benchmark::kMillisecond);
+
+ADD_CASES(TC_ConsoleOut, {{"^BM_time_label_millisecond %console_ms_report$"}});
+ADD_CASES(TC_JSONOut,
+          {{"\"name\": \"BM_time_label_millisecond\",$"},
+           {"\"run_name\": \"BM_time_label_millisecond\",$", MR_Next},
+           {"\"run_type\": \"iteration\",$", MR_Next},
+           {"\"repetitions\": 0,$", MR_Next},
+           {"\"repetition_index\": 0,$", MR_Next},
+           {"\"threads\": 1,$", MR_Next},
+           {"\"iterations\": %int,$", MR_Next},
+           {"\"real_time\": %float,$", MR_Next},
+           {"\"cpu_time\": %float,$", MR_Next},
+           {"\"time_unit\": \"ms\"$", MR_Next},
+           {"}", MR_Next}});
+ADD_CASES(TC_CSVOut, {{"^\"BM_time_label_millisecond\",%csv_ms_report$"}});
+
+void BM_time_label_second(benchmark::State& state) {
+  for (auto _ : state) {
+  }
+}
+BENCHMARK(BM_time_label_second)->Unit(benchmark::kSecond);
+
+ADD_CASES(TC_ConsoleOut, {{"^BM_time_label_second %console_s_report$"}});
+ADD_CASES(TC_JSONOut, {{"\"name\": \"BM_time_label_second\",$"},
+                       {"\"run_name\": \"BM_time_label_second\",$", MR_Next},
+                       {"\"run_type\": \"iteration\",$", MR_Next},
+                       {"\"repetitions\": 0,$", MR_Next},
+                       {"\"repetition_index\": 0,$", MR_Next},
+                       {"\"threads\": 1,$", MR_Next},
+                       {"\"iterations\": %int,$", MR_Next},
+                       {"\"real_time\": %float,$", MR_Next},
+                       {"\"cpu_time\": %float,$", MR_Next},
+                       {"\"time_unit\": \"s\"$", MR_Next},
+                       {"}", MR_Next}});
+ADD_CASES(TC_CSVOut, {{"^\"BM_time_label_second\",%csv_s_report$"}});
 
 // ========================================================================= //
 // ------------------------ Testing Error Output --------------------------- //
@@ -713,7 +799,7 @@ ADD_CASES(
 // ========================================================================= //
 // ------------------------- Testing StrEscape JSON ------------------------ //
 // ========================================================================= //
-#if 0 // enable when csv testing code correctly handles multi-line fields
+#if 0  // enable when csv testing code correctly handles multi-line fields
 void BM_JSON_Format(benchmark::State& state) {
   state.SkipWithError("val\b\f\n\r\t\\\"with\"es,capes");
   for (auto _ : state) {

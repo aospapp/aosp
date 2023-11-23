@@ -79,8 +79,8 @@ public class CombinedEvents003Test extends CombinedEventsTestCase {
         long runMethodID = debuggeeWrapper.vmMirror.getMethodID(debuggeeClassID, "run");
         logWriter.println("=> runMethodID = " + runMethodID);
 
-        long dummyMethodID = debuggeeWrapper.vmMirror.getMethodID(debuggeeClassID, "dummyMethod");
-        logWriter.println("=> dummyMethodID = " + dummyMethodID);
+        long fakeMethodID = debuggeeWrapper.vmMirror.getMethodID(debuggeeClassID, "fakeMethod");
+        logWriter.println("=> fakeMethodID = " + fakeMethodID);
 
         logWriter.println("");
         logWriter.println("=> Info for tested method '" + methodForEvents + "':");

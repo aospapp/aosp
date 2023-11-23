@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/utils.c		Utilities
  *
@@ -22,6 +23,13 @@
  */
 
 #include <netlink/cli/utils.h>
+#include <locale.h>
+
+#include "lib/defs.h"
+
+#ifdef HAVE_DLFCN_H
+#include <dlfcn.h>
+#endif
 
 /**
  * Parse a text based 32 bit unsigned integer argument
@@ -70,7 +78,6 @@ void nl_cli_print_version(void)
 void nl_cli_fatal(int err, const char *fmt, ...)
 {
 	va_list ap;
-	char buf[256];
 
 	fprintf(stderr, "Error: ");
 
@@ -79,8 +86,28 @@ void nl_cli_fatal(int err, const char *fmt, ...)
 		vfprintf(stderr, fmt, ap);
 		va_end(ap);
 		fprintf(stderr, "\n");
-	} else
-		fprintf(stderr, "%s\n", strerror_r(err, buf, sizeof(buf)));
+	} else {
+		char *buf;
+#ifdef HAVE_STRERROR_L
+		locale_t loc = newlocale(LC_MESSAGES_MASK, "", (locale_t)0);
+		if (loc == (locale_t)0) {
+			if (errno == ENOENT)
+				loc = newlocale(LC_MESSAGES_MASK,
+						"POSIX", (locale_t)0);
+			if (loc == (locale_t)0)
+				buf = "newlocale() failed";
+		}
+		if (loc != (locale_t)0)
+			buf = strerror_l(err, loc);
+#else
+		buf = strerror(err);
+#endif
+		fprintf(stderr, "%s\n", buf);
+#ifdef HAVE_STRERROR_L
+		if (loc != (locale_t)0)
+			freelocale(loc);
+#endif
+	}
 
 	exit(abs(err));
 }
@@ -153,6 +180,7 @@ int nl_cli_confirm(struct nl_object *obj, struct nl_dump_params *params,
 		switch ((answer = tolower(buf[0]))) {
 		case '\n':
 			answer = default_yes ? 'y' : 'n';
+			/* fall through */
 		case 'y':
 		case 'n':
 			return answer == 'y';
@@ -180,17 +208,43 @@ struct nl_cache *nl_cli_alloc_cache(struct nl_sock *sock, const char *name,
 	return cache;
 }
 
+struct nl_cache *nl_cli_alloc_cache_flags(struct nl_sock *sock,
+			    const char *name, unsigned int flags,
+			    int (*ac)(struct nl_sock *, struct nl_cache **,
+				      unsigned int))
+{
+	struct nl_cache *cache;
+	int err;
+
+	if ((err = ac(sock, &cache, flags)) < 0)
+		nl_cli_fatal(err, "Unable to allocate %s cache: %s",
+			     name, nl_geterror(err));
+
+	nl_cache_mngt_provide(cache);
+
+	return cache;
+}
+
 void nl_cli_load_module(const char *prefix, const char *name)
 {
 	char path[FILENAME_MAX+1];
-	void *handle;
 
 	snprintf(path, sizeof(path), "%s/%s/%s.so",
 		 PKGLIBDIR, prefix, name);
 
-	if (!(handle = dlopen(path, RTLD_NOW)))
-		nl_cli_fatal(ENOENT, "Unable to load module \"%s\": %s\n",
-			path, dlerror());
+#ifdef HAVE_DLFCN_H
+	{
+		void *handle;
+
+		if (!(handle = dlopen(path, RTLD_NOW))) {
+			nl_cli_fatal(ENOENT, "Unable to load module \"%s\": %s\n",
+			             path, dlerror());
+		}
+	}
+#else
+	nl_cli_fatal(ENOTSUP, "Unable to load module \"%s\": built without dynamic libraries support\n",
+	             path);
+#endif
 }
 
 /** @} */

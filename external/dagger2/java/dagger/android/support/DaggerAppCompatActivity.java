@@ -17,8 +17,10 @@
 package dagger.android.support;
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.ContentView;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import dagger.android.AndroidInjection;
 import dagger.android.AndroidInjector;
 import dagger.android.DispatchingAndroidInjector;
@@ -35,6 +37,15 @@ public abstract class DaggerAppCompatActivity extends AppCompatActivity
     implements HasAndroidInjector {
 
   @Inject DispatchingAndroidInjector<Object> androidInjector;
+
+  public DaggerAppCompatActivity() {
+    super();
+  }
+
+  @ContentView
+  public DaggerAppCompatActivity(@LayoutRes int contentLayoutId) {
+    super(contentLayoutId);
+  }
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {

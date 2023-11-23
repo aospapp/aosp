@@ -89,7 +89,7 @@ public class OptionalBindingTest {
     Compilation compilation = daggerCompiler().compile(parent, parentModule, child, childModule);
     assertThat(compilation).failed();
     assertThat(compilation)
-        .hadErrorContaining("Optional<java.lang.String> is bound multiple times")
+        .hadErrorContaining("Optional<String> is bound multiple times")
         .inFile(parent)
         .onLineContaining("interface Parent");
   }

@@ -15,10 +15,9 @@
 #ifndef sw_Sampler_hpp
 #define sw_Sampler_hpp
 
-#include "Device/Color.hpp"
 #include "Device/Config.hpp"
 #include "System/Types.hpp"
-#include "Vulkan/VkFormat.h"
+#include "Vulkan/VkFormat.hpp"
 
 namespace vk {
 class Image;
@@ -84,7 +83,6 @@ enum AddressingMode ENUM_UNDERLYING_TYPE_UNSIGNED_INT
 	ADDRESSING_BORDER,    // Single color
 	ADDRESSING_SEAMLESS,  // Border of pixels
 	ADDRESSING_CUBEFACE,  // Cube face layer
-	ADDRESSING_LAYER,     // Array layer
 	ADDRESSING_TEXELFETCH,
 
 	ADDRESSING_LAST = ADDRESSING_TEXELFETCH
@@ -98,7 +96,6 @@ struct Sampler
 	AddressingMode addressingModeU;
 	AddressingMode addressingModeV;
 	AddressingMode addressingModeW;
-	AddressingMode addressingModeY;
 	MipmapType mipmapFilter;
 	VkComponentMapping swizzle;
 	int gatherComponent;
@@ -107,11 +104,115 @@ struct Sampler
 	VkCompareOp compareOp;
 	VkBorderColor border;
 	bool unnormalizedCoordinates;
-	bool largeTexture;
 
 	VkSamplerYcbcrModelConversion ycbcrModel;
 	bool studioSwing;    // Narrow range
 	bool swappedChroma;  // Cb/Cr components in reverse order
+
+	float mipLodBias = 0.0f;
+	float maxAnisotropy = 0.0f;
+	float minLod = 0.0f;
+	float maxLod = 0.0f;
+
+	bool is1D() const
+	{
+		switch(textureType)
+		{
+			case VK_IMAGE_VIEW_TYPE_1D:
+			case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+				return true;
+			case VK_IMAGE_VIEW_TYPE_2D:
+			case VK_IMAGE_VIEW_TYPE_3D:
+			case VK_IMAGE_VIEW_TYPE_CUBE:
+			case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+				return false;
+			default:
+				UNSUPPORTED("VkImageViewType %d", (int)textureType);
+		}
+
+		return false;
+	}
+
+	bool is2D() const
+	{
+		switch(textureType)
+		{
+			case VK_IMAGE_VIEW_TYPE_2D:
+			case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+				return true;
+			case VK_IMAGE_VIEW_TYPE_1D:
+			case VK_IMAGE_VIEW_TYPE_3D:
+			case VK_IMAGE_VIEW_TYPE_CUBE:
+			case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+				return false;
+			default:
+				UNSUPPORTED("VkImageViewType %d", (int)textureType);
+		}
+
+		return false;
+	}
+
+	bool is3D() const
+	{
+		switch(textureType)
+		{
+			case VK_IMAGE_VIEW_TYPE_3D:
+				return true;
+			case VK_IMAGE_VIEW_TYPE_1D:
+			case VK_IMAGE_VIEW_TYPE_2D:
+			case VK_IMAGE_VIEW_TYPE_CUBE:
+			case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+				return false;
+			default:
+				UNSUPPORTED("VkImageViewType %d", (int)textureType);
+		}
+
+		return false;
+	}
+
+	bool isCube() const
+	{
+		switch(textureType)
+		{
+			case VK_IMAGE_VIEW_TYPE_CUBE:
+			case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+				return true;
+			case VK_IMAGE_VIEW_TYPE_1D:
+			case VK_IMAGE_VIEW_TYPE_2D:
+			case VK_IMAGE_VIEW_TYPE_3D:
+			case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+				return false;
+			default:
+				UNSUPPORTED("VkImageViewType %d", (int)textureType);
+		}
+
+		return false;
+	}
+
+	bool isArrayed() const
+	{
+		switch(textureType)
+		{
+			case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+			case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+				return true;
+			case VK_IMAGE_VIEW_TYPE_1D:
+			case VK_IMAGE_VIEW_TYPE_2D:
+			case VK_IMAGE_VIEW_TYPE_3D:
+			case VK_IMAGE_VIEW_TYPE_CUBE:
+				return false;
+			default:
+				UNSUPPORTED("VkImageViewType %d", (int)textureType);
+		}
+
+		return false;
+	}
 };
 
 }  // namespace sw

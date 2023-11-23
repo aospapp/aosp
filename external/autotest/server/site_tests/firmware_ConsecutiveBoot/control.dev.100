@@ -13,7 +13,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 This test is intended to be run with many iterations to ensure that the DUT

@@ -747,6 +747,81 @@ TEST_P(ProgramBinaryES3Test, BinaryWithLargeUniformCount)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::magenta);
 }
 
+// Test that sampler texelFetch references are saved and loaded correctly
+TEST_P(ProgramBinaryTest, SRGBDecodeWithSamplerAndTexelFetchTest)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_sRGB_decode") ||
+                       getClientMajorVersion() < 3);
+
+    // These OpenGL drivers appear not to respect the texelFetch exception
+    // http://anglebug.com/4991
+    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsIntel() && IsWindows());
+    ANGLE_SKIP_TEST_IF(IsOpenGL() && IsAMD() && IsWindows());
+    ANGLE_SKIP_TEST_IF(IsOpenGL() && (IsNVIDIA() || IsARM64()) && IsOSX());
+    ANGLE_SKIP_TEST_IF(IsOpenGLES() && IsNexus5X());
+
+    constexpr char kVS[] =
+        "#version 300 es\n"
+        "precision highp float;\n"
+        "in vec4 position;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "   gl_Position = vec4(position.xy, 0.0, 1.0);\n"
+        "}\n";
+
+    constexpr char kFS[] =
+        "#version 300 es\n"
+        "precision highp float;\n"
+        "uniform sampler2D tex;\n"
+        "in vec2 texcoord;\n"
+        "out vec4 out_color;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "   out_color = texelFetch(tex, ivec2(0, 0), 0);\n"
+        "}\n";
+
+    GLProgram program;
+    program.makeRaster(kVS, kFS);
+    ASSERT_NE(0u, program.get());
+
+    GLuint reloadedProgram = glCreateProgram();
+    saveAndLoadProgram(program.get(), reloadedProgram);
+
+    GLint textureLocation = glGetUniformLocation(reloadedProgram, "tex");
+    ASSERT_NE(-1, textureLocation);
+
+    GLColor linearColor(64, 127, 191, 255);
+    GLColor srgbColor(13, 54, 133, 255);
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex.get());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 &linearColor);
+    ASSERT_GL_NO_ERROR();
+
+    GLSampler sampler;
+    glBindSampler(0, sampler.get());
+    glSamplerParameteri(sampler.get(), GL_TEXTURE_SRGB_DECODE_EXT, GL_DECODE_EXT);
+
+    glUseProgram(reloadedProgram);
+    glUniform1i(textureLocation, 0);
+
+    glDisable(GL_DEPTH_TEST);
+    drawQuad(reloadedProgram, "position", 0.5f);
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, srgbColor, 1.0);
+
+    glSamplerParameteri(sampler.get(), GL_TEXTURE_SRGB_DECODE_EXT, GL_SKIP_DECODE_EXT);
+    drawQuad(reloadedProgram, "position", 0.5f);
+
+    EXPECT_PIXEL_COLOR_NEAR(0, 0, srgbColor, 1.0);
+
+    glDeleteProgram(reloadedProgram);
+}
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ProgramBinaryES3Test);
 ANGLE_INSTANTIATE_TEST_ES3(ProgramBinaryES3Test);
 
 class ProgramBinaryES31Test : public ANGLETest
@@ -816,8 +891,6 @@ TEST_P(ProgramBinaryES31Test, ProgramBinaryWithComputeShader)
 // Tests that saving and loading a program attached with computer shader.
 TEST_P(ProgramBinaryES31Test, ProgramBinaryWithAtomicCounterComputeShader)
 {
-    // http://anglebug.com/4092
-    ANGLE_SKIP_TEST_IF(IsAndroid() && IsVulkan());
     // We can't run the test if no program binary formats are supported.
     GLint binaryFormatCount = 0;
     glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &binaryFormatCount);
@@ -938,6 +1011,7 @@ TEST_P(ProgramBinaryES31Test, ImageTextureBinding)
     ASSERT_GL_NO_ERROR();
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ProgramBinaryES31Test);
 ANGLE_INSTANTIATE_TEST_ES31(ProgramBinaryES31Test);
 
 class ProgramBinaryTransformFeedbackTest : public ANGLETest
@@ -1049,8 +1123,7 @@ TEST_P(ProgramBinaryTransformFeedbackTest, GetTransformFeedbackVarying)
     EXPECT_GL_NO_ERROR();
 }
 
-// Use this to select which configurations (e.g. which renderer, which GLES major version) these
-// tests should be run against.
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ProgramBinaryTransformFeedbackTest);
 ANGLE_INSTANTIATE_TEST_ES3(ProgramBinaryTransformFeedbackTest);
 
 // For the ProgramBinariesAcrossPlatforms tests, we need two sets of params:
@@ -1101,15 +1174,15 @@ class ProgramBinariesAcrossPlatforms : public testing::TestWithParam<PlatformsWi
         }
 
         mEntryPointsLib.reset(
-            angle::OpenSharedLibrary(ANGLE_EGL_LIBRARY_NAME, angle::SearchType::ApplicationDir));
+            angle::OpenSharedLibrary(ANGLE_EGL_LIBRARY_NAME, angle::SearchType::ModuleDir));
     }
 
     EGLWindow *createAndInitEGLWindow(angle::PlatformParameters &param)
     {
         EGLWindow *eglWindow = EGLWindow::New(param.majorVersion, param.minorVersion);
         ConfigParameters configParams;
-        bool result = eglWindow->initializeGL(mOSWindow, mEntryPointsLib.get(), param.eglParameters,
-                                              configParams);
+        bool result = eglWindow->initializeGL(mOSWindow, mEntryPointsLib.get(), param.driver,
+                                              param.eglParameters, configParams);
         if (!result)
         {
             EGLWindow::Delete(&eglWindow);
@@ -1200,7 +1273,6 @@ TEST_P(ProgramBinariesAcrossPlatforms, CreateAndReloadBinary)
     if (eglWindow == nullptr)
     {
         FAIL() << "Failed to create EGL window";
-        return;
     }
 
     // If the test is trying to use both the default GPU and WARP, but the default GPU *IS* WARP,
@@ -1257,7 +1329,6 @@ TEST_P(ProgramBinariesAcrossPlatforms, CreateAndReloadBinary)
     if (eglWindow == nullptr)
     {
         FAIL() << "Failed to create EGL window";
-        return;
     }
 
     program = glCreateProgram();
@@ -1281,6 +1352,7 @@ TEST_P(ProgramBinariesAcrossPlatforms, CreateAndReloadBinary)
 }
 
 // clang-format off
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ProgramBinariesAcrossPlatforms);
 ANGLE_INSTANTIATE_TEST(ProgramBinariesAcrossPlatforms,
                        //                     | Save the program   | Load the program      | Expected
                        //                     | using these params | using these params    | link result
@@ -1289,5 +1361,6 @@ ANGLE_INSTANTIATE_TEST(ProgramBinariesAcrossPlatforms,
                        PlatformsWithLinkResult(ES2_D3D11(),         ES2_D3D9(),             false        ), // Switching from D3D11 to D3D9 shouldn't work
                        PlatformsWithLinkResult(ES2_D3D9(),          ES2_D3D11(),            false        ), // Switching from D3D9 to D3D11 shouldn't work
                        PlatformsWithLinkResult(ES2_D3D11(),         ES3_D3D11(),            false        ), // Switching to newer client version shouldn't work
+                       PlatformsWithLinkResult(ES3_VULKAN(),        ES31_VULKAN(),          false        ), // Switching to newer client version shouldn't work with Vulkan
                        );
 // clang-format on

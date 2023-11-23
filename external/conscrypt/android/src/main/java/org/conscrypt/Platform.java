@@ -19,6 +19,7 @@ package org.conscrypt;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.Log;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
@@ -59,6 +60,9 @@ import javax.net.ssl.StandardConstants;
 import javax.net.ssl.X509TrustManager;
 import org.conscrypt.ct.CTLogStore;
 import org.conscrypt.ct.CTPolicy;
+import org.conscrypt.metrics.CipherSuite;
+import org.conscrypt.metrics.ConscryptStatsLog;
+import org.conscrypt.metrics.Protocol;
 
 /**
  * Platform-specific methods for unbundled Android.
@@ -72,6 +76,7 @@ final class Platform {
             m_getCurveName = ECParameterSpec.class.getDeclaredMethod("getCurveName");
             m_getCurveName.setAccessible(true);
         } catch (Exception ignored) {
+            //Ignored
         }
     }
 
@@ -124,6 +129,7 @@ final class Platform {
             Method setCurveName = spec.getClass().getDeclaredMethod("setCurveName", String.class);
             setCurveName.invoke(spec, curveName);
         } catch (Exception ignored) {
+            //Ignored
         }
     }
 
@@ -244,7 +250,9 @@ final class Platform {
                 }
             }
         } catch (NoSuchMethodException ignored) {
+            //Ignored
         } catch (IllegalAccessException ignored) {
+            //Ignored
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e.getCause());
         }
@@ -262,7 +270,9 @@ final class Platform {
                 }
             }
         } catch (NoSuchMethodException ignored) {
+            //Ignored
         } catch (IllegalAccessException ignored) {
+            //Ignored
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e.getCause());
         }
@@ -306,7 +316,9 @@ final class Platform {
                 setParametersSniHostname(params, impl, socket);
             }
         } catch (NoSuchMethodException ignored) {
+            //Ignored
         } catch (IllegalAccessException ignored) {
+            //Ignored
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e.getCause());
         }
@@ -333,7 +345,9 @@ final class Platform {
                 setParametersSniHostname(params, impl, engine);
             }
         } catch (NoSuchMethodException ignored) {
+            //Ignored
         } catch (IllegalAccessException ignored) {
+            //Ignored
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e.getCause());
         }
@@ -359,6 +373,7 @@ final class Platform {
             try {
                 return Class.forName(klass);
             } catch (Exception ignored) {
+                //Ignored
             }
         }
         return null;
@@ -388,7 +403,9 @@ final class Platform {
             method.invoke(tm, chain, authType, argumentInstance);
             return true;
         } catch (NoSuchMethodException ignored) {
+            //Ignored
         } catch (IllegalAccessException ignored) {
+            //Ignored
         } catch (InvocationTargetException e) {
             if (e.getCause() instanceof CertificateException) {
                 throw(CertificateException) e.getCause();
@@ -826,6 +843,7 @@ final class Platform {
             }
             throw new RuntimeException(e);
         } catch (Exception ignored) {
+            //Ignored
         }
 
         // Newer OpenJDK style
@@ -847,6 +865,7 @@ final class Platform {
             }
             throw new RuntimeException(e);
         } catch (Exception ignored) {
+            //Ignored
         }
 
         return oid;
@@ -884,7 +903,9 @@ final class Platform {
             } catch (ClassNotFoundException ignore) {
                 // passthrough and return addr.getHostAddress()
             } catch (IllegalAccessException ignore) {
+                //Ignored
             } catch (NoSuchMethodException ignore) {
+                //Ignored
             }
         }
         return addr.getHostAddress();
@@ -902,6 +923,7 @@ final class Platform {
             } catch (InvocationTargetException e) {
                 throw new RuntimeException(e);
             } catch (Exception ignored) {
+                //Ignored
             }
         }
         return null;
@@ -984,7 +1006,7 @@ final class Platform {
         return null;
     }
 
-    static CertBlacklist newDefaultBlacklist() {
+    static CertBlocklist newDefaultBlocklist() {
         return null;
     }
 
@@ -1018,5 +1040,40 @@ final class Platform {
             }
         }
         return false;
+    }
+
+    public static ConscryptHostnameVerifier getDefaultHostnameVerifier() {
+        return OkHostnameVerifier.strictInstance();
+    }
+
+    /**
+     * Returns milliseconds elapsed since boot, including time spent in sleep.
+     * @return long number of milliseconds elapsed since boot
+     */
+    static long getMillisSinceBoot() {
+        return SystemClock.elapsedRealtime();
+    }
+
+    static void countTlsHandshake(
+            boolean success, String protocol, String cipherSuite, long duration) {
+        // Statsd classes appeared in SDK 30 and aren't available in earlier versions
+
+        if (Build.VERSION.SDK_INT >= 30) {
+            Protocol proto = Protocol.forName(protocol);
+            CipherSuite suite = CipherSuite.forName(cipherSuite);
+            int dur = (int) duration;
+
+            writeStats(success, proto.getId(), suite.getId(), dur);
+        }
+    }
+
+    @TargetApi(30)
+    private static void writeStats(boolean success, int protocol, int cipherSuite, int duration) {
+        ConscryptStatsLog.write(
+                ConscryptStatsLog.TLS_HANDSHAKE_REPORTED, success, protocol, cipherSuite, duration);
+    }
+
+    public static boolean isJavaxCertificateSupported() {
+        return true;
     }
 }

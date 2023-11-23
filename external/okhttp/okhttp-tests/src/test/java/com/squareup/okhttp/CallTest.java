@@ -1650,9 +1650,16 @@ public final class CallTest {
   }
 
   @Test public void cancelInFlightBeforeResponseReadThrowsIOE() throws Exception {
+    final CountDownLatch cancelSignal = new CountDownLatch(1);
+
     server.setDispatcher(new Dispatcher() {
       @Override public MockResponse dispatch(RecordedRequest request) {
         client.cancel("request");
+        try {
+          cancelSignal.await(10L, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            // Do nothing
+        }
         return new MockResponse().setBody("A");
       }
     });
@@ -1662,6 +1669,7 @@ public final class CallTest {
       client.newCall(request).execute();
       fail();
     } catch (IOException expected) {
+      cancelSignal.countDown();
     }
   }
 

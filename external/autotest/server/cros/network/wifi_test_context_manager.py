@@ -147,7 +147,8 @@ class WiFiTestContextManager(object):
         return self.router.host
 
 
-    def configure(self, ap_config, multi_interface=None, is_ibss=None):
+    def configure(self, ap_config, multi_interface=None, is_ibss=None,
+                  configure_pcap=False):
         """Configure a router with the given config.
 
         Configures an AP according to the specified config and
@@ -158,25 +159,32 @@ class WiFiTestContextManager(object):
         @param multi_interface True iff having multiple configured interfaces
                 is expected for this configure call.
         @param is_ibss True iff this is an IBSS endpoint.
-
+        @param configure_pcap True iff pcap_host should be configured for this
+                configure call. Raises a TestNAError if |self._pcap_as_router|
+                is False.
         """
+        if configure_pcap and not self._pcap_as_router:
+            raise error.TestNAError('pcap was not configured as router.')
         if not self.client.is_frequency_supported(ap_config.frequency):
             raise error.TestNAError('DUT does not support frequency: %s' %
                                     ap_config.frequency)
         if ap_config.require_vht:
             self.client.require_capabilities(
                     [site_linux_system.LinuxSystem.CAPABILITY_VHT])
-        ap_config.security_config.install_router_credentials(self.router.host)
+        router = self.router
+        if configure_pcap:
+            router = self.pcap_host
+        ap_config.security_config.install_router_credentials(router.host,
+                                                             router.logdir)
         if is_ibss:
             if multi_interface:
                 raise error.TestFail('IBSS mode does not support multiple '
                                      'interfaces.')
             if not self.client.is_ibss_supported():
                 raise error.TestNAError('DUT does not support IBSS mode')
-            self.router.ibss_configure(ap_config)
+            router.ibss_configure(ap_config)
         else:
-            self.router.hostap_configure(ap_config,
-                                         multi_interface=multi_interface)
+            router.hostap_configure(ap_config, multi_interface=multi_interface)
         if self._enable_client_packet_captures:
             self.client.start_capture(ap_config.frequency,
                                       snaplen=self._packet_capture_snaplen)
@@ -196,8 +204,13 @@ class WiFiTestContextManager(object):
         self.router.sync_host_times()
 
 
-    def _setup_pcap(self):
-        """Set up the pcap device."""
+    def _setup_pcap(self, pcap_as_router=False):
+        """
+        Set up the pcap device.
+
+        @param pcap_as_router optional bool which should be True if the pcap
+                should be configured as a router.
+        """
         ping_helper = ping_runner.PingRunner()
         pcap_addr = dnsname_mangler.get_pcap_addr(
                 self.client.host.hostname,
@@ -205,8 +218,14 @@ class WiFiTestContextManager(object):
                 cmdline_override=self._cmdline_args.get(self.CMDLINE_PCAP_ADDR,
                                                         None))
         if pcap_addr and ping_helper.simple_ping(pcap_addr):
-            self._pcap_host = site_linux_system.LinuxSystem(
-                              hosts.create_host(pcap_addr),'pcap')
+            if pcap_as_router:
+                self._pcap_host = site_linux_router.LinuxRouter(
+                        hosts.create_host(pcap_addr),
+                        role='pcap',
+                        test_name=self._test_name)
+            else:
+                self._pcap_host = site_linux_system.LinuxSystem(
+                                  hosts.create_host(pcap_addr),'pcap')
 
 
     def _setup_attenuator(self):
@@ -229,7 +248,7 @@ class WiFiTestContextManager(object):
                     attenuator_addr)
 
     def setup(self, include_router=True, include_pcap=True,
-            include_attenuator=True):
+            include_attenuator=True, pcap_as_router=False):
         """
         Construct the state used in a WiFi test.
 
@@ -239,11 +258,14 @@ class WiFiTestContextManager(object):
                 device is not used by the test
         @param include_attenuator optional bool which should be False if the
                 attenuator is not used by the test
+        @param pcap_as_router optional bool which should be True if the pcap
+                should be configured as a router.
         """
         if include_router:
             self._setup_router()
         if include_pcap:
-            self._setup_pcap()
+            self._setup_pcap(pcap_as_router)
+            self._pcap_as_router = pcap_as_router
         if include_attenuator:
             self._setup_attenuator()
 

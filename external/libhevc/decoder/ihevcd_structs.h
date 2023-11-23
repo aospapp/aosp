@@ -2039,6 +2039,43 @@ struct _codec_t
      */
     parse_ctxt_t s_parse;
 
+#ifdef KEEP_THREADS_ACTIVE
+    /**
+     * Condition variable to signal process start
+     */
+    void *apv_proc_start_condition[MAX_PROCESS_THREADS];
+
+    /**
+     * Mutex used to keep the functions thread-safe
+     */
+    void *apv_proc_start_mutex[MAX_PROCESS_THREADS];
+
+    /**
+     * Process state start- One for each thread
+     */
+    WORD32 ai4_process_start[MAX_PROCESS_THREADS];
+
+    /**
+     * Condition variable to signal process done
+     */
+    void *apv_proc_done_condition[MAX_PROCESS_THREADS];
+
+    /**
+     * Mutex used to keep the functions thread-safe
+     */
+    void *apv_proc_done_mutex[MAX_PROCESS_THREADS];
+
+    /**
+     * Process state end- One for each thread
+     */
+    WORD32 ai4_process_done[MAX_PROCESS_THREADS];
+
+    /**
+     * Flag to signal processing thread to exit
+     */
+    WORD32 i4_break_threads;
+#endif
+
     /**
      * Processing context - One for each processing thread
      */

@@ -22,6 +22,21 @@
 
 namespace libtextclassifier3 {
 
+const CodepointSpan CodepointSpan::kInvalid =
+    CodepointSpan(kInvalidIndex, kInvalidIndex);
+
+const TokenSpan TokenSpan::kInvalid = TokenSpan(kInvalidIndex, kInvalidIndex);
+
+logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,
+                                         const CodepointSpan& span) {
+  return stream << "CodepointSpan(" << span.first << ", " << span.second << ")";
+}
+
+logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,
+                                         const TokenSpan& span) {
+  return stream << "TokenSpan(" << span.first << ", " << span.second << ")";
+}
+
 logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,
                                          const Token& token) {
   if (!token.is_padding) {

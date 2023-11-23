@@ -763,6 +763,63 @@ if ((err = rtnl_link_add(sk, link, NLM_F_CREATE)) < 0)
 rtnl_link_put(link);
 -----
 
+[[link_macvtap]]
+==== MACVTAP
+
+[source,c]
+-----
+extern struct rtnl_link *rtnl_link_macvtap_alloc(void);
+
+extern int		rtnl_link_is_macvtap(struct rtnl_link *);
+
+extern char *		rtnl_link_macvtap_mode2str(int, char *, size_t);
+extern int		rtnl_link_macvtap_str2mode(const char *);
+
+extern char *		rtnl_link_macvtap_flags2str(int, char *, size_t);
+extern int		rtnl_link_macvtap_str2flags(const char *);
+
+extern int		rtnl_link_macvtap_set_mode(struct rtnl_link *,
+			                           uint32_t);
+extern uint32_t		rtnl_link_macvtap_get_mode(struct rtnl_link *);
+
+extern int		rtnl_link_macvtap_set_flags(struct rtnl_link *,
+			                            uint16_t);
+extern int		rtnl_link_macvtap_unset_flags(struct rtnl_link *,
+			                              uint16_t);
+extern uint16_t		rtnl_link_macvtap_get_flags(struct rtnl_link *);
+-----
+
+.Example: Add a MACVTAP device
+[source,c]
+-----
+struct rtnl_link *link;
+int master_index;
+struct nl_addr* addr;
+
+/* lookup interface index of eth0 */
+if (!(master_index = rtnl_link_name2i(link_cache, "eth0")))
+	/* error */
+
+/* allocate new link object of type macvtap */
+link = rtnl_link_macvtap_alloc();
+
+/* set eth0 to be our master device */
+rtnl_link_set_link(link, master_index);
+
+/* set address of virtual interface */
+addr = nl_addr_build(AF_LLC, ether_aton("00:11:22:33:44:55"), ETH_ALEN);
+rtnl_link_set_addr(link, addr);
+nl_addr_put(addr);
+
+/* set mode of virtual interface */
+rtnl_link_macvtap_set_mode(link, rtnl_link_macvtap_str2mode("bridge"));
+
+if ((err = rtnl_link_add(sk, link, NLM_F_CREATE)) < 0)
+	/* error */
+
+rtnl_link_put(link);
+-----
+
 [[link_vxlan]]
 ==== VXLAN
 
@@ -892,7 +949,7 @@ extern uint8_t rtnl_link_ipip_get_pmtudisc(struct rtnl_link *link);
 struct rtnl_link *link
 struct in_addr addr
 
-/* allocate new link object of type vxlan */
+/* allocate new link object of type ipip */
 if(!(link = rtnl_link_ipip_alloc()))
         /* error */
 
@@ -970,7 +1027,7 @@ extern uint8_t rtnl_link_ipgre_get_pmtudisc(struct rtnl_link *link);
 struct rtnl_link *link
 struct in_addr addr
 
-/* allocate new link object of type vxlan */
+/* allocate new link object of type ipgre */
 if(!(link = rtnl_link_ipgre_alloc()))
 	/* error */
 
@@ -1048,7 +1105,7 @@ extern uint8_t rtnl_link_sit_get_pmtudisc(struct rtnl_link *link);
 struct rtnl_link *link
 struct in_addr addr
 
-/* allocate new link object of type vxlan */
+/* allocate new link object of type sit */
 if(!(link = rtnl_link_sit_alloc()))
 	/* error */
 
@@ -1093,10 +1150,10 @@ extern int rtnl_link_ipvti_set_link(struct rtnl_link *link,  uint32_t index);
 extern uint32_t rtnl_link_ipvti_get_link(struct rtnl_link *link);
 
 extern int rtnl_link_ipvti_set_ikey(struct rtnl_link *link, uint32_t ikey);
-extern uint32_t rtnl_link_get_ikey(struct rtnl_link *link);
+extern uint32_t rtnl_link_ipvti_get_ikey(struct rtnl_link *link);
 
 extern int rtnl_link_ipvti_set_okey(struct rtnl_link *link, uint32_t okey);
-extern uint32_t rtnl_link_get_okey(struct rtnl_link *link)
+extern uint32_t rtnl_link_ipvti_get_okey(struct rtnl_link *link)
 
 extern int rtnl_link_ipvti_set_local(struct rtnl_link *link, uint32_t addr);
 extern uint32_t rtnl_link_ipvti_get_local(struct rtnl_link *link);
@@ -1112,7 +1169,7 @@ extern uint32_t rtnl_link_ipvti_get_remote(struct rtnl_link *link);
 struct rtnl_link *link
 struct in_addr addr
 
-/* allocate new link object of type vxlan */
+/* allocate new link object of type ipvti */
 if(!(link = rtnl_link_ipvti_alloc()))
 	/* error */
 
@@ -1199,6 +1256,49 @@ rtnl_link_put(link);
 
 -----
 
+
+[[link_xfrmi]]
+==== XFRMI
+
+[source,c]
+-----
+extern struct rtnl_link *rtnl_link_xfrmi_alloc(void);
+
+extern int rtnl_link_xfrmi_set_link(struct rtnl_link *link,  uint32_t index);
+extern uint32_t rtnl_link_xfrmi_get_link(struct rtnl_link *link);
+
+extern int rtnl_link_xfrmi_set_if_id(struct rtnl_link *link, uint32_t if_id);
+extern uint32_t rtnl_link_xfrmi_get_if_id(struct rtnl_link *link);
+
+-----
+
+.Example: Add a xfrmi device
+[source,c]
+-----
+struct rtnl_link *link
+struct in_addr addr
+
+/* allocate new link object of type xfrmi */
+if(!(link = rtnl_link_xfrmi_alloc()))
+	/* error */
+
+/* set xfrmi name */
+if ((err = rtnl_link_set_name(link, "ipsec0")) < 0)
+	/* error */
+
+/* set link index  */
+if ((err = rtnl_link_xfrmi_set_link(link, if_index)) < 0)
+	/* error */
+
+/* set if_id */
+if ((err = rtnl_link_xfrmi_set_if_id(link, 16)) < 0)
+	/* error */
+
+if((err = rtnl_link_add(sk, link, NLM_F_CREATE)) < 0)
+	/* error */
+
+rtnl_link_put(link);
+-----
 
 == Neighbouring
 

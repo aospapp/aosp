@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -123,7 +123,12 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
   image=AcquireImage(image_info,exception);
   (void) ResetImagePage(image,"0x0+0+0");
   if ((image->columns != 0) && (image->rows != 0))
-    (void) SetImageBackgroundColor(image,exception);
+    {
+      status=SetImageExtent(image,image->columns,image->rows,exception);
+      if (status == MagickFalse)
+        return(DestroyImageList(image));
+      (void) SetImageBackgroundColor(image,exception);
+    }
   label=InterpretImageProperties((ImageInfo *) image_info,image,
     image_info->filename,exception);
   if (label == (char *) NULL)
@@ -217,7 +222,7 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
         }
         if (status != MagickFalse)
           {
-            draw_info->pointsize=(low+high)/2.0-0.5;
+            draw_info->pointsize=floor((low+high)/2.0-0.5);
             status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
           }
       }
@@ -234,8 +239,7 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
     image->columns=(size_t) floor(draw_info->pointsize+draw_info->stroke_width+
       0.5);
   if (image->rows == 0)
-    image->rows=(size_t) floor(metrics.ascent-metrics.descent+
-      draw_info->stroke_width+0.5);
+    image->rows=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
   if (image->rows == 0)
     image->rows=(size_t) floor(draw_info->pointsize+draw_info->stroke_width+
       0.5);
@@ -261,14 +265,8 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
   (void) CloneString(&draw_info->geometry,geometry);
   status=AnnotateImage(image,draw_info,exception);
   if (image_info->pointsize == 0.0)
-    {
-      char
-        pointsize[MagickPathExtent];
-
-      (void) FormatLocaleString(pointsize,MagickPathExtent,"%.20g",
-        draw_info->pointsize);
-      (void) SetImageProperty(image,"label:pointsize",pointsize,exception);
-    }
+    (void) FormatImageProperty(image,"label:pointsize","%.20g",
+      draw_info->pointsize);
   draw_info=DestroyDrawInfo(draw_info);
   if (status == MagickFalse)
     {

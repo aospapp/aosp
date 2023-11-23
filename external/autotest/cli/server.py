@@ -18,6 +18,8 @@ The common options are:
 See topic_common.py for a High Level Design and Algorithm.
 """
 
+from __future__ import print_function
+
 import common
 
 from autotest_lib.cli import action_common
@@ -134,7 +136,7 @@ class server(topic_common.atest):
 
         @param results: return of the execute call.
         """
-        print results
+        print(results)
 
 
 class server_help(server):
@@ -240,7 +242,7 @@ class server_list(action_common.atest_list, server):
                 formatter = server_manager_utils.format_servers_nameonly
             else:
                 formatter = server_manager_utils.format_servers
-            print formatter(results)
+            print(formatter(results))
         else:
             self.failure('No server is found.',
                          what_failed='Failed to find servers',
@@ -339,11 +341,11 @@ class server_create(server):
                         contains server information.
         """
         if results:
-            print 'Server %s is added.\n' % self.hostname
-            print results
+            print('Server %s is added.\n' % self.hostname)
+            print(results)
 
             if self.skylab and not self.dryrun and not self.submit:
-                print skylab_utils.get_cl_message(self.change_number)
+                print(skylab_utils.get_cl_message(self.change_number))
 
 
 
@@ -405,11 +407,11 @@ class server_delete(server):
         @param results: return of the execute call.
         """
         if results:
-            print ('Server %s is deleted.\n' %
+            print('Server %s is deleted.\n' %
                    self.hostname)
 
             if self.skylab and not self.dryrun and not self.submit:
-                print skylab_utils.get_cl_message(self.change_number)
+                print(skylab_utils.get_cl_message(self.change_number))
 
 
 
@@ -571,8 +573,8 @@ class server_modify(server):
                         object.
         """
         if results:
-            print 'Server %s is modified.\n' % self.hostname
-            print results
+            print('Server %s is modified.\n' % self.hostname)
+            print(results)
 
             if self.skylab and not self.dryrun and not self.submit:
-                print skylab_utils.get_cl_message(self.change_number)
+                print(skylab_utils.get_cl_message(self.change_number))

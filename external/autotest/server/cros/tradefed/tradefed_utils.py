@@ -9,10 +9,8 @@ import random
 import re
 from xml.etree import ElementTree
 
-from autotest_lib.client.bin import utils as client_utils
 from autotest_lib.client.common_lib import utils as common_utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.server import utils
 from autotest_lib.server.cros import lockfile
 
 PERF_MODULE_NAME_PREFIX = 'CTS.'
@@ -46,13 +44,18 @@ def lock(filename):
                 # team, break the lock and report a failure. This should fix
                 # the lock for following tests. If the failure affects more than
                 # one job look for a deadlock or dev server overload.
-                logging.error('Permanent lock failure. Trying to break lock.')
-                # TODO(ihf): Think how to do this cleaner without having a
-                # recursive lock breaking problem. We may have to kill every
-                # job that is currently waiting. The main goal though really is
-                # to have a cache that does not corrupt. And cache updates
-                # only happen once a month or so, everything else are reads.
-                filelock.break_lock()
+                age = filelock.age_of_lock()
+                logging.error('Permanent lock failure. Lock age = %d.', age)
+                # Breaking a lock is a destructive operation that causes
+                # abort of locking jobs, cleanup and redowloading of cache
+                # contents. When the error was due to overloaded server,
+                # it cause even more cascade of lock errors. Wait 4 hours
+                # before breaking the lock. Tasks inside the critical section
+                # is about downloading a few gigabytes of files. Taking 4 hours
+                # strongly implies the job had went wrong.
+                if age > 4 * 60 * 60:
+                    logging.error('Trying to break lock.')
+                    filelock.break_lock()
                 raise error.TestFail('Error: permanent cache lock failure.')
         else:
             logging.info('Acquired cache lock after %d attempts.', attempts)
@@ -98,18 +101,56 @@ def adb_keepalive(targets, extra_paths):
         common_utils.join_bg_jobs(jobs)
 
 
-@contextlib.contextmanager
-def pushd(d):
-    """Defines pushd.
-    @param d: the directory to change to.
+def parse_tradefed_testresults_xml(test_result_xml_path, waivers=None):
+    """ Check the result from tradefed through test_results.xml
+    @param waivers: a set() of tests which are permitted to fail.
     """
-    current = os.getcwd()
-    os.chdir(d)
+    waived_count = dict()
+    failed_tests = set()
     try:
-        yield
-    finally:
-        os.chdir(current)
+        root = ElementTree.parse(test_result_xml_path)
+        for module in root.iter('Module'):
+            module_name = module.get('name')
+            for testcase in module.iter('TestCase'):
+                testcase_name = testcase.get('name')
+                for test in testcase.iter('Test'):
+                    test_case = test.get('name')
+                    test_res = test.get('result')
+                    test_name = '%s#%s' % (testcase_name, test_case)
 
+                    if test_res == "fail":
+                        test_fail = test.find('Failure')
+                        failed_message = test_fail.get('message')
+                        failed_stacktrace = test_fail.find('StackTrace').text
+
+                        if waivers and test_name in waivers:
+                            waived_count[test_name] = (
+                                waived_count.get(test_name, 0) + 1)
+                        else:
+                            failed_tests.add(test_name)
+
+        # Check for test completion.
+        for summary in root.iter('Summary'):
+            modules_done = summary.get('modules_done')
+            modules_total = summary.get('modules_total')
+
+        if failed_tests:
+            logging.error('Failed (but not waived) tests:\n%s',
+                          '\n'.join(sorted(failed_tests)))
+
+        waived = []
+        for testname, fail_count in waived_count.items():
+            waived += [testname] * fail_count
+            logging.info('Waived failure for %s %d time(s)',
+                         testname, fail_count)
+        logging.info('>> Total waived = %s', waived)
+        return waived, True
+
+    except Exception as e:
+        logging.warning(
+            'Exception raised in '
+            '|tradefed_utils.parse_tradefed_result_xml|: {'
+            '0}'.format(e))
 
 def parse_tradefed_result(result, waivers=None):
     """Check the result from the tradefed output.
@@ -182,46 +223,47 @@ def parse_tradefed_result(result, waivers=None):
     return waived, accurate
 
 
-def select_32bit_java():
-    """Switches to 32 bit java if installed (like in lab lxc images) to save
-    about 30-40% server/shard memory during the run."""
-    if utils.is_in_container() and not client_utils.is_moblab():
-        java = '/usr/lib/jvm/java-8-openjdk-i386'
-        if os.path.exists(java):
-            logging.info('Found 32 bit java, switching to use it.')
-            os.environ['JAVA_HOME'] = java
-            os.environ['PATH'] = (
-                os.path.join(java, 'bin') + os.pathsep + os.environ['PATH'])
-
 # A similar implementation in Java can be found at
 # https://android.googlesource.com/platform/test/suite_harness/+/refs/heads/\
 # pie-cts-dev/common/util/src/com/android/compatibility/common/util/\
 # ResultHandler.java
 def get_test_result_xml_path(results_destination):
-    """Get the path of test_result.xml from the last session."""
-    last_result_path = None
-    for dir in os.listdir(results_destination):
-        result_dir = os.path.join(results_destination, dir)
-        result_path = os.path.join(result_dir, 'test_result.xml')
-        # We use the lexicographically largest path, because |dir| are
-        # of format YYYY.MM.DD_HH.MM.SS. The last session will always
-        # have the latest date which leads to the lexicographically
-        # largest path.
-        if last_result_path and last_result_path > result_path:
-            continue
-        # We need to check for `islink` as `isdir` returns true if |result_dir|
-        # is a symbolic link to a directory.
-        if not os.path.isdir(result_dir) or os.path.islink(result_dir):
-            continue
-        if not os.path.exists(result_path):
-            continue
-        last_result_path = result_path
-    return last_result_path
+    """Get the path of test_result.xml from the last session.
+    Raises:
+        Should never raise!
+    """
+    try:
+        last_result_path = None
+        for dir in os.listdir(results_destination):
+            result_dir = os.path.join(results_destination, dir)
+            result_path = os.path.join(result_dir, 'test_result.xml')
+            # We use the lexicographically largest path, because |dir| are
+            # of format YYYY.MM.DD_HH.MM.SS. The last session will always
+            # have the latest date which leads to the lexicographically
+            # largest path.
+            if last_result_path and last_result_path > result_path:
+                continue
+            # We need to check for `islink` as `isdir` returns true if
+            # |result_dir| is a symbolic link to a directory.
+            if not os.path.isdir(result_dir) or os.path.islink(result_dir):
+                continue
+            if not os.path.exists(result_path):
+                continue
+            last_result_path = result_path
+        return last_result_path
+    except Exception as e:
+        logging.warning(
+            'Exception raised in '
+            '|tradefed_utils.get_test_result_xml_path|: {'
+            '0}'.format(e))
 
 
 def get_perf_metrics_from_test_result_xml(result_path, resultsdir):
     """Parse test_result.xml and each <Metric /> is mapped to a dict that
-    can be used as kwargs of |TradefedTest.output_perf_value|."""
+    can be used as kwargs of |TradefedTest.output_perf_value|.
+    Raises:
+        Should never raise!
+    """
     try:
         root = ElementTree.parse(result_path)
         for module in root.iter('Module'):

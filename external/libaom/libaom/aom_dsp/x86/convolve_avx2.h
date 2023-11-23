@@ -34,6 +34,31 @@ DECLARE_ALIGNED(32, static const uint8_t, filt4_d4_global_avx2[]) = {
   2, 3, 4, 5, 3, 4, 5, 6, 4, 5, 6, 7, 5, 6, 7, 8,
 };
 
+DECLARE_ALIGNED(32, static const uint8_t, filt_center_global_avx2[32]) = {
+  3, 255, 4, 255, 5, 255, 6, 255, 7, 255, 8, 255, 9, 255, 10, 255,
+  3, 255, 4, 255, 5, 255, 6, 255, 7, 255, 8, 255, 9, 255, 10, 255
+};
+
+DECLARE_ALIGNED(32, static const uint8_t,
+                filt1_global_avx2[32]) = { 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5,
+                                           6, 6, 7, 7, 8, 0, 1, 1, 2, 2, 3,
+                                           3, 4, 4, 5, 5, 6, 6, 7, 7, 8 };
+
+DECLARE_ALIGNED(32, static const uint8_t,
+                filt2_global_avx2[32]) = { 2, 3, 3, 4, 4,  5, 5, 6, 6, 7, 7,
+                                           8, 8, 9, 9, 10, 2, 3, 3, 4, 4, 5,
+                                           5, 6, 6, 7, 7,  8, 8, 9, 9, 10 };
+
+DECLARE_ALIGNED(32, static const uint8_t, filt3_global_avx2[32]) = {
+  4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12,
+  4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12
+};
+
+DECLARE_ALIGNED(32, static const uint8_t, filt4_global_avx2[32]) = {
+  6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14,
+  6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14
+};
+
 #define CONVOLVE_SR_HORIZONTAL_FILTER_8TAP                                     \
   for (i = 0; i < (im_h - 2); i += 2) {                                        \
     __m256i data = _mm256_castsi128_si256(                                     \
@@ -113,8 +138,8 @@ DECLARE_ALIGNED(32, static const uint8_t, filt4_d4_global_avx2[]) = {
       xx_storel_32(p_0, res_0);                                               \
       xx_storel_32(p_1, res_1);                                               \
     } else {                                                                  \
-      *(uint16_t *)p_0 = _mm_cvtsi128_si32(res_0);                            \
-      *(uint16_t *)p_1 = _mm_cvtsi128_si32(res_1);                            \
+      *(uint16_t *)p_0 = (uint16_t)_mm_cvtsi128_si32(res_0);                  \
+      *(uint16_t *)p_1 = (uint16_t)_mm_cvtsi128_si32(res_1);                  \
     }                                                                         \
                                                                               \
     s[0] = s[1];                                                              \
@@ -256,7 +281,7 @@ static INLINE void prepare_coeffs_lowbd(
   // Since all filter co-efficients are even, this change will not affect the
   // end result
   assert(_mm_test_all_zeros(_mm_and_si128(coeffs_8, _mm_set1_epi16(1)),
-                            _mm_set1_epi16(0xffff)));
+                            _mm_set1_epi16((short)0xffff)));
 
   const __m256i coeffs_1 = _mm256_srai_epi16(filter_coeffs, 1);
 

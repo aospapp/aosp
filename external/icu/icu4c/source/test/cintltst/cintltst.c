@@ -42,13 +42,6 @@
 #   include <console.h>
 #endif
 
-// ANDROID_USE_ICU_REG is defined when building against the Android OS source tree.
-// androidicuinit is a static library which helps initialize ICU4C using the data
-// on the device.
-#if defined(__ANDROID__) && defined(ANDROID_USE_ICU_REG)
-#include <androidicuinit/android_icu_reg.h>
-#endif
-
 #define CTST_MAX_ALLOC 8192
 /* Array used as a queue */
 static void * ctst_allocated_stuff[CTST_MAX_ALLOC] = {0};
@@ -312,9 +305,8 @@ static void ctest_appendToDataDirectory(const char *toAppend)
  *                       tests dynamically load some data.
  */
 void ctest_setICU_DATA() {
-    #if defined(__ANDROID__) && defined(ANDROID_USE_ICU_REG)
-    android_icu_register();
-    #else
+    // Android-changed: Do not u_setDataDirectory because libicuuc.so initializes itself.
+    #if !defined(ANDROID_USE_ICU_REG)
     u_setDataDirectory(ctest_dataOutDir());
     #endif
 }
@@ -337,11 +329,7 @@ UBool ctest_resetICU() {
     UErrorCode   status = U_ZERO_ERROR;
     char         *dataDir = safeGetICUDataDirectory();
 
-    #if defined(__ANDROID__) && defined(ANDROID_USE_ICU_REG)
-    android_icu_deregister();
-    #else
     u_cleanup();
-    #endif
     if (!initArgs(gOrigArgc, gOrigArgv, NULL, NULL)) {
         /* Error already displayed. */
         return FALSE;
@@ -533,6 +521,12 @@ U_CFUNC UBool assertTrue(const char* msg, int /*not UBool*/ condition) {
 
 U_CFUNC UBool assertEquals(const char* message, const char* expected,
                            const char* actual) {
+    if (expected == NULL) {
+        expected = "(null)";
+    }
+    if (actual == NULL) {
+        actual = "(null)";
+    }
     if (uprv_strcmp(expected, actual) != 0) {
         log_err("FAIL: %s; got \"%s\"; expected \"%s\"\n",
                 message, actual, expected);
@@ -548,6 +542,12 @@ U_CFUNC UBool assertEquals(const char* message, const char* expected,
 
 U_CFUNC UBool assertUEquals(const char* message, const UChar* expected,
                             const UChar* actual) {
+    if (expected == NULL) {
+        expected = u"(null)";
+    }
+    if (actual == NULL) {
+        actual = u"(null)";
+    }
     for (int32_t i=0;; i++) {
         if (expected[i] != actual[i]) {
             log_err("FAIL: %s; got \"%s\"; expected \"%s\"\n",

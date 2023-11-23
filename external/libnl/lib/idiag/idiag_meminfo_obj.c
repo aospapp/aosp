@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/idiag/idiagnl_meminfo_obj.c Inet Diag Meminfo Object
  *
@@ -80,21 +81,25 @@ void idiagnl_meminfo_set_tmem(struct idiagnl_meminfo *minfo, uint32_t tmem)
 }
 /** @} */
 
-static int idiagnl_meminfo_clone(struct nl_object *_dst, struct nl_object *_src)
+/** @cond SKIP */
+static uint64_t idiagnl_meminfo_compare(struct nl_object *_a, struct nl_object *_b,
+                                     uint64_t attrs, int flags)
 {
-	struct idiagnl_meminfo *dst = (struct idiagnl_meminfo *) _dst;
-	struct idiagnl_meminfo *src = (struct idiagnl_meminfo *) _src;
+	struct idiagnl_meminfo *a = (struct idiagnl_meminfo *) _a;
+	struct idiagnl_meminfo *b = (struct idiagnl_meminfo *) _b;
 
-	memcpy(dst, src, sizeof(struct idiagnl_meminfo));
-
-	return 0;
+	/* meminfo is a very simple object. It has no attribe flags (ce_mask),
+	 * hence compare just returns 0 or 1, not a bit mask of attributes. */
+	return a->idiag_rmem != b->idiag_rmem ||
+	       a->idiag_wmem != b->idiag_wmem ||
+	       a->idiag_fmem != b->idiag_fmem ||
+	       a->idiag_tmem != b->idiag_tmem;
 }
 
-/** @cond SKIP */
 struct nl_object_ops idiagnl_meminfo_obj_ops = {
 	.oo_name	= "idiag/idiag_meminfo",
 	.oo_size	= sizeof(struct idiagnl_meminfo),
-	.oo_clone	= idiagnl_meminfo_clone,
+	.oo_compare     = idiagnl_meminfo_compare,
 };
 /** @endcond */
 /** @} */

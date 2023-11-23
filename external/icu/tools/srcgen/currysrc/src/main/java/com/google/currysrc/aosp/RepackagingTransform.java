@@ -30,6 +30,7 @@ import com.google.currysrc.api.process.ast.ChangeLog;
 import com.google.currysrc.api.process.ast.TypeLocator;
 import com.google.currysrc.processors.AddAnnotation;
 import com.google.currysrc.processors.AddDefaultConstructor;
+import com.google.currysrc.processors.AnnotationInfo;
 import com.google.currysrc.processors.HidePublicClasses;
 import com.google.currysrc.processors.InsertHeader;
 import com.google.currysrc.processors.ModifyQualifiedNames;
@@ -90,6 +91,14 @@ public class RepackagingTransform {
             "flat file containing body declaration identifiers for those classes and members that"
                 + " form part of the core platform api and so require a CorePlatformApi annotation"
                 + " to be added during transformation.")
+            .withRequiredArg()
+            .withValuesConvertedBy(PATH_CONVERTER);
+
+    OptionSpec<Path> stableCorePlatformApiFileOption =
+        optionParser.accepts("stable-core-platform-api-file",
+            "flat file containing body declaration identifiers for those classes and members that"
+                + " form part of the stable core platform api and so require a"
+                + " CorePlatformApi(status = STABLE) annotation to be added during transformation.")
             .withRequiredArg()
             .withValuesConvertedBy(PATH_CONVERTER);
 
@@ -203,6 +212,19 @@ public class RepackagingTransform {
         ruleBuilder.add(createOptionalRule(processor));
       }
 
+      Path stableCorePlatformApiFile = optionSet.valueOf(stableCorePlatformApiFileOption);
+      if (stableCorePlatformApiFile != null) {
+        // AST change: Add CorePlatformApi(status = STABLE) to specified classes and members
+        AddAnnotation processor = AddAnnotation.markerAnnotationWithPropertyFromFlatFile(
+            "libcore.api.CorePlatformApi",
+            "status",
+            Enum.class,
+            new AnnotationInfo.Placeholder("libcore.api.CorePlatformApi.Status.STABLE"),
+            stableCorePlatformApiFile);
+        processor.setListener(changeLog.asAddAnnotationListener());
+        ruleBuilder.add(createOptionalRule(processor));
+      }
+
       Path intraCoreApiFile = optionSet.valueOf(intraCoreApiFileOption);
       if (intraCoreApiFile != null) {
         // AST change: Add IntraCoreApi to specified classes and members
@@ -239,8 +261,8 @@ public class RepackagingTransform {
   }
 
   private static Rule createHidePublicClassesRule() {
-    List<TypeLocator> publicApiClassesWhitelist = Collections.emptyList();
-    return createOptionalRule(new HidePublicClasses(publicApiClassesWhitelist,
+    List<TypeLocator> publicApiClassesAllowlist = Collections.emptyList();
+    return createOptionalRule(new HidePublicClasses(publicApiClassesAllowlist,
         "This class is not part of the Android public SDK API"));
   }
 

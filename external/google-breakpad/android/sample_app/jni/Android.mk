@@ -31,6 +31,9 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := test_google_breakpad
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 LOCAL_SRC_FILES := test_breakpad.cpp
 LOCAL_STATIC_LIBRARIES += breakpad_client
 include $(BUILD_EXECUTABLE)

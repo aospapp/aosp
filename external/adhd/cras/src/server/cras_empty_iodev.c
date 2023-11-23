@@ -15,9 +15,9 @@
 #include "cras_types.h"
 #include "utlist.h"
 
-#define EMPTY_BUFFER_SIZE (16 * 1024)
-#define EMPTY_FRAME_SIZE 4
-#define EMPTY_FRAMES (EMPTY_BUFFER_SIZE / EMPTY_FRAME_SIZE)
+#define EMPTY_BUFFER_SIZE (32 * 1024)
+#define MAX_EMPTY_FRAME_SIZE 8
+#define EMPTY_FRAMES (EMPTY_BUFFER_SIZE / MAX_EMPTY_FRAME_SIZE)
 
 static size_t empty_supported_rates[] = { 44100, 48000, 0 };
 
@@ -199,11 +199,12 @@ struct cras_iodev *empty_iodev_create(enum CRAS_STREAM_DIRECTION direction,
 	iodev->update_active_node = update_active_node;
 	iodev->no_stream = cras_iodev_default_no_stream_playback;
 
-	/* Create a dummy ionode */
+	/* Create an empty ionode */
 	node = (struct cras_ionode *)calloc(1, sizeof(*node));
 	node->dev = iodev;
 	node->type = node_type;
 	node->volume = 100;
+	node->ui_gain_scaler = 1.0f;
 	strcpy(node->name, "(default)");
 	cras_iodev_add_node(iodev, node);
 	cras_iodev_set_active_node(iodev, node);
@@ -229,6 +230,12 @@ struct cras_iodev *empty_iodev_create(enum CRAS_STREAM_DIRECTION direction,
 		iodev->info.name[ARRAY_SIZE(iodev->info.name) - 1] = '\0';
 		iodev->info.idx = SILENT_PLAYBACK_DEVICE;
 	}
+
+	/*
+	 * Record max supported channels into cras_iodev_info.
+	 * The value is the max of empty_supported_channel_counts.
+	 */
+	iodev->info.max_supported_channels = 2;
 
 	return iodev;
 }

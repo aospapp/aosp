@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/genl-ctrl-list.c	List Generic Netlink Families
  *
@@ -11,10 +12,12 @@
 
 #include <netlink/cli/utils.h>
 
+#include <linux/genetlink.h>
+
 static struct nl_cache *alloc_genl_family_cache(struct nl_sock *sk)
 {
 	return nl_cli_alloc_cache(sk, "generic netlink family",
-			   genl_ctrl_alloc_cache);
+				  genl_ctrl_alloc_cache);
 }
 
 static void print_usage(void)
@@ -38,11 +41,11 @@ int main(int argc, char *argv[])
 		.dp_type = NL_DUMP_LINE,
 		.dp_fd = stdout,
 	};
- 
+
 	sock = nl_cli_alloc_socket();
 	nl_cli_connect(sock, NETLINK_GENERIC);
 	family_cache = alloc_genl_family_cache(sock);
- 
+
 	for (;;) {
 		int c, optidx = 0;
 		static struct option long_opts[] = {
@@ -52,7 +55,7 @@ int main(int argc, char *argv[])
 			{ "version", 0, 0, 'v' },
 			{ 0, 0, 0, 0 }
 		};
-	
+
 		c = getopt_long(argc, argv, "df:hv", long_opts, &optidx);
 		if (c == -1)
 			break;
@@ -63,7 +66,7 @@ int main(int argc, char *argv[])
 		case 'h': print_usage(); break;
 		case 'v': nl_cli_print_version(); break;
 		}
- 	}
+	}
 
 	nl_cache_dump(family_cache, &params);
 

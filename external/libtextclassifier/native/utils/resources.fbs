@@ -21,7 +21,6 @@ namespace libtextclassifier3;
 table Resource {
   locale:[int];
   content:string (shared);
-  compressed_content:CompressedBuffer;
 }
 
 namespace libtextclassifier3;
@@ -34,6 +33,5 @@ namespace libtextclassifier3;
 table ResourcePool {
   locale:[LanguageTag];
   resource_entry:[ResourceEntry];
-  compression_dictionary:[ubyte];
 }
 

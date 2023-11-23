@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (c) 2003-2016 International Business Machines
@@ -42,7 +42,6 @@ import android.icu.util.UResourceBundle;
  * @author Alan Liu
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.IntraCoreApi
 public final class ZoneMeta {
     private static final boolean ASSERT = false;
 
@@ -359,7 +358,6 @@ public final class ZoneMeta {
      * Note: This internal API supports all known system IDs and "Etc/Unknown" (which is
      * NOT a system ID).
      */
-    @libcore.api.IntraCoreApi
     public static String getCanonicalCLDRID(String tzid) {
         String canonical = CANONICAL_ID_CACHE.get(tzid);
         if (canonical == null) {

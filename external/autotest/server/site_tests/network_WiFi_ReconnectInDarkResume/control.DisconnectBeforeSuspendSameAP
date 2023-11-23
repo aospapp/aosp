@@ -6,7 +6,7 @@ AUTHOR = 'samueltan, ejcaruso'
 NAME = 'network_WiFi_ReconnectInDarkResume.DisconnectBeforeSuspendSameAP'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'servo, wificell, lucidsleep'
+DEPENDENCIES = 'servo_state:WORKING, wificell, lucidsleep'
 ATTRIBUTES = 'suite:wifi_lucidsleep'
 
 DOC = """

@@ -13,7 +13,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform, kernel"
 TEST_TYPE = "server"
 #ATTRIBUTES = "suite:usb_detect"
-DEPENDENCIES = "servo, kernel_usb"
+DEPENDENCIES = "servo_state:WORKING, kernel_usb"
 
 DOC = """
 This test uses servo to connect USB devices.

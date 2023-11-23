@@ -61,13 +61,11 @@ translate_fill(GLenum mode)
    }
 }
 
-
 void
 st_update_rasterizer(struct st_context *st)
 {
    struct gl_context *ctx = st->ctx;
    struct pipe_rasterizer_state *raster = &st->state.rasterizer;
-   const struct gl_program *vertProg = ctx->VertexProgram._Current;
    const struct gl_program *fragProg = ctx->FragmentProgram._Current;
 
    memset(raster, 0, sizeof(*raster));
@@ -96,13 +94,15 @@ st_update_rasterizer(struct st_context *st)
 
    /* _NEW_LIGHT
     */
-   raster->flatshade = ctx->Light.ShadeModel == GL_FLAT;
+   raster->flatshade = !st->lower_flatshade &&
+                       ctx->Light.ShadeModel == GL_FLAT;
 
    raster->flatshade_first = ctx->Light.ProvokingVertex ==
                              GL_FIRST_VERTEX_CONVENTION_EXT;
 
    /* _NEW_LIGHT | _NEW_PROGRAM */
-   raster->light_twoside = _mesa_vertex_program_two_side_enabled(ctx);
+   if (!st->lower_two_sided_color)
+      raster->light_twoside = _mesa_vertex_program_two_side_enabled(ctx);
 
    /*_NEW_LIGHT | _NEW_BUFFERS */
    raster->clamp_vertex_color = !st->clamp_vert_color_in_shader &&
@@ -198,34 +198,7 @@ st_update_rasterizer(struct st_context *st)
 
    /* ST_NEW_VERTEX_PROGRAM
     */
-   if (vertProg) {
-      if (vertProg->Id == 0) {
-         if (vertProg->info.outputs_written &
-             BITFIELD64_BIT(VARYING_SLOT_PSIZ)) {
-            /* generated program which emits point size */
-            raster->point_size_per_vertex = TRUE;
-         }
-      }
-      else if (ctx->API != API_OPENGLES2) {
-         /* PointSizeEnabled is always set in ES2 contexts */
-         raster->point_size_per_vertex = ctx->VertexProgram.PointSizeEnabled;
-      }
-      else {
-         /* ST_NEW_TESSEVAL_PROGRAM | ST_NEW_GEOMETRY_PROGRAM */
-         /* We have to check the last bound stage and see if it writes psize */
-         struct gl_program *last = NULL;
-         if (ctx->GeometryProgram._Current)
-            last = ctx->GeometryProgram._Current;
-         else if (ctx->TessEvalProgram._Current)
-            last = ctx->TessEvalProgram._Current;
-         else if (ctx->VertexProgram._Current)
-            last = ctx->VertexProgram._Current;
-         if (last)
-            raster->point_size_per_vertex =
-               !!(last->info.outputs_written &
-                  BITFIELD64_BIT(VARYING_SLOT_PSIZ));
-      }
-   }
+   raster->point_size_per_vertex = st_point_size_per_vertex(ctx);
    if (!raster->point_size_per_vertex) {
       /* clamp size now */
       raster->point_size = CLAMP(ctx->Point.Size,
@@ -266,7 +239,7 @@ st_update_rasterizer(struct st_context *st)
    /* _NEW_SCISSOR */
    raster->scissor = !!ctx->Scissor.EnableFlags;
 
-   /* _NEW_FRAG_CLAMP */
+   /* gl_driver_flags::NewFragClamp */
    raster->clamp_fragment_color = !st->clamp_frag_color_in_shader &&
                                   ctx->Color._ClampFragmentColor;
 
@@ -295,8 +268,10 @@ st_update_rasterizer(struct st_context *st)
    }
 
    /* _NEW_TRANSFORM */
-   raster->depth_clip_near = !ctx->Transform.DepthClampNear;
-   raster->depth_clip_far = !ctx->Transform.DepthClampFar;
+   raster->depth_clip_near = st->clamp_frag_depth_in_shader ||
+                             !ctx->Transform.DepthClampNear;
+   raster->depth_clip_far = st->clamp_frag_depth_in_shader ||
+                            !ctx->Transform.DepthClampFar;
    raster->clip_plane_enable = ctx->Transform.ClipPlanesEnabled;
    raster->clip_halfz = (ctx->Transform.ClipDepthMode == GL_ZERO_TO_ONE);
 

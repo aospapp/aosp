@@ -26,8 +26,6 @@ from machine_manager import MockCrosMachine
 
 class SuiteRunnerTest(unittest.TestCase):
   """Class of SuiteRunner test."""
-  real_logger = logger.GetLogger()
-
   mock_json = mock.Mock(spec=json)
   mock_cmd_exec = mock.Mock(spec=command_executer.CommandExecuter)
   mock_cmd_term = mock.Mock(spec=command_executer.CommandTerminator)
@@ -55,12 +53,23 @@ class SuiteRunnerTest(unittest.TestCase):
       '',  # perf_args
       'crosperf_Wrapper')  # suite
 
+  tast_bench = Benchmark(
+      'b3_test',  # name
+      'platform.ReportDiskUsage',  # test_name
+      '',  # test_args
+      1,  # iterations
+      False,  # rm_chroot_tmp
+      '',  # perf_args
+      'tast')  # suite
+
   def __init__(self, *args, **kwargs):
     super(SuiteRunnerTest, self).__init__(*args, **kwargs)
     self.skylab_run_args = []
     self.test_that_args = []
+    self.tast_args = []
     self.call_skylab_run = False
     self.call_test_that_run = False
+    self.call_tast_run = False
 
   def setUp(self):
     self.runner = suite_runner.SuiteRunner(
@@ -90,8 +99,10 @@ class SuiteRunnerTest(unittest.TestCase):
     def reset():
       self.test_that_args = []
       self.skylab_run_args = []
+      self.tast_args = []
       self.call_test_that_run = False
       self.call_skylab_run = False
+      self.call_tast_run = False
 
     def FakeSkylabRun(test_label, benchmark, test_args, profiler_args):
       self.skylab_run_args = [test_label, benchmark, test_args, profiler_args]
@@ -106,8 +117,14 @@ class SuiteRunnerTest(unittest.TestCase):
       self.call_test_that_run = True
       return 'Ran FakeTestThatRun'
 
+    def FakeTastRun(machine, test_label, benchmark):
+      self.tast_args = [machine, test_label, benchmark]
+      self.call_tast_run = True
+      return 'Ran FakeTastRun'
+
     self.runner.Skylab_Run = FakeSkylabRun
     self.runner.Test_That_Run = FakeTestThatRun
+    self.runner.Tast_Run = FakeTastRun
 
     self.runner.dut_config['enable_aslr'] = False
     self.runner.dut_config['cooldown_time'] = 0
@@ -158,6 +175,15 @@ class SuiteRunnerTest(unittest.TestCase):
         'fake_machine', self.mock_label, self.telemetry_crosperf_bench, '', ''
     ])
 
+    # Test tast run for tast benchmarks.
+    reset()
+    self.runner.Run(cros_machine, self.mock_label, self.tast_bench, '', '')
+    self.assertTrue(self.call_tast_run)
+    self.assertFalse(self.call_test_that_run)
+    self.assertFalse(self.call_skylab_run)
+    self.assertEqual(self.tast_args,
+                     ['fake_machine', self.mock_label, self.tast_bench])
+
   def test_gen_test_args(self):
     test_args = '--iterations=2'
     perf_args = 'record -a -e cycles'
@@ -180,16 +206,29 @@ class SuiteRunnerTest(unittest.TestCase):
   @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommand')
   @mock.patch.object(command_executer.CommandExecuter,
                      'ChrootRunCommandWOutput')
-  def test_test_that_run(self, mock_chroot_runcmd, mock_cros_runcmd):
+  def test_tast_run(self, mock_chroot_runcmd, mock_cros_runcmd):
+    mock_chroot_runcmd.return_value = 0
+    self.mock_cmd_exec.ChrootRunCommandWOutput = mock_chroot_runcmd
+    self.mock_cmd_exec.CrosRunCommand = mock_cros_runcmd
+    res = self.runner.Tast_Run('lumpy1.cros', self.mock_label, self.tast_bench)
+    self.assertEqual(mock_cros_runcmd.call_count, 1)
+    self.assertEqual(mock_chroot_runcmd.call_count, 1)
+    self.assertEqual(res, 0)
+    self.assertEqual(mock_cros_runcmd.call_args_list[0][0],
+                     ('rm -rf /usr/local/autotest/results/*',))
+    args_list = mock_chroot_runcmd.call_args_list[0][0]
+    args_dict = mock_chroot_runcmd.call_args_list[0][1]
+    self.assertEqual(len(args_list), 2)
+    self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
 
-    def FakeLogMsg(fd, termfd, msg, flush=True):
-      if fd or termfd or msg or flush:
-        pass
-
-    save_log_msg = self.real_logger.LogMsg
-    self.real_logger.LogMsg = FakeLogMsg
-    self.runner.logger = self.real_logger
-
+  @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommand')
+  @mock.patch.object(command_executer.CommandExecuter,
+                     'ChrootRunCommandWOutput')
+  @mock.patch.object(logger.Logger, 'LogFatal')
+  def test_test_that_run(self, mock_log_fatal, mock_chroot_runcmd,
+                         mock_cros_runcmd):
+    mock_log_fatal.side_effect = SystemExit()
+    self.runner.logger.LogFatal = mock_log_fatal
     # Test crosperf_Wrapper benchmarks cannot take perf_args
     raised_exception = False
     try:
@@ -215,7 +254,6 @@ class SuiteRunnerTest(unittest.TestCase):
     args_dict = mock_chroot_runcmd.call_args_list[0][1]
     self.assertEqual(len(args_list), 2)
     self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
-    self.real_logger.LogMsg = save_log_msg
 
   @mock.patch.object(command_executer.CommandExecuter, 'RunCommandWOutput')
   @mock.patch.object(json, 'loads')

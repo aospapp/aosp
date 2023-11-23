@@ -17,13 +17,17 @@
 #ifndef SRC_TRACE_PROCESSOR_IMPORTERS_PROTO_TRACK_EVENT_PARSER_H_
 #define SRC_TRACE_PROCESSOR_IMPORTERS_PROTO_TRACK_EVENT_PARSER_H_
 
+#include <array>
+#include <map>
+
 #include "perfetto/base/build_config.h"
 #include "perfetto/protozero/field.h"
 #include "src/trace_processor/importers/common/args_tracker.h"
 #include "src/trace_processor/importers/common/slice_tracker.h"
-#include "src/trace_processor/importers/proto/args_table_utils.h"
+#include "src/trace_processor/importers/proto/chrome_string_lookup.h"
 #include "src/trace_processor/storage/trace_storage.h"
 #include "src/trace_processor/timestamped_trace_piece.h"
+#include "src/trace_processor/util/proto_to_args_parser.h"
 
 #include "protos/perfetto/trace/track_event/track_event.pbzero.h"
 
@@ -32,21 +36,22 @@ class Value;
 }
 
 namespace perfetto {
-
 namespace trace_processor {
 
 // Field numbers to be added to args table automatically via reflection
 //
 // TODO(ddrone): replace with a predicate on field id to import new fields
 // automatically
-static constexpr uint16_t kReflectFields[] = {24, 25, 26, 27, 28, 29};
+static constexpr uint16_t kReflectFields[] = {24, 25, 26, 27, 28, 29, 32, 33,
+                                              34, 35, 38, 39, 40, 41, 42, 43};
 
 class PacketSequenceStateGeneration;
 class TraceProcessorContext;
+class TrackEventTracker;
 
 class TrackEventParser {
  public:
-  explicit TrackEventParser(TraceProcessorContext* context);
+  TrackEventParser(TraceProcessorContext*, TrackEventTracker*);
 
   void ParseTrackDescriptor(protozero::ConstBytes);
   UniquePid ParseProcessDescriptor(protozero::ConstBytes);
@@ -63,8 +68,11 @@ class TrackEventParser {
   void ParseChromeThreadDescriptor(UniqueTid, protozero::ConstBytes);
   void ParseCounterDescriptor(TrackId, protozero::ConstBytes);
 
+  // Reflection-based proto TrackEvent field parser.
+  util::ProtoToArgsParser args_parser_;
+
   TraceProcessorContext* context_;
-  ProtoToArgsTable proto_to_args_;
+  TrackEventTracker* track_event_tracker_;
 
   const StringId counter_name_thread_time_id_;
   const StringId counter_name_thread_instruction_count_id_;
@@ -72,6 +80,9 @@ class TrackEventParser {
   const StringId task_function_name_args_key_id_;
   const StringId task_line_number_args_key_id_;
   const StringId log_message_body_key_id_;
+  const StringId source_location_function_name_key_id_;
+  const StringId source_location_file_name_key_id_;
+  const StringId source_location_line_number_key_id_;
   const StringId raw_legacy_event_id_;
   const StringId legacy_event_passthrough_utid_id_;
   const StringId legacy_event_category_key_id_;
@@ -90,15 +101,16 @@ class TrackEventParser {
   const StringId legacy_event_bind_id_key_id_;
   const StringId legacy_event_bind_to_enclosing_key_id_;
   const StringId legacy_event_flow_direction_key_id_;
+  const StringId histogram_name_key_id_;
   const StringId flow_direction_value_in_id_;
   const StringId flow_direction_value_out_id_;
   const StringId flow_direction_value_inout_id_;
   const StringId chrome_legacy_ipc_class_args_key_id_;
   const StringId chrome_legacy_ipc_line_args_key_id_;
+  const StringId chrome_host_app_package_name_id_;
+  const StringId chrome_crash_trace_id_name_id_;
 
-  std::array<StringId, 38> chrome_legacy_ipc_class_ids_;
-  std::array<StringId, 9> chrome_process_name_ids_;
-  std::array<StringId, 14> chrome_thread_name_ids_;
+  ChromeStringLookup chrome_string_lookup_;
   std::array<StringId, 4> counter_unit_ids_;
 
   std::vector<uint16_t> reflect_fields_;

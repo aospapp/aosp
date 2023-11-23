@@ -93,6 +93,7 @@ struct call_resource_copy_region
 struct call_clear
 {
    unsigned buffers;
+   struct pipe_scissor_state scissor_state;
    union pipe_color_union color;
    double depth;
    unsigned stencil;
@@ -128,7 +129,7 @@ struct call_draw_info {
 struct call_get_query_result_resource {
    struct pipe_query *query;
    enum pipe_query_type query_type;
-   boolean wait;
+   bool wait;
    enum pipe_query_value_type result_type;
    int index;
    struct pipe_resource *resource;

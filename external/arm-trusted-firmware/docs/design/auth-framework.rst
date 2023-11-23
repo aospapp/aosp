@@ -619,11 +619,13 @@ recommended to read this guide along with the source code.
 The TBBR CoT
 ~~~~~~~~~~~~
 
-The CoT can be found in ``drivers/auth/tbbr/tbbr_cot.c``. This CoT consists of
-an array of pointers to image descriptors and it is registered in the framework
-using the macro ``REGISTER_COT(cot_desc)``, where 'cot_desc' must be the name
-of the array (passing a pointer or any other type of indirection will cause the
-registration process to fail).
+CoT specific to BL1 and BL2 can be found in ``drivers/auth/tbbr/tbbr_cot_bl1.c``
+and ``drivers/auth/tbbr/tbbr_cot_bl2.c`` respectively. The common CoT used across
+BL1 and BL2 can be found in ``drivers/auth/tbbr/tbbr_cot_common.c``.
+This CoT consists of an array of pointers to image descriptors and it is
+registered in the framework using the macro ``REGISTER_COT(cot_desc)``, where
+``cot_desc`` must be the name of the array (passing a pointer or any other
+type of indirection will cause the registration process to fail).
 
 The number of images participating in the boot process depends on the CoT.
 There is, however, a minimum set of images that are mandatory in TF-A and thus
@@ -702,7 +704,7 @@ Each image descriptor must specify:
    address/size to store the parameter. The CoT is responsible for allocating
    the required memory to store the parameters. This pointer may be NULL.
 
-In the ``tbbr_cot.c`` file, a set of buffers are allocated to store the parameters
+In the ``tbbr_cot*.c`` file, a set of buffers are allocated to store the parameters
 extracted from the certificates. In the case of the TBBR CoT, these parameters
 are hashes and public keys. In DER format, an RSA-4096 public key requires 550
 bytes, and a hash requires 51 bytes. Depending on the CoT and the authentication
@@ -870,32 +872,32 @@ Once the signature has been checked and the certificate authenticated, the
 Trusted World public key needs to be extracted from the certificate. A new entry
 is created in the ``authenticated_data`` array for that purpose. In that entry,
 the corresponding parameter descriptor must be specified along with the buffer
-address to store the parameter value. In this case, the ``tz_world_pk`` descriptor
-is used to extract the public key from an x509v3 extension with OID
+address to store the parameter value. In this case, the ``trusted_world_pk``
+descriptor is used to extract the public key from an x509v3 extension with OID
 ``TRUSTED_WORLD_PK_OID``. The BL31 key certificate will use this descriptor as
 parameter in the signature authentication method. The key is stored in the
-``plat_tz_world_pk_buf`` buffer.
+``trusted_world_pk_buf`` buffer.
 
 The **BL31 Key certificate** is authenticated by checking its digital signature
 using the Trusted World public key obtained previously from the Trusted Key
 certificate. In the image descriptor, we specify a single authentication method
-by signature whose public key is the ``tz_world_pk``. Once this certificate has
-been authenticated, we have to extract the BL31 public key, stored in the
-extension specified by ``bl31_content_pk``. This key will be copied to the
-``plat_content_pk`` buffer.
+by signature whose public key is the ``trusted_world_pk``. Once this certificate
+has been authenticated, we have to extract the BL31 public key, stored in the
+extension specified by ``soc_fw_content_pk``. This key will be copied to the
+``content_pk_buf`` buffer.
 
 The **BL31 certificate** is authenticated by checking its digital signature
 using the BL31 public key obtained previously from the BL31 Key certificate.
-We specify the authentication method using ``bl31_content_pk`` as public key.
+We specify the authentication method using ``soc_fw_content_pk`` as public key.
 After authentication, we need to extract the BL31 hash, stored in the extension
-specified by ``bl31_hash``. This hash will be copied to the ``plat_bl31_hash_buf``
-buffer.
+specified by ``soc_fw_hash``. This hash will be copied to the
+``soc_fw_hash_buf`` buffer.
 
 The **BL31 image** is authenticated by calculating its hash and matching it
 with the hash obtained from the BL31 certificate. The image descriptor contains
 a single authentication method by hash. The parameters to the hash method are
-the reference hash, ``bl31_hash``, and the data to be hashed. In this case, it is
-the whole image, so we specify ``raw_data``.
+the reference hash, ``soc_fw_hash``, and the data to be hashed. In this case,
+it is the whole image, so we specify ``raw_data``.
 
 The image parser library
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -934,7 +936,7 @@ i.e. verify a hash or a digital signature. Arm platforms will use a library
 based on mbed TLS, which can be found in
 ``drivers/auth/mbedtls/mbedtls_crypto.c``. This library is registered in the
 authentication framework using the macro ``REGISTER_CRYPTO_LIB()`` and exports
-three functions:
+four functions:
 
 .. code:: c
 
@@ -945,6 +947,11 @@ three functions:
                          void *pk_ptr, unsigned int pk_len);
     int verify_hash(void *data_ptr, unsigned int data_len,
                     void *digest_info_ptr, unsigned int digest_info_len);
+    int auth_decrypt(enum crypto_dec_algo dec_algo, void *data_ptr,
+                     size_t len, const void *key, unsigned int key_len,
+                     unsigned int key_flags, const void *iv,
+                     unsigned int iv_len, const void *tag,
+                     unsigned int tag_len)
 
 The mbedTLS library algorithm support is configured by both the
 ``TF_MBEDTLS_KEY_ALG`` and ``TF_MBEDTLS_KEY_SIZE`` variables.
@@ -957,6 +964,9 @@ The mbedTLS library algorithm support is configured by both the
 -  ``TF_MBEDTLS_KEY_SIZE`` sets the supported RSA key size for TFA. Valid values
    include 1024, 2048, 3072 and 4096.
 
+-  ``TF_MBEDTLS_USE_AES_GCM`` enables the authenticated decryption support based
+   on AES-GCM algorithm. Valid values are 0 and 1.
+
 .. note::
    If code size is a concern, the build option ``MBEDTLS_SHA256_SMALLER`` can
    be defined in the platform Makefile. It will make mbed TLS use an
@@ -965,6 +975,6 @@ The mbedTLS library algorithm support is configured by both the
 
 --------------
 
-*Copyright (c) 2017-2019, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2017-2020, Arm Limited and Contributors. All rights reserved.*
 
 .. _TBBR-Client specification: https://developer.arm.com/docs/den0006/latest/trusted-board-boot-requirements-client-tbbr-client-armv8-a

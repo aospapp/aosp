@@ -17,7 +17,7 @@
 %                                October 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -133,7 +133,7 @@ typedef struct _EdgeInfo
     bottom;
 } EdgeInfo;
 
-static double GetEdgeBackgroundFactor(const Image *image,
+static double GetEdgeBackgroundCensus(const Image *image,
   const CacheView *image_view,const GravityType gravity,const size_t width,
   const size_t height,const ssize_t x_offset,const ssize_t y_offset,
   ExceptionInfo *exception)
@@ -145,7 +145,7 @@ static double GetEdgeBackgroundFactor(const Image *image,
     *artifact;
 
   double
-    factor;
+    census;
 
   Image
     *edge_image;
@@ -157,7 +157,7 @@ static double GetEdgeBackgroundFactor(const Image *image,
   RectangleInfo
     edge_geometry;
 
-  register const Quantum
+  const Quantum
     *p;
 
   ssize_t
@@ -198,6 +198,9 @@ static double GetEdgeBackgroundFactor(const Image *image,
     }
   }
   GetPixelInfoPixel(image,p,&background);
+  artifact=GetImageArtifact(image,"background");
+  if (artifact != (const char *) NULL)
+    (void) QueryColorCompliance(artifact,AllCompliance,&background,exception);
   artifact=GetImageArtifact(image,"trim:background-color");
   if (artifact != (const char *) NULL)
     (void) QueryColorCompliance(artifact,AllCompliance,&background,exception);
@@ -209,11 +212,11 @@ static double GetEdgeBackgroundFactor(const Image *image,
   edge_image=CropImage(image,&edge_geometry,exception);
   if (edge_image == (Image *) NULL)
     return(0.0);
-  factor=0.0;
+  census=0.0;
   edge_view=AcquireVirtualCacheView(edge_image,exception);
   for (y=0; y < (ssize_t) edge_image->rows; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(edge_view,0,y,edge_image->columns,1,exception);
@@ -223,24 +226,24 @@ static double GetEdgeBackgroundFactor(const Image *image,
     {
       GetPixelInfoPixel(edge_image,p,&pixel);
       if (IsFuzzyEquivalencePixelInfo(&pixel,&background) == MagickFalse)
-        factor++;
+        census++;
       p+=GetPixelChannels(edge_image);
     }
   }
-  factor/=((double) edge_image->columns*edge_image->rows);
+  census/=((double) edge_image->columns*edge_image->rows);
   edge_view=DestroyCacheView(edge_view);
   edge_image=DestroyImage(edge_image);
-  return(factor);
+  return(census);
 }
 
-static inline double GetMinEdgeBackgroundFactor(const EdgeInfo *edge)
+static inline double GetMinEdgeBackgroundCensus(const EdgeInfo *edge)
 {
   double
-    factor;
+    census;
 
-  factor=MagickMin(MagickMin(MagickMin(edge->left,edge->right),edge->top),
+  census=MagickMin(MagickMin(MagickMin(edge->left,edge->right),edge->top),
     edge->bottom);
-  return(factor);
+  return(census);
 }
 
 static RectangleInfo GetEdgeBoundingBox(const Image *image,
@@ -253,7 +256,7 @@ static RectangleInfo GetEdgeBoundingBox(const Image *image,
     *artifact;
 
   double
-    background_factor,
+    background_census,
     percent_background;
 
   EdgeInfo
@@ -278,15 +281,15 @@ static RectangleInfo GetEdgeBoundingBox(const Image *image,
   if (edge_image == (Image *) NULL)
     return(bounds);
   (void) ParseAbsoluteGeometry("0x0+0+0",&edge_image->page);
-  memset(&vertex,0,sizeof(vertex));
+  (void) memset(&vertex,0,sizeof(vertex));
   edge_view=AcquireVirtualCacheView(edge_image,exception);
-  edge.left=GetEdgeBackgroundFactor(edge_image,edge_view,WestGravity,
+  edge.left=GetEdgeBackgroundCensus(edge_image,edge_view,WestGravity,
     1,0,0,0,exception);
-  edge.right=GetEdgeBackgroundFactor(edge_image,edge_view,EastGravity,
+  edge.right=GetEdgeBackgroundCensus(edge_image,edge_view,EastGravity,
     1,0,0,0,exception);
-  edge.top=GetEdgeBackgroundFactor(edge_image,edge_view,NorthGravity,
+  edge.top=GetEdgeBackgroundCensus(edge_image,edge_view,NorthGravity,
     0,1,0,0,exception);
-  edge.bottom=GetEdgeBackgroundFactor(edge_image,edge_view,SouthGravity,
+  edge.bottom=GetEdgeBackgroundCensus(edge_image,edge_view,SouthGravity,
     0,1,0,0,exception);
   percent_background=1.0;
   artifact=GetImageArtifact(edge_image,"trim:percent-background");
@@ -294,80 +297,80 @@ static RectangleInfo GetEdgeBoundingBox(const Image *image,
     percent_background=StringToDouble(artifact,(char **) NULL)/100.0;
   percent_background=MagickMin(MagickMax(1.0-percent_background,MagickEpsilon),
     1.0);
-  background_factor=GetMinEdgeBackgroundFactor(&edge);
-  for ( ; background_factor < percent_background;
-          background_factor=GetMinEdgeBackgroundFactor(&edge))
+  background_census=GetMinEdgeBackgroundCensus(&edge);
+  for ( ; background_census < percent_background;
+          background_census=GetMinEdgeBackgroundCensus(&edge))
   {
     if ((bounds.width == 0) || (bounds.height == 0))
       break;
-    if (fabs(edge.left-background_factor) < MagickEpsilon)
+    if (fabs(edge.left-background_census) < MagickEpsilon)
       {
         /*
           Trim left edge.
         */
         vertex.left++;
         bounds.width--;
-        edge.left=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.left=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthWestGravity,1,bounds.height,(ssize_t) vertex.left,(ssize_t)
           vertex.top,exception);
-        edge.top=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.top=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthWestGravity,bounds.width,1,(ssize_t) vertex.left,(ssize_t)
           vertex.top,exception);
-        edge.bottom=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.bottom=GetEdgeBackgroundCensus(edge_image,edge_view,
           SouthWestGravity,bounds.width,1,(ssize_t) vertex.left,(ssize_t)
           vertex.bottom,exception);
         continue;
       }
-    if (fabs(edge.right-background_factor) < MagickEpsilon)
+    if (fabs(edge.right-background_census) < MagickEpsilon)
       {
         /*
           Trim right edge.
         */
         vertex.right++;
         bounds.width--;
-        edge.right=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.right=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthEastGravity,1,bounds.height,(ssize_t) vertex.right,(ssize_t)
           vertex.top,exception);
-        edge.top=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.top=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthWestGravity,bounds.width,1,(ssize_t) vertex.left,(ssize_t)
           vertex.top,exception);
-        edge.bottom=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.bottom=GetEdgeBackgroundCensus(edge_image,edge_view,
           SouthWestGravity,bounds.width,1,(ssize_t) vertex.left,(ssize_t)
           vertex.bottom,exception);
         continue;
       }
-    if (fabs(edge.top-background_factor) < MagickEpsilon)
+    if (fabs(edge.top-background_census) < MagickEpsilon)
       {
         /*
           Trim top edge.
         */
         vertex.top++;
         bounds.height--;
-        edge.left=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.left=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthWestGravity,1,bounds.height,(ssize_t) vertex.left,(ssize_t)
           vertex.top,exception);
-        edge.right=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.right=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthEastGravity,1,bounds.height,(ssize_t) vertex.right,(ssize_t)
           vertex.top,exception);
-        edge.top=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.top=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthWestGravity,bounds.width,1,(ssize_t) vertex.left,(ssize_t)
           vertex.top,exception);
         continue;
       }
-    if (fabs(edge.bottom-background_factor) < MagickEpsilon)
+    if (fabs(edge.bottom-background_census) < MagickEpsilon)
       {
         /*
           Trim bottom edge.
         */
         vertex.bottom++;
         bounds.height--;
-        edge.left=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.left=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthWestGravity,1,bounds.height,(ssize_t) vertex.left,(ssize_t)
           vertex.top,exception);
-        edge.right=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.right=GetEdgeBackgroundCensus(edge_image,edge_view,
           NorthEastGravity,1,bounds.height,(ssize_t) vertex.right,(ssize_t)
           vertex.top,exception);
-        edge.bottom=GetEdgeBackgroundFactor(edge_image,edge_view,
+        edge.bottom=GetEdgeBackgroundCensus(edge_image,edge_view,
           SouthWestGravity,bounds.width,1,(ssize_t) vertex.left,(ssize_t)
           vertex.bottom,exception);
         continue;
@@ -396,13 +399,13 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
     status;
 
   PixelInfo
-    target[3],
+    target[4],
     zero;
 
   RectangleInfo
     bounds;
 
-  register const Quantum
+  const Quantum
     *p;
 
   ssize_t
@@ -415,10 +418,40 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
   artifact=GetImageArtifact(image,"trim:percent-background");
   if (artifact != (const char *) NULL)
     return(GetEdgeBoundingBox(image,exception));
-  bounds.width=0;
-  bounds.height=0;
-  bounds.x=(ssize_t) image->columns;
-  bounds.y=(ssize_t) image->rows;
+  artifact=GetImageArtifact(image, "trim:edges");
+  if (artifact == (const char *) NULL)
+    {
+      bounds.width=0;
+      bounds.height=0;
+      bounds.x=(ssize_t) image->columns;
+      bounds.y=(ssize_t) image->rows;
+    }
+  else
+    {
+      char
+        *edges,
+        *p,
+        *q;
+
+      bounds.width=(size_t) image->columns;
+      bounds.height=(size_t) image->rows;
+      bounds.x=0;
+      bounds.y=0;
+      edges=AcquireString(artifact);
+      q=edges;
+      while ((p=StringToken(",",&q)) != (char *) NULL)
+      {
+        if (LocaleCompare(p,"north") == 0)
+          bounds.y=(ssize_t) image->rows;
+        if (LocaleCompare(p,"east") == 0)
+          bounds.width=0;
+        if (LocaleCompare(p,"south") == 0)
+          bounds.height=0;
+        if (LocaleCompare(p,"west") == 0)
+          bounds.x=(ssize_t) image->columns;
+      }
+      edges=DestroyString(edges);
+    }
   GetPixelInfo(image,&target[0]);
   image_view=AcquireVirtualCacheView(image,exception);
   p=GetCacheViewVirtualPixels(image_view,0,0,1,1,exception);
@@ -438,6 +471,10 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
     exception);
   if (p != (const Quantum *) NULL)
     GetPixelInfoPixel(image,p,&target[2]);
+  p=GetCacheViewVirtualPixels(image_view,(ssize_t) image->columns-1,(ssize_t)
+    image->rows-1,1,1,exception);
+  if (p != (const Quantum *) NULL)
+    GetPixelInfoPixel(image,p,&target[3]);
   status=MagickTrue;
   GetPixelInfo(image,&zero);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
@@ -452,10 +489,10 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
     RectangleInfo
       bounding_box;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -486,6 +523,13 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
       if ((y > (ssize_t) bounding_box.height) &&
           (IsFuzzyEquivalencePixelInfo(&pixel,&target[2]) == MagickFalse))
         bounding_box.height=(size_t) y;
+      if ((x < (ssize_t) bounding_box.width) &&
+          (y > (ssize_t) bounding_box.height) &&
+          (IsFuzzyEquivalencePixelInfo(&pixel,&target[3]) == MagickFalse))
+        {
+          bounding_box.width=(size_t) x;
+          bounding_box.height=(size_t) y;
+        }
       p+=GetPixelChannels(image);
     }
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
@@ -512,6 +556,307 @@ MagickExport RectangleInfo GetImageBoundingBox(const Image *image,
       bounds.height-=(bounds.y-1);
     }
   return(bounds);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   G e t I m a g e C o n v e x H u l l                                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  GetImageConvexHull() returns the convex hull points of an image canvas.
+%
+%  The format of the GetImageConvexHull method is:
+%
+%      PointInfo *GetImageConvexHull(const Image *image,
+%        size_t number_vertices,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o number_vertices: the number of vertices in the convex hull.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+
+static double LexicographicalOrder(PointInfo *a,PointInfo *b,PointInfo *c)
+{
+  /*
+    Order by x-coordinate, and in case of a tie, by y-coordinate.
+  */
+  return((b->x-a->x)*(c->y-a->y)-(b->y-a->y)*(c->x-a->x));
+}
+
+static PixelInfo GetEdgeBackgroundColor(const Image *image,
+  const CacheView *image_view,ExceptionInfo *exception)
+{
+  const char
+    *artifact;
+
+  double
+    census[4],
+    edge_census;
+
+  PixelInfo
+    background[4],
+    edge_background;
+
+  ssize_t
+    i;
+
+  /*
+    Most dominant color of edges/corners is the background color of the image.
+  */
+  artifact=GetImageArtifact(image,"convex-hull:background-color");
+  if (artifact == (const char *) NULL)
+    artifact=GetImageArtifact(image,"background");
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+  #pragma omp parallel for schedule(static)
+#endif
+  for (i=0; i < 4; i++)
+  {
+    CacheView
+      *edge_view;
+
+    GravityType
+      gravity;
+
+    Image
+      *edge_image;
+
+    PixelInfo
+      pixel;
+
+    RectangleInfo
+      edge_geometry;
+
+    const Quantum
+      *p;
+
+    ssize_t
+      y;
+
+    census[i]=0.0;
+    (void) memset(&edge_geometry,0,sizeof(edge_geometry));
+    switch (i)
+    {
+      case 0:
+      default:
+      {
+        p=GetCacheViewVirtualPixels(image_view,0,(ssize_t) image->rows-1,1,1,
+          exception);
+        gravity=WestGravity;
+        edge_geometry.width=1;
+        edge_geometry.height=0;
+        break;
+      }
+      case 1:
+      {
+        p=GetCacheViewVirtualPixels(image_view,(ssize_t) image->columns-1,0,1,1,
+          exception);
+        gravity=EastGravity;
+        edge_geometry.width=1;
+        edge_geometry.height=0;
+        break;
+      }
+      case 2:
+      {
+        p=GetCacheViewVirtualPixels(image_view,0,0,1,1,exception);
+        gravity=NorthGravity;
+        edge_geometry.width=0;
+        edge_geometry.height=1;
+        break;
+      }
+      case 3:
+      {
+        p=GetCacheViewVirtualPixels(image_view,(ssize_t) image->columns-1,
+          (ssize_t) image->rows-1,1,1,exception);
+        gravity=SouthGravity;
+        edge_geometry.width=0;
+        edge_geometry.height=1;
+        break;
+      }
+    }
+    GetPixelInfoPixel(image,p,background+i);
+    if (artifact != (const char *) NULL)
+      (void) QueryColorCompliance(artifact,AllCompliance,background+i,
+        exception);
+    GravityAdjustGeometry(image->columns,image->rows,gravity,&edge_geometry);
+    edge_image=CropImage(image,&edge_geometry,exception);
+    if (edge_image == (Image *) NULL)
+      continue;
+    edge_view=AcquireVirtualCacheView(edge_image,exception);
+    for (y=0; y < (ssize_t) edge_image->rows; y++)
+    {
+      ssize_t
+        x;
+
+      p=GetCacheViewVirtualPixels(edge_view,0,y,edge_image->columns,1,
+        exception);
+      if (p == (const Quantum *) NULL)
+        break;
+      for (x=0; x < (ssize_t) edge_image->columns; x++)
+      {
+        GetPixelInfoPixel(edge_image,p,&pixel);
+        if (IsFuzzyEquivalencePixelInfo(&pixel,background+i) == MagickFalse)
+          census[i]++;
+        p+=GetPixelChannels(edge_image);
+      }
+    }
+    edge_view=DestroyCacheView(edge_view);
+    edge_image=DestroyImage(edge_image);
+  }
+  edge_census=(-1.0);
+  for (i=0; i < 4; i++)
+    if (census[i] > edge_census)
+      {
+        edge_background=background[i];
+        edge_census=census[i];
+      }
+  return(edge_background);
+}
+
+void TraceConvexHull(PointInfo *vertices,size_t number_vertices,
+  PointInfo ***monotone_chain,size_t *chain_length)
+{
+  PointInfo
+    **chain;
+
+  ssize_t
+    i;
+
+  size_t
+    demark,
+    n;
+
+  /*
+    Construct the upper and lower hulls: rightmost to leftmost counterclockwise.
+  */
+  chain=(*monotone_chain);
+  n=0;
+  for (i=0; i < (ssize_t) number_vertices; i++)
+  {
+    while ((n >= 2) &&
+           (LexicographicalOrder(chain[n-2],chain[n-1],&vertices[i]) <= 0.0))
+      n--;
+    chain[n++]=(&vertices[i]);
+  }
+  demark=n+1;
+  for (i=(ssize_t) number_vertices-2; i >= 0; i--)
+  {
+    while ((n >= demark) &&
+           (LexicographicalOrder(chain[n-2],chain[n-1],&vertices[i]) <= 0.0))
+      n--;
+    chain[n++]=(&vertices[i]);
+  }
+  *chain_length=n;
+}
+
+MagickExport PointInfo *GetImageConvexHull(const Image *image,
+  size_t *number_vertices,ExceptionInfo *exception)
+{
+  CacheView
+    *image_view;
+
+  MagickBooleanType
+    status;
+
+  MemoryInfo
+    *monotone_info,
+    *vertices_info;
+
+  PixelInfo
+    background;
+
+  PointInfo
+    *convex_hull,
+    **monotone_chain,
+    *vertices;
+
+  size_t
+    n;
+
+  ssize_t
+    y;
+
+  /*
+    Identify convex hull vertices of image foreground object(s).
+  */
+  assert(image != (Image *) NULL);
+  assert(image->signature == MagickCoreSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  *number_vertices=0;
+  vertices_info=AcquireVirtualMemory(image->columns,image->rows*
+    sizeof(*vertices));
+  monotone_info=AcquireVirtualMemory(2*image->columns,2*
+    image->rows*sizeof(*monotone_chain));
+  if ((vertices_info == (MemoryInfo *) NULL) ||
+      (monotone_info == (MemoryInfo *) NULL))
+    {
+      if (monotone_info != (MemoryInfo *) NULL)
+        monotone_info=(MemoryInfo *) RelinquishVirtualMemory(monotone_info);
+      if (vertices_info != (MemoryInfo *) NULL)
+        vertices_info=RelinquishVirtualMemory(vertices_info);
+      return((PointInfo *) NULL);
+    }
+  vertices=(PointInfo *) GetVirtualMemoryBlob(vertices_info);
+  monotone_chain=(PointInfo **) GetVirtualMemoryBlob(monotone_info);
+  image_view=AcquireVirtualCacheView(image,exception);
+  background=GetEdgeBackgroundColor(image,image_view,exception);
+  status=MagickTrue;
+  n=0;
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    const Quantum
+      *p;
+
+    ssize_t
+      x;
+
+    if (status == MagickFalse)
+      continue;
+    p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);
+    if (p == (const Quantum *) NULL)
+      {
+        status=MagickFalse;
+        continue;
+      }
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      PixelInfo
+        pixel;
+
+      GetPixelInfoPixel(image,p,&pixel);
+      if (IsFuzzyEquivalencePixelInfo(&pixel,&background) == MagickFalse)
+        {
+          vertices[n].x=(double) x;
+          vertices[n].y=(double) y;
+          n++;
+        }
+      p+=GetPixelChannels(image);
+    }
+  }
+  image_view=DestroyCacheView(image_view);
+  /*
+    Return the convex hull of the image foreground object(s).
+  */
+  TraceConvexHull(vertices,n,&monotone_chain,number_vertices);
+  convex_hull=(PointInfo *) AcquireQuantumMemory(*number_vertices,
+    sizeof(*convex_hull));
+  if (convex_hull != (PointInfo *) NULL)
+    for (n=0; n < *number_vertices; n++)
+      convex_hull[n]=(*monotone_chain[n]);
+  monotone_info=RelinquishVirtualMemory(monotone_info);
+  vertices_info=RelinquishVirtualMemory(vertices_info);
+  return(convex_hull);
 }
 
 /*
@@ -546,7 +891,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -655,10 +1000,10 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
         const int
           id = GetOpenMPThreadId();
 
-        register const Quantum
+        const Quantum
           *magick_restrict p;
 
-        register ssize_t
+        ssize_t
           x;
 
         if (status == MagickFalse)
@@ -668,7 +1013,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
           continue;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          register ssize_t
+          ssize_t
             i;
 
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -707,10 +1052,10 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
     const int
       id = GetOpenMPThreadId();
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -720,7 +1065,7 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
       continue;
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -758,6 +1103,331 @@ MagickExport size_t GetImageDepth(const Image *image,ExceptionInfo *exception)
       depth=current_depth[i];
   current_depth=(size_t *) RelinquishMagickMemory(current_depth);
   return(depth);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   G e t I m a g e M i n i m u m B o u n d i n g B o x                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  GetImageMinimumBoundingBox() returns the points that form the minimum
+%  bounding box around the image foreground objects with the "Rotating
+%  Calipers" algorithm.  The method also returns these properties:
+%  minimum-bounding-box:area, minimum-bounding-box:width,
+%  minimum-bounding-box:height, and minimum-bounding-box:angle.
+%
+%  The format of the GetImageMinimumBoundingBox method is:
+%
+%      PointInfo *GetImageMinimumBoundingBox(Image *image,
+%        size_t number_vertices,ExceptionInfo *exception)
+%
+%  A description of each parameter follows:
+%
+%    o image: the image.
+%
+%    o number_vertices: the number of vertices in the bounding box.
+%
+%    o exception: return any errors or warnings in this structure.
+%
+*/
+
+typedef struct _CaliperInfo
+{
+  double
+    area,
+    width,
+    height,
+    projection;
+
+  ssize_t
+    p,
+    q,
+    v;
+} CaliperInfo;
+
+static inline double getAngle(PointInfo *p,PointInfo *q)
+{
+  /*
+    Get the angle between line (p,q) and horizontal axis, in degrees.
+  */
+  return(RadiansToDegrees(atan2(q->y-p->y,q->x-p->x)));
+}
+
+static inline double getDistance(PointInfo *p,PointInfo *q)
+{
+  double
+    distance;
+
+  distance=hypot(p->x-q->x,p->y-q->y);
+  return(distance*distance);
+}
+
+static inline double getProjection(PointInfo *p,PointInfo *q,PointInfo *v)
+{
+  double
+    distance;
+
+  /*
+    Projection of vector (x,y) - p into a line passing through p and q.
+  */
+  distance=getDistance(p,q);
+  if (distance < MagickEpsilon)
+    return(INFINITY);
+  return((q->x-p->x)*(v->x-p->x)+(v->y-p->y)*(q->y-p->y))/sqrt(distance);
+}
+
+static inline double getFeretDiameter(PointInfo *p,PointInfo *q,PointInfo *v)
+{
+  double
+    distance;
+
+  /*
+    Distance from a point (x,y) to a line passing through p and q.
+  */
+  distance=getDistance(p,q);
+  if (distance < MagickEpsilon)
+    return(INFINITY);
+  return((q->x-p->x)*(v->y-p->y)-(v->x-p->x)*(q->y-p->y))/sqrt(distance);
+}
+
+MagickExport PointInfo *GetImageMinimumBoundingBox(Image *image,
+  size_t *number_vertices,ExceptionInfo *exception)
+{
+  CaliperInfo
+    caliper_info;
+
+  const char
+    *artifact;
+
+  double
+    angle,
+    diameter,
+    distance;
+
+  PointInfo
+    *bounding_box,
+    *vertices;
+
+  ssize_t
+    i;
+
+  size_t
+    number_hull_vertices;
+
+  /*
+    Generate the minimum bounding box with the "Rotating Calipers" algorithm.
+  */
+  assert(image != (Image *) NULL);
+  assert(image->signature == MagickCoreSignature);
+  if (image->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  *number_vertices=0;
+  vertices=GetImageConvexHull(image,&number_hull_vertices,exception);
+  if (vertices == (PointInfo *) NULL)
+    return((PointInfo *) NULL);
+  *number_vertices=4;
+  bounding_box=(PointInfo *) AcquireQuantumMemory(*number_vertices,
+    sizeof(*bounding_box));
+  if (bounding_box == (PointInfo *) NULL)
+    {
+      vertices=(PointInfo *) RelinquishMagickMemory(vertices);
+      return((PointInfo *) NULL);
+    }
+  caliper_info.area=2.0*image->columns*image->rows;
+  caliper_info.width=(double) image->columns+image->rows;
+  caliper_info.height=0.0;
+  caliper_info.projection=0.0;
+  caliper_info.p=(-1);
+  caliper_info.q=(-1);
+  caliper_info.v=(-1);
+  for (i=0; i < (ssize_t) number_hull_vertices; i++)
+  {
+    double
+      area = 0.0,
+      max_projection = 0.0,
+      min_diameter = -1.0,
+      min_projection = 0.0;
+
+    ssize_t
+      j,
+      k;
+
+    ssize_t
+      p = -1,
+      q = -1,
+      v = -1;
+
+    for (j=0; j < (ssize_t) number_hull_vertices; j++)
+    {
+      double
+        diameter;
+
+      diameter=fabs(getFeretDiameter(&vertices[i],
+        &vertices[(i+1) % number_hull_vertices],&vertices[j]));
+      if (min_diameter < diameter)
+        {
+          min_diameter=diameter;
+          p=i;
+          q=(i+1) % number_hull_vertices;
+          v=j;
+        }
+    }
+    for (k=0; k < (ssize_t) number_hull_vertices; k++)
+    {
+      double
+        projection;
+
+      /*
+        Rotating calipers.
+      */
+      projection=getProjection(&vertices[p],&vertices[q],&vertices[k]);
+      min_projection=MagickMin(min_projection,projection);
+      max_projection=MagickMax(max_projection,projection);
+    }
+    area=min_diameter*(max_projection-min_projection);
+    if (caliper_info.area > area)
+      {
+        caliper_info.area=area;
+        caliper_info.width=min_diameter;
+        caliper_info.height=max_projection-min_projection;
+        caliper_info.projection=max_projection;
+        caliper_info.p=p;
+        caliper_info.q=q;
+        caliper_info.v=v;
+      }
+  }
+  /*
+    Initialize minimum bounding box.
+  */
+  diameter=getFeretDiameter(&vertices[caliper_info.p],
+    &vertices[caliper_info.q],&vertices[caliper_info.v]);
+  angle=atan2(vertices[caliper_info.q].y-vertices[caliper_info.p].y,
+    vertices[caliper_info.q].x-vertices[caliper_info.p].x);
+  bounding_box[0].x=vertices[caliper_info.p].x+cos(angle)*
+    caliper_info.projection;
+  bounding_box[0].y=vertices[caliper_info.p].y+sin(angle)*
+    caliper_info.projection;
+  bounding_box[1].x=floor(bounding_box[0].x+cos(angle+MagickPI/2.0)*diameter+
+    0.5);
+  bounding_box[1].y=floor(bounding_box[0].y+sin(angle+MagickPI/2.0)*diameter+
+    0.5);
+  bounding_box[2].x=floor(bounding_box[1].x+cos(angle)*(-caliper_info.height)+
+    0.5);
+  bounding_box[2].y=floor(bounding_box[1].y+sin(angle)*(-caliper_info.height)+
+    0.5);
+  bounding_box[3].x=floor(bounding_box[2].x+cos(angle+MagickPI/2.0)*(-diameter)+
+    0.5);
+  bounding_box[3].y=floor(bounding_box[2].y+sin(angle+MagickPI/2.0)*(-diameter)+
+    0.5);
+  /*
+    Export minimum bounding box properties.
+  */
+  (void) FormatImageProperty(image,"minimum-bounding-box:area","%.*g",
+    GetMagickPrecision(),caliper_info.area);
+  (void) FormatImageProperty(image,"minimum-bounding-box:width","%.*g",
+    GetMagickPrecision(),caliper_info.width);
+  (void) FormatImageProperty(image,"minimum-bounding-box:height","%.*g",
+    GetMagickPrecision(),caliper_info.height);
+  (void) FormatImageProperty(image,"minimum-bounding-box:_p","%.*g,%.*g",
+    GetMagickPrecision(),vertices[caliper_info.p].x,
+    GetMagickPrecision(),vertices[caliper_info.p].y);
+  (void) FormatImageProperty(image,"minimum-bounding-box:_q","%.*g,%.*g",
+    GetMagickPrecision(),vertices[caliper_info.q].x,
+    GetMagickPrecision(),vertices[caliper_info.q].y);
+  (void) FormatImageProperty(image,"minimum-bounding-box:_v","%.*g,%.*g",
+    GetMagickPrecision(),vertices[caliper_info.v].x,
+    GetMagickPrecision(),vertices[caliper_info.v].y);
+  /*
+    Find smallest angle to origin.
+  */
+  distance=hypot(bounding_box[0].x,bounding_box[0].y);
+  angle=getAngle(&bounding_box[0],&bounding_box[1]);
+  for (i=1; i < 4; i++)
+  {
+    double d = hypot(bounding_box[i].x,bounding_box[i].y);
+    if (d < distance)
+      {
+        distance=d;
+        angle=getAngle(&bounding_box[i],&bounding_box[(i+1) % 4]);
+      }
+  }
+  artifact=GetImageArtifact(image,"minimum-bounding-box:orientation");
+  if (artifact != (const char *) NULL)
+    {
+      double
+        length,
+        q_length,
+        p_length;
+
+      PointInfo
+        delta,
+        point;
+
+      /*
+        Find smallest perpendicular distance from edge to origin.
+      */
+      point=bounding_box[0];
+      for (i=1; i < 4; i++)
+      {
+        if (bounding_box[i].x < point.x)
+          point.x=bounding_box[i].x;
+        if (bounding_box[i].y < point.y)
+          point.y=bounding_box[i].y;
+      }
+      for (i=0; i < 4; i++)
+      {
+        bounding_box[i].x-=point.x;
+        bounding_box[i].y-=point.y;
+      }
+      for (i=0; i < 4; i++)
+      {
+        double
+          d,
+          intercept,
+          slope;
+
+        delta.x=bounding_box[(i+1) % 4].x-bounding_box[i].x;
+        delta.y=bounding_box[(i+1) % 4].y-bounding_box[i].y;
+        slope=delta.y*PerceptibleReciprocal(delta.x);
+        intercept=bounding_box[(i+1) % 4].y-slope*bounding_box[i].x;
+        d=fabs((slope*bounding_box[i].x-bounding_box[i].y+intercept)*
+          PerceptibleReciprocal(sqrt(slope*slope+1.0)));
+        if ((i == 0) || (d < distance))
+          {
+            distance=d;
+            point=delta;
+          }
+      }
+      angle=RadiansToDegrees(atan(point.y*PerceptibleReciprocal(point.x)));
+      length=hypot(point.x,point.y);
+      p_length=fabs((double) MagickMax(caliper_info.width,caliper_info.height)-
+        length);
+      q_length=fabs(length-(double) MagickMin(caliper_info.width,
+        caliper_info.height));
+      if (LocaleCompare(artifact,"landscape") == 0)
+        {
+          if (p_length > q_length)
+            angle+=(angle < 0.0) ? 90.0 : -90.0;
+        }
+      else
+        if (LocaleCompare(artifact,"portrait") == 0)
+          {
+            if (p_length < q_length)
+              angle+=(angle >= 0.0) ? 90.0 : -90.0;
+          }
+    }
+  (void) FormatImageProperty(image,"minimum-bounding-box:angle","%.*g",
+    GetMagickPrecision(),angle);
+  (void) FormatImageProperty(image,"minimum-bounding-box:unrotate","%.*g",
+    GetMagickPrecision(),-angle);
+  vertices=(PointInfo *) RelinquishMagickMemory(vertices);
+  return(bounding_box);
 }
 
 /*
@@ -900,10 +1570,10 @@ MagickExport ImageType IdentifyImageGray(const Image *image,
   ImageType
     type;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t
@@ -982,10 +1652,10 @@ MagickExport MagickBooleanType IdentifyImageMonochrome(const Image *image,
   MagickBooleanType
     bilevel;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register const Quantum
+  const Quantum
     *p;
 
   ssize_t
@@ -1184,10 +1854,10 @@ MagickExport MagickBooleanType IsImageOpaque(const Image *image,
   CacheView
     *image_view;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t
@@ -1277,7 +1947,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
   range=GetQuantumRange(depth);
   if (image->storage_class == PseudoClass)
     {
-      register ssize_t
+      ssize_t
         i;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
@@ -1308,7 +1978,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
       Quantum
         *depth_map;
 
-      register ssize_t
+      ssize_t
         i;
 
       /*
@@ -1326,10 +1996,10 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
 #endif
       for (y=0; y < (ssize_t) image->rows; y++)
       {
-        register ssize_t
+        ssize_t
           x;
 
-        register Quantum
+        Quantum
           *magick_restrict q;
 
         if (status == MagickFalse)
@@ -1343,7 +2013,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
           }
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          register ssize_t
+          ssize_t
             i;
 
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -1384,10 +2054,10 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -1400,7 +2070,7 @@ MagickExport MagickBooleanType SetImageDepth(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)

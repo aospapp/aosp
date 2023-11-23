@@ -25,7 +25,8 @@
 #include <vector>
 
 #include "utils/base/statusor.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/flatbuffers.h"
+#include "utils/flatbuffers/mutable.h"
 #include "utils/intents/remote-action-template.h"
 #include "utils/java/jni-base.h"
 #include "utils/java/jni-cache.h"
@@ -51,7 +52,7 @@ namespace libtextclassifier3 {
 // A helper class to create RemoteActionTemplate object from model results.
 class RemoteActionTemplatesHandler {
  public:
-  static std::unique_ptr<RemoteActionTemplatesHandler> Create(
+  static StatusOr<std::unique_ptr<RemoteActionTemplatesHandler>> Create(
       const std::shared_ptr<JniCache>& jni_cache);
 
   StatusOr<ScopedLocalRef<jstring>> AsUTF8String(

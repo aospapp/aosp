@@ -7,6 +7,7 @@ from email.message import Message
 from test.test_email import TestEmailBase, parameterize
 from email import headerregistry
 from email.headerregistry import Address, Group
+from test.support import ALWAYS_EQ
 
 
 DITTO = object()
@@ -872,6 +873,25 @@ class TestContentDisposition(TestHeaderBase):
             {'filename': 'foo'},
             [errors.InvalidHeaderDefect]),
 
+        'invalid_parameter_value_with_fws_between_ew': (
+            'attachment; filename="=?UTF-8?Q?Schulbesuchsbest=C3=A4ttigung=2E?='
+            '               =?UTF-8?Q?pdf?="',
+            'attachment',
+            {'filename': 'Schulbesuchsbestättigung.pdf'},
+            [errors.InvalidHeaderDefect]*3,
+            ('attachment; filename="Schulbesuchsbestättigung.pdf"'),
+            ('Content-Disposition: attachment;\n'
+             ' filename*=utf-8\'\'Schulbesuchsbest%C3%A4ttigung.pdf\n'),
+            ),
+
+        'parameter_value_with_fws_between_tokens': (
+            'attachment; filename="File =?utf-8?q?Name?= With Spaces.pdf"',
+            'attachment',
+            {'filename': 'File Name With Spaces.pdf'},
+            [errors.InvalidHeaderDefect],
+            'attachment; filename="File Name With Spaces.pdf"',
+            ('Content-Disposition: attachment; filename="File Name With Spaces.pdf"\n'),
+            )
     }
 
 
@@ -1436,6 +1456,25 @@ class TestAddressAndGroup(TestEmailBase):
     #    with self.assertRaises(ValueError):
     #        Address('foo', 'wők', 'example.com')
 
+    def test_crlf_in_constructor_args_raises(self):
+        cases = (
+            dict(display_name='foo\r'),
+            dict(display_name='foo\n'),
+            dict(display_name='foo\r\n'),
+            dict(domain='example.com\r'),
+            dict(domain='example.com\n'),
+            dict(domain='example.com\r\n'),
+            dict(username='wok\r'),
+            dict(username='wok\n'),
+            dict(username='wok\r\n'),
+            dict(addr_spec='wok@example.com\r'),
+            dict(addr_spec='wok@example.com\n'),
+            dict(addr_spec='wok@example.com\r\n')
+        )
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ValueError, "invalid arguments"):
+                Address(**kwargs)
+
     def test_non_ascii_username_in_addr_spec_raises(self):
         with self.assertRaises(ValueError):
             Address('foo', addr_spec='wők@example.com')
@@ -1524,6 +1563,24 @@ class TestAddressAndGroup(TestEmailBase):
         m['To'] = g
         self.assertEqual(m['to'], 'foo bar:;')
         self.assertEqual(m['to'].addresses, g.addresses)
+
+    def test_address_comparison(self):
+        a = Address('foo', 'bar', 'example.com')
+        self.assertEqual(Address('foo', 'bar', 'example.com'), a)
+        self.assertNotEqual(Address('baz', 'bar', 'example.com'), a)
+        self.assertNotEqual(Address('foo', 'baz', 'example.com'), a)
+        self.assertNotEqual(Address('foo', 'bar', 'baz'), a)
+        self.assertFalse(a == object())
+        self.assertTrue(a == ALWAYS_EQ)
+
+    def test_group_comparison(self):
+        a = Address('foo', 'bar', 'example.com')
+        g = Group('foo bar', [a])
+        self.assertEqual(Group('foo bar', (a,)), g)
+        self.assertNotEqual(Group('baz', [a]), g)
+        self.assertNotEqual(Group('foo bar', []), g)
+        self.assertFalse(g == object())
+        self.assertTrue(g == ALWAYS_EQ)
 
 
 class TestFolding(TestHeaderBase):

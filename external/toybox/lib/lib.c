@@ -177,9 +177,11 @@ int mkpathat(int atfd, char *dir, mode_t lastmode, int flags)
   // not-a-directory along the way, but the last one we must explicitly
   // test for. Might as well do it up front.
 
-  if (!fstatat(atfd, dir, &buf, 0) && !S_ISDIR(buf.st_mode)) {
-    errno = EEXIST;
-    return 1;
+  if (!fstatat(atfd, dir, &buf, 0)) {
+    if ((flags&MKPATHAT_MKLAST) && !S_ISDIR(buf.st_mode)) {
+      errno = EEXIST;
+      return 1;
+    } else return 0;
   }
 
   for (s = dir; ;s++) {
@@ -346,7 +348,28 @@ int stridx(char *haystack, char needle)
   return off-haystack;
 }
 
+// Convert wc to utf8, returning bytes written. Does not null terminate.
+int wctoutf8(char *s, unsigned wc)
+{
+  int len = (wc>0x7ff)+(wc>0xffff), i;
+
+  if (wc<128) {
+    *s = wc;
+    return 1;
+  } else {
+    i = len;
+    do {
+      s[1+i] = 0x80+(wc&0x3f);
+      wc >>= 6;
+    } while (i--);
+    *s = (((signed char) 0x80) >> (len+1)) | wc;
+  }
+
+  return 2+len;
+}
+
 // Convert utf8 sequence to a unicode wide character
+// returns bytes consumed, or -1 if err, or -2 if need more data.
 int utf8towc(wchar_t *wc, char *str, unsigned len)
 {
   unsigned result, mask, first;
@@ -375,37 +398,41 @@ int utf8towc(wchar_t *wc, char *str, unsigned len)
   return str-s;
 }
 
+// Convert string to lower case, utf8 aware.
 char *strlower(char *s)
 {
   char *try, *new;
+  int len, mlen = (strlen(s)|7)+9;
+  wchar_t c;
 
-  if (!CFG_TOYBOX_I18N) {
-    try = new = xstrdup(s);
-    for (; *s; s++) *(new++) = tolower(*s);
-  } else {
-    // I can't guarantee the string _won't_ expand during reencoding, so...?
-    try = new = xmalloc(strlen(s)*2+1);
+  try = new = xmalloc(mlen);
 
-    while (*s) {
-      wchar_t c;
-      int len = utf8towc(&c, s, MB_CUR_MAX);
+  while (*s) {
 
-      if (len < 1) *(new++) = *(s++);
-      else {
-        s += len;
-        // squash title case too
-        c = towlower(c);
+    if (1>(len = utf8towc(&c, s, MB_CUR_MAX))) {
+      *(new++) = *(s++);
 
-        // if we had a valid utf8 sequence, convert it to lower case, and can't
-        // encode back to utf8, something is wrong with your libc. But just
-        // in case somebody finds an exploit...
-        len = wcrtomb(new, c, 0);
-        if (len < 1) error_exit("bad utf8 %x", (int)c);
-        new += len;
-      }
+      continue;
     }
-    *new = 0;
+
+    s += len;
+    // squash title case too
+    c = towlower(c);
+
+    // if we had a valid utf8 sequence, convert it to lower case, and can't
+    // encode back to utf8, something is wrong with your libc. But just
+    // in case somebody finds an exploit...
+    len = wcrtomb(new, c, 0);
+    if (len < 1) error_exit("bad utf8 %x", (int)c);
+    new += len;
+
+    // Case conversion can expand utf8 representation, but with extra mlen
+    // space above we should basically never need to realloc
+    if (mlen+4 > (len = new-try)) continue;
+    try = xrealloc(try, mlen = len+16);
+    new = try+len;
   }
+  *new = 0;
 
   return try;
 }
@@ -433,6 +460,29 @@ int unescape(char c)
   int idx = stridx(from, c);
 
   return (idx == -1) ? 0 : to[idx];
+}
+
+// parse next character advancing pointer. echo requires leading 0 in octal esc
+int unescape2(char **c, int echo)
+{
+  int idx = *((*c)++), i, off;
+
+  if (idx != '\\' || !**c) return idx;
+  if (**c == 'c') return 31&*(++*c);
+  for (i = 0; i<4; i++) {
+    if (sscanf(*c, (char *[]){"0%3o%n"+!echo, "x%2x%n", "u%4x%n", "U%6x%n"}[i],
+        &idx, &off) > 0)
+    {
+      *c += off;
+
+      return idx;
+    }
+  }
+
+  if (-1 == (idx = stridx("\\abeEfnrtv'\"?0", **c))) return '\\';
+  ++*c;
+
+  return "\\\a\b\033\033\f\n\r\t\v'\"?"[idx];
 }
 
 // If string ends with suffix return pointer to start of suffix in string,
@@ -472,20 +522,16 @@ off_t fdlength(int fd)
 {
   struct stat st;
   off_t base = 0, range = 1, expand = 1, old;
+  unsigned long long size;
 
   if (!fstat(fd, &st) && S_ISREG(st.st_mode)) return st.st_size;
 
   // If the ioctl works for this, return it.
-  // TODO: is blocksize still always 512, or do we stat for it?
-  // unsigned int size;
-  // if (ioctl(fd, BLKGETSIZE, &size) >= 0) return size*512L;
+  if (get_block_device_size(fd, &size)) return size;
 
   // If not, do a binary search for the last location we can read.  (Some
   // block devices don't do BLKGETSIZE right.)  This should probably have
   // a CONFIG option...
-
-  // If not, do a binary search for the last location we can read.
-
   old = lseek(fd, 0, SEEK_CUR);
   do {
     char temp;
@@ -865,35 +911,36 @@ void exit_signal(int sig)
   xexit();
 }
 
-// Install the same handler on every signal that defaults to killing the
-// process, calling the handler on the way out. Calling multiple times
-// adds the handlers to a list, to be called in order.
+// Install an atexit handler. Also install the same handler on every signal
+// that defaults to killing the process, calling the handler on the way out.
+// Calling multiple times adds the handlers to a list, to be called in LIFO
+// order.
 void sigatexit(void *handler)
 {
+  struct arg_list *al = 0;
+
   xsignal_all_killers(handler ? exit_signal : SIG_DFL);
-
   if (handler) {
-    struct arg_list *al = xmalloc(sizeof(struct arg_list));
-
+    al = xmalloc(sizeof(struct arg_list));
     al->next = toys.xexit;
     al->arg = handler;
-    toys.xexit = al;
-  } else {
-    llist_traverse(toys.xexit, free);
-    toys.xexit = 0;
-  }
+  } else llist_traverse(toys.xexit, free);
+  toys.xexit = al;
 }
 
-// Output a nicely formatted 80-column table of all the signals.
-void list_signals()
+// Output a nicely formatted table of all the signals.
+void list_signals(void)
 {
   int i = 0, count = 0;
+  unsigned cols = 80;
   char *name;
 
+  terminal_size(&cols, 0);
+  cols /= 16;
   for (; i<=NSIG; i++) {
     if ((name = num_to_sig(i))) {
       printf("%2d) SIG%-9s", i, name);
-      if (++count % 5 == 0) putchar('\n');
+      if (++count % cols == 0) putchar('\n');
     }
   }
   putchar('\n');
@@ -931,55 +978,51 @@ mode_t string_to_mode(char *modestr, mode_t mode)
       umask(amask = umask(0));
     }
 
-    if (!*str || !(s = strchr(hows, *str))) goto barf;
-    if (!(dohow = *(str++))) goto barf;
+    // Repeated "hows" are allowed; something like "a=r+w+s" is valid.
+    for (;;) {
+      if (-1 == stridx(hows, dohow = *str)) goto barf;
+      while (*++str && (s = strchr(whats, *str))) dowhat |= 1<<(s-whats);
 
-    while (*str && (s = strchr(whats, *str))) {
-      dowhat |= 1<<(s-whats);
-      str++;
-    }
+      // Convert X to x for directory or if already executable somewhere
+      if ((dowhat&32) && (S_ISDIR(mode) || (mode&0111))) dowhat |= 1;
 
-    // Convert X to x for directory or if already executable somewhere
-    if ((dowhat&32) &&  (S_ISDIR(mode) || (mode&0111))) dowhat |= 1;
+      // Copy mode from another category?
+      if (!dowhat && -1 != (i = stridx(whys, *str))) {
+        dowhat = (mode>>(3*i))&7;
+        str++;
+      }
 
-    // Copy mode from another category?
-    if (!dowhat && *str && (s = strchr(whys, *str))) {
-      dowhat = (mode>>(3*(s-whys)))&7;
-      str++;
-    }
+      // Loop through what=xwrs and who=ogu to apply bits to the mode.
+      for (i=0; i<4; i++) {
+        for (j=0; j<3; j++) {
+          mode_t bit = 0;
+          int where = 1<<((3*i)+j);
 
-    // Are we ready to do a thing yet?
-    if (*str && *(str++) != ',') goto barf;
+          if (amask & where) continue;
 
-    // Loop through what=xwrs and who=ogu to apply bits to the mode.
-    for (i=0; i<4; i++) {
-      for (j=0; j<3; j++) {
-        mode_t bit = 0;
-        int where = 1<<((3*i)+j);
+          // Figure out new value at this location
+          if (i == 3) {
+            // suid and sticky
+            if (!j) bit = dowhat&16; // o+s = t but a+s doesn't set t, hence t
+            else if ((dowhat&8) && (dowho&(8|(1<<j)))) bit++;
+          } else {
+            if (!(dowho&(8|(1<<i)))) continue;
+            else if (dowhat&(1<<j)) bit++;
+          }
 
-        if (amask & where) continue;
-
-        // Figure out new value at this location
-        if (i == 3) {
-          // suid and sticky
-          if (!j) bit = dowhat&16; // o+s = t
-          else if ((dowhat&8) && (dowho&(8|(1<<j)))) bit++;
-        } else {
-          if (!(dowho&(8|(1<<i)))) continue;
-          else if (dowhat&(1<<j)) bit++;
+          // When selection active, modify bit
+          if (dohow == '=' || (bit && dohow == '-')) mode &= ~where;
+          if (bit && dohow != '-') mode |= where;
         }
-
-        // When selection active, modify bit
-
-        if (dohow == '=' || (bit && dohow == '-')) mode &= ~where;
-        if (bit && dohow != '-') mode |= where;
+      }
+      if (!*str) return mode|extrabits;
+      if (*str == ',') {
+        str++;
+        break;
       }
     }
-
-    if (!*str) break;
   }
 
-  return mode|extrabits;
 barf:
   error_exit("bad mode '%s'", modestr);
 }
@@ -1128,18 +1171,24 @@ match:
 }
 
 // display first "dgt" many digits of number plus unit (kilo-exabytes)
-int human_readable_long(char *buf, unsigned long long num, int dgt, int style)
+int human_readable_long(char *buf, unsigned long long num, int dgt, int unit,
+  int style)
 {
   unsigned long long snap = 0;
-  int len, unit, divisor = (style&HR_1000) ? 1000 : 1024;
+  int len, divisor = (style&HR_1000) ? 1000 : 1024;
 
   // Divide rounding up until we have 3 or fewer digits. Since the part we
   // print is decimal, the test is 999 even when we divide by 1024.
-  // We can't run out of units because 1<<64 is 18 exabytes.
-  for (unit = 0; snprintf(0, 0, "%llu", num)>dgt; unit++)
+  // The largest unit we can detect is 1<<64 = 18 Exabytes, but we added
+  // Zettabyte and Yottabyte in case "unit" starts above zero.
+  for (;;unit++) {
+    if ((len = snprintf(0, 0, "%llu", num))<=dgt) break;
     num = ((snap = num)+(divisor/2))/divisor;
+  }
+  if (CFG_TOYBOX_DEBUG && unit>8) return sprintf(buf, "%.*s", dgt, "TILT");
+
   len = sprintf(buf, "%llu", num);
-  if (unit && len == 1) {
+  if (!(style & HR_NODOT) && unit && len == 1) {
     // Redo rounding for 1.2M case, this works with and without HR_1000.
     num = snap/divisor;
     snap -= num*divisor;
@@ -1149,7 +1198,7 @@ int human_readable_long(char *buf, unsigned long long num, int dgt, int style)
   }
   if (style & HR_SPACE) buf[len++] = ' ';
   if (unit) {
-    unit = " kMGTPE"[unit];
+    unit = " kMGTPEZY"[unit];
 
     if (!(style&HR_1000)) unit = toupper(unit);
     buf[len++] = unit;
@@ -1162,7 +1211,7 @@ int human_readable_long(char *buf, unsigned long long num, int dgt, int style)
 // Give 3 digit estimate + units ala 999M or 1.7T
 int human_readable(char *buf, unsigned long long num, int style)
 {
-  return human_readable_long(buf, num, 3, style);
+  return human_readable_long(buf, num, 3, 0, style);
 }
 
 // The qsort man page says you can use alphasort, the posix committee

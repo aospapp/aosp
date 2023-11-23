@@ -21,6 +21,15 @@
 //    adb install -r ${ANDROID_PRODUCT_OUT}/data/app/ObjenesisTck/ObjenesisTck.apk
 //    adb shell am instrument -w org.objenesis.tck.android/.TckInstrumentation
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_objenesis_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_objenesis_license"],
+}
+
 android_test {
     name: "ObjenesisTck",
     sdk_version: "current",

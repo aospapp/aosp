@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2018-2020, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
  */
@@ -16,6 +16,7 @@
 #include <arch.h>
 #include <arch_helpers.h>
 #include <common/debug.h>
+#include <common/fdt_wrappers.h>
 #include <drivers/delay_timer.h>
 #include <drivers/generic_delay_timer.h>
 #include <drivers/st/stm32mp_clkfunc.h>
@@ -105,9 +106,61 @@ enum stm32mp1_parent_sel {
 	_MCUS_SEL,
 	_USBPHY_SEL,
 	_USBO_SEL,
+	_MPU_SEL,
+	_PER_SEL,
+	_RTC_SEL,
 	_PARENT_SEL_NB,
 	_UNKNOWN_SEL = 0xff,
 };
+
+/* State the parent clock ID straight related to a clock */
+static const uint8_t parent_id_clock_id[_PARENT_NB] = {
+	[_HSE] = CK_HSE,
+	[_HSI] = CK_HSI,
+	[_CSI] = CK_CSI,
+	[_LSE] = CK_LSE,
+	[_LSI] = CK_LSI,
+	[_I2S_CKIN] = _UNKNOWN_ID,
+	[_USB_PHY_48] = _UNKNOWN_ID,
+	[_HSI_KER] = CK_HSI,
+	[_HSE_KER] = CK_HSE,
+	[_HSE_KER_DIV2] = CK_HSE_DIV2,
+	[_CSI_KER] = CK_CSI,
+	[_PLL1_P] = PLL1_P,
+	[_PLL1_Q] = PLL1_Q,
+	[_PLL1_R] = PLL1_R,
+	[_PLL2_P] = PLL2_P,
+	[_PLL2_Q] = PLL2_Q,
+	[_PLL2_R] = PLL2_R,
+	[_PLL3_P] = PLL3_P,
+	[_PLL3_Q] = PLL3_Q,
+	[_PLL3_R] = PLL3_R,
+	[_PLL4_P] = PLL4_P,
+	[_PLL4_Q] = PLL4_Q,
+	[_PLL4_R] = PLL4_R,
+	[_ACLK] = CK_AXI,
+	[_PCLK1] = CK_AXI,
+	[_PCLK2] = CK_AXI,
+	[_PCLK3] = CK_AXI,
+	[_PCLK4] = CK_AXI,
+	[_PCLK5] = CK_AXI,
+	[_CK_PER] = CK_PER,
+	[_CK_MPU] = CK_MPU,
+	[_CK_MCU] = CK_MCU,
+};
+
+static unsigned int clock_id2parent_id(unsigned long id)
+{
+	unsigned int n;
+
+	for (n = 0U; n < ARRAY_SIZE(parent_id_clock_id); n++) {
+		if (parent_id_clock_id[n] == id) {
+			return n;
+		}
+	}
+
+	return _UNKNOWN_ID;
+}
 
 enum stm32mp1_pll_id {
 	_PLL1,
@@ -258,7 +311,8 @@ struct stm32mp1_clk_pll {
 	[_ ## _label ## _SEL] = {				\
 		.offset = _rcc_selr,				\
 		.src = _rcc_selr ## _ ## _label ## SRC_SHIFT,	\
-		.msk = _rcc_selr ## _ ## _label ## SRC_MASK,	\
+		.msk = (_rcc_selr ## _ ## _label ## SRC_MASK) >> \
+		       (_rcc_selr ## _ ## _label ## SRC_SHIFT), \
 		.parent = (_parents),				\
 		.nb_parent = ARRAY_SIZE(_parents)		\
 	}
@@ -279,19 +333,6 @@ struct stm32mp1_clk_pll {
 		.refclk[2] = (p3),			\
 		.refclk[3] = (p4),			\
 	}
-
-static const uint8_t stm32mp1_clks[][2] = {
-	{ CK_PER, _CK_PER },
-	{ CK_MPU, _CK_MPU },
-	{ CK_AXI, _ACLK },
-	{ CK_MCU, _CK_MCU },
-	{ CK_HSE, _HSE },
-	{ CK_CSI, _CSI },
-	{ CK_LSI, _LSI },
-	{ CK_LSE, _LSE },
-	{ CK_HSI, _HSI },
-	{ CK_HSE_DIV2, _HSE_KER_DIV2 },
-};
 
 #define NB_GATES	ARRAY_SIZE(stm32mp1_clk_gate)
 
@@ -368,6 +409,7 @@ static const struct stm32mp1_clk_gate stm32mp1_clk_gate[] = {
 	_CLK_SC_SELEC(RCC_MP_AHB6ENSETR, 17, SDMMC2_K, _SDMMC12_SEL),
 	_CLK_SC_SELEC(RCC_MP_AHB6ENSETR, 24, USBH, _UNKNOWN_SEL),
 
+	_CLK_SELEC(RCC_BDCR, 20, RTC, _RTC_SEL),
 	_CLK_SELEC(RCC_DBGCFGR, 8, CK_DBG, _UNKNOWN_SEL),
 };
 
@@ -439,6 +481,18 @@ static const uint8_t usbo_parents[] = {
 	_PLL4_R, _USB_PHY_48
 };
 
+static const uint8_t mpu_parents[] = {
+	_HSI, _HSE, _PLL1_P, _PLL1_P /* specific div */
+};
+
+static const uint8_t per_parents[] = {
+	_HSI, _HSE, _CSI,
+};
+
+static const uint8_t rtc_parents[] = {
+	_UNKNOWN_ID, _LSE, _LSI, _HSE
+};
+
 static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	_CLK_PARENT_SEL(I2C12, RCC_I2C12CKSELR, i2c12_parents),
 	_CLK_PARENT_SEL(I2C35, RCC_I2C35CKSELR, i2c35_parents),
@@ -447,6 +501,9 @@ static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	_CLK_PARENT_SEL(SPI6, RCC_SPI6CKSELR, spi6_parents),
 	_CLK_PARENT_SEL(UART1, RCC_UART1CKSELR, usart1_parents),
 	_CLK_PARENT_SEL(RNG1, RCC_RNG1CKSELR, rng1_parents),
+	_CLK_PARENT_SEL(MPU, RCC_MPCKSELR, mpu_parents),
+	_CLK_PARENT_SEL(PER, RCC_CPERCKSELR, per_parents),
+	_CLK_PARENT_SEL(RTC, RCC_BDCR, rtc_parents),
 	_CLK_PARENT_SEL(UART6, RCC_UART6CKSELR, uart6_parents),
 	_CLK_PARENT_SEL(UART24, RCC_UART24CKSELR, uart234578_parents),
 	_CLK_PARENT_SEL(UART35, RCC_UART35CKSELR, uart234578_parents),
@@ -520,6 +577,43 @@ static const uint8_t stm32mp1_axi_div[8] = {
 	1, 2, 3, 4, 4, 4, 4, 4
 };
 
+static const char * const stm32mp1_clk_parent_name[_PARENT_NB] __unused = {
+	[_HSI] = "HSI",
+	[_HSE] = "HSE",
+	[_CSI] = "CSI",
+	[_LSI] = "LSI",
+	[_LSE] = "LSE",
+	[_I2S_CKIN] = "I2S_CKIN",
+	[_HSI_KER] = "HSI_KER",
+	[_HSE_KER] = "HSE_KER",
+	[_HSE_KER_DIV2] = "HSE_KER_DIV2",
+	[_CSI_KER] = "CSI_KER",
+	[_PLL1_P] = "PLL1_P",
+	[_PLL1_Q] = "PLL1_Q",
+	[_PLL1_R] = "PLL1_R",
+	[_PLL2_P] = "PLL2_P",
+	[_PLL2_Q] = "PLL2_Q",
+	[_PLL2_R] = "PLL2_R",
+	[_PLL3_P] = "PLL3_P",
+	[_PLL3_Q] = "PLL3_Q",
+	[_PLL3_R] = "PLL3_R",
+	[_PLL4_P] = "PLL4_P",
+	[_PLL4_Q] = "PLL4_Q",
+	[_PLL4_R] = "PLL4_R",
+	[_ACLK] = "ACLK",
+	[_PCLK1] = "PCLK1",
+	[_PCLK2] = "PCLK2",
+	[_PCLK3] = "PCLK3",
+	[_PCLK4] = "PCLK4",
+	[_PCLK5] = "PCLK5",
+	[_HCLK6] = "KCLK6",
+	[_HCLK2] = "HCLK2",
+	[_CK_PER] = "CK_PER",
+	[_CK_MPU] = "CK_MPU",
+	[_CK_MCU] = "CK_MCU",
+	[_USB_PHY_48] = "USB_PHY_48",
+};
+
 /* RCC clock device driver private */
 static unsigned long stm32mp1_osc[NB_OSC];
 static struct spinlock reg_lock;
@@ -559,15 +653,17 @@ static void stm32mp1_clk_unlock(struct spinlock *lock)
 bool stm32mp1_rcc_is_secure(void)
 {
 	uintptr_t rcc_base = stm32mp_rcc_base();
+	uint32_t mask = RCC_TZCR_TZEN;
 
-	return (mmio_read_32(rcc_base + RCC_TZCR) & RCC_TZCR_TZEN) != 0;
+	return (mmio_read_32(rcc_base + RCC_TZCR) & mask) == mask;
 }
 
 bool stm32mp1_rcc_is_mckprot(void)
 {
 	uintptr_t rcc_base = stm32mp_rcc_base();
+	uint32_t mask = RCC_TZCR_TZEN | RCC_TZCR_MCKPROT;
 
-	return (mmio_read_32(rcc_base + RCC_TZCR) & RCC_TZCR_MCKPROT) != 0;
+	return (mmio_read_32(rcc_base + RCC_TZCR) & mask) == mask;
 }
 
 void stm32mp1_clk_rcc_regs_lock(void)
@@ -617,16 +713,16 @@ static enum stm32mp1_parent_id stm32mp1_clk_get_fixed_parent(int i)
 static int stm32mp1_clk_get_parent(unsigned long id)
 {
 	const struct stm32mp1_clk_sel *sel;
-	uint32_t j, p_sel;
+	uint32_t p_sel;
 	int i;
 	enum stm32mp1_parent_id p;
 	enum stm32mp1_parent_sel s;
 	uintptr_t rcc_base = stm32mp_rcc_base();
 
-	for (j = 0U; j < ARRAY_SIZE(stm32mp1_clks); j++) {
-		if (stm32mp1_clks[j][0] == id) {
-			return (int)stm32mp1_clks[j][1];
-		}
+	/* Few non gateable clock have a static parent ID, find them */
+	i = (int)clock_id2parent_id(id);
+	if (i != _UNKNOWN_ID) {
+		return i;
 	}
 
 	i = stm32mp1_clk_get_gated_id(id);
@@ -648,7 +744,8 @@ static int stm32mp1_clk_get_parent(unsigned long id)
 	}
 
 	sel = clk_sel_ref(s);
-	p_sel = (mmio_read_32(rcc_base + sel->offset) & sel->msk) >> sel->src;
+	p_sel = (mmio_read_32(rcc_base + sel->offset) &
+		 (sel->msk << sel->src)) >> sel->src;
 	if (p_sel < sel->nb_parent) {
 		return (int)sel->parent[p_sel];
 	}
@@ -930,18 +1027,20 @@ static void __clk_enable(struct stm32mp1_clk_gate const *gate)
 {
 	uintptr_t rcc_base = stm32mp_rcc_base();
 
+	VERBOSE("Enable clock %u\n", gate->index);
+
 	if (gate->set_clr != 0U) {
 		mmio_write_32(rcc_base + gate->offset, BIT(gate->bit));
 	} else {
 		mmio_setbits_32(rcc_base + gate->offset, BIT(gate->bit));
 	}
-
-	VERBOSE("Clock %d has been enabled", gate->index);
 }
 
 static void __clk_disable(struct stm32mp1_clk_gate const *gate)
 {
 	uintptr_t rcc_base = stm32mp_rcc_base();
+
+	VERBOSE("Disable clock %u\n", gate->index);
 
 	if (gate->set_clr != 0U) {
 		mmio_write_32(rcc_base + gate->offset + RCC_MP_ENCLRR_OFFSET,
@@ -949,8 +1048,6 @@ static void __clk_disable(struct stm32mp1_clk_gate const *gate)
 	} else {
 		mmio_clrbits_32(rcc_base + gate->offset, BIT(gate->bit));
 	}
-
-	VERBOSE("Clock %d has been disabled", gate->index);
 }
 
 static bool __clk_is_enabled(struct stm32mp1_clk_gate const *gate)
@@ -971,12 +1068,41 @@ unsigned int stm32mp1_clk_get_refcount(unsigned long id)
 	return gate_refcounts[i];
 }
 
+/* Oscillators and PLLs are not gated at runtime */
+static bool clock_is_always_on(unsigned long id)
+{
+	switch (id) {
+	case CK_HSE:
+	case CK_CSI:
+	case CK_LSI:
+	case CK_LSE:
+	case CK_HSI:
+	case CK_HSE_DIV2:
+	case PLL1_Q:
+	case PLL1_R:
+	case PLL2_P:
+	case PLL2_Q:
+	case PLL2_R:
+	case PLL3_P:
+	case PLL3_Q:
+	case PLL3_R:
+		return true;
+	default:
+		return false;
+	}
+}
+
 void __stm32mp1_clk_enable(unsigned long id, bool secure)
 {
 	const struct stm32mp1_clk_gate *gate;
-	int i = stm32mp1_clk_get_gated_id(id);
+	int i;
 	unsigned int *refcnt;
 
+	if (clock_is_always_on(id)) {
+		return;
+	}
+
+	i = stm32mp1_clk_get_gated_id(id);
 	if (i < 0) {
 		ERROR("Clock %d can't be enabled\n", (uint32_t)id);
 		panic();
@@ -997,9 +1123,14 @@ void __stm32mp1_clk_enable(unsigned long id, bool secure)
 void __stm32mp1_clk_disable(unsigned long id, bool secure)
 {
 	const struct stm32mp1_clk_gate *gate;
-	int i = stm32mp1_clk_get_gated_id(id);
+	int i;
 	unsigned int *refcnt;
 
+	if (clock_is_always_on(id)) {
+		return;
+	}
+
+	i = stm32mp1_clk_get_gated_id(id);
 	if (i < 0) {
 		ERROR("Clock %d can't be disabled\n", (uint32_t)id);
 		panic();
@@ -1029,8 +1160,13 @@ void stm32mp_clk_disable(unsigned long id)
 
 bool stm32mp_clk_is_enabled(unsigned long id)
 {
-	int i = stm32mp1_clk_get_gated_id(id);
+	int i;
 
+	if (clock_is_always_on(id)) {
+		return true;
+	}
+
+	i = stm32mp1_clk_get_gated_id(id);
 	if (i < 0) {
 		panic();
 	}
@@ -1239,7 +1375,8 @@ static bool stm32mp1_check_pll_conf(enum stm32mp1_pll_id pll_id,
 	uintptr_t clksrc_address = rcc_base + (clksrc >> 4);
 	unsigned long refclk;
 	uint32_t ifrge = 0U;
-	uint32_t src, value, fracv;
+	uint32_t src, value, fracv = 0;
+	void *fdt;
 
 	/* Check PLL output */
 	if (mmio_read_32(pllxcr) != RCC_PLLNCR_PLLON) {
@@ -1278,7 +1415,9 @@ static bool stm32mp1_check_pll_conf(enum stm32mp1_pll_id pll_id,
 	}
 
 	/* Fractional configuration */
-	fracv = fdt_read_uint32_default(plloff, "frac", 0);
+	if (fdt_get_address(&fdt) == 1) {
+		fracv = fdt_read_uint32_default(fdt, plloff, "frac", 0);
+	}
 
 	value = fracv << RCC_PLLNFRACR_FRACV_SHIFT;
 	value |= RCC_PLLNFRACR_FRACLE;
@@ -1525,28 +1664,26 @@ static void stm32mp1_set_rtcsrc(unsigned int clksrc, bool lse_css)
 
 static void stm32mp1_stgen_config(void)
 {
-	uintptr_t stgen;
 	uint32_t cntfid0;
 	unsigned long rate;
 	unsigned long long counter;
 
-	stgen = fdt_get_stgen_base();
-	cntfid0 = mmio_read_32(stgen + CNTFID_OFF);
+	cntfid0 = mmio_read_32(STGEN_BASE + CNTFID_OFF);
 	rate = get_clock_rate(stm32mp1_clk_get_parent(STGEN_K));
 
 	if (cntfid0 == rate) {
 		return;
 	}
 
-	mmio_clrbits_32(stgen + CNTCR_OFF, CNTCR_EN);
-	counter = (unsigned long long)mmio_read_32(stgen + CNTCVL_OFF);
-	counter |= ((unsigned long long)mmio_read_32(stgen + CNTCVU_OFF)) << 32;
+	mmio_clrbits_32(STGEN_BASE + CNTCR_OFF, CNTCR_EN);
+	counter = (unsigned long long)mmio_read_32(STGEN_BASE + CNTCVL_OFF);
+	counter |= ((unsigned long long)mmio_read_32(STGEN_BASE + CNTCVU_OFF)) << 32;
 	counter = (counter * rate / cntfid0);
 
-	mmio_write_32(stgen + CNTCVL_OFF, (uint32_t)counter);
-	mmio_write_32(stgen + CNTCVU_OFF, (uint32_t)(counter >> 32));
-	mmio_write_32(stgen + CNTFID_OFF, rate);
-	mmio_setbits_32(stgen + CNTCR_OFF, CNTCR_EN);
+	mmio_write_32(STGEN_BASE + CNTCVL_OFF, (uint32_t)counter);
+	mmio_write_32(STGEN_BASE + CNTCVU_OFF, (uint32_t)(counter >> 32));
+	mmio_write_32(STGEN_BASE + CNTFID_OFF, rate);
+	mmio_setbits_32(STGEN_BASE + CNTCR_OFF, CNTCR_EN);
 
 	write_cntfrq((u_register_t)rate);
 
@@ -1556,20 +1693,17 @@ static void stm32mp1_stgen_config(void)
 
 void stm32mp1_stgen_increment(unsigned long long offset_in_ms)
 {
-	uintptr_t stgen;
 	unsigned long long cnt;
 
-	stgen = fdt_get_stgen_base();
+	cnt = ((unsigned long long)mmio_read_32(STGEN_BASE + CNTCVU_OFF) << 32) |
+		mmio_read_32(STGEN_BASE + CNTCVL_OFF);
 
-	cnt = ((unsigned long long)mmio_read_32(stgen + CNTCVU_OFF) << 32) |
-		mmio_read_32(stgen + CNTCVL_OFF);
+	cnt += (offset_in_ms * mmio_read_32(STGEN_BASE + CNTFID_OFF)) / 1000U;
 
-	cnt += (offset_in_ms * mmio_read_32(stgen + CNTFID_OFF)) / 1000U;
-
-	mmio_clrbits_32(stgen + CNTCR_OFF, CNTCR_EN);
-	mmio_write_32(stgen + CNTCVL_OFF, (uint32_t)cnt);
-	mmio_write_32(stgen + CNTCVU_OFF, (uint32_t)(cnt >> 32));
-	mmio_setbits_32(stgen + CNTCR_OFF, CNTCR_EN);
+	mmio_clrbits_32(STGEN_BASE + CNTCR_OFF, CNTCR_EN);
+	mmio_write_32(STGEN_BASE + CNTCVL_OFF, (uint32_t)cnt);
+	mmio_write_32(STGEN_BASE + CNTCVU_OFF, (uint32_t)(cnt >> 32));
+	mmio_setbits_32(STGEN_BASE + CNTCR_OFF, CNTCR_EN);
 }
 
 static void stm32mp1_pkcs_config(uint32_t pkcs)
@@ -1600,20 +1734,25 @@ int stm32mp1_clk_init(void)
 	bool pll4_preserve = false;
 	bool pll4_bootrom = false;
 	const fdt32_t *pkcs_cell;
+	void *fdt;
+
+	if (fdt_get_address(&fdt) == 0) {
+		return false;
+	}
 
 	/* Check status field to disable security */
 	if (!fdt_get_rcc_secure_status()) {
 		mmio_write_32(rcc_base + RCC_TZCR, 0);
 	}
 
-	ret = fdt_rcc_read_uint32_array("st,clksrc", clksrc,
-					(uint32_t)CLKSRC_NB);
+	ret = fdt_rcc_read_uint32_array("st,clksrc", (uint32_t)CLKSRC_NB,
+					clksrc);
 	if (ret < 0) {
 		return -FDT_ERR_NOTFOUND;
 	}
 
-	ret = fdt_rcc_read_uint32_array("st,clkdiv", clkdiv,
-					(uint32_t)CLKDIV_NB);
+	ret = fdt_rcc_read_uint32_array("st,clkdiv", (uint32_t)CLKDIV_NB,
+					clkdiv);
 	if (ret < 0) {
 		return -FDT_ERR_NOTFOUND;
 	}
@@ -1628,8 +1767,8 @@ int stm32mp1_clk_init(void)
 			continue;
 		}
 
-		ret = fdt_read_uint32_array(plloff[i], "cfg",
-					    pllcfg[i], (int)PLLCFG_NB);
+		ret = fdt_read_uint32_array(fdt, plloff[i], "cfg",
+					    (int)PLLCFG_NB, pllcfg[i]);
 		if (ret < 0) {
 			return -FDT_ERR_NOTFOUND;
 		}
@@ -1794,14 +1933,14 @@ int stm32mp1_clk_init(void)
 			continue;
 		}
 
-		fracv = fdt_read_uint32_default(plloff[i], "frac", 0);
+		fracv = fdt_read_uint32_default(fdt, plloff[i], "frac", 0);
 
 		ret = stm32mp1_pll_config(i, pllcfg[i], fracv);
 		if (ret != 0) {
 			return ret;
 		}
-		ret = fdt_read_uint32_array(plloff[i], "csg", csg,
-					    (uint32_t)PLLCSG_NB);
+		ret = fdt_read_uint32_array(fdt, plloff[i], "csg",
+					    (uint32_t)PLLCSG_NB, csg);
 		if (ret == 0) {
 			stm32mp1_pll_csg(i, csg);
 		} else if (ret != -FDT_ERR_NOTFOUND) {
@@ -1902,8 +2041,184 @@ static void stm32mp1_osc_init(void)
 	}
 }
 
+#ifdef STM32MP_SHARED_RESOURCES
+/*
+ * Get the parent ID of the target parent clock, for tagging as secure
+ * shared clock dependencies.
+ */
+static int get_parent_id_parent(unsigned int parent_id)
+{
+	enum stm32mp1_parent_sel s = _UNKNOWN_SEL;
+	enum stm32mp1_pll_id pll_id;
+	uint32_t p_sel;
+	uintptr_t rcc_base = stm32mp_rcc_base();
+
+	switch (parent_id) {
+	case _ACLK:
+	case _PCLK4:
+	case _PCLK5:
+		s = _AXIS_SEL;
+		break;
+	case _PLL1_P:
+	case _PLL1_Q:
+	case _PLL1_R:
+		pll_id = _PLL1;
+		break;
+	case _PLL2_P:
+	case _PLL2_Q:
+	case _PLL2_R:
+		pll_id = _PLL2;
+		break;
+	case _PLL3_P:
+	case _PLL3_Q:
+	case _PLL3_R:
+		pll_id = _PLL3;
+		break;
+	case _PLL4_P:
+	case _PLL4_Q:
+	case _PLL4_R:
+		pll_id = _PLL4;
+		break;
+	case _PCLK1:
+	case _PCLK2:
+	case _HCLK2:
+	case _HCLK6:
+	case _CK_PER:
+	case _CK_MPU:
+	case _CK_MCU:
+	case _USB_PHY_48:
+		/* We do not expect to access these */
+		panic();
+		break;
+	default:
+		/* Other parents have no parent */
+		return -1;
+	}
+
+	if (s != _UNKNOWN_SEL) {
+		const struct stm32mp1_clk_sel *sel = clk_sel_ref(s);
+
+		p_sel = (mmio_read_32(rcc_base + sel->offset) >> sel->src) &
+			sel->msk;
+
+		if (p_sel < sel->nb_parent) {
+			return (int)sel->parent[p_sel];
+		}
+	} else {
+		const struct stm32mp1_clk_pll *pll = pll_ref(pll_id);
+
+		p_sel = mmio_read_32(rcc_base + pll->rckxselr) &
+			RCC_SELR_REFCLK_SRC_MASK;
+
+		if (pll->refclk[p_sel] != _UNKNOWN_OSC_ID) {
+			return (int)pll->refclk[p_sel];
+		}
+	}
+
+	VERBOSE("No parent selected for %s\n",
+		stm32mp1_clk_parent_name[parent_id]);
+
+	return -1;
+}
+
+static void secure_parent_clocks(unsigned long parent_id)
+{
+	int grandparent_id;
+
+	switch (parent_id) {
+	case _PLL3_P:
+	case _PLL3_Q:
+	case _PLL3_R:
+		stm32mp_register_secure_periph(STM32MP1_SHRES_PLL3);
+		break;
+
+	/* These clocks are always secure when RCC is secure */
+	case _ACLK:
+	case _HCLK2:
+	case _HCLK6:
+	case _PCLK4:
+	case _PCLK5:
+	case _PLL1_P:
+	case _PLL1_Q:
+	case _PLL1_R:
+	case _PLL2_P:
+	case _PLL2_Q:
+	case _PLL2_R:
+	case _HSI:
+	case _HSI_KER:
+	case _LSI:
+	case _CSI:
+	case _CSI_KER:
+	case _HSE:
+	case _HSE_KER:
+	case _HSE_KER_DIV2:
+	case _LSE:
+		break;
+
+	default:
+		VERBOSE("Cannot secure parent clock %s\n",
+			stm32mp1_clk_parent_name[parent_id]);
+		panic();
+	}
+
+	grandparent_id = get_parent_id_parent(parent_id);
+	if (grandparent_id >= 0) {
+		secure_parent_clocks(grandparent_id);
+	}
+}
+
+void stm32mp1_register_clock_parents_secure(unsigned long clock_id)
+{
+	int parent_id;
+
+	if (!stm32mp1_rcc_is_secure()) {
+		return;
+	}
+
+	switch (clock_id) {
+	case PLL1:
+	case PLL2:
+		/* PLL1/PLL2 are always secure: nothing to do */
+		break;
+	case PLL3:
+		stm32mp_register_secure_periph(STM32MP1_SHRES_PLL3);
+		break;
+	case PLL4:
+		ERROR("PLL4 cannot be secured\n");
+		panic();
+		break;
+	default:
+		/* Others are expected gateable clock */
+		parent_id = stm32mp1_clk_get_parent(clock_id);
+		if (parent_id < 0) {
+			INFO("No parent found for clock %lu\n", clock_id);
+		} else {
+			secure_parent_clocks(parent_id);
+		}
+		break;
+	}
+}
+#endif /* STM32MP_SHARED_RESOURCES */
+
 static void sync_earlyboot_clocks_state(void)
 {
+	unsigned int idx;
+	const unsigned long secure_enable[] = {
+		AXIDCG,
+		BSEC,
+		DDRC1, DDRC1LP,
+		DDRC2, DDRC2LP,
+		DDRCAPB, DDRPHYCAPB, DDRPHYCAPBLP,
+		DDRPHYC, DDRPHYCLP,
+		TZC1, TZC2,
+		TZPC,
+		STGEN_K,
+	};
+
+	for (idx = 0U; idx < ARRAY_SIZE(secure_enable); idx++) {
+		stm32mp_clk_enable(secure_enable[idx]);
+	}
+
 	if (!stm32mp_is_single_core()) {
 		stm32mp1_clk_enable_secure(RTCAPB);
 	}

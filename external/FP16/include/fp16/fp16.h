@@ -64,7 +64,7 @@ static inline uint32_t fp16_ieee_to_fp32_bits(uint16_t h) {
 	_BitScanReverse(&nonsign_bsr, (unsigned long) nonsign);
 	uint32_t renorm_shift = (uint32_t) nonsign_bsr ^ 31;
 #else
-	uint32_t renorm_shift = __builtin_clz(nonsign);
+	uint32_t renorm_shift = nonsign ? __builtin_clz(nonsign) : 32;
 #endif
 	renorm_shift = renorm_shift > 5 ? renorm_shift - 5 : 0;
 	/*
@@ -293,7 +293,7 @@ static inline uint32_t fp16_alt_to_fp32_bits(uint16_t h) {
 	_BitScanReverse(&nonsign_bsr, (unsigned long) nonsign);
 	uint32_t renorm_shift = (uint32_t) nonsign_bsr ^ 31;
 #else
-	uint32_t renorm_shift = __builtin_clz(nonsign);
+	uint32_t renorm_shift = nonsign ? __builtin_clz(nonsign) : 32;
 #endif
 	renorm_shift = renorm_shift > 5 ? renorm_shift - 5 : 0;
 	/*
@@ -373,7 +373,7 @@ static inline float fp16_alt_to_fp32_value(uint16_t h) {
 	 * Note that this operation does not handle denormal inputs (where biased exponent == 0). However, they also do not
 	 * operate on denormal inputs, and do not produce denormal results.
 	 */
-	const float exp_offset = UINT32_C(0x70) << 23;
+	const uint32_t exp_offset = UINT32_C(0x70) << 23;
 	const float normalized_value = fp32_from_bits((two_w >> 4) + exp_offset);
 
 	/*

@@ -18,6 +18,6 @@ to collect boot performance metrics.
 def run_bootperf(machine):
     host = hosts.create_host(machine)
     job.run_test("platform_BootPerfServer", host=host,
-                 iterations=10, upload_perf=True)
+                 iterations=10, upload_perf=True, cmdline_args=args)
 
 parallel_simple(run_bootperf, machines)

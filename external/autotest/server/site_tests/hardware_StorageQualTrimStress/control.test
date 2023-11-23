@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "gwendal"
-NAME = "StorageQualTrim.test"
+NAME = "hardware_StorageQualTrimStress.test"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"

@@ -28,11 +28,7 @@ chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
 def run(machine):
     host = hosts.create_host(machine, chameleon_args=chameleon_args)
     job.run_test("audio_AudioVolume", host=host, tag="usb",
-                 golden_file=audio_test_data.FREQUENCY_TEST_FILE,
                  source_id=chameleon_audio_ids.CrosIds.USBOUT,
-                 sink_id=None,
-                 recorder_id=chameleon_audio_ids.ChameleonIds.USBIN,
-                 volume_spec=(40, 80, 0.2)
                  )
 
 parallel_simple(run, machines)

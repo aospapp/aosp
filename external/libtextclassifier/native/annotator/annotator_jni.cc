@@ -21,10 +21,12 @@
 #include <jni.h>
 
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "annotator/annotator.h"
 #include "annotator/annotator_jni_common.h"
+#include "annotator/knowledge/knowledge-engine-types.h"
 #include "annotator/types.h"
 #include "utils/base/integral_types.h"
 #include "utils/base/status_macros.h"
@@ -35,7 +37,6 @@
 #include "utils/intents/remote-action-template.h"
 #include "utils/java/jni-cache.h"
 #include "utils/java/jni-helper.h"
-#include "utils/java/string_utils.h"
 #include "utils/memory/mmap.h"
 #include "utils/strings/stringpiece.h"
 #include "utils/utf8/unilib.h"
@@ -49,6 +50,7 @@
 #endif
 
 using libtextclassifier3::AnnotatedSpan;
+using libtextclassifier3::Annotations;
 using libtextclassifier3::Annotator;
 using libtextclassifier3::ClassificationResult;
 using libtextclassifier3::CodepointSpan;
@@ -81,11 +83,9 @@ class AnnotatorJniContext {
     std::unique_ptr<IntentGenerator> intent_generator =
         IntentGenerator::Create(model->model()->intent_options(),
                                 model->model()->resources(), jni_cache);
-    std::unique_ptr<RemoteActionTemplatesHandler> template_handler =
-        libtextclassifier3::RemoteActionTemplatesHandler::Create(jni_cache);
-    if (template_handler == nullptr) {
-      return nullptr;
-    }
+    TC3_ASSIGN_OR_RETURN_NULL(
+        std::unique_ptr<RemoteActionTemplatesHandler> template_handler,
+        libtextclassifier3::RemoteActionTemplatesHandler::Create(jni_cache));
 
     return new AnnotatorJniContext(jni_cache, std::move(model),
                                    std::move(intent_generator),
@@ -151,10 +151,11 @@ StatusOr<ScopedLocalRef<jobject>> ClassificationResultWithIntentsToJObject(
     TC3_ASSIGN_OR_RETURN(serialized_knowledge_result,
                          JniHelper::NewByteArray(
                              env, serialized_knowledge_result_string.size()));
-    env->SetByteArrayRegion(serialized_knowledge_result.get(), 0,
-                            serialized_knowledge_result_string.size(),
-                            reinterpret_cast<const jbyte*>(
-                                serialized_knowledge_result_string.data()));
+    TC3_RETURN_IF_ERROR(JniHelper::SetByteArrayRegion(
+        env, serialized_knowledge_result.get(), 0,
+        serialized_knowledge_result_string.size(),
+        reinterpret_cast<const jbyte*>(
+            serialized_knowledge_result_string.data())));
   }
 
   ScopedLocalRef<jstring> contact_name;
@@ -204,6 +205,22 @@ StatusOr<ScopedLocalRef<jobject>> ClassificationResultWithIntentsToJObject(
             env, classification_result.contact_phone_number.c_str()));
   }
 
+  ScopedLocalRef<jstring> contact_account_type;
+  if (!classification_result.contact_account_type.empty()) {
+    TC3_ASSIGN_OR_RETURN(
+        contact_account_type,
+        JniHelper::NewStringUTF(
+            env, classification_result.contact_account_type.c_str()));
+  }
+
+  ScopedLocalRef<jstring> contact_account_name;
+  if (!classification_result.contact_account_name.empty()) {
+    TC3_ASSIGN_OR_RETURN(
+        contact_account_name,
+        JniHelper::NewStringUTF(
+            env, classification_result.contact_account_name.c_str()));
+  }
+
   ScopedLocalRef<jstring> contact_id;
   if (!classification_result.contact_id.empty()) {
     TC3_ASSIGN_OR_RETURN(
@@ -242,11 +259,11 @@ StatusOr<ScopedLocalRef<jobject>> ClassificationResultWithIntentsToJObject(
         serialized_entity_data,
         JniHelper::NewByteArray(
             env, classification_result.serialized_entity_data.size()));
-    env->SetByteArrayRegion(
-        serialized_entity_data.get(), 0,
+    TC3_RETURN_IF_ERROR(JniHelper::SetByteArrayRegion(
+        env, serialized_entity_data.get(), 0,
         classification_result.serialized_entity_data.size(),
         reinterpret_cast<const jbyte*>(
-            classification_result.serialized_entity_data.data()));
+            classification_result.serialized_entity_data.data())));
   }
 
   ScopedLocalRef<jobjectArray> remote_action_templates_result;
@@ -274,7 +291,8 @@ StatusOr<ScopedLocalRef<jobject>> ClassificationResultWithIntentsToJObject(
       row_datetime_parse.get(), serialized_knowledge_result.get(),
       contact_name.get(), contact_given_name.get(), contact_family_name.get(),
       contact_nickname.get(), contact_email_address.get(),
-      contact_phone_number.get(), contact_id.get(), app_name.get(),
+      contact_phone_number.get(), contact_account_type.get(),
+      contact_account_name.get(), contact_id.get(), app_name.get(),
       app_package_name.get(), extras.get(), serialized_entity_data.get(),
       remote_action_templates_result.get(), classification_result.duration_ms,
       classification_result.numeric_value,
@@ -303,13 +321,23 @@ ClassificationResultsWithIntentsToJObjectArray(
       JniHelper::GetMethodID(
           env, result_class.get(), "<init>",
           "(Ljava/lang/String;FL" TC3_PACKAGE_PATH TC3_ANNOTATOR_CLASS_NAME_STR
-          "$DatetimeResult;[BLjava/lang/String;Ljava/lang/String;Ljava/lang/"
-          "String;"
-          "Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/"
-          "String;"
-          "Ljava/lang/String;Ljava/lang/String;[L" TC3_PACKAGE_PATH
-          "" TC3_NAMED_VARIANT_CLASS_NAME_STR ";[B[L" TC3_PACKAGE_PATH
-          "" TC3_REMOTE_ACTION_TEMPLATE_CLASS_NAME_STR ";JJD)V"));
+          "$DatetimeResult;"
+          "[B"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "Ljava/lang/String;"
+          "[L" TC3_PACKAGE_PATH "" TC3_NAMED_VARIANT_CLASS_NAME_STR ";"
+          "[B"
+          "[L" TC3_PACKAGE_PATH "" TC3_REMOTE_ACTION_TEMPLATE_CLASS_NAME_STR ";"
+          "JJD)V"));
   TC3_ASSIGN_OR_RETURN(const jmethodID datetime_parse_class_constructor,
                        JniHelper::GetMethodID(env, datetime_parse_class.get(),
                                               "<init>", "(JI)V"));
@@ -340,7 +368,7 @@ StatusOr<ScopedLocalRef<jobjectArray>> ClassificationResultsToJObjectArray(
   return ClassificationResultsWithIntentsToJObjectArray(
       env, model_context,
       /*(unused) app_context=*/nullptr,
-      /*(unused) devide_locale=*/nullptr,
+      /*(unused) device_locale=*/nullptr,
       /*(unusued) options=*/nullptr,
       /*(unused) selection_text=*/"",
       /*(unused) selection_indices=*/{kInvalidIndex, kInvalidIndex},
@@ -348,9 +376,9 @@ StatusOr<ScopedLocalRef<jobjectArray>> ClassificationResultsToJObjectArray(
       /*generate_intents=*/false);
 }
 
-CodepointSpan ConvertIndicesBMPUTF8(const std::string& utf8_str,
-                                    CodepointSpan orig_indices,
-                                    bool from_utf8) {
+std::pair<int, int> ConvertIndicesBMPUTF8(
+    const std::string& utf8_str, const std::pair<int, int>& orig_indices,
+    bool from_utf8) {
   const libtextclassifier3::UnicodeText unicode_str =
       libtextclassifier3::UTF8ToUnicodeText(utf8_str, /*do_copy=*/false);
 
@@ -367,7 +395,7 @@ CodepointSpan ConvertIndicesBMPUTF8(const std::string& utf8_str,
     target_index = &unicode_index;
   }
 
-  CodepointSpan result{-1, -1};
+  std::pair<int, int> result = std::make_pair(-1, -1);
   std::function<void()> assign_indices_fn = [&result, &orig_indices,
                                              &source_index, &target_index]() {
     if (orig_indices.first == *source_index) {
@@ -396,13 +424,17 @@ CodepointSpan ConvertIndicesBMPUTF8(const std::string& utf8_str,
 }  // namespace
 
 CodepointSpan ConvertIndicesBMPToUTF8(const std::string& utf8_str,
-                                      CodepointSpan bmp_indices) {
-  return ConvertIndicesBMPUTF8(utf8_str, bmp_indices, /*from_utf8=*/false);
+                                      const std::pair<int, int>& bmp_indices) {
+  const std::pair<int, int> utf8_indices =
+      ConvertIndicesBMPUTF8(utf8_str, bmp_indices, /*from_utf8=*/false);
+  return CodepointSpan(utf8_indices.first, utf8_indices.second);
 }
 
-CodepointSpan ConvertIndicesUTF8ToBMP(const std::string& utf8_str,
-                                      CodepointSpan utf8_indices) {
-  return ConvertIndicesBMPUTF8(utf8_str, utf8_indices, /*from_utf8=*/true);
+std::pair<int, int> ConvertIndicesUTF8ToBMP(const std::string& utf8_str,
+                                            const CodepointSpan& utf8_indices) {
+  return ConvertIndicesBMPUTF8(
+      utf8_str, std::make_pair(utf8_indices.first, utf8_indices.second),
+      /*from_utf8=*/true);
 }
 
 StatusOr<ScopedLocalRef<jstring>> GetLocalesFromMmap(
@@ -456,10 +488,10 @@ using libtextclassifier3::FromJavaClassificationOptions;
 using libtextclassifier3::FromJavaInputFragment;
 using libtextclassifier3::FromJavaSelectionOptions;
 using libtextclassifier3::InputFragment;
-using libtextclassifier3::ToStlString;
+using libtextclassifier3::JStringToUtf8String;
 
 TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotator)
-(JNIEnv* env, jobject thiz, jint fd) {
+(JNIEnv* env, jobject clazz, jint fd) {
   std::shared_ptr<libtextclassifier3::JniCache> jni_cache(
       libtextclassifier3::JniCache::Create(env));
 #ifdef TC3_USE_JAVAICU
@@ -475,8 +507,9 @@ TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotator)
 }
 
 TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotatorFromPath)
-(JNIEnv* env, jobject thiz, jstring path) {
-  TC3_ASSIGN_OR_RETURN_0(const std::string path_str, ToStlString(env, path));
+(JNIEnv* env, jobject clazz, jstring path) {
+  TC3_ASSIGN_OR_RETURN_0(const std::string path_str,
+                         JStringToUtf8String(env, path));
   std::shared_ptr<libtextclassifier3::JniCache> jni_cache(
       libtextclassifier3::JniCache::Create(env));
 #ifdef TC3_USE_JAVAICU
@@ -492,7 +525,7 @@ TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotatorFromPath)
 }
 
 TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotatorWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size) {
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size) {
   std::shared_ptr<libtextclassifier3::JniCache> jni_cache(
       libtextclassifier3::JniCache::Create(env));
 #ifdef TC3_USE_JAVAICU
@@ -516,13 +549,9 @@ TC3_JNI_METHOD(jboolean, TC3_ANNOTATOR_CLASS_NAME,
 
   Annotator* model = reinterpret_cast<AnnotatorJniContext*>(ptr)->model();
 
-  std::string serialized_config_string;
-  TC3_ASSIGN_OR_RETURN_FALSE(jsize length,
-                             JniHelper::GetArrayLength(env, serialized_config));
-  serialized_config_string.resize(length);
-  env->GetByteArrayRegion(serialized_config, 0, length,
-                          reinterpret_cast<jbyte*>(const_cast<char*>(
-                              serialized_config_string.data())));
+  TC3_ASSIGN_OR_RETURN_FALSE(
+      const std::string serialized_config_string,
+      libtextclassifier3::JByteArrayToString(env, serialized_config));
 
   return model->InitializeKnowledgeEngine(serialized_config_string);
 }
@@ -536,13 +565,9 @@ TC3_JNI_METHOD(jboolean, TC3_ANNOTATOR_CLASS_NAME,
 
   Annotator* model = reinterpret_cast<AnnotatorJniContext*>(ptr)->model();
 
-  std::string serialized_config_string;
-  TC3_ASSIGN_OR_RETURN_FALSE(jsize length,
-                             JniHelper::GetArrayLength(env, serialized_config));
-  serialized_config_string.resize(length);
-  env->GetByteArrayRegion(serialized_config, 0, length,
-                          reinterpret_cast<jbyte*>(const_cast<char*>(
-                              serialized_config_string.data())));
+  TC3_ASSIGN_OR_RETURN_FALSE(
+      const std::string serialized_config_string,
+      libtextclassifier3::JByteArrayToString(env, serialized_config));
 
   return model->InitializeContactEngine(serialized_config_string);
 }
@@ -556,13 +581,9 @@ TC3_JNI_METHOD(jboolean, TC3_ANNOTATOR_CLASS_NAME,
 
   Annotator* model = reinterpret_cast<AnnotatorJniContext*>(ptr)->model();
 
-  std::string serialized_config_string;
-  TC3_ASSIGN_OR_RETURN_FALSE(jsize length,
-                             JniHelper::GetArrayLength(env, serialized_config));
-  serialized_config_string.resize(length);
-  env->GetByteArrayRegion(serialized_config, 0, length,
-                          reinterpret_cast<jbyte*>(const_cast<char*>(
-                              serialized_config_string.data())));
+  TC3_ASSIGN_OR_RETURN_FALSE(
+      const std::string serialized_config_string,
+      libtextclassifier3::JByteArrayToString(env, serialized_config));
 
   return model->InitializeInstalledAppEngine(serialized_config_string);
 }
@@ -608,20 +629,23 @@ TC3_JNI_METHOD(jintArray, TC3_ANNOTATOR_CLASS_NAME, nativeSuggestSelection)
   }
   const Annotator* model = reinterpret_cast<AnnotatorJniContext*>(ptr)->model();
   TC3_ASSIGN_OR_RETURN_NULL(const std::string context_utf8,
-                            ToStlString(env, context));
-  CodepointSpan input_indices =
+                            JStringToUtf8String(env, context));
+  const CodepointSpan input_indices =
       ConvertIndicesBMPToUTF8(context_utf8, {selection_begin, selection_end});
   TC3_ASSIGN_OR_RETURN_NULL(
       libtextclassifier3::SelectionOptions selection_options,
       FromJavaSelectionOptions(env, options));
   CodepointSpan selection =
       model->SuggestSelection(context_utf8, input_indices, selection_options);
-  selection = ConvertIndicesUTF8ToBMP(context_utf8, selection);
+  const std::pair<int, int> selection_bmp =
+      ConvertIndicesUTF8ToBMP(context_utf8, selection);
 
   TC3_ASSIGN_OR_RETURN_NULL(ScopedLocalRef<jintArray> result,
                             JniHelper::NewIntArray(env, 2));
-  env->SetIntArrayRegion(result.get(), 0, 1, &(std::get<0>(selection)));
-  env->SetIntArrayRegion(result.get(), 1, 1, &(std::get<1>(selection)));
+  TC3_RETURN_NULL_IF_ERROR(JniHelper::SetIntArrayRegion(
+      env, result.get(), 0, 1, &(selection_bmp.first)));
+  TC3_RETURN_NULL_IF_ERROR(JniHelper::SetIntArrayRegion(
+      env, result.get(), 1, 1, &(selection_bmp.second)));
   return result.release();
 }
 
@@ -636,7 +660,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME, nativeClassifyText)
       reinterpret_cast<AnnotatorJniContext*>(ptr);
 
   TC3_ASSIGN_OR_RETURN_NULL(const std::string context_utf8,
-                            ToStlString(env, context));
+                            JStringToUtf8String(env, context));
   const CodepointSpan input_indices =
       ConvertIndicesBMPToUTF8(context_utf8, {selection_begin, selection_end});
   TC3_ASSIGN_OR_RETURN_NULL(
@@ -672,7 +696,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME, nativeAnnotate)
   const AnnotatorJniContext* model_context =
       reinterpret_cast<AnnotatorJniContext*>(ptr);
   TC3_ASSIGN_OR_RETURN_NULL(const std::string context_utf8,
-                            ToStlString(env, context));
+                            JStringToUtf8String(env, context));
   TC3_ASSIGN_OR_RETURN_NULL(
       libtextclassifier3::AnnotationOptions annotation_options,
       FromJavaAnnotationOptions(env, options));
@@ -696,7 +720,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME, nativeAnnotate)
       JniHelper::NewObjectArray(env, annotations.size(), result_class.get()));
 
   for (int i = 0; i < annotations.size(); ++i) {
-    CodepointSpan span_bmp =
+    const std::pair<int, int> span_bmp =
         ConvertIndicesUTF8ToBMP(context_utf8, annotations[i].span);
 
     TC3_ASSIGN_OR_RETURN_NULL(
@@ -718,8 +742,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME, nativeAnnotate)
   return results.release();
 }
 
-TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME,
-               nativeAnnotateStructuredInput)
+TC3_JNI_METHOD(jobject, TC3_ANNOTATOR_CLASS_NAME, nativeAnnotateStructuredInput)
 (JNIEnv* env, jobject thiz, jlong ptr, jobjectArray jinput_fragments,
  jobject options) {
   if (!ptr) {
@@ -743,7 +766,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME,
   TC3_ASSIGN_OR_RETURN_NULL(
       libtextclassifier3::AnnotationOptions annotation_options,
       FromJavaAnnotationOptions(env, options));
-  const StatusOr<std::vector<std::vector<AnnotatedSpan>>> annotations_or =
+  const StatusOr<Annotations> annotations_or =
       model_context->model()->AnnotateStructuredInput(string_fragments,
                                                       annotation_options);
   if (!annotations_or.ok()) {
@@ -752,8 +775,20 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME,
     return nullptr;
   }
 
-  std::vector<std::vector<AnnotatedSpan>> annotations =
-      std::move(annotations_or.ValueOrDie());
+  Annotations annotations = std::move(annotations_or.ValueOrDie());
+  TC3_ASSIGN_OR_RETURN_NULL(
+      ScopedLocalRef<jclass> annotations_class,
+      JniHelper::FindClass(
+          env, TC3_PACKAGE_PATH TC3_ANNOTATOR_CLASS_NAME_STR "$Annotations"));
+
+  TC3_ASSIGN_OR_RETURN_NULL(
+      jmethodID annotations_class_constructor,
+      JniHelper::GetMethodID(
+          env, annotations_class.get(), "<init>",
+          "([[L" TC3_PACKAGE_PATH TC3_ANNOTATOR_CLASS_NAME_STR
+          "$AnnotatedSpan;[L" TC3_PACKAGE_PATH TC3_ANNOTATOR_CLASS_NAME_STR
+          "$ClassificationResult;)V"));
+
   TC3_ASSIGN_OR_RETURN_NULL(
       ScopedLocalRef<jclass> span_class,
       JniHelper::FindClass(
@@ -773,26 +808,28 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME,
                            "$AnnotatedSpan;"));
 
   TC3_ASSIGN_OR_RETURN_NULL(
-      ScopedLocalRef<jobjectArray> results,
+      ScopedLocalRef<jobjectArray> annotated_spans,
       JniHelper::NewObjectArray(env, input_size, span_class_array.get()));
 
-  for (int fragment_index = 0; fragment_index < annotations.size();
-       ++fragment_index) {
+  for (int fragment_index = 0;
+       fragment_index < annotations.annotated_spans.size(); ++fragment_index) {
     TC3_ASSIGN_OR_RETURN_NULL(
         ScopedLocalRef<jobjectArray> jfragmentAnnotations,
-        JniHelper::NewObjectArray(env, annotations[fragment_index].size(),
-                                  span_class.get()));
+        JniHelper::NewObjectArray(
+            env, annotations.annotated_spans[fragment_index].size(),
+            span_class.get()));
     for (int annotation_index = 0;
-         annotation_index < annotations[fragment_index].size();
+         annotation_index < annotations.annotated_spans[fragment_index].size();
          ++annotation_index) {
-      CodepointSpan span_bmp = ConvertIndicesUTF8ToBMP(
+      const std::pair<int, int> span_bmp = ConvertIndicesUTF8ToBMP(
           string_fragments[fragment_index].text,
-          annotations[fragment_index][annotation_index].span);
+          annotations.annotated_spans[fragment_index][annotation_index].span);
       TC3_ASSIGN_OR_RETURN_NULL(
           ScopedLocalRef<jobjectArray> classification_results,
           ClassificationResultsToJObjectArray(
               env, model_context,
-              annotations[fragment_index][annotation_index].classification));
+              annotations.annotated_spans[fragment_index][annotation_index]
+                  .classification));
       TC3_ASSIGN_OR_RETURN_NULL(
           ScopedLocalRef<jobject> single_annotation,
           JniHelper::NewObject(env, span_class.get(), span_class_constructor,
@@ -808,14 +845,26 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME,
       }
     }
 
-    if (!JniHelper::SetObjectArrayElement(env, results.get(), fragment_index,
+    if (!JniHelper::SetObjectArrayElement(env, annotated_spans.get(),
+                                          fragment_index,
                                           jfragmentAnnotations.get())
              .ok()) {
       return nullptr;
     }
   }
 
-  return results.release();
+  TC3_ASSIGN_OR_RETURN_NULL(
+      ScopedLocalRef<jobjectArray> topicality_results,
+      ClassificationResultsToJObjectArray(env, model_context,
+                                          annotations.topicality_results));
+
+  TC3_ASSIGN_OR_RETURN_NULL(
+      ScopedLocalRef<jobject> annotations_result,
+      JniHelper::NewObject(env, annotations_class.get(),
+                           annotations_class_constructor, annotated_spans.get(),
+                           topicality_results.get()));
+
+  return annotations_result.release();
 }
 
 TC3_JNI_METHOD(jbyteArray, TC3_ANNOTATOR_CLASS_NAME,
@@ -825,18 +874,21 @@ TC3_JNI_METHOD(jbyteArray, TC3_ANNOTATOR_CLASS_NAME,
     return nullptr;
   }
   const Annotator* model = reinterpret_cast<AnnotatorJniContext*>(ptr)->model();
-  TC3_ASSIGN_OR_RETURN_NULL(const std::string id_utf8, ToStlString(env, id));
-  std::string serialized_knowledge_result;
-  if (!model->LookUpKnowledgeEntity(id_utf8, &serialized_knowledge_result)) {
+  TC3_ASSIGN_OR_RETURN_NULL(const std::string id_utf8,
+                            JStringToUtf8String(env, id));
+  auto serialized_knowledge_result_so = model->LookUpKnowledgeEntity(id_utf8);
+  if (!serialized_knowledge_result_so.ok()) {
     return nullptr;
   }
+  std::string serialized_knowledge_result =
+      serialized_knowledge_result_so.ValueOrDie();
 
   TC3_ASSIGN_OR_RETURN_NULL(
       ScopedLocalRef<jbyteArray> result,
       JniHelper::NewByteArray(env, serialized_knowledge_result.size()));
-  env->SetByteArrayRegion(
-      result.get(), 0, serialized_knowledge_result.size(),
-      reinterpret_cast<const jbyte*>(serialized_knowledge_result.data()));
+  TC3_RETURN_NULL_IF_ERROR(JniHelper::SetByteArrayRegion(
+      env, result.get(), 0, serialized_knowledge_result.size(),
+      reinterpret_cast<const jbyte*>(serialized_knowledge_result.data())));
   return result.release();
 }
 
@@ -864,7 +916,7 @@ TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetLocales)
 }
 
 TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetLocalesWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size) {
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size) {
   const std::unique_ptr<libtextclassifier3::ScopedMmap> mmap(
       new libtextclassifier3::ScopedMmap(fd, offset, size));
   TC3_ASSIGN_OR_RETURN_NULL(ScopedLocalRef<jstring> value,
@@ -880,7 +932,7 @@ TC3_JNI_METHOD(jint, TC3_ANNOTATOR_CLASS_NAME, nativeGetVersion)
 }
 
 TC3_JNI_METHOD(jint, TC3_ANNOTATOR_CLASS_NAME, nativeGetVersionWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size) {
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size) {
   const std::unique_ptr<libtextclassifier3::ScopedMmap> mmap(
       new libtextclassifier3::ScopedMmap(fd, offset, size));
   return GetVersionFromMmap(env, mmap.get());
@@ -896,7 +948,7 @@ TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetName)
 }
 
 TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetNameWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size) {
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size) {
   const std::unique_ptr<libtextclassifier3::ScopedMmap> mmap(
       new libtextclassifier3::ScopedMmap(fd, offset, size));
   TC3_ASSIGN_OR_RETURN_NULL(ScopedLocalRef<jstring> value,

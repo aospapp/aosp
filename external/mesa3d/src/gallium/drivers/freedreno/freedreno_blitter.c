@@ -41,10 +41,6 @@ default_dst_texture(struct pipe_surface *dst_templ, struct pipe_resource *dst,
 		unsigned dstlevel, unsigned dstz)
 {
 	memset(dst_templ, 0, sizeof(*dst_templ));
-	if (dst->target == PIPE_BUFFER)
-		dst_templ->format = PIPE_FORMAT_R8_UINT;
-	else
-		dst_templ->format = util_format_linear(dst->format);
 	dst_templ->u.tex.level = dstlevel;
 	dst_templ->u.tex.first_layer = dstz;
 	dst_templ->u.tex.last_layer = dstz;
@@ -67,9 +63,6 @@ default_src_texture(struct pipe_sampler_view *src_templ,
 
 	if (src->target  == PIPE_BUFFER) {
 		src_templ->target = PIPE_TEXTURE_1D;
-		src_templ->format = PIPE_FORMAT_R8_UINT;
-	} else {
-		src_templ->format = util_format_linear(src->format);
 	}
 	src_templ->u.tex.first_level = srclevel;
 	src_templ->u.tex.last_level = srclevel;
@@ -87,19 +80,22 @@ static void
 fd_blitter_pipe_begin(struct fd_context *ctx, bool render_cond, bool discard,
 		enum fd_render_stage stage)
 {
-	fd_fence_ref(ctx->base.screen, &ctx->last_fence, NULL);
+	fd_fence_ref(&ctx->last_fence, NULL);
 
 	util_blitter_save_fragment_constant_buffer_slot(ctx->blitter,
 			ctx->constbuf[PIPE_SHADER_FRAGMENT].cb);
 	util_blitter_save_vertex_buffer_slot(ctx->blitter, ctx->vtx.vertexbuf.vb);
 	util_blitter_save_vertex_elements(ctx->blitter, ctx->vtx.vtx);
-	util_blitter_save_vertex_shader(ctx->blitter, ctx->prog.vp);
+	util_blitter_save_vertex_shader(ctx->blitter, ctx->prog.vs);
+	util_blitter_save_tessctrl_shader(ctx->blitter, ctx->prog.hs);
+	util_blitter_save_tesseval_shader(ctx->blitter, ctx->prog.ds);
+	util_blitter_save_geometry_shader(ctx->blitter, ctx->prog.gs);
 	util_blitter_save_so_targets(ctx->blitter, ctx->streamout.num_targets,
 			ctx->streamout.targets);
 	util_blitter_save_rasterizer(ctx->blitter, ctx->rasterizer);
 	util_blitter_save_viewport(ctx->blitter, &ctx->viewport);
 	util_blitter_save_scissor(ctx->blitter, &ctx->scissor);
-	util_blitter_save_fragment_shader(ctx->blitter, ctx->prog.fp);
+	util_blitter_save_fragment_shader(ctx->blitter, ctx->prog.fs);
 	util_blitter_save_blend(ctx->blitter, ctx->blend);
 	util_blitter_save_depth_stencil_alpha(ctx->blitter, ctx->zsa);
 	util_blitter_save_stencil_ref(ctx->blitter, &ctx->stencil_ref);
@@ -118,15 +114,13 @@ fd_blitter_pipe_begin(struct fd_context *ctx, bool render_cond, bool discard,
 	if (ctx->batch)
 		fd_batch_set_stage(ctx->batch, stage);
 
-	ctx->in_blit = discard;
+	ctx->in_discard_blit = discard;
 }
 
 static void
 fd_blitter_pipe_end(struct fd_context *ctx)
 {
-	if (ctx->batch)
-		fd_batch_set_stage(ctx->batch, FD_STAGE_NULL);
-	ctx->in_blit = false;
+	ctx->in_discard_blit = false;
 }
 
 bool
@@ -184,7 +178,10 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
 	struct pipe_framebuffer_state *pfb = &ctx->batch->framebuffer;
 	struct blitter_context *blitter = ctx->blitter;
 
-	fd_blitter_pipe_begin(ctx, false, true, FD_STAGE_CLEAR);
+	/* Note: don't use discard=true, if there was something to
+	 * discard, that would have been already handled in fd_clear().
+	 */
+	fd_blitter_pipe_begin(ctx, false, false, FD_STAGE_CLEAR);
 
 	util_blitter_common_clear_setup(blitter, pfb->width, pfb->height,
 			buffers, NULL, NULL);
@@ -200,7 +197,8 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
 	};
 	pctx->set_constant_buffer(pctx, PIPE_SHADER_FRAGMENT, 0, &cb);
 
-	if (!ctx->clear_rs_state) {
+	unsigned rs_idx = pfb->samples > 1 ? 1 : 0;
+	if (!ctx->clear_rs_state[rs_idx]) {
 		const struct pipe_rasterizer_state tmpl = {
 			.cull_face = PIPE_FACE_NONE,
 			.half_pixel_center = 1,
@@ -208,10 +206,11 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
 			.flatshade = 1,
 			.depth_clip_near = 1,
 			.depth_clip_far = 1,
+			.multisample = pfb->samples > 1,
 		};
-		ctx->clear_rs_state = pctx->create_rasterizer_state(pctx, &tmpl);
+		ctx->clear_rs_state[rs_idx] = pctx->create_rasterizer_state(pctx, &tmpl);
 	}
-	pctx->bind_rasterizer_state(pctx, ctx->clear_rs_state);
+	pctx->bind_rasterizer_state(pctx, ctx->clear_rs_state[rs_idx]);
 
 	struct pipe_viewport_state vp = {
 		.scale     = { 0.5f * pfb->width, -0.5f * pfb->height, depth },
@@ -223,8 +222,15 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
 	pctx->set_vertex_buffers(pctx, blitter->vb_slot, 1,
 			&ctx->solid_vbuf_state.vertexbuf.vb[0]);
 	pctx->set_stream_output_targets(pctx, 0, NULL, NULL);
-	pctx->bind_vs_state(pctx, ctx->solid_prog.vp);
-	pctx->bind_fs_state(pctx, ctx->solid_prog.fp);
+	pctx->bind_vs_state(pctx, ctx->solid_prog.vs);
+	pctx->bind_fs_state(pctx, ctx->solid_prog.fs);
+
+	/* Clear geom/tess shaders, lest the draw emit code think we are
+	 * trying to use use them:
+	 */
+	pctx->bind_gs_state(pctx, NULL);
+	pctx->bind_tcs_state(pctx, NULL);
+	pctx->bind_tes_state(pctx, NULL);
 
 	struct pipe_draw_info info = {
 		.mode = PIPE_PRIM_MAX,    /* maps to DI_PT_RECTLIST */
@@ -232,7 +238,10 @@ fd_blitter_clear(struct pipe_context *pctx, unsigned buffers,
 		.max_index = 1,
 		.instance_count = 1,
 	};
-	ctx->draw_vbo(ctx, &info, 0);
+	pctx->draw_vbo(pctx, &info);
+
+	/* We expect that this should not have triggered a change in pfb: */
+	assert(util_framebuffer_state_equal(pfb, &ctx->framebuffer));
 
 	util_blitter_restore_constant_buffer_state(blitter);
 	util_blitter_restore_vertex_states(blitter);

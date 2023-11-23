@@ -68,13 +68,6 @@ struct PoissonComputeType {
 
 namespace functor {
 
-template <typename Device, typename T, typename U>
-struct PoissonFunctor {
-  void operator()(OpKernelContext* ctx, const Device& d, const T* rate_flat,
-                  int num_rate, int num_samples,
-                  const random::PhiloxRandom& rng, U* samples_flat);
-};
-
 template <typename T, typename U>
 struct PoissonFunctor<CPUDevice, T, U> {
   void operator()(OpKernelContext* ctx, const CPUDevice& d, const T* rate_flat,
@@ -104,7 +97,7 @@ struct PoissonFunctor<CPUDevice, T, U> {
     typedef random::UniformDistribution<random::PhiloxRandom, CT> Uniform;
 
     auto DoWork = [num_samples, num_rate, &rng, samples_flat, rate_flat](
-                      int start_output, int limit_output) {
+                      int64 start_output, int64 limit_output) {
       // Capturing "rng" by value would only make a copy for the _shared_
       // lambda.  Since we want to let each worker have its own copy, we pass
       // "rng" by reference and explicitly do a copy assignment.
@@ -154,6 +147,16 @@ struct PoissonFunctor<CPUDevice, T, U> {
               }
               x += 1;
             }
+          }
+          continue;
+        }
+        if (Eigen::numext::isinf(rate) && rate > CT(0)) {
+          // Fill the rest of the samples for the current rate value.
+          for (int64 sample_idx = output_idx % num_samples;
+               sample_idx < num_samples && output_idx < limit_output;
+               sample_idx++, output_idx++) {
+            U k = Eigen::NumTraits<U>::infinity();
+            samples_rate_output[sample_idx * num_rate] = k;
           }
           continue;
         }
@@ -329,11 +332,12 @@ TF_CALL_half(REGISTER);
 TF_CALL_float(REGISTER);
 TF_CALL_double(REGISTER);
 
-#define REGISTER_V2(RTYPE, OTYPE)                              \
-  REGISTER_KERNEL_BUILDER(Name("RandomPoissonV2")              \
-                              .Device(DEVICE_CPU)              \
-                              .TypeConstraint<RTYPE>("R")      \
-                              .TypeConstraint<OTYPE>("dtype"), \
+#define REGISTER_V2(RTYPE, OTYPE)                                   \
+  template struct functor::PoissonFunctor<CPUDevice, RTYPE, OTYPE>; \
+  REGISTER_KERNEL_BUILDER(Name("RandomPoissonV2")                   \
+                              .Device(DEVICE_CPU)                   \
+                              .TypeConstraint<RTYPE>("R")           \
+                              .TypeConstraint<OTYPE>("dtype"),      \
                           RandomPoissonOp<RTYPE, OTYPE>);
 
 #define REGISTER_ALL(RTYPE)        \

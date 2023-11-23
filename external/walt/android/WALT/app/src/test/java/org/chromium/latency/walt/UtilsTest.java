@@ -16,15 +16,18 @@
 
 package org.chromium.latency.walt;
 
+import com.github.mikephil.charting.data.Entry;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import static java.lang.Double.NaN;
-import static junit.framework.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
 import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class UtilsTest {
 
@@ -158,5 +161,32 @@ public class UtilsTest {
             laserTimes[i++] = root + 750 + 10;
         }
         assertEquals(latency, Utils.findBestShift(laserTimes, touchTimes, touchY), 1e-6);
+    }
+
+    @Test
+    public void testMeanEntries() {
+        List<Entry> entries = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            entries.add(new Entry(i, i));
+        }
+        assertEquals(5.5, Utils.mean(entries), 1e-12);
+    }
+
+    @Test
+    public void testMinEntries() {
+        List<Entry> entries = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            entries.add(new Entry(i, i));
+        }
+        assertEquals(1, Utils.min(entries), 1e-12);
+    }
+
+    @Test
+    public void testMaxEntries() {
+        List<Entry> entries = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            entries.add(new Entry(i, i));
+        }
+        assertEquals(10, Utils.max(entries), 1e-12);
     }
 }

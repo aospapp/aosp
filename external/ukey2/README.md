@@ -3,7 +3,9 @@ This is not an officially supported Google product
 
 **Coathored by:** Alexei Czeskis, Thai Duong, Eduardo' Vela'' \<Nava\>, and Adam Stubblefield.
 
-**Status:** Implemented in Java (aczeskis@google.com)
+**Status:**
+Implemented in Java by Alexei Czeskis (aczeskis@google.com)
+Ported from Java to C++ by Tim Song (tengs@google.com)
 
 **Design reviewers:** Thai Duong, Bruno Blanchet, Martin Abadi, and Bo Wang
 
@@ -327,3 +329,64 @@ size of the messages were:
 |`ClientFinished`| 79              |
 
 
+# Checking out source code
+
+```
+git clone https://github.com/google/ukey2
+cd ukey2
+git submodule update --init --recursive
+```
+
+# Building and tesging C++ code
+
+## Build
+```
+cd <source root>
+mkdir build; cd build
+cmake -Dukey2_USE_LOCAL_PROTOBUF=ON -Dukey2_USE_LOCAL_ABSL=ON ..
+make
+```
+## Running C++ tests
+```
+cd <source root>/build
+ctest -V
+```
+
+# Buillding Java library and running Java Tests
+
+NOTE: c++ build must be completed as described above, before running java tests.
+This requirement exists because Java build runs a c++/java compatibility test, and
+this test depends on c++ test helper binary (found in build/src/main/cpp/test/securegcm/ukey2_test).
+Gradle build does not know how to build this artifact. Java test uses a relative
+path to the artifact, and expects tests to be run from <source root> as follows:
+
+Pre-reqs: gradle
+
+1. Create gradle wrapper for a specific gradle version.
+This project was built with Gradle-6.1.1.
+If you have an incompatible version of gradle it is recommended that
+you setup gradle wrapper first.
+1.1. The simplest is to run
+```
+cd <source root>
+gradle wrapper --gradle-version=6.1.1
+
+```
+
+1.2. If this fails, this is likely because current gradle version is unable to parse the build.gradle
+file. In this case, create an empty directory outside your project tree, and create a wrapper there.
+```
+mkdir -p $HOME/scratch/gradle-wrapper-611
+cd $HOME/scratch/gradle-wrapper-611
+gradle wrapper --gradle-version=6.1.1
+cp -a gradle gradlew gradlew.bat <source root>
+```
+
+2. Once you get gradle wrapper installed, run test command
+
+```
+cd <source root>
+./gradlew test -i
+```
+
+This will build and execute all the tests.

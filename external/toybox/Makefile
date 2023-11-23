@@ -13,13 +13,11 @@ all: toybox
 
 KCONFIG_CONFIG ?= .config
 
-toybox_stuff: $(KCONFIG_CONFIG) *.[ch] lib/*.[ch] toys/*/*.c scripts/*.sh
-
-toybox generated/unstripped/toybox: toybox_stuff
+toybox generated/unstripped/toybox: $(KCONFIG_CONFIG) *.[ch] lib/*.[ch] toys/*/*.c scripts/*.sh Config.in
 	scripts/make.sh
 
 .PHONY: clean distclean baseline bloatcheck install install_flat \
-	uinstall uninstall_flat tests help toybox_stuff change \
+	uninstall uninstall_flat tests help change \
 	list list_working list_pending root run_root
 
 include kconfig/Makefile
@@ -65,7 +63,8 @@ root_clean:
 	@echo root cleaned
 
 clean::
-	@rm -rf toybox generated change .singleconfig* cross-log-*.*
+	@chmod -fR 700 generated || true
+	@rm -rf toybox generated change .singleconfig*
 	@echo cleaned
 
 # If singlemake was in generated/ "make clean; make test_ls" wouldn't work.
@@ -80,8 +79,7 @@ root:
 	scripts/mkroot.sh $(MAKEFLAGS)
 
 run_root:
-	C=$$(basename "$$CROSS_COMPILE" | sed 's/-.*//'); \
-        cd root/"$${C:-host}" && ./qemu-*.sh $(MAKEFLAGS) || exit 1
+	cd root/"$${CROSS:-host}" && ./qemu-*.sh
 
 help::
 	@cat scripts/help.txt

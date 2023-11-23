@@ -34,6 +34,7 @@ service Identity {
 
   // RPCs for the Identity HAL
   rpc WICinitialize (WICinitializeRequest) returns (WICinitializeResponse);
+  rpc WICinitializeForUpdate (WICinitializeForUpdateRequest) returns (WICinitializeForUpdateResponse);
   rpc WICcreateCredentialKey (WICcreateCredentialKeyRequest) returns (WICcreateCredentialKeyResponse);
   rpc WICstartPersonalization (WICstartPersonalizationRequest) returns (WICstartPersonalizationResponse);
   rpc WICaddAccessControlProfile (WICaddAccessControlProfileRequest) returns (WICaddAccessControlProfileResponse);
@@ -54,6 +55,7 @@ service Identity {
   rpc ICretrieveEntryValue (ICretrieveEntryValueRequest) returns (ICretrieveEntryValueResponse);
   rpc ICfinishRetrieval (ICfinishRetrievalRequest) returns (ICfinishRetrievalResponse);
   rpc ICdeleteCredential (ICdeleteCredentialRequest) returns (ICdeleteCredentialResponse);
+  rpc ICproveOwnership (ICproveOwnershipRequest) returns (ICproveOwnershipResponse);
 }
 
 // WICinitialize
@@ -61,6 +63,17 @@ message WICinitializeRequest{
   bool testCredential = 1;
 }
 message WICinitializeResponse{
+  Result result = 1;
+}
+
+// WICinitializeForUpdate
+message WICinitializeForUpdateRequest{
+  bool testCredential = 1;
+  bytes docType = 2;
+  bytes encryptedCredentialKeys = 3;
+}
+
+message WICinitializeForUpdateResponse{
   Result result = 1;
 }
 
@@ -295,11 +308,25 @@ message ICfinishRetrievalResponse{
 // ICdeleteCredential
 message ICdeleteCredentialRequest{
   bytes docType = 1;
-  bool testCredential = 2;
-  uint32 proofOfDeletionCborSize =3;
+  bytes challenge = 2;
+  bool includeChallenge = 3;
+  uint32 proofOfDeletionCborSize = 4;
 }
 
 message ICdeleteCredentialResponse{
+  Result result = 1;
+  bytes signatureOfToBeSigned = 2;
+}
+
+// ICproveOwnership
+message ICproveOwnershipRequest{
+  bytes docType = 1;
+  bool testCredential = 2;
+  bytes challenge = 3;
+  uint32 proofOfOwnershipCborSize = 4;
+}
+
+message ICproveOwnershipResponse{
   Result result = 1;
   bytes signatureOfToBeSigned = 2;
 }

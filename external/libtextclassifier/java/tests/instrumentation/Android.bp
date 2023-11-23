@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_libtextclassifier_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_libtextclassifier_license"],
+}
+
 android_test {
     name: "TextClassifierServiceTest",
 
@@ -36,6 +45,7 @@ android_test {
         "TextClassifierServiceLib",
         "statsdprotolite",
         "textclassifierprotoslite",
+        "TextClassifierCoverageLib"
     ],
 
     jni_libs: [
@@ -44,13 +54,16 @@ android_test {
     ],
 
     test_suites: [
-        "device-tests", "mts"
+        "general-tests", "mts-extservices"
     ],
 
     plugins: ["androidx.room_room-compiler-plugin",],
-    platform_apis: true,
+    min_sdk_version: "30",
+    sdk_version: "system_current",
     use_embedded_native_libs: true,
     compile_multilib: "both",
 
     instrumentation_for: "TextClassifierService",
+
+    data: ["testdata/*"],
 }

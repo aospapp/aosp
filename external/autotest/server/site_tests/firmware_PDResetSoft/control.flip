@@ -32,6 +32,7 @@ def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args,
                              pdtester_args=pdtester_args)
     job.run_test("firmware_PDResetSoft", host=host, cmdline_args=args,
-                 disable_sysinfo=True, flip_cc=True, tag="flip")
+                 disable_sysinfo=True, flip_cc=True, dts_mode=False,
+                 tag="flip")
 
 parallel_simple(run, machines)

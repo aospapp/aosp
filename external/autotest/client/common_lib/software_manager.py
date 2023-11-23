@@ -15,15 +15,17 @@ implement the given backend class.
 @copyright: IBM 2008-2009
 @copyright: Red Hat 2009-2010
 """
-import os, re, logging, ConfigParser, optparse, random, string
+import os, re, logging, optparse, random, string
 try:
     import yum
 except:
     pass
 import common
+
 from autotest_lib.client.bin import os_dep, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import logging_config, logging_manager
+from autotest_lib.client.common_lib import seven
 
 
 def generate_random_string(length):
@@ -373,7 +375,7 @@ class YumBackend(RpmBackend):
         base_arguments = '-y'
         self.base_command = executable + ' ' + base_arguments
         self.repo_file_path = '/etc/yum.repos.d/autotest.repo'
-        self.cfgparser = ConfigParser.ConfigParser()
+        self.cfgparser = seven.config_parser()
         self.cfgparser.read(self.repo_file_path)
         y_cmd = executable + ' --version | head -1'
         self.yum_version = utils.system_output(y_cmd, ignore_status=True)

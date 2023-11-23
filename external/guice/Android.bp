@@ -27,6 +27,29 @@
 // -- see core/pom.xml NO_AOP rule.
 //
 
+package {
+    default_applicable_licenses: ["external_guice_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_guice_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "COPYING",
+        "NOTICE",
+    ],
+}
+
 filegroup {
     name: "guice_srcs",
     srcs: ["core/src/**/*.java"],
@@ -58,7 +81,7 @@ genrule {
     name: "guice_munge_srcjar",
     out: ["guice_munge.srcjar"],
     srcs: ["lib/build/munge.jar"],
-    cmd: "zip --temp-path $${TMPDIR:-/tmp} $(in) -O $(out) -d MungeTask.java",
+    cmd: "zip -q --temp-path $${TMPDIR:-/tmp} $(in) -O $(out) -d MungeTask.java *.class",
 }
 
 genrule {

@@ -178,4 +178,18 @@ public class ResultCode {
      * The Client should not send any EAB traffic after get this error.
      */
     public static final int PUBLISH_NOT_PROVISIONED = ResultCode.SUBSCRIBER_ERROR_CODE_END - 3;
+
+    public static final int PUBLISH_NOT_REGISTERED = ResultCode.SUBSCRIBER_ERROR_CODE_END - 4;
+
+    public static final int PUBLISH_FORBIDDEN = ResultCode.SUBSCRIBER_ERROR_CODE_END - 5;
+
+    public static final int PUBLISH_NOT_FOUND = ResultCode.SUBSCRIBER_ERROR_CODE_END - 6;
+
+    public static final int PUBLISH_REQUEST_TIMEOUT = ResultCode.SUBSCRIBER_ERROR_CODE_END - 7;
+
+    public static final int PUBLISH_TOO_LARGE = ResultCode.SUBSCRIBER_ERROR_CODE_END - 8;
+
+    public static final int PUBLISH_TOO_SHORT = ResultCode.SUBSCRIBER_ERROR_CODE_END - 9;
+
+    public static final int PUBLISH_TEMPORARY_ERROR = ResultCode.SUBSCRIBER_ERROR_CODE_END - 10;
 }

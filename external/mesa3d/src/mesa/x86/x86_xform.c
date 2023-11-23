@@ -114,13 +114,17 @@ void _mesa_init_all_x86_transform_asm( void )
       _mesa_init_x86_transform_asm();
    }
 
+#ifdef USE_3DNOW_ASM
    if (cpu_has_3dnow) {
       _mesa_init_3dnow_transform_asm();
    }
+#endif
 
+#ifdef USE_SSE_ASM
    if ( cpu_has_xmm ) {
       _mesa_init_sse_transform_asm();
    }
+#endif
 
 #endif
 }

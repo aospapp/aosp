@@ -102,7 +102,6 @@ public:
   void deletePhis();
   void advancedPhiLowering();
   void doAddressOpt();
-  void doNopInsertion(RandomNumberGenerator &RNG);
   void genCode();
   void livenessLightweight();
   bool liveness(Liveness *Liveness);
@@ -127,8 +126,8 @@ public:
   }
   CfgNode *shortCircuit();
 
-  inline void* getExternalData() const { return externalData; }
-  inline void setExternalData(void* data) { externalData = data; }
+  inline void *getExternalData() const { return externalData; }
+  inline void setExternalData(void *data) { externalData = data; }
 
 private:
   CfgNode(Cfg *Func, SizeT Number)
@@ -152,7 +151,7 @@ private:
   /// External data can be set by an optimizer to compute and retain any
   /// information related to the current node. All the memory used to
   /// store this information must be managed by the optimizer.
-  void* externalData = nullptr;
+  void *externalData = nullptr;
 };
 
 } // end of namespace Ice

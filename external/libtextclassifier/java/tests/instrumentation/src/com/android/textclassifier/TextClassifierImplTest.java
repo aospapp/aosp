@@ -21,7 +21,7 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.expectThrows;
 
 import android.app.RemoteAction;
 import android.content.Context;
@@ -38,10 +38,14 @@ import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextLanguage;
 import android.view.textclassifier.TextLinks;
 import android.view.textclassifier.TextSelection;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+import com.android.textclassifier.common.ModelFileManager;
+import com.android.textclassifier.common.TextClassifierSettings;
 import com.android.textclassifier.testing.FakeContextBuilder;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,7 +54,6 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -63,6 +66,8 @@ public class TextClassifierImplTest {
   private static final String NO_TYPE = null;
 
   private TextClassifierImpl classifier;
+  private final ModelFileManager modelFileManager =
+      TestDataUtils.createModelFileManagerForTesting(ApplicationProvider.getApplicationContext());
 
   @Before
   public void setup() {
@@ -71,11 +76,12 @@ public class TextClassifierImplTest {
             .setAllIntentComponent(FakeContextBuilder.DEFAULT_COMPONENT)
             .setAppLabel(FakeContextBuilder.DEFAULT_COMPONENT.getPackageName(), "Test app")
             .build();
-    classifier = new TextClassifierImpl(context, new TextClassifierSettings());
+    TextClassifierSettings settings = new TextClassifierSettings();
+    classifier = new TextClassifierImpl(context, settings, modelFileManager);
   }
 
   @Test
-  public void testSuggestSelection() {
+  public void testSuggestSelection() throws IOException {
     String text = "Contact me at droid@android.com";
     String selected = "droid";
     String suggested = "droid@android.com";
@@ -88,13 +94,13 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextSelection selection = classifier.suggestSelection(request);
+    TextSelection selection = classifier.suggestSelection(null, null, request);
     assertThat(
         selection, isTextSelection(smartStartIndex, smartEndIndex, TextClassifier.TYPE_EMAIL));
   }
 
   @Test
-  public void testSuggestSelection_url() {
+  public void testSuggestSelection_url() throws IOException {
     String text = "Visit http://www.android.com for more information";
     String selected = "http";
     String suggested = "http://www.android.com";
@@ -107,12 +113,12 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextSelection selection = classifier.suggestSelection(request);
+    TextSelection selection = classifier.suggestSelection(null, null, request);
     assertThat(selection, isTextSelection(smartStartIndex, smartEndIndex, TextClassifier.TYPE_URL));
   }
 
   @Test
-  public void testSmartSelection_withEmoji() {
+  public void testSmartSelection_withEmoji() throws IOException {
     String text = "\uD83D\uDE02 Hello.";
     String selected = "Hello";
     int startIndex = text.indexOf(selected);
@@ -122,12 +128,12 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextSelection selection = classifier.suggestSelection(request);
+    TextSelection selection = classifier.suggestSelection(null, null, request);
     assertThat(selection, isTextSelection(startIndex, endIndex, NO_TYPE));
   }
 
   @Test
-  public void testClassifyText() {
+  public void testClassifyText() throws IOException {
     String text = "Contact me at droid@android.com";
     String classifiedText = "droid@android.com";
     int startIndex = text.indexOf(classifiedText);
@@ -137,12 +143,13 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification =
+        classifier.classifyText(/* sessionId= */ null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_EMAIL));
   }
 
   @Test
-  public void testClassifyText_url() {
+  public void testClassifyText_url() throws IOException {
     String text = "Visit www.android.com for more information";
     String classifiedText = "www.android.com";
     int startIndex = text.indexOf(classifiedText);
@@ -152,25 +159,25 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_URL));
     assertThat(classification, containsIntentWithAction(Intent.ACTION_VIEW));
   }
 
   @Test
-  public void testClassifyText_address() {
+  public void testClassifyText_address() throws IOException {
     String text = "Brandschenkestrasse 110, Zürich, Switzerland";
     TextClassification.Request request =
         new TextClassification.Request.Builder(text, 0, text.length())
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(text, TextClassifier.TYPE_ADDRESS));
   }
 
   @Test
-  public void testClassifyText_url_inCaps() {
+  public void testClassifyText_url_inCaps() throws IOException {
     String text = "Visit HTTP://ANDROID.COM for more information";
     String classifiedText = "HTTP://ANDROID.COM";
     int startIndex = text.indexOf(classifiedText);
@@ -180,13 +187,13 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_URL));
     assertThat(classification, containsIntentWithAction(Intent.ACTION_VIEW));
   }
 
   @Test
-  public void testClassifyText_date() {
+  public void testClassifyText_date() throws IOException {
     String text = "Let's meet on January 9, 2018.";
     String classifiedText = "January 9, 2018";
     int startIndex = text.indexOf(classifiedText);
@@ -196,7 +203,7 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_DATE));
     Bundle extras = classification.getExtras();
     List<Bundle> entities = ExtrasUtils.getEntities(extras);
@@ -207,7 +214,7 @@ public class TextClassifierImplTest {
   }
 
   @Test
-  public void testClassifyText_datetime() {
+  public void testClassifyText_datetime() throws IOException {
     String text = "Let's meet 2018/01/01 10:30:20.";
     String classifiedText = "2018/01/01 10:30:20";
     int startIndex = text.indexOf(classifiedText);
@@ -217,15 +224,12 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification = classifier.classifyText(null, null, request);
     assertThat(classification, isTextClassification(classifiedText, TextClassifier.TYPE_DATE_TIME));
   }
 
-  // TODO(tonymak): Enable it once we drop the v8 image to Android. I have already run this test
-  // after pushing a test model to a device manually.
-  @Ignore
   @Test
-  public void testClassifyText_foreignText() {
+  public void testClassifyText_foreignText() throws IOException {
     LocaleList originalLocales = LocaleList.getDefault();
     LocaleList.setDefault(LocaleList.forLanguageTags("en"));
     String japaneseText = "これは日本語のテキストです";
@@ -234,7 +238,7 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
 
-    TextClassification classification = classifier.classifyText(request);
+    TextClassification classification = classifier.classifyText(null, null, request);
     RemoteAction translateAction = classification.getActions().get(0);
     assertEquals(1, classification.getActions().size());
     assertEquals("Translate", translateAction.getTitle().toString());
@@ -254,16 +258,16 @@ public class TextClassifierImplTest {
   }
 
   @Test
-  public void testGenerateLinks_phone() {
+  public void testGenerateLinks_phone() throws IOException {
     String text = "The number is +12122537077. See you tonight!";
     TextLinks.Request request = new TextLinks.Request.Builder(text).build();
     assertThat(
-        classifier.generateLinks(request),
+        classifier.generateLinks(null, null, request),
         isTextLinksContaining(text, "+12122537077", TextClassifier.TYPE_PHONE));
   }
 
   @Test
-  public void testGenerateLinks_exclude() {
+  public void testGenerateLinks_exclude() throws IOException {
     String text = "You want apple@banana.com. See you tonight!";
     List<String> hints = ImmutableList.of();
     List<String> included = ImmutableList.of();
@@ -274,12 +278,12 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
     assertThat(
-        classifier.generateLinks(request),
+        classifier.generateLinks(null, null, request),
         not(isTextLinksContaining(text, "apple@banana.com", TextClassifier.TYPE_EMAIL)));
   }
 
   @Test
-  public void testGenerateLinks_explicit_address() {
+  public void testGenerateLinks_explicit_address() throws IOException {
     String text = "The address is 1600 Amphitheater Parkway, Mountain View, CA. See you!";
     List<String> explicit = Arrays.asList(TextClassifier.TYPE_ADDRESS);
     TextLinks.Request request =
@@ -288,13 +292,13 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
     assertThat(
-        classifier.generateLinks(request),
+        classifier.generateLinks(null, null, request),
         isTextLinksContaining(
             text, "1600 Amphitheater Parkway, Mountain View, CA", TextClassifier.TYPE_ADDRESS));
   }
 
   @Test
-  public void testGenerateLinks_exclude_override() {
+  public void testGenerateLinks_exclude_override() throws IOException {
     String text = "You want apple@banana.com. See you tonight!";
     List<String> hints = ImmutableList.of();
     List<String> included = Arrays.asList(TextClassifier.TYPE_EMAIL);
@@ -305,26 +309,26 @@ public class TextClassifierImplTest {
             .setDefaultLocales(LOCALES)
             .build();
     assertThat(
-        classifier.generateLinks(request),
+        classifier.generateLinks(null, null, request),
         not(isTextLinksContaining(text, "apple@banana.com", TextClassifier.TYPE_EMAIL)));
   }
 
   @Test
-  public void testGenerateLinks_maxLength() {
+  public void testGenerateLinks_maxLength() throws IOException {
     char[] manySpaces = new char[classifier.getMaxGenerateLinksTextLength()];
     Arrays.fill(manySpaces, ' ');
     TextLinks.Request request = new TextLinks.Request.Builder(new String(manySpaces)).build();
-    TextLinks links = classifier.generateLinks(request);
+    TextLinks links = classifier.generateLinks(null, null, request);
     assertTrue(links.getLinks().isEmpty());
   }
 
   @Test
-  public void testApplyLinks_unsupportedCharacter() {
+  public void testApplyLinks_unsupportedCharacter() throws IOException {
     Spannable url = new SpannableString("\u202Emoc.diordna.com");
     TextLinks.Request request = new TextLinks.Request.Builder(url).build();
     assertEquals(
         TextLinks.STATUS_UNSUPPORTED_CHARACTER,
-        classifier.generateLinks(request).apply(url, 0, null));
+        classifier.generateLinks(null, null, request).apply(url, 0, null));
   }
 
   @Test
@@ -332,17 +336,18 @@ public class TextClassifierImplTest {
     char[] manySpaces = new char[classifier.getMaxGenerateLinksTextLength() + 1];
     Arrays.fill(manySpaces, ' ');
     TextLinks.Request request = new TextLinks.Request.Builder(new String(manySpaces)).build();
-    assertThrows(IllegalArgumentException.class, () -> classifier.generateLinks(request));
+    expectThrows(
+        IllegalArgumentException.class, () -> classifier.generateLinks(null, null, request));
   }
 
   @Test
-  public void testGenerateLinks_entityData() {
+  public void testGenerateLinks_entityData() throws IOException {
     String text = "The number is +12122537077.";
     Bundle extras = new Bundle();
     ExtrasUtils.putIsSerializedEntityDataEnabled(extras, true);
     TextLinks.Request request = new TextLinks.Request.Builder(text).setExtras(extras).build();
 
-    TextLinks textLinks = classifier.generateLinks(request);
+    TextLinks textLinks = classifier.generateLinks(null, null, request);
 
     assertThat(textLinks.getLinks()).hasSize(1);
     TextLinks.TextLink textLink = textLinks.getLinks().iterator().next();
@@ -353,11 +358,11 @@ public class TextClassifierImplTest {
   }
 
   @Test
-  public void testGenerateLinks_entityData_disabled() {
+  public void testGenerateLinks_entityData_disabled() throws IOException {
     String text = "The number is +12122537077.";
     TextLinks.Request request = new TextLinks.Request.Builder(text).build();
 
-    TextLinks textLinks = classifier.generateLinks(request);
+    TextLinks textLinks = classifier.generateLinks(null, null, request);
 
     assertThat(textLinks.getLinks()).hasSize(1);
     TextLinks.TextLink textLink = textLinks.getLinks().iterator().next();
@@ -366,24 +371,23 @@ public class TextClassifierImplTest {
   }
 
   @Test
-  public void testDetectLanguage() {
+  public void testDetectLanguage() throws IOException {
     String text = "This is English text";
     TextLanguage.Request request = new TextLanguage.Request.Builder(text).build();
-    TextLanguage textLanguage = classifier.detectLanguage(request);
+    TextLanguage textLanguage = classifier.detectLanguage(null, null, request);
     assertThat(textLanguage, isTextLanguage("en"));
   }
 
   @Test
-  public void testDetectLanguage_japanese() {
+  public void testDetectLanguage_japanese() throws IOException {
     String text = "これは日本語のテキストです";
     TextLanguage.Request request = new TextLanguage.Request.Builder(text).build();
-    TextLanguage textLanguage = classifier.detectLanguage(request);
+    TextLanguage textLanguage = classifier.detectLanguage(null, null, request);
     assertThat(textLanguage, isTextLanguage("ja"));
   }
 
-  @Ignore // Doesn't work without a language-based model.
   @Test
-  public void testSuggestConversationActions_textReplyOnly_maxOne() {
+  public void testSuggestConversationActions_textReplyOnly_maxOne() throws IOException {
     ConversationActions.Message message =
         new ConversationActions.Message.Builder(ConversationActions.Message.PERSON_USER_OTHERS)
             .setText("Where are you?")
@@ -399,16 +403,16 @@ public class TextClassifierImplTest {
             .setTypeConfig(typeConfig)
             .build();
 
-    ConversationActions conversationActions = classifier.suggestConversationActions(request);
+    ConversationActions conversationActions =
+        classifier.suggestConversationActions(null, null, request);
     assertThat(conversationActions.getConversationActions()).hasSize(1);
     ConversationAction conversationAction = conversationActions.getConversationActions().get(0);
     assertThat(conversationAction.getType()).isEqualTo(ConversationAction.TYPE_TEXT_REPLY);
     assertThat(conversationAction.getTextReply()).isNotNull();
   }
 
-  @Ignore // Doesn't work without a language-based model.
   @Test
-  public void testSuggestConversationActions_textReplyOnly_noMax() {
+  public void testSuggestConversationActions_textReplyOnly_noMax() throws IOException {
     ConversationActions.Message message =
         new ConversationActions.Message.Builder(ConversationActions.Message.PERSON_USER_OTHERS)
             .setText("Where are you?")
@@ -423,7 +427,8 @@ public class TextClassifierImplTest {
             .setTypeConfig(typeConfig)
             .build();
 
-    ConversationActions conversationActions = classifier.suggestConversationActions(request);
+    ConversationActions conversationActions =
+        classifier.suggestConversationActions(null, null, request);
     assertTrue(conversationActions.getConversationActions().size() > 1);
     for (ConversationAction conversationAction : conversationActions.getConversationActions()) {
       assertThat(conversationAction, isConversationAction(ConversationAction.TYPE_TEXT_REPLY));
@@ -431,7 +436,7 @@ public class TextClassifierImplTest {
   }
 
   @Test
-  public void testSuggestConversationActions_openUrl() {
+  public void testSuggestConversationActions_openUrl() throws IOException {
     ConversationActions.Message message =
         new ConversationActions.Message.Builder(ConversationActions.Message.PERSON_USER_OTHERS)
             .setText("Check this out: https://www.android.com")
@@ -447,7 +452,8 @@ public class TextClassifierImplTest {
             .setTypeConfig(typeConfig)
             .build();
 
-    ConversationActions conversationActions = classifier.suggestConversationActions(request);
+    ConversationActions conversationActions =
+        classifier.suggestConversationActions(null, null, request);
     assertThat(conversationActions.getConversationActions()).hasSize(1);
     ConversationAction conversationAction = conversationActions.getConversationActions().get(0);
     assertThat(conversationAction.getType()).isEqualTo(ConversationAction.TYPE_OPEN_URL);
@@ -457,9 +463,8 @@ public class TextClassifierImplTest {
     assertNoPackageInfoInExtras(actionIntent);
   }
 
-  @Ignore // Doesn't work without a language-based model.
   @Test
-  public void testSuggestConversationActions_copy() {
+  public void testSuggestConversationActions_copy() throws IOException {
     ConversationActions.Message message =
         new ConversationActions.Message.Builder(ConversationActions.Message.PERSON_USER_OTHERS)
             .setText("Authentication code: 12345")
@@ -475,7 +480,8 @@ public class TextClassifierImplTest {
             .setTypeConfig(typeConfig)
             .build();
 
-    ConversationActions conversationActions = classifier.suggestConversationActions(request);
+    ConversationActions conversationActions =
+        classifier.suggestConversationActions(null, null, request);
     assertThat(conversationActions.getConversationActions()).hasSize(1);
     ConversationAction conversationAction = conversationActions.getConversationActions().get(0);
     assertThat(conversationAction.getType()).isEqualTo(TYPE_COPY);
@@ -487,7 +493,7 @@ public class TextClassifierImplTest {
   }
 
   @Test
-  public void testSuggestConversationActions_deduplicate() {
+  public void testSuggestConversationActions_deduplicate() throws IOException {
     ConversationActions.Message message =
         new ConversationActions.Message.Builder(ConversationActions.Message.PERSON_USER_OTHERS)
             .setText("a@android.com b@android.com")
@@ -497,7 +503,8 @@ public class TextClassifierImplTest {
             .setMaxSuggestions(3)
             .build();
 
-    ConversationActions conversationActions = classifier.suggestConversationActions(request);
+    ConversationActions conversationActions =
+        classifier.suggestConversationActions(null, null, request);
 
     assertThat(conversationActions.getConversationActions()).isEmpty();
   }

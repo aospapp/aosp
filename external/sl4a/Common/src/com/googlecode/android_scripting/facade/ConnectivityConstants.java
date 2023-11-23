@@ -66,6 +66,7 @@ public class ConnectivityConstants {
         public static final String NETWORK_CALLBACK_EVENT = "networkCallbackEvent";
         public static final String MAX_MS_TO_LIVE = "maxMsToLive";
         public static final String RSSI = "rssi";
+        public static final String METERED = "metered";
         public static final String INTERFACE_NAME = "interfaceName";
         public static final String CREATE_TIMESTAMP = "creation_timestamp";
         public static final String CURRENT_TIMESTAMP = "current_timestamp";
@@ -78,9 +79,20 @@ public class ConnectivityConstants {
     public static final String TetheringFailedCallback = "ConnectivityManagerOnTetheringFailed";
 
     /**
+     * Constants for Meteredness
+     */
+    public static final Integer NET_CAPABILITY_TEMPORARILY_NOT_METERED = 25;
+
+    /**
      * Constants for PrivateDnsMode
      */
     public static final String PrivateDnsModeOff = "off";
     public static final String PrivateDnsModeOpportunistic = "opportunistic";
     public static final String PrivateDnsModeStrict = "hostname";
+
+    /**
+     * Constants for NetworkCapabilties/NetworkRequest
+     */
+    public static final String NET_CAPABILITIES_TRANSPORT_TYPE = "TransportType";
+    public static final String NET_CAPABILITIES_CAPABILITIES = "Capability";
 }

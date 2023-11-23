@@ -38,15 +38,21 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/procfs.h>
+#if defined(__mips__) && defined(__ANDROID__)
+// To get register definitions.
+#include <asm/reg.h>
+#endif
 
+#include "common/linux/elf_gnu_compat.h"
 #include "common/linux/linux_libc_support.h"
 
 namespace google_breakpad {
 
 LinuxCoreDumper::LinuxCoreDumper(pid_t pid,
                                  const char* core_path,
-                                 const char* procfs_path)
-    : LinuxDumper(pid),
+                                 const char* procfs_path,
+                                 const char* root_prefix)
+    : LinuxDumper(pid, root_prefix),
       core_path_(core_path),
       procfs_path_(procfs_path),
       thread_infos_(&allocator_, 8) {
@@ -105,7 +111,7 @@ bool LinuxCoreDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
   memcpy(&stack_pointer, &info->regs.sp, sizeof(info->regs.sp));
 #elif defined(__mips__)
   stack_pointer =
-      reinterpret_cast<uint8_t*>(info->regs.regs[MD_CONTEXT_MIPS_REG_SP]);
+      reinterpret_cast<uint8_t*>(info->mcontext.gregs[MD_CONTEXT_MIPS_REG_SP]);
 #else
 #error "This code hasn't been ported to your platform yet."
 #endif
@@ -160,6 +166,7 @@ bool LinuxCoreDumper::EnumerateThreads() {
     //   -------------------------------------------------------------------
     //   1st thread       CORE          NT_PRSTATUS
     //   process-wide     CORE          NT_PRPSINFO
+    //   process-wide     CORE          NT_SIGINFO
     //   process-wide     CORE          NT_AUXV
     //   1st thread       CORE          NT_FPREGSET
     //   1st thread       LINUX         NT_PRXFPREG
@@ -191,25 +198,68 @@ bool LinuxCoreDumper::EnumerateThreads() {
         info.tgid = status->pr_pgrp;
         info.ppid = status->pr_ppid;
 #if defined(__mips__)
+#if defined(__ANDROID__)
+        for (int i = EF_R0; i <= EF_R31; i++)
+          info.mcontext.gregs[i - EF_R0] = status->pr_reg[i];
+#else  // __ANDROID__
         for (int i = EF_REG0; i <= EF_REG31; i++)
-          info.regs.regs[i - EF_REG0] = status->pr_reg[i];
-
-        info.regs.lo = status->pr_reg[EF_LO];
-        info.regs.hi = status->pr_reg[EF_HI];
-        info.regs.epc = status->pr_reg[EF_CP0_EPC];
-        info.regs.badvaddr = status->pr_reg[EF_CP0_BADVADDR];
-        info.regs.status = status->pr_reg[EF_CP0_STATUS];
-        info.regs.cause = status->pr_reg[EF_CP0_CAUSE];
-#else
+          info.mcontext.gregs[i - EF_REG0] = status->pr_reg[i];
+#endif  // __ANDROID__
+        info.mcontext.mdlo = status->pr_reg[EF_LO];
+        info.mcontext.mdhi = status->pr_reg[EF_HI];
+        info.mcontext.pc = status->pr_reg[EF_CP0_EPC];
+#else  // __mips__
         memcpy(&info.regs, status->pr_reg, sizeof(info.regs));
-#endif
+#endif  // __mips__
         if (first_thread) {
           crash_thread_ = pid;
           crash_signal_ = status->pr_info.si_signo;
+          crash_signal_code_ = status->pr_info.si_code;
         }
         first_thread = false;
         threads_.push_back(pid);
         thread_infos_.push_back(info);
+        break;
+      }
+      case NT_SIGINFO: {
+        if (description.length() != sizeof(siginfo_t)) {
+          fprintf(stderr, "Found NT_SIGINFO descriptor of unexpected size\n");
+          return false;
+        }
+
+        const siginfo_t* info =
+            reinterpret_cast<const siginfo_t*>(description.data());
+
+        // Set crash_address when si_addr is valid for the signal.
+        switch (info->si_signo) {
+          case MD_EXCEPTION_CODE_LIN_SIGBUS:
+          case MD_EXCEPTION_CODE_LIN_SIGFPE:
+          case MD_EXCEPTION_CODE_LIN_SIGILL:
+          case MD_EXCEPTION_CODE_LIN_SIGSEGV:
+          case MD_EXCEPTION_CODE_LIN_SIGSYS:
+          case MD_EXCEPTION_CODE_LIN_SIGTRAP:
+            crash_address_ = reinterpret_cast<uintptr_t>(info->si_addr);
+            break;
+        }
+
+        // Set crash_exception_info for common signals.  Since exception info is
+        // unsigned, but some of these fields might be signed, we always cast.
+        switch (info->si_signo) {
+          case MD_EXCEPTION_CODE_LIN_SIGKILL:
+            set_crash_exception_info({
+              static_cast<uint64_t>(info->si_pid),
+              static_cast<uint64_t>(info->si_uid),
+            });
+            break;
+          case MD_EXCEPTION_CODE_LIN_SIGSYS:
+#ifdef si_syscall
+            set_crash_exception_info({
+              static_cast<uint64_t>(info->si_syscall),
+              static_cast<uint64_t>(info->si_arch),
+            });
+#endif
+            break;
+        }
         break;
       }
 #if defined(__i386) || defined(__x86_64)

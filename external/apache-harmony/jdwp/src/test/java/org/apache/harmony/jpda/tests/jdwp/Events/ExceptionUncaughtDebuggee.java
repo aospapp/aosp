@@ -44,7 +44,7 @@ public class ExceptionUncaughtDebuggee extends SyncDebuggee {
         logWriter.println("-- ExceptionUncaughtDebuggee: STARTED");
 
         // Cause loading of DebuggeeException so it is visible from the test.
-        new DebuggeeException("dummy exception");
+        new DebuggeeException("fake exception");
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

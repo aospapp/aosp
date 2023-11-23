@@ -54,10 +54,10 @@
 
     <style name="SudItemContainer">
         <item name="android:minHeight">?android:attr/listPreferredItemHeight</item>
-        <item name="android:paddingBottom">@dimen/sud_items_padding_vertical</item>
+        <item name="android:paddingBottom">@dimen/sud_items_padding_bottom</item>
         <item name="android:paddingEnd">?android:attr/listPreferredItemPaddingEnd</item>
         <item name="android:paddingStart">?android:attr/listPreferredItemPaddingStart</item>
-        <item name="android:paddingTop">@dimen/sud_items_padding_vertical</item>
+        <item name="android:paddingTop">@dimen/sud_items_padding_top</item>
     </style>
 
     <style name="SudItemTitle">

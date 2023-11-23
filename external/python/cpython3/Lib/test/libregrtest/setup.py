@@ -10,6 +10,8 @@ try:
 except ImportError:
     gc = None
 
+from test.libregrtest.utils import setup_unraisable_hook
+
 
 def setup_tests(ns):
     try:
@@ -67,7 +69,7 @@ def setup_tests(ns):
     if ns.threshold is not None:
         gc.set_threshold(ns.threshold)
 
-    suppress_msvcrt_asserts(ns.verbose and ns.verbose >= 2)
+    support.suppress_msvcrt_asserts(ns.verbose and ns.verbose >= 2)
 
     support.use_resources = ns.use_resources
 
@@ -77,30 +79,18 @@ def setup_tests(ns):
             pass
         sys.addaudithook(_test_audit_hook)
 
+    setup_unraisable_hook()
 
-def suppress_msvcrt_asserts(verbose):
-    try:
-        import msvcrt
-    except ImportError:
-        return
+    if ns.timeout is not None:
+        # For a slow buildbot worker, increase SHORT_TIMEOUT and LONG_TIMEOUT
+        support.SHORT_TIMEOUT = max(support.SHORT_TIMEOUT, ns.timeout / 40)
+        support.LONG_TIMEOUT = max(support.LONG_TIMEOUT, ns.timeout / 4)
 
-    msvcrt.SetErrorMode(msvcrt.SEM_FAILCRITICALERRORS|
-                        msvcrt.SEM_NOALIGNMENTFAULTEXCEPT|
-                        msvcrt.SEM_NOGPFAULTERRORBOX|
-                        msvcrt.SEM_NOOPENFILEERRORBOX)
-    try:
-        msvcrt.CrtSetReportMode
-    except AttributeError:
-        # release build
-        return
-
-    for m in [msvcrt.CRT_WARN, msvcrt.CRT_ERROR, msvcrt.CRT_ASSERT]:
-        if verbose:
-            msvcrt.CrtSetReportMode(m, msvcrt.CRTDBG_MODE_FILE)
-            msvcrt.CrtSetReportFile(m, msvcrt.CRTDBG_FILE_STDERR)
-        else:
-            msvcrt.CrtSetReportMode(m, 0)
-
+        # If --timeout is short: reduce timeouts
+        support.LOOPBACK_TIMEOUT = min(support.LOOPBACK_TIMEOUT, ns.timeout)
+        support.INTERNET_TIMEOUT = min(support.INTERNET_TIMEOUT, ns.timeout)
+        support.SHORT_TIMEOUT = min(support.SHORT_TIMEOUT, ns.timeout)
+        support.LONG_TIMEOUT = min(support.LONG_TIMEOUT, ns.timeout)
 
 
 def replace_stdout():

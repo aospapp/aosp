@@ -191,7 +191,7 @@ static MagickBooleanType
 */
 static ssize_t FindColor(PixelInfo *packet)
 {
-  register ssize_t
+  ssize_t
     i;
 
   for (i=0; i < 256; i++)
@@ -248,11 +248,11 @@ static Image *ReadPALMImage(const ImageInfo *image_info,
   Quantum
     index;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register Quantum
+  Quantum
     *q;
 
   size_t
@@ -688,6 +688,9 @@ ModuleExport void UnregisterPALMImage(void)
 static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
   Image *image,ExceptionInfo *exception)
 {
+  int
+    bit;
+
   MagickBooleanType
     status;
 
@@ -705,13 +708,13 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
   QuantizeInfo
     *quantize_info;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register Quantum
+  Quantum
     *q;
 
   ssize_t
@@ -726,7 +729,6 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
     one;
 
   unsigned char
-    bit,
     byte,
     color,
     *last_row,
@@ -928,7 +930,7 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
           for (x=0; x < (ssize_t) image->columns; x++)
           {
             if (bits_per_pixel >= 8)
-              color=(unsigned char) GetPixelIndex(image,p);
+              color=(unsigned char) ((ssize_t) GetPixelIndex(image,p));
             else
               color=(unsigned char) (GetPixelIndex(image,p)*
                 ((one << bits_per_pixel)-1)/MagickMax(1*image->colors-1,1));
@@ -967,10 +969,10 @@ static MagickBooleanType WritePALMImage(const ImageInfo *image_info,
               tmpbuf[8],
               *tptr;
   
-            for (x = 0;  x < (ssize_t) bytes_per_row;  x += 8)
+            for (x=0;  x < (ssize_t) bytes_per_row; x+=8)
             {
               tptr = tmpbuf;
-              for (bit=0, byte=0; bit < (unsigned char) MagickMin(8,(ssize_t) bytes_per_row-x); bit++)
+              for (bit=0, byte=0; bit < (int) MagickMin(8L,(ssize_t) bytes_per_row-x); bit++)
               {
                 if ((y == 0) || (last_row[x + bit] != one_row[x + bit]))
                   {

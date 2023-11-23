@@ -19,11 +19,10 @@ global:
 # These values are ignored, they are here just to be referenced below.
 constants:
   compilers: &compilers
-    - "g++-8"
-    - "clang++-6.0"
+    - "g++-9"
+    - "clang++-10"
   num_classes: &num_classes
     - 100
-    - 1000
 
 benchmarks:
   - name: "fruit_single_file_compile_time"
@@ -38,10 +37,12 @@ benchmarks:
       - []
 
   - name:
-      - "new_delete_run_time"
       - "fruit_compile_time"
+      - "fruit_compile_memory"
       - "fruit_incremental_compile_time"
       - "fruit_run_time"
+      - "fruit_startup_time"
+      - "fruit_startup_time_with_normalized_component"
       - "fruit_executable_size"
     loop_factor: 1.0
     num_classes: *num_classes
@@ -49,5 +50,16 @@ benchmarks:
     cxx_std: "c++11"
     additional_cmake_args:
       - []
+    benchmark_generation_flags:
+      - []
+
+  - name:
+      - "fruit_executable_size_without_exceptions_and_rtti"
+    loop_factor: 1.0
+    num_classes: *num_classes
+    compiler: *compilers
+    cxx_std: "c++11"
+    additional_cmake_args:
+      - ['-DCMAKE_CXX_FLAGS=-fno-exceptions -fno-rtti']
     benchmark_generation_flags:
       - []

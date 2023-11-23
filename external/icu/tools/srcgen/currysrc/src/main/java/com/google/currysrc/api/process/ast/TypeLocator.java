@@ -111,11 +111,11 @@ public final class TypeLocator implements BodyDeclarationLocator {
   }
 
   public static List<TypeLocator> createLocatorsFromStrings(String[] classes) {
-    ImmutableList.Builder<TypeLocator> apiClassesWhitelistBuilder = ImmutableList.builder();
+    ImmutableList.Builder<TypeLocator> apiClassesAllowlistBuilder = ImmutableList.builder();
     for (String publicClassName : classes) {
-      apiClassesWhitelistBuilder.add(new TypeLocator(publicClassName));
+      apiClassesAllowlistBuilder.add(new TypeLocator(publicClassName));
     }
-    return apiClassesWhitelistBuilder.build();
+    return apiClassesAllowlistBuilder.build();
   }
 
   /**

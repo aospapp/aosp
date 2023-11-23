@@ -26,6 +26,7 @@
 //       signature multiple times, since this allows to get more accurate timings.
 package com.google.security.wycheproof;
 
+import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
 import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import com.google.security.wycheproof.WycheproofRunner.SlowTest;
 // Android-removed: Android doesn't support JMX
@@ -891,6 +892,9 @@ public class DsaTest extends TestCase {
    * test until April 2016.
    */
   @SuppressWarnings("InsecureCryptoUsage")
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "Signature.SHA1WithDSA is removed")
   public void testDsaBias() throws Exception {
     // q is close to 2/3 * 2^160.
     BigInteger q = new BigInteger("974317976835659416858874959372334979171063697271");

@@ -32,6 +32,7 @@
              This attribute will be ignored and use partner resource when inside setup wizard flow.
              The default value is true. -->
         <attr name="sucUsePartnerResource" format="boolean" />
+        <attr name="sucFullDynamicColor" format="boolean" />
     </declare-styleable>
 
     <!-- Status bar attributes; only takes effect on M or above -->
@@ -52,6 +53,10 @@
              "android:windowTranslucentNavigation" should be set to false. -->
         <attr name="sucSystemNavBarBackgroundColor" format="color" />
         <attr name="sucLightSystemNavBar" format="boolean" />
+        <!-- The color for the system navigation bar divider. For this to take effect,
+             "android:windowDrawsSystemBarBackgrounds" should be set to true and
+             "android:windowTranslucentNavigation" should be set to false. -->
+        <attr name="sucSystemNavBarDividerColor" format="color" />
     </declare-styleable>
 
     <!-- FooterButton attributes -->
@@ -70,6 +75,8 @@
             <enum name="skip" value="7" />
             <enum name="stop" value="8" />
         </attr>
+        <attr name="sucFooterButtonPaddingStart" format="dimension" />
+        <attr name="sucFooterButtonPaddingEnd" format="dimension" />
     </declare-styleable>
 
     <!-- Button of footer attributes -->
@@ -87,11 +94,18 @@
         <attr name="sucFooterBarButtonColorControlHighlight" format="color" />
         <attr name="sucFooterBarButtonColorControlHighlightRipple" format="color" />
         <attr name="sucFooterBarPaddingVertical" format="dimension" />
+        <attr name="sucFooterBarPaddingStart" format="dimension" />
+        <attr name="sucFooterBarPaddingEnd" format="dimension" />
+        <attr name="sucFooterBarMinHeight" format="dimension" />
     </declare-styleable>
 
     <declare-styleable name="SucHeaderMixin">
         <attr name="sucHeaderText" format="string" localization="suggested" />
         <attr name="sucHeaderTextColor" format="reference|color" />
+        <attr name="sucGlifHeaderMarginTop" format="dimension" />
+        <attr name="sucGlifHeaderMarginBottom" format="dimension" />
+        <attr name="sucGlifIconMarginTop" format="dimension" />
+        <attr name="sucHeaderContainerMarginBottom" format="dimension" />
     </declare-styleable>
 
 </resources>

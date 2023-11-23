@@ -50,6 +50,7 @@ import org.unicode.cldr.util.Level;
 import org.unicode.cldr.util.LocaleIDParser;
 import org.unicode.cldr.util.Pair;
 import org.unicode.cldr.util.PathHeader;
+import org.unicode.cldr.util.PathUtilities;
 import org.unicode.cldr.util.SupplementalDataInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralType;
@@ -61,12 +62,12 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R2;
@@ -169,13 +170,13 @@ public class TestBasic extends TestFmwkPlus {
         List<TimingInfo> data) throws IOException {
         boolean deepCheck = getInclusion() >= 10;
         File[] listFiles = directoryFile.listFiles();
-        String canonicalPath = directoryFile.getCanonicalPath();
+        String normalizedPath = PathUtilities.getNormalizedPathString(directoryFile);
         String indent = Utility.repeat("\t", level);
         if (listFiles == null) {
             throw new IllegalArgumentException(indent + "Empty directory: "
-                + canonicalPath);
+                + normalizedPath);
         }
-        logln("Checking files for DTD errors in: " + indent + canonicalPath);
+        logln("Checking files for DTD errors in: " + indent + normalizedPath);
         for (File fileName : listFiles) {
             String name = fileName.getName();
             if (CLDRConfig.isJunkFile(name)) {
@@ -318,16 +319,19 @@ public class TestBasic extends TestFmwkPlus {
     }
 
     class MyErrorHandler implements ErrorHandler {
+        @Override
         public void error(SAXParseException exception) throws SAXException {
             errln("error: " + XMLFileReader.showSAX(exception));
             throw exception;
         }
 
+        @Override
         public void fatalError(SAXParseException exception) throws SAXException {
             errln("fatalError: " + XMLFileReader.showSAX(exception));
             throw exception;
         }
 
+        @Override
         public void warning(SAXParseException exception) throws SAXException {
             errln("warning: " + XMLFileReader.showSAX(exception));
             throw exception;
@@ -371,7 +375,7 @@ public class TestBasic extends TestFmwkPlus {
         Set<String> currencies = testInfo.getStandardCodes().getAvailableCodes(
             "currency");
 
-        final UnicodeSet CHARACTERS_THAT_SHOULD_HAVE_FALLBACKS = (UnicodeSet) new UnicodeSet(
+        final UnicodeSet CHARACTERS_THAT_SHOULD_HAVE_FALLBACKS = new UnicodeSet(
             "[[:sc:]-[\\u0000-\\u00FF]]").freeze();
 
         CharacterFallbacks fallbacks = CharacterFallbacks.make();
@@ -381,7 +385,7 @@ public class TestBasic extends TestFmwkPlus {
             if (file.isNonInheriting())
                 continue;
 
-            final UnicodeSet OK_CURRENCY_FALLBACK = (UnicodeSet) new UnicodeSet(
+            final UnicodeSet OK_CURRENCY_FALLBACK = new UnicodeSet(
                 "[\\u0000-\\u00FF]").addAll(safeExemplars(file, ""))
                     .addAll(safeExemplars(file, "auxiliary"))
                     .freeze();
@@ -720,6 +724,14 @@ public class TestBasic extends TestFmwkPlus {
         Set<String> defaultContents = Inheritance.defaultContents;
         Multimap<String, String> parentToChildren = Inheritance.parentToChildren;
 
+        // Put a list of locales that should be default content here.
+        final String expectDC[] = {
+            "os_GE" // see CLDR-14118
+        };
+        for(final String locale : expectDC) {
+            assertTrue("expect "+locale+" to be a default content locale", defaultContents.contains(locale));
+        }
+
         if (DEBUG) {
             Inheritance.showChain("", "", "root");
         }
@@ -895,9 +907,9 @@ public class TestBasic extends TestFmwkPlus {
                     int debug = 0;
                 }
                 if (leaves.size() == 1) {
-                    System.out.println(prefix + CollectionUtilities.join(presentation, " "));
+                    System.out.println(prefix + Joiner.on(" ").join(presentation));
                 } else {
-                    System.out.println(prefix + "{" + CollectionUtilities.join(presentation, " ") + "}");
+                    System.out.println(prefix + "{" + Joiner.on(" ").join(presentation) + "}");
                 }
             }
             for (String parent : parents) {
@@ -1447,7 +1459,7 @@ public class TestBasic extends TestFmwkPlus {
         MyHandler myHandler = new MyHandler(overrideDtdType);
         XMLFileReader xfr = new XMLFileReader().setHandler(myHandler);
         try {
-            myHandler.fileName = fileToRead.getCanonicalPath();
+            myHandler.fileName = PathUtilities.getNormalizedPathString(fileToRead);
             xfr.read(myHandler.fileName, -1, true);
             logln(myHandler.fileName);
         } catch (Exception e) {
@@ -1475,6 +1487,7 @@ public class TestBasic extends TestFmwkPlus {
             dtdType = overrideDtdType;
         }
 
+        @Override
         public void handlePathValue(String path, @SuppressWarnings("unused") String value) {
             if (dtdType == null) {
                 try {

@@ -12,12 +12,14 @@ Runs PROGRAM inside a sandbox.
 Run using the alternate syscall table named \fItable\fR. Only available on kernels
 and architectures that support the \fBPR_ALT_SYSCALL\fR option of \fBprctl\fR(2).
 .TP
-\fB-b <src>[,<dest>[,<writeable>]]
+\fB-b <src>[,[dest][,<writeable>]]
 Bind-mount \fIsrc\fR into the chroot directory at \fIdest\fR, optionally writeable.
 The \fIsrc\fR path must be an absolute path.
+
 If \fIdest\fR is not specified, it will default to \fIsrc\fR.
 If the destination does not exist, it will be created as a file or directory
 based on the \fIsrc\fR type (including missing parent directories).
+
 To create a writable bind-mount set \fIwritable\fR to \fB1\fR. If not specified
 it will default to \fB0\fR (read-only).
 .TP
@@ -48,8 +50,12 @@ Change root (using \fBchroot\fR(2)) to \fIdir\fR.
 \fB-d\fR, \fB--mount-dev\fR
 Create a new /dev mount with a minimal set of nodes. Implies \fB-v\fR.
 Additional nodes can be bound with the \fB-b\fR or \fB-k\fR options.
-The initial set of nodes are: full null tty urandom zero.
-Symlinks are also created for: fd ptmx stderr stdin stdout.
+
+.nf
+\[bu] The initial set of nodes are: full null tty urandom zero.
+\[bu] Symlinks are also created for: fd ptmx stderr stdin stdout.
+\[bu] Directores are also created for: shm.
+.re
 .TP
 \fB-e[file]\fR
 Enter a new network namespace, or if \fIfile\fR is specified, enter an existing
@@ -134,22 +140,22 @@ If the destination does not exist, it will be created as a directory (including
 missing parent directories).
 .TP
 \fB-K[mode]\fR
-Don't mark all existing mounts as MS_PRIVATE.
+Don't mark all existing mounts as MS_SLAVE.
 This option is \fBdangerous\fR as it negates most of the functionality of \fB-v\fR.
 You very likely don't need this.
 
 You may specify a mount propagation mode in which case, that will be used
-instead of the default MS_PRIVATE.  See the \fBmount\fR(2) man page and the
+instead of the default MS_SLAVE.  See the \fBmount\fR(2) man page and the
 kernel docs \fIDocumentation/filesystems/sharedsubtree.txt\fR for more
 technical details, but a brief guide:
 
 .IP
 \[bu] \fBslave\fR Changes in the parent mount namespace will propagate in, but
 changes in this mount namespace will not propagate back out.  This is usually
-what people want to use.
+what people want to use, and is the default behavior if you don't specify \fB-K\fR.
 .IP
 \[bu] \fBprivate\fR No changes in either mount namespace will propagate.
-This is the default behavior if you don't specify \fB-K\fR.
+This provides the most isolation.
 .IP
 \[bu] \fBshared\fR Changes in the parent and this mount namespace will freely
 propagate back and forth.  This is not recommended.
@@ -252,8 +258,8 @@ Change users to the specified \fIuser\fR name, or numeric user ID \fIuid\fR.
 Enter a new user namespace (implies \fB-p\fR).
 .TP
 \fB-v\fR
-Run inside a new VFS namespace. This option makes the program's mountpoints
-independent of the rest of the system's.
+Run inside a new VFS namespace. This option prevents mounts performed by the
+program from affecting the rest of the system (but see \fB-K\fR).
 .TP
 \fB-V <file>\fR
 Enter the VFS namespace specified by \fIfile\fR.
@@ -306,6 +312,21 @@ arch-and-kernel-version-specific pre-compiled BPF binary (such as the ones
 produced by \fBparse_seccomp_policy\fR).  Note that the filter might be
 different based on the runtime environment; see \fBminijail0\fR(5) for more
 details.
+.TP
+\fB--allow-speculative-execution\fR
+Allow speculative execution features that may cause data leaks across processes.
+This passes the \fISECCOMP_FILTER_FLAG_SPEC_ALLOW\fR flag to seccomp which
+disables mitigations against certain speculative execution attacks; namely
+Branch Target Injection (spectre-v2) and Speculative Store Bypass (spectre-v4).
+These mitigations incur a runtime performance hit, so it is useful to be able
+to disable them in order to quantify their performance impact.
+
+\fBWARNING:\fR It is dangerous to use this option on programs that process
+untrusted input, which is normally what Minijail is used for. Do not enable
+this option unless you know what you're doing.
+
+See the kernel documentation \fIDocumentation/userspace-api/spec_ctrl.rst\fR
+and \fIDocumentation/admin-guide/hw-vuln/spectre.rst\fR for more information.
 .SH SANDBOXING PROFILES
 The following sandboxing profiles are supported:
 .TP

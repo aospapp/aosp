@@ -16,6 +16,8 @@
 
 #include "src/profiling/memory/heapprofd_producer.h"
 
+#include "perfetto/ext/base/file_utils.h"
+#include "perfetto/ext/base/temp_file.h"
 #include "perfetto/ext/tracing/core/basic_types.h"
 #include "perfetto/ext/tracing/core/commit_data_request.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
@@ -26,8 +28,8 @@ namespace perfetto {
 namespace profiling {
 
 using ::testing::Contains;
-using ::testing::Pair;
 using ::testing::Eq;
+using ::testing::Pair;
 using ::testing::Property;
 
 class MockProducerEndpoint : public TracingService::ProducerEndpoint {
@@ -68,7 +70,8 @@ TEST(LogHistogramTest, Overflow) {
 
 TEST(HeapprofdProducerTest, ExposesDataSource) {
   base::TestTaskRunner task_runner;
-  HeapprofdProducer producer(HeapprofdMode::kCentral, &task_runner);
+  HeapprofdProducer producer(HeapprofdMode::kCentral, &task_runner,
+                             /* exit_when_done= */ false);
 
   std::unique_ptr<MockProducerEndpoint> endpoint(new MockProducerEndpoint());
   EXPECT_CALL(*endpoint,
@@ -77,6 +80,163 @@ TEST(HeapprofdProducerTest, ExposesDataSource) {
       .Times(1);
   producer.SetProducerEndpoint(std::move(endpoint));
   producer.OnConnect();
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, Smoke) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.set_sampling_interval_bytes(4096);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_EQ(cli_config.heaps[0].interval, 4096u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, DefaultHeap) {
+  HeapprofdConfig cfg;
+  cfg.set_sampling_interval_bytes(4096);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "libc.malloc");
+  EXPECT_EQ(cli_config.heaps[0].interval, 4096u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, TwoHeaps) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.add_heaps("bar");
+  cfg.set_sampling_interval_bytes(4096);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 2u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_STREQ(cli_config.heaps[1].name, "bar");
+  EXPECT_EQ(cli_config.heaps[0].interval, 4096u);
+  EXPECT_EQ(cli_config.heaps[1].interval, 4096u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, TwoHeapsIntervals) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.add_heap_sampling_intervals(4096u);
+  cfg.add_heaps("bar");
+  cfg.add_heap_sampling_intervals(1u);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 2u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_STREQ(cli_config.heaps[1].name, "bar");
+  EXPECT_EQ(cli_config.heaps[0].interval, 4096u);
+  EXPECT_EQ(cli_config.heaps[1].interval, 1u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, OverflowHeapName) {
+  std::string large_name(100, 'a');
+  HeapprofdConfig cfg;
+  cfg.add_heaps(large_name);
+  cfg.set_sampling_interval_bytes(1);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 0u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, OverflowHeapNameAndValid) {
+  std::string large_name(100, 'a');
+  HeapprofdConfig cfg;
+  cfg.add_heaps(large_name);
+  cfg.add_heaps("foo");
+  cfg.set_sampling_interval_bytes(1);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, ZeroSampling) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.set_sampling_interval_bytes(0);
+  ClientConfiguration cli_config;
+  EXPECT_FALSE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, ZeroSamplingMultiple) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.add_heap_sampling_intervals(4096u);
+  cfg.add_heaps("bar");
+  cfg.add_heap_sampling_intervals(0);
+  ClientConfiguration cli_config;
+  EXPECT_FALSE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, AdaptiveSampling) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.set_sampling_interval_bytes(4096);
+  cfg.set_adaptive_sampling_shmem_threshold(1024u);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_EQ(cli_config.heaps[0].interval, 4096u);
+  EXPECT_EQ(cli_config.adaptive_sampling_shmem_threshold, 1024u);
+  EXPECT_EQ(cli_config.adaptive_sampling_max_sampling_interval_bytes, 0u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, AdaptiveSamplingWithMax) {
+  HeapprofdConfig cfg;
+  cfg.add_heaps("foo");
+  cfg.set_sampling_interval_bytes(4096);
+  cfg.set_adaptive_sampling_shmem_threshold(1024u);
+  cfg.set_adaptive_sampling_max_sampling_interval_bytes(4 * 4096u);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_EQ(cli_config.heaps[0].interval, 4096u);
+  EXPECT_EQ(cli_config.adaptive_sampling_shmem_threshold, 1024u);
+  EXPECT_EQ(cli_config.adaptive_sampling_max_sampling_interval_bytes,
+            4 * 4096u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, AllHeaps) {
+  HeapprofdConfig cfg;
+  cfg.set_all_heaps(true);
+  cfg.set_sampling_interval_bytes(4096);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 0u);
+  EXPECT_EQ(cli_config.default_interval, 4096u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, AllHeapsAndExplicit) {
+  HeapprofdConfig cfg;
+  cfg.set_all_heaps(true);
+  cfg.set_sampling_interval_bytes(4096);
+  cfg.add_heaps("foo");
+  cfg.add_heap_sampling_intervals(1024u);
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_EQ(cli_config.heaps[0].interval, 1024u);
+  EXPECT_EQ(cli_config.default_interval, 4096u);
+}
+
+TEST(HeapprofdConfigToClientConfigurationTest, AllHeapsAndDisabled) {
+  HeapprofdConfig cfg;
+  cfg.set_all_heaps(true);
+  cfg.set_sampling_interval_bytes(4096);
+  cfg.add_exclude_heaps("foo");
+  ClientConfiguration cli_config;
+  ASSERT_TRUE(HeapprofdConfigToClientConfiguration(cfg, &cli_config));
+  EXPECT_EQ(cli_config.num_heaps, 1u);
+  EXPECT_STREQ(cli_config.heaps[0].name, "foo");
+  EXPECT_EQ(cli_config.heaps[0].interval, 0u);
+  EXPECT_EQ(cli_config.default_interval, 4096u);
 }
 
 }  // namespace profiling

@@ -1,14 +1,20 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Classes to do screen comparison."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import os
 import time
 
 from PIL import ImageChops
+from six.moves import range
 
 
 class ScreenComparer(object):
@@ -90,8 +96,7 @@ class ScreenComparer(object):
             histogram = diff_image.convert('L').histogram()
 
             num_wrong_pixels = sum(histogram[self._pixel_diff_margin + 1:])
-            max_diff_value = max(filter(
-                    lambda x: histogram[x], xrange(len(histogram))))
+            max_diff_value = max([x for x in range(len(histogram)) if histogram[x]])
             if num_wrong_pixels > 0:
                 logging.debug('Histogram of difference: %r', histogram)
                 prefix_str = '%s-%dx%d' % ((time_str,) + images[0].size)

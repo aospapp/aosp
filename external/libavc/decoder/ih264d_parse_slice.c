@@ -826,8 +826,8 @@ WORD32 ih264d_end_of_pic_dispbuf_mgr(dec_struct_t * ps_dec)
             ps_cur_pic->u2_crop_offset_uv = ps_dec->u2_crop_offset_uv;
             ps_cur_pic->u1_pic_type = 0;
             {
-                UWORD64 i8_display_poc;
-                i8_display_poc = (UWORD64)ps_dec->i4_prev_max_display_seq +
+                WORD64 i8_display_poc;
+                i8_display_poc = (WORD64)ps_dec->i4_prev_max_display_seq +
                             ps_dec->ps_cur_pic->i4_poc;
                 if(IS_OUT_OF_RANGE_S32(i8_display_poc))
                 {
@@ -1100,7 +1100,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
     u2_first_mb_in_slice = ih264d_uev(pu4_bitstrm_ofst,
                                      pu4_bitstrm_buf);
     if(u2_first_mb_in_slice
-                    > (ps_dec->u2_frm_ht_in_mbs * ps_dec->u2_frm_wd_in_mbs))
+                    >= (ps_dec->u2_frm_ht_in_mbs * ps_dec->u2_frm_wd_in_mbs))
     {
 
         return ERROR_CORRUPTED_SLICE;
@@ -1435,17 +1435,20 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         i1_is_end_of_poc = 0;
     }
 
-    if (ps_dec->u4_first_slice_in_pic == 0)
+    /* Increment only if the current slice has atleast 1 more MB */
+    if (ps_dec->u4_first_slice_in_pic == 0 &&
+        (ps_dec->ps_parse_cur_slice->u4_first_mb_in_slice <
+        (UWORD32)(ps_dec->u2_total_mbs_coded >> ps_dec->ps_cur_slice->u1_mbaff_frame_flag)))
     {
         ps_dec->ps_parse_cur_slice++;
         ps_dec->u2_cur_slice_num++;
+        // in the case of single core increment ps_decode_cur_slice
+        if(ps_dec->u1_separate_parse == 0)
+        {
+            ps_dec->ps_decode_cur_slice++;
+        }
     }
 
-    // in the case of single core increment ps_decode_cur_slice
-    if((ps_dec->u1_separate_parse == 0) && (ps_dec->u4_first_slice_in_pic == 0))
-    {
-        ps_dec->ps_decode_cur_slice++;
-    }
     ps_dec->u1_slice_header_done = 0;
 
 
@@ -1472,10 +1475,20 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         else
             i4_temp_poc = ps_dec->ps_cur_pic->i4_bottom_field_order_cnt;
 
-        ps_dec->ps_cur_pic->i4_top_field_order_cnt = i4_temp_poc
+        WORD64 i8_result = (WORD64)i4_temp_poc
                         - ps_dec->ps_cur_pic->i4_top_field_order_cnt;
-        ps_dec->ps_cur_pic->i4_bottom_field_order_cnt = i4_temp_poc
+        if(IS_OUT_OF_RANGE_S32(i8_result))
+        {
+            return ERROR_INV_POC;
+        }
+        ps_dec->ps_cur_pic->i4_top_field_order_cnt = i8_result;
+        i8_result = (WORD64)i4_temp_poc
                         - ps_dec->ps_cur_pic->i4_bottom_field_order_cnt;
+        if(IS_OUT_OF_RANGE_S32(i8_result))
+        {
+            return ERROR_INV_POC;
+        }
+        ps_dec->ps_cur_pic->i4_bottom_field_order_cnt = i8_result;
         ps_dec->ps_cur_pic->i4_poc = i4_temp_poc;
         ps_dec->ps_cur_pic->i4_avg_poc = i4_temp_poc;
     }
@@ -1495,13 +1508,13 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         /* IDR Picture or POC wrap around */
         if(i4_poc == 0)
         {
-            UWORD64 u8_temp;
-            u8_temp = (UWORD64)ps_dec->i4_prev_max_display_seq
+            WORD64 i8_temp;
+            i8_temp = (WORD64)ps_dec->i4_prev_max_display_seq
                       + ps_dec->i4_max_poc
                       + ps_dec->u1_max_dec_frame_buffering + 1;
             /*If i4_prev_max_display_seq overflows integer range, reset it */
-            ps_dec->i4_prev_max_display_seq = (u8_temp > 0x7fffffff)?
-                                              0 : u8_temp;
+            ps_dec->i4_prev_max_display_seq = IS_OUT_OF_RANGE_S32(i8_temp)?
+                                              0 : i8_temp;
             ps_dec->i4_max_poc = 0;
         }
     }

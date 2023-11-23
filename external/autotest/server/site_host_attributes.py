@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -44,6 +45,7 @@ attribute strings defined above.  Illegal strings are ignored.
 
 
 import hashlib, logging, os, utils
+import six
 
 
 private_host_attributes = utils.import_site_symbol(
@@ -100,7 +102,8 @@ class HostAttributes(object):
                 if 'netbook_' in attribute:
                     # Hash board names to prevent any accidental leaks.
                     splitnames = ['netbook_' + hashlib.sha256(
-                        attribute.split('netbook_')[1]).hexdigest()[:8], 'True']
+                        attribute.split('netbook_')[1]
+                        .encode('utf-8')).hexdigest()[:8], 'True']
                 else:
                     splitnames = attribute.split(':')
                     if len(splitnames) == 2:

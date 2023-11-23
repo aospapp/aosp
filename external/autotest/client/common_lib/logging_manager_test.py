@@ -1,6 +1,9 @@
 #!/usr/bin/python2
 
-import logging, os, select, StringIO, subprocess, sys, unittest
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import logging, os, select, six, subprocess, sys, unittest
 import common
 from autotest_lib.client.common_lib import logging_manager, logging_config
 
@@ -17,7 +20,7 @@ class PipedStringIO(object):
     _instances = set()
 
     def __init__(self):
-        self._string_io = StringIO.StringIO()
+        self._string_io = six.StringIO()
         self._read_end, self._write_end = os.pipe()
         PipedStringIO._instances.add(self)
 
@@ -51,7 +54,10 @@ class PipedStringIO(object):
             read_list, _, _ = select.select([self._read_end], [], [], 0)
             if not read_list:
                 return
-            self._string_io.write(os.read(self._read_end, 1024))
+            if six.PY2:
+                self._string_io.write(os.read(self._read_end, 1024))
+            elif six.PY3:
+                self._string_io.write(os.read(self._read_end, 1024).decode('utf-8'))
 
 
     @classmethod
@@ -146,12 +152,12 @@ class LoggingManagerTest(unittest.TestCase):
 
 
     def _say(self, suffix):
-        print >>self.stdout, 'print %s' % suffix
+        print('print %s' % suffix, file=self.stdout)
         if self._real_system_calls:
             os.system('echo system %s >&%s' % (suffix,
                                                self._original_stdout.fileno()))
         else:
-            print >>self.stdout, 'system %s' % suffix
+            print('system %s' % suffix, file=self.stdout)
         logging.info('logging %s', suffix)
         PipedStringIO.read_all_pipes()
 
@@ -236,10 +242,10 @@ class LoggingManagerTest(unittest.TestCase):
         manager.start_logging()
 
         manager.tee_redirect_debug_dir('/fake/dir', tag='mytag')
-        print >>self.stdout, 'hello'
+        print('hello', file=self.stdout)
 
         manager.undo_redirect()
-        print >>self.stdout, 'goodbye'
+        print('goodbye', file=self.stdout)
 
         manager.stop_logging()
 

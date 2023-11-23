@@ -6,7 +6,7 @@
 
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_CTS_P.x86.waivers'
-ATTRIBUTES = 'suite:cts_P'
+ATTRIBUTES = 'suite:cts_P, suite:cts'
 DEPENDENCIES = 'arc, cts_abi_x86'
 JOB_RETRIES = 1
 TEST_TYPE = 'server'
@@ -20,17 +20,17 @@ def run_TS(machine):
         'cheets_CTS_P',
         hosts=host_list,
         iterations=1,
-        tag='arm.waivers',
+        tag='x86.waivers',
         test_name='cheets_CTS_P.x86.waivers',
-        run_template=['run', 'commandAndExit', 'cts', '--subplan', 'waivers'],
-        retry_template=['run', 'commandAndExit', 'retry', '--retry', '{session_id}'],
+        run_template=['run', 'commandAndExit', 'cts', '--subplan', 'waivers', '--module-arg', 'CtsMediaTestCases:skip-media-download:true'],
+        retry_template=['run', 'commandAndExit', 'retry', '--retry', '{session_id}', '--module-arg', 'CtsMediaTestCases:skip-media-download:true'],
         target_module='cts-dev',
         target_plan='waivers',
         load_waivers=False,
         bundle='x86',
         retry_manual_tests=True,
         warn_on_test_retry=False,
-        uri='gs://chromeos-partner-gts/android-cts-6191687-linux_x86-x86.zip',
+        uri='gs://chromeos-partner-gts/android-cts-6970114-linux_x86-x86.zip',
         timeout=7200)
 
 parallel_simple(run_TS, machines)

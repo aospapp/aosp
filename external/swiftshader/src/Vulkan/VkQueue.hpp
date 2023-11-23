@@ -17,10 +17,9 @@
 
 #include "VkObject.hpp"
 #include "Device/Renderer.hpp"
-#include <vulkan/vk_icd.h>
-#include <thread>
-
 #include "System/Synchronization.hpp"
+
+#include <thread>
 
 namespace marl {
 class Scheduler;
@@ -57,12 +56,16 @@ public:
 	VkResult present(const VkPresentInfoKHR *presentInfo);
 #endif
 
+	void beginDebugUtilsLabel(const VkDebugUtilsLabelEXT *pLabelInfo);
+	void endDebugUtilsLabel();
+	void insertDebugUtilsLabel(const VkDebugUtilsLabelEXT *pLabelInfo);
+
 private:
 	struct Task
 	{
 		uint32_t submitCount = 0;
 		VkSubmitInfo *pSubmits = nullptr;
-		sw::TaskEvents *events = nullptr;
+		std::shared_ptr<sw::CountedEvent> events;
 
 		enum Type
 		{

@@ -28,6 +28,7 @@ def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args,
                              pdtester_args=pdtester_args)
     job.run_test("firmware_PDConnect", host=host, cmdline_args=args,
-                 disable_sysinfo=True, flip_cc=False, tag="normal")
+                 disable_sysinfo=True, flip_cc=False, dts_mode=False,
+                 tag="normal")
 
 parallel_simple(run, machines)

@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,11 +45,12 @@
 #include <lex.h>
 #include <parse.h>
 
-int bc_main(int argc, char **argv);
+void bc_main(int argc, char **argv);
 
 extern const char bc_help[];
 extern const char bc_lib[];
 extern const char* bc_lib_name;
+
 #if BC_ENABLE_EXTRA_MATH
 extern const char bc_lib2[];
 extern const char* bc_lib2_name;
@@ -71,7 +72,7 @@ typedef struct BcLexKeyword {
 extern const BcLexKeyword bc_lex_kws[];
 extern const size_t bc_lex_kws_len;
 
-BcStatus bc_lex_token(BcLex *l);
+void bc_lex_token(BcLex *l);
 
 #define BC_PARSE_TOP_FLAG_PTR(p) ((uint16_t*) bc_vec_top(&(p)->flags))
 #define BC_PARSE_TOP_FLAG(p) (*(BC_PARSE_TOP_FLAG_PTR(p)))
@@ -128,11 +129,17 @@ BcStatus bc_lex_token(BcLex *l);
 #define BC_PARSE_TOP_OP(p) (*((BcLexType*) bc_vec_top(&(p)->ops)))
 #define BC_PARSE_LEAF(prev, bin_last, rparen) \
 	(!(bin_last) && ((rparen) || bc_parse_inst_isLeaf(prev)))
+
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+#define BC_PARSE_INST_VAR(t) \
+	((t) >= BC_INST_VAR && (t) <= BC_INST_SEED && (t) != BC_INST_ARRAY)
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 #define BC_PARSE_INST_VAR(t) \
 	((t) >= BC_INST_VAR && (t) <= BC_INST_SCALE && (t) != BC_INST_ARRAY)
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 
 #define BC_PARSE_PREV_PREFIX(p) \
-	((p) >= BC_INST_INC_PRE && (p) <= BC_INST_BOOL_NOT)
+	((p) >= BC_INST_NEG && (p) <= BC_INST_BOOL_NOT)
 #define BC_PARSE_OP_PREFIX(t) ((t) == BC_LEX_OP_BOOL_NOT || (t) == BC_LEX_NEG)
 
 // We can calculate the conversion between tokens and exprs by subtracting the
@@ -140,17 +147,20 @@ BcStatus bc_lex_token(BcLex *l);
 // the first in the expr enum. Note: This only works for binary operators.
 #define BC_PARSE_TOKEN_INST(t) ((uchar) ((t) - BC_LEX_NEG + BC_INST_NEG))
 
-BcStatus bc_parse_expr(BcParse *p, uint8_t flags);
+typedef enum BcParseStatus {
 
-BcStatus bc_parse_parse(BcParse *p);
-BcStatus bc_parse_expr_status(BcParse *p, uint8_t flags, BcParseNext next);
+	BC_PARSE_STATUS_SUCCESS,
+	BC_PARSE_STATUS_EMPTY_EXPR,
 
-// This is necessary to clear up for if statements at the end of files.
-void bc_parse_noElse(BcParse *p);
+} BcParseStatus;
 
-#if BC_ENABLE_SIGNALS
+void bc_parse_expr(BcParse *p, uint8_t flags);
+
+void bc_parse_parse(BcParse *p);
+void bc_parse_expr_status(BcParse *p, uint8_t flags, BcParseNext next);
+
 extern const char bc_sig_msg[];
-#endif // BC_ENABLE_SIGNALS
+extern const uchar bc_sig_msg_len;
 
 extern const char* const bc_parse_const1;
 extern const uint8_t bc_parse_exprs[];
@@ -162,6 +172,10 @@ extern const BcParseNext bc_parse_next_rel;
 extern const BcParseNext bc_parse_next_elem;
 extern const BcParseNext bc_parse_next_for;
 extern const BcParseNext bc_parse_next_read;
+
+#else // BC_ENABLED
+
+#define BC_PARSE_NO_EXEC(p) (0)
 
 #endif // BC_ENABLED
 

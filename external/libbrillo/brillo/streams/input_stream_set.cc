@@ -4,6 +4,8 @@
 
 #include <brillo/streams/input_stream_set.h>
 
+#include <utility>
+
 #include <base/bind.h>
 #include <brillo/message_loops/message_loop.h>
 #include <brillo/streams/stream_errors.h>
@@ -170,7 +172,7 @@ bool InputStreamSet::WaitForData(
     return stream->WaitForData(mode, callback, error);
   }
 
-  MessageLoop::current()->PostTask(FROM_HERE, base::Bind(callback, mode));
+  MessageLoop::current()->PostTask(FROM_HERE, base::BindOnce(callback, mode));
   return true;
 }
 

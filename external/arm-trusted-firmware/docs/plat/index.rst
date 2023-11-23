@@ -9,6 +9,7 @@ Platform Ports
 
    allwinner
    arm/index
+   meson-axg
    meson-gxbb
    meson-gxl
    meson-g12a
@@ -18,6 +19,7 @@ Platform Ports
    intel-stratix10
    marvell/index
    mt8183
+   mt8192
    nvidia-tegra
    warp7
    imx8
@@ -26,9 +28,11 @@ Platform Ports
    poplar
    qemu
    qemu-sbsa
+   qti
    rpi3
    rpi4
    rcar-gen3
+   rz-g2
    rockchip
    socionext-uniphier
    synquacer
@@ -36,6 +40,7 @@ Platform Ports
    ti-k3
    xilinx-versal
    xilinx-zynqmp
+   brcm-stingray
 
 This section provides a list of supported upstream *platform ports* and the
 documentation associated with them.
@@ -50,7 +55,8 @@ documentation associated with them.
    - Arm Neoverse Reference Design E1 Edge (RD-E1-Edge) FVP
    - Arm SGI-575 and SGM-775
    - MediaTek MT6795 and MT8173 SoCs
+   - Arm Morello Platform
 
 --------------
 
-*Copyright (c) 2019, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*

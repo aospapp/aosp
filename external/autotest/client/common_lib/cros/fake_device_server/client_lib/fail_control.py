@@ -5,7 +5,7 @@
 """Module contains a simple client lib to control failures."""
 
 import json
-import urllib2
+from six.moves import urllib
 
 import common
 from fake_device_server.client_lib import common_client
@@ -23,16 +23,18 @@ class FailControlClient(common_client.CommonClient):
     def start_failing_requests(self):
         """Starts failing request."""
         headers = self.add_auth_headers({'Content-Type': 'application/json'})
-        request = urllib2.Request(self.get_url(['start_failing_requests']),
-                                  json.dumps(dict()), headers=headers)
-        url_h = urllib2.urlopen(request)
+        request = urllib.request.Request(
+            self.get_url(['start_failing_requests']),
+            json.dumps(dict()), headers=headers)
+        url_h = urllib.request.urlopen(request)
         return json.loads(url_h.read())
 
 
     def stop_failing_requests(self):
         """Stops failing request."""
         headers = self.add_auth_headers({'Content-Type': 'application/json'})
-        request = urllib2.Request(self.get_url(['stop_failing_requests']),
-                                  json.dumps(dict()), headers=headers)
-        url_h = urllib2.urlopen(request)
+        request = urllib.request.Request(
+            self.get_url(['stop_failing_requests']),
+            json.dumps(dict()), headers=headers)
+        url_h = urllib.request.urlopen(request)
         return json.loads(url_h.read())

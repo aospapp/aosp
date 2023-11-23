@@ -34,7 +34,7 @@ Image Settings:
   \-decipher filename   convert cipher pixels to plain pixels
   \-define format:option
                        define one or more image format options
-  \-delay value         display the next image after pausing
+  \-delay centiseconds  display the next image after pausing
   \-density geometry    horizontal and vertical density of the image
   \-depth value         image depth
   \-direction type      render text right-to-left or left-to-right
@@ -129,6 +129,8 @@ Image Operators:
   \-auto-threshold method
                        automatically perform image thresholding
   \-bench iterations    measure performance
+  \-bilateral-blur geometry
+                        non-linear, edge-preserving, and noise-reducing smoothing filter
   \-black-threshold value
                        force all pixels below the threshold into black
   \-blue-shift factor   simulate a scene at nighttime in the moonlight
@@ -148,6 +150,8 @@ Image Operators:
   \-colorize value      colorize the image with the fill color
   \-color-matrix matrix apply color correction to the image
   \-colors value        preferred number of colors in the image
+  \-color-threshold start_color-stop_color
+                       force all pixels in the color range to white otherwise black
   \-connected-component connectivity
                        connected-components uniquely labeled
   \-contrast            enhance or reduce the image contrast
@@ -248,6 +252,7 @@ Image Operators:
                        lightness rescaling using sigmoidal contrast enhancement
   \-sketch geometry     simulate a pencil sketch
   \-solarize threshold  negate all pixels above the threshold level
+  \-sort-pixels         sort each scanline in ascending order of intensity
   \-sparse-color method args
                         fill in a image based on a few color points
   \-splice geometry     splice the background color into the image
@@ -270,6 +275,7 @@ Image Operators:
   \-wave geometry       alter an image along a sine wave
   \-wavelet-denoise threshold
                         removes noise from the image using a wavelet transform
+  \-white-balance       automagically adjust white balance of image
   \-white-threshold value
                        force all pixels above the threshold into white
 

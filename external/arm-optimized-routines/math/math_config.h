@@ -1,7 +1,7 @@
 /*
  * Configuration for math routines.
  *
- * Copyright (c) 2017-2018, Arm Limited.
+ * Copyright (c) 2017-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -12,12 +12,17 @@
 #include <stdint.h>
 
 #ifndef WANT_ROUNDING
-/* Correct special case results in non-nearest rounding modes.  */
+/* If defined to 1, return correct results for special cases in non-nearest
+   rounding modes (logf (1.0f) returns 0.0f with FE_DOWNWARD rather than -0.0f).
+   This may be set to 0 if there is no fenv support or if math functions only
+   get called in round to nearest mode.  */
 # define WANT_ROUNDING 1
 #endif
 #ifndef WANT_ERRNO
-/* Set errno according to ISO C with (math_errhandling & MATH_ERRNO) != 0.  */
-# define WANT_ERRNO 1
+/* If defined to 1, set errno in math functions according to ISO C.  Many math
+   libraries do not set errno, so this is 0 by default.  It may need to be
+   set to 1 if math.h has (math_errhandling & MATH_ERRNO) != 0.  */
+# define WANT_ERRNO 0
 #endif
 #ifndef WANT_ERRNO_UFLOW
 /* Set errno to ERANGE if result underflows to 0 (in all rounding modes).  */
@@ -293,6 +298,24 @@ check_uflow (double x)
   return WANT_ERRNO ? __math_check_uflow (x) : x;
 }
 
+/* Check if the result overflowed to infinity.  */
+HIDDEN float __math_check_oflowf (float);
+/* Check if the result underflowed to 0.  */
+HIDDEN float __math_check_uflowf (float);
+
+/* Check if the result overflowed to infinity.  */
+static inline float
+check_oflowf (float x)
+{
+  return WANT_ERRNO ? __math_check_oflowf (x) : x;
+}
+
+/* Check if the result underflowed to 0.  */
+static inline float
+check_uflowf (float x)
+{
+  return WANT_ERRNO ? __math_check_uflowf (x) : x;
+}
 
 /* Shared between expf, exp2f and powf.  */
 #define EXP2F_TABLE_BITS 5
@@ -410,5 +433,30 @@ extern const struct pow_log_data
   /* Note: the pad field is unused, but allows slightly faster indexing.  */
   struct {double invc, pad, logc, logctail;} tab[1 << POW_LOG_TABLE_BITS];
 } __pow_log_data HIDDEN;
+
+extern const struct erff_data
+{
+  float erff_poly_A[6];
+  float erff_poly_B[7];
+} __erff_data HIDDEN;
+
+#define ERF_POLY_A_ORDER 19
+#define ERF_POLY_A_NCOEFFS 10
+#define ERFC_POLY_C_NCOEFFS 16
+#define ERFC_POLY_D_NCOEFFS 18
+#define ERFC_POLY_E_NCOEFFS 14
+#define ERFC_POLY_F_NCOEFFS 17
+extern const struct erf_data
+{
+  double erf_poly_A[ERF_POLY_A_NCOEFFS];
+  double erf_ratio_N_A[5];
+  double erf_ratio_D_A[5];
+  double erf_ratio_N_B[7];
+  double erf_ratio_D_B[6];
+  double erfc_poly_C[ERFC_POLY_C_NCOEFFS];
+  double erfc_poly_D[ERFC_POLY_D_NCOEFFS];
+  double erfc_poly_E[ERFC_POLY_E_NCOEFFS];
+  double erfc_poly_F[ERFC_POLY_F_NCOEFFS];
+} __erf_data HIDDEN;
 
 #endif

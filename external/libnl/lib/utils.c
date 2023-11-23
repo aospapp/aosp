@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/utils.c		Utility Functions
  *
@@ -25,10 +26,14 @@
  */
 
 #include <netlink-private/netlink.h>
+#include <netlink-private/utils.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <linux/socket.h>
 #include <stdlib.h> /* exit() */
+#ifdef HAVE_STRERROR_L
+#include <locale.h>
+#endif
 
 /**
  * Global variable indicating the desired level of debugging output.
@@ -57,7 +62,7 @@ struct nl_dump_params nl_debug_dp = {
 static void __init nl_debug_init(void)
 {
 	char *nldbg, *end;
-	
+
 	if ((nldbg = getenv("NLDBG"))) {
 		long level = strtol(nldbg, &end, 0);
 		if (nldbg != end)
@@ -73,7 +78,7 @@ int __nl_read_num_str_file(const char *path, int (*cb)(long, const char *))
 	FILE *fd;
 	char buf[128];
 
-	fd = fopen(path, "r");
+	fd = fopen(path, "re");
 	if (fd == NULL)
 		return -nl_syserr2nlerr(errno);
 
@@ -117,6 +122,32 @@ int __nl_read_num_str_file(const char *path, int (*cb)(long, const char *))
 	fclose(fd);
 
 	return 0;
+}
+
+const char *nl_strerror_l(int err)
+{
+	const char *buf;
+#ifdef HAVE_STRERROR_L
+	int errno_save = errno;
+	locale_t loc = newlocale(LC_MESSAGES_MASK, "", (locale_t)0);
+
+	if (loc == (locale_t)0) {
+		if (errno == ENOENT)
+			loc = newlocale(LC_MESSAGES_MASK,
+					"POSIX", (locale_t)0);
+	}
+	if (loc != (locale_t)0) {
+		buf = strerror_l(err, loc);
+		freelocale(loc);
+	} else {
+		buf = "newlocale() failed";
+	}
+
+	errno = errno_save;
+#else
+	buf = strerror(err);
+#endif
+	return buf;
 }
 /** @endcond */
 
@@ -202,11 +233,11 @@ int nl_rate2str(unsigned long long rate, int type, char *buf, size_t len)
 	case NL_BYTE_RATE:
 		frac = nl_cancel_down_bytes(rate, &unit);
 		break;
-	
+
 	case NL_BIT_RATE:
 		frac = nl_cancel_down_bits(rate, &unit);
 		break;
-	
+
 	default:
 		BUG();
 	}
@@ -375,7 +406,7 @@ long nl_prob2int(const char *str)
 	if (*p && strcmp(p, "%") != 0)
 		return -NLE_INVAL;
 
-	return rint(d * NL_PROB_MAX);
+	return (long) (((d * NL_PROB_MAX) + 0.5));
 }
 
 /** @} */
@@ -445,19 +476,19 @@ static void get_psched_settings(void)
 			snprintf(name, sizeof(name), "%s/net/psched", ev);
 		else
 			strncpy(name, "/proc/net/psched", sizeof(name) - 1);
-		
-		if ((fd = fopen(name, "r"))) {
+
+		if ((fd = fopen(name, "re"))) {
 			unsigned int ns_per_usec, ns_per_tick, nom, denom;
 
 			if (fscanf(fd, "%08x %08x %08x %08x",
 			       &ns_per_usec, &ns_per_tick, &nom, &denom) != 4) {
-                            NL_DBG(1, "Fatal error: can not read psched settings from \"%s\". " \
-                                    "Try to set TICKS_PER_USEC, PROC_NET_PSCHED or PROC_ROOT " \
-                                    "environment variables\n", name);
-                            exit(1);
-                        }
+				NL_DBG(1, "Fatal error: can not read psched settings from \"%s\". " \
+				          "Try to set TICKS_PER_USEC, PROC_NET_PSCHED or PROC_ROOT " \
+				          "environment variables\n", name);
+				exit(1);
+			}
 
-			ticks_per_usec = (double) ns_per_usec / 
+			ticks_per_usec = (double) ns_per_usec /
 					 (double) ns_per_tick;
 
 			if (nom == 1000000)
@@ -602,24 +633,26 @@ char * nl_msec2str(uint64_t msec, char *buf, size_t len)
  */
 
 static const struct trans_tbl nlfamilies[] = {
-	__ADD(NETLINK_ROUTE,route)
-	__ADD(NETLINK_USERSOCK,usersock)
-	__ADD(NETLINK_FIREWALL,firewall)
-	__ADD(NETLINK_INET_DIAG,inetdiag)
-	__ADD(NETLINK_NFLOG,nflog)
-	__ADD(NETLINK_XFRM,xfrm)
-	__ADD(NETLINK_SELINUX,selinux)
-	__ADD(NETLINK_ISCSI,iscsi)
-	__ADD(NETLINK_AUDIT,audit)
-	__ADD(NETLINK_FIB_LOOKUP,fib_lookup)
-	__ADD(NETLINK_CONNECTOR,connector)
-	__ADD(NETLINK_NETFILTER,netfilter)
-	__ADD(NETLINK_IP6_FW,ip6_fw)
-	__ADD(NETLINK_DNRTMSG,dnrtmsg)
-	__ADD(NETLINK_KOBJECT_UEVENT,kobject_uevent)
-	__ADD(NETLINK_GENERIC,generic)
-	__ADD(NETLINK_SCSITRANSPORT,scsitransport)
-	__ADD(NETLINK_ECRYPTFS,ecryptfs)
+	__ADD(NETLINK_ROUTE,route),
+	__ADD(NETLINK_USERSOCK,usersock),
+	__ADD(NETLINK_FIREWALL,firewall),
+	__ADD(NETLINK_INET_DIAG,inetdiag),
+	__ADD(NETLINK_NFLOG,nflog),
+	__ADD(NETLINK_XFRM,xfrm),
+	__ADD(NETLINK_SELINUX,selinux),
+	__ADD(NETLINK_ISCSI,iscsi),
+	__ADD(NETLINK_AUDIT,audit),
+	__ADD(NETLINK_FIB_LOOKUP,fib_lookup),
+	__ADD(NETLINK_CONNECTOR,connector),
+	__ADD(NETLINK_NETFILTER,netfilter),
+	__ADD(NETLINK_IP6_FW,ip6_fw),
+	__ADD(NETLINK_DNRTMSG,dnrtmsg),
+	__ADD(NETLINK_KOBJECT_UEVENT,kobject_uevent),
+	__ADD(NETLINK_GENERIC,generic),
+	__ADD(NETLINK_SCSITRANSPORT,scsitransport),
+	__ADD(NETLINK_ECRYPTFS,ecryptfs),
+	__ADD(NETLINK_RDMA,rdma),
+	__ADD(NETLINK_CRYPTO,crypto),
 };
 
 char * nl_nlfamily2str(int family, char *buf, size_t size)
@@ -644,86 +677,83 @@ int nl_str2nlfamily(const char *name)
 
 static const struct trans_tbl llprotos[] = {
 	{0, "generic"},
-	__ADD(ARPHRD_ETHER,ether)
-	__ADD(ARPHRD_EETHER,eether)
-	__ADD(ARPHRD_AX25,ax25)
-	__ADD(ARPHRD_PRONET,pronet)
-	__ADD(ARPHRD_CHAOS,chaos)
-	__ADD(ARPHRD_IEEE802,ieee802)
-	__ADD(ARPHRD_ARCNET,arcnet)
-	__ADD(ARPHRD_APPLETLK,atalk)
-	__ADD(ARPHRD_DLCI,dlci)
-	__ADD(ARPHRD_ATM,atm)
-	__ADD(ARPHRD_METRICOM,metricom)
-	__ADD(ARPHRD_IEEE1394,ieee1394)
-#ifdef ARPHRD_EUI64
-	__ADD(ARPHRD_EUI64,eui64)
-#endif
-	__ADD(ARPHRD_INFINIBAND,infiniband)
-	__ADD(ARPHRD_SLIP,slip)
-	__ADD(ARPHRD_CSLIP,cslip)
-	__ADD(ARPHRD_SLIP6,slip6)
-	__ADD(ARPHRD_CSLIP6,cslip6)
-	__ADD(ARPHRD_RSRVD,rsrvd)
-	__ADD(ARPHRD_ADAPT,adapt)
-	__ADD(ARPHRD_ROSE,rose)
-	__ADD(ARPHRD_X25,x25)
-#ifdef ARPHRD_HWX25
-	__ADD(ARPHRD_HWX25,hwx25)
-#endif
-	__ADD(ARPHRD_CAN,can)
-	__ADD(ARPHRD_PPP,ppp)
-	__ADD(ARPHRD_HDLC,hdlc)
-	__ADD(ARPHRD_LAPB,lapb)
-	__ADD(ARPHRD_DDCMP,ddcmp)
-	__ADD(ARPHRD_RAWHDLC,rawhdlc)
-	__ADD(ARPHRD_TUNNEL,ipip)
-	__ADD(ARPHRD_TUNNEL6,tunnel6)
-	__ADD(ARPHRD_FRAD,frad)
-	__ADD(ARPHRD_SKIP,skip)
-	__ADD(ARPHRD_LOOPBACK,loopback)
-	__ADD(ARPHRD_LOCALTLK,localtlk)
-	__ADD(ARPHRD_FDDI,fddi)
-	__ADD(ARPHRD_BIF,bif)
-	__ADD(ARPHRD_SIT,sit)
-	__ADD(ARPHRD_IPDDP,ip/ddp)
-	__ADD(ARPHRD_IPGRE,gre)
-	__ADD(ARPHRD_PIMREG,pimreg)
-	__ADD(ARPHRD_HIPPI,hippi)
-	__ADD(ARPHRD_ASH,ash)
-	__ADD(ARPHRD_ECONET,econet)
-	__ADD(ARPHRD_IRDA,irda)
-	__ADD(ARPHRD_FCPP,fcpp)
-	__ADD(ARPHRD_FCAL,fcal)
-	__ADD(ARPHRD_FCPL,fcpl)
-	__ADD(ARPHRD_FCFABRIC,fcfb_0)
-	__ADD(ARPHRD_FCFABRIC+1,fcfb_1)
-	__ADD(ARPHRD_FCFABRIC+2,fcfb_2)
-	__ADD(ARPHRD_FCFABRIC+3,fcfb_3)
-	__ADD(ARPHRD_FCFABRIC+4,fcfb_4)
-	__ADD(ARPHRD_FCFABRIC+5,fcfb_5)
-	__ADD(ARPHRD_FCFABRIC+6,fcfb_6)
-	__ADD(ARPHRD_FCFABRIC+7,fcfb_7)
-	__ADD(ARPHRD_FCFABRIC+8,fcfb_8)
-	__ADD(ARPHRD_FCFABRIC+9,fcfb_9)
-	__ADD(ARPHRD_FCFABRIC+10,fcfb_10)
-	__ADD(ARPHRD_FCFABRIC+11,fcfb_11)
-	__ADD(ARPHRD_FCFABRIC+12,fcfb_12)
-	__ADD(ARPHRD_IEEE802_TR,tr)
-	__ADD(ARPHRD_IEEE80211,ieee802.11)
-	__ADD(ARPHRD_PHONET,phonet)
-#ifdef ARPHRD_CAIF
-	__ADD(ARPHRD_CAIF, caif)
-#endif
-#ifdef ARPHRD_IEEE80211_PRISM
-	__ADD(ARPHRD_IEEE80211_PRISM, ieee802.11_prism)
-#endif
-#ifdef ARPHRD_VOID
-	__ADD(ARPHRD_VOID,void)
-#endif
-#ifdef ARPHRD_NONE
-	__ADD(ARPHRD_NONE,nohdr)
-#endif
+	__ADD(ARPHRD_NETROM,netrom),
+	__ADD(ARPHRD_ETHER,ether),
+	__ADD(ARPHRD_EETHER,eether),
+	__ADD(ARPHRD_AX25,ax25),
+	__ADD(ARPHRD_PRONET,pronet),
+	__ADD(ARPHRD_CHAOS,chaos),
+	__ADD(ARPHRD_IEEE802,ieee802),
+	__ADD(ARPHRD_ARCNET,arcnet),
+	__ADD(ARPHRD_APPLETLK,atalk),
+	__ADD(ARPHRD_DLCI,dlci),
+	__ADD(ARPHRD_ATM,atm),
+	__ADD(ARPHRD_METRICOM,metricom),
+	__ADD(ARPHRD_IEEE1394,ieee1394),
+	__ADD(ARPHRD_EUI64,eui64),
+	__ADD(ARPHRD_INFINIBAND,infiniband),
+	__ADD(ARPHRD_SLIP,slip),
+	__ADD(ARPHRD_CSLIP,cslip),
+	__ADD(ARPHRD_SLIP6,slip6),
+	__ADD(ARPHRD_CSLIP6,cslip6),
+	__ADD(ARPHRD_RSRVD,rsrvd),
+	__ADD(ARPHRD_ADAPT,adapt),
+	__ADD(ARPHRD_ROSE,rose),
+	__ADD(ARPHRD_X25,x25),
+	__ADD(ARPHRD_HWX25,hwx25),
+	__ADD(ARPHRD_CAN,can),
+	__ADD(ARPHRD_PPP,ppp),
+	__ADD(ARPHRD_CISCO,cisco),
+	__ADD(ARPHRD_HDLC,hdlc),
+	__ADD(ARPHRD_LAPB,lapb),
+	__ADD(ARPHRD_DDCMP,ddcmp),
+	__ADD(ARPHRD_RAWHDLC,rawhdlc),
+	__ADD(ARPHRD_TUNNEL,ipip),
+	__ADD(ARPHRD_TUNNEL6,tunnel6),
+	__ADD(ARPHRD_FRAD,frad),
+	__ADD(ARPHRD_SKIP,skip),
+	__ADD(ARPHRD_LOOPBACK,loopback),
+	__ADD(ARPHRD_LOCALTLK,localtlk),
+	__ADD(ARPHRD_FDDI,fddi),
+	__ADD(ARPHRD_BIF,bif),
+	__ADD(ARPHRD_SIT,sit),
+	__ADD(ARPHRD_IPDDP,ip/ddp),
+	__ADD(ARPHRD_IPGRE,gre),
+	__ADD(ARPHRD_PIMREG,pimreg),
+	__ADD(ARPHRD_HIPPI,hippi),
+	__ADD(ARPHRD_ASH,ash),
+	__ADD(ARPHRD_ECONET,econet),
+	__ADD(ARPHRD_IRDA,irda),
+	__ADD(ARPHRD_FCPP,fcpp),
+	__ADD(ARPHRD_FCAL,fcal),
+	__ADD(ARPHRD_FCPL,fcpl),
+	__ADD(ARPHRD_FCFABRIC,fcfb_0),
+	__ADD(ARPHRD_FCFABRIC+1,fcfb_1),
+	__ADD(ARPHRD_FCFABRIC+2,fcfb_2),
+	__ADD(ARPHRD_FCFABRIC+3,fcfb_3),
+	__ADD(ARPHRD_FCFABRIC+4,fcfb_4),
+	__ADD(ARPHRD_FCFABRIC+5,fcfb_5),
+	__ADD(ARPHRD_FCFABRIC+6,fcfb_6),
+	__ADD(ARPHRD_FCFABRIC+7,fcfb_7),
+	__ADD(ARPHRD_FCFABRIC+8,fcfb_8),
+	__ADD(ARPHRD_FCFABRIC+9,fcfb_9),
+	__ADD(ARPHRD_FCFABRIC+10,fcfb_10),
+	__ADD(ARPHRD_FCFABRIC+11,fcfb_11),
+	__ADD(ARPHRD_FCFABRIC+12,fcfb_12),
+	__ADD(ARPHRD_IEEE802_TR,tr),
+	__ADD(ARPHRD_IEEE80211,ieee802.11),
+	__ADD(ARPHRD_IEEE80211_PRISM,ieee802.11_prism),
+	__ADD(ARPHRD_IEEE80211_RADIOTAP,ieee802.11_radiotap),
+	__ADD(ARPHRD_IEEE802154,ieee802.15.4),
+	__ADD(ARPHRD_IEEE802154_MONITOR,ieee802.15.4_monitor),
+	__ADD(ARPHRD_PHONET,phonet),
+	__ADD(ARPHRD_PHONET_PIPE,phonet_pipe),
+	__ADD(ARPHRD_CAIF,caif),
+	__ADD(ARPHRD_IP6GRE,ip6gre),
+	__ADD(ARPHRD_NETLINK,netlink),
+	__ADD(ARPHRD_6LOWPAN,6lowpan),
+	__ADD(ARPHRD_VOID,void),
+	__ADD(ARPHRD_NONE,nohdr),
 };
 
 char * nl_llproto2str(int llproto, char *buf, size_t len)
@@ -745,75 +775,75 @@ int nl_str2llproto(const char *name)
  */
 
 static const struct trans_tbl ether_protos[] = {
-	__ADD(ETH_P_LOOP,loop)
-	__ADD(ETH_P_PUP,pup)
-	__ADD(ETH_P_PUPAT,pupat)
-	__ADD(ETH_P_IP,ip)
-	__ADD(ETH_P_X25,x25)
-	__ADD(ETH_P_ARP,arp)
-	__ADD(ETH_P_BPQ,bpq)
-	__ADD(ETH_P_IEEEPUP,ieeepup)
-	__ADD(ETH_P_IEEEPUPAT,ieeepupat)
-	__ADD(ETH_P_DEC,dec)
-	__ADD(ETH_P_DNA_DL,dna_dl)
-	__ADD(ETH_P_DNA_RC,dna_rc)
-	__ADD(ETH_P_DNA_RT,dna_rt)
-	__ADD(ETH_P_LAT,lat)
-	__ADD(ETH_P_DIAG,diag)
-	__ADD(ETH_P_CUST,cust)
-	__ADD(ETH_P_SCA,sca)
-	__ADD(ETH_P_TEB,teb)
-	__ADD(ETH_P_RARP,rarp)
-	__ADD(ETH_P_ATALK,atalk)
-	__ADD(ETH_P_AARP,aarp)
+	__ADD(ETH_P_LOOP,loop),
+	__ADD(ETH_P_PUP,pup),
+	__ADD(ETH_P_PUPAT,pupat),
+	__ADD(ETH_P_IP,ip),
+	__ADD(ETH_P_X25,x25),
+	__ADD(ETH_P_ARP,arp),
+	__ADD(ETH_P_BPQ,bpq),
+	__ADD(ETH_P_IEEEPUP,ieeepup),
+	__ADD(ETH_P_IEEEPUPAT,ieeepupat),
+	__ADD(ETH_P_DEC,dec),
+	__ADD(ETH_P_DNA_DL,dna_dl),
+	__ADD(ETH_P_DNA_RC,dna_rc),
+	__ADD(ETH_P_DNA_RT,dna_rt),
+	__ADD(ETH_P_LAT,lat),
+	__ADD(ETH_P_DIAG,diag),
+	__ADD(ETH_P_CUST,cust),
+	__ADD(ETH_P_SCA,sca),
+	__ADD(ETH_P_TEB,teb),
+	__ADD(ETH_P_RARP,rarp),
+	__ADD(ETH_P_ATALK,atalk),
+	__ADD(ETH_P_AARP,aarp),
 #ifdef ETH_P_8021Q
-	__ADD(ETH_P_8021Q,802.1q)
+	__ADD(ETH_P_8021Q,802.1q),
 #endif
-	__ADD(ETH_P_IPX,ipx)
-	__ADD(ETH_P_IPV6,ipv6)
-	__ADD(ETH_P_PAUSE,pause)
-	__ADD(ETH_P_SLOW,slow)
+	__ADD(ETH_P_IPX,ipx),
+	__ADD(ETH_P_IPV6,ipv6),
+	__ADD(ETH_P_PAUSE,pause),
+	__ADD(ETH_P_SLOW,slow),
 #ifdef ETH_P_WCCP
-	__ADD(ETH_P_WCCP,wccp)
+	__ADD(ETH_P_WCCP,wccp),
 #endif
-	__ADD(ETH_P_PPP_DISC,ppp_disc)
-	__ADD(ETH_P_PPP_SES,ppp_ses)
-	__ADD(ETH_P_MPLS_UC,mpls_uc)
-	__ADD(ETH_P_MPLS_MC,mpls_mc)
-	__ADD(ETH_P_ATMMPOA,atmmpoa)
-	__ADD(ETH_P_LINK_CTL,link_ctl)
-	__ADD(ETH_P_ATMFATE,atmfate)
-	__ADD(ETH_P_PAE,pae)
-	__ADD(ETH_P_AOE,aoe)
-	__ADD(ETH_P_TIPC,tipc)
-	__ADD(ETH_P_1588,ieee1588)
-	__ADD(ETH_P_FCOE,fcoe)
-	__ADD(ETH_P_FIP,fip)
-	__ADD(ETH_P_EDSA,edsa)
-	__ADD(ETH_P_EDP2,edp2)
-	__ADD(ETH_P_802_3,802.3)
-	__ADD(ETH_P_AX25,ax25)
-	__ADD(ETH_P_ALL,all)
-	__ADD(ETH_P_802_2,802.2)
-	__ADD(ETH_P_SNAP,snap)
-	__ADD(ETH_P_DDCMP,ddcmp)
-	__ADD(ETH_P_WAN_PPP,wan_ppp)
-	__ADD(ETH_P_PPP_MP,ppp_mp)
-	__ADD(ETH_P_LOCALTALK,localtalk)
-	__ADD(ETH_P_CAN,can)
-	__ADD(ETH_P_PPPTALK,ppptalk)
-	__ADD(ETH_P_TR_802_2,tr_802.2)
-	__ADD(ETH_P_MOBITEX,mobitex)
-	__ADD(ETH_P_CONTROL,control)
-	__ADD(ETH_P_IRDA,irda)
-	__ADD(ETH_P_ECONET,econet)
-	__ADD(ETH_P_HDLC,hdlc)
-	__ADD(ETH_P_ARCNET,arcnet)
-	__ADD(ETH_P_DSA,dsa)
-	__ADD(ETH_P_TRAILER,trailer)
-	__ADD(ETH_P_PHONET,phonet)
-	__ADD(ETH_P_IEEE802154,ieee802154)
-	__ADD(ETH_P_CAIF,caif)
+	__ADD(ETH_P_PPP_DISC,ppp_disc),
+	__ADD(ETH_P_PPP_SES,ppp_ses),
+	__ADD(ETH_P_MPLS_UC,mpls_uc),
+	__ADD(ETH_P_MPLS_MC,mpls_mc),
+	__ADD(ETH_P_ATMMPOA,atmmpoa),
+	__ADD(ETH_P_LINK_CTL,link_ctl),
+	__ADD(ETH_P_ATMFATE,atmfate),
+	__ADD(ETH_P_PAE,pae),
+	__ADD(ETH_P_AOE,aoe),
+	__ADD(ETH_P_TIPC,tipc),
+	__ADD(ETH_P_1588,ieee1588),
+	__ADD(ETH_P_FCOE,fcoe),
+	__ADD(ETH_P_FIP,fip),
+	__ADD(ETH_P_EDSA,edsa),
+	__ADD(ETH_P_EDP2,edp2),
+	__ADD(ETH_P_802_3,802.3),
+	__ADD(ETH_P_AX25,ax25),
+	__ADD(ETH_P_ALL,all),
+	__ADD(ETH_P_802_2,802.2),
+	__ADD(ETH_P_SNAP,snap),
+	__ADD(ETH_P_DDCMP,ddcmp),
+	__ADD(ETH_P_WAN_PPP,wan_ppp),
+	__ADD(ETH_P_PPP_MP,ppp_mp),
+	__ADD(ETH_P_LOCALTALK,localtalk),
+	__ADD(ETH_P_CAN,can),
+	__ADD(ETH_P_PPPTALK,ppptalk),
+	__ADD(ETH_P_TR_802_2,tr_802.2),
+	__ADD(ETH_P_MOBITEX,mobitex),
+	__ADD(ETH_P_CONTROL,control),
+	__ADD(ETH_P_IRDA,irda),
+	__ADD(ETH_P_ECONET,econet),
+	__ADD(ETH_P_HDLC,hdlc),
+	__ADD(ETH_P_ARCNET,arcnet),
+	__ADD(ETH_P_DSA,dsa),
+	__ADD(ETH_P_TRAILER,trailer),
+	__ADD(ETH_P_PHONET,phonet),
+	__ADD(ETH_P_IEEE802154,ieee802154),
+	__ADD(ETH_P_CAIF,caif),
 };
 
 char *nl_ether_proto2str(int eproto, char *buf, size_t len)
@@ -1084,7 +1114,7 @@ int __str2flags(const char *buf, const struct trans_tbl *tbl, size_t tbl_len)
 	for (;;) {
 		if (*p == ' ')
 			p++;
-	
+
 		t = strchr(p, ',');
 		len = t ? t - p : strlen(p);
 		for (i = 0; i < tbl_len; i++)
@@ -1165,10 +1195,51 @@ int nl_has_capability (int capability)
 			NL_CAPABILITY_ROUTE_LINK_VETH_GET_PEER_OWN_REFERENCE,
 			NL_CAPABILITY_ROUTE_LINK_CLS_ADD_ACT_OWN_REFERENCE,
 			NL_CAPABILITY_NL_CONNECT_RETRY_GENERATE_PORT_ON_ADDRINUSE,
-			0,
-			0,
+			NL_CAPABILITY_ROUTE_LINK_GET_KERNEL_FAIL_OPNOTSUPP,
+			NL_CAPABILITY_ROUTE_ADDR_COMPARE_CACHEINFO,
+			NL_CAPABILITY_VERSION_3_2_26,
+			NL_CAPABILITY_NL_RECV_FAIL_TRUNC_NO_PEEK),
+		_NL_SET(1,
+			NL_CAPABILITY_LINK_BUILD_CHANGE_REQUEST_SET_CHANGE,
+			NL_CAPABILITY_RTNL_NEIGH_GET_FILTER_AF_UNSPEC_FIX,
+			NL_CAPABILITY_VERSION_3_2_27,
+			NL_CAPABILITY_RTNL_LINK_VLAN_PROTOCOL_SERIALZE,
+			NL_CAPABILITY_RTNL_LINK_PARSE_GRE_REMOTE,
+			NL_CAPABILITY_RTNL_LINK_VLAN_INGRESS_MAP_CLEAR,
+			NL_CAPABILITY_RTNL_LINK_VXLAN_IO_COMPARE,
+			NL_CAPABILITY_NL_OBJECT_DIFF64),
+		_NL_SET (2,
+			NL_CAPABILITY_XFRM_SA_KEY_SIZE,
+			NL_CAPABILITY_RTNL_ADDR_PEER_FIX,
+			NL_CAPABILITY_VERSION_3_2_28,
+			NL_CAPABILITY_RTNL_ADDR_PEER_ID_FIX,
+			NL_CAPABILITY_NL_ADDR_FILL_SOCKADDR,
+			NL_CAPABILITY_XFRM_SEC_CTX_LEN,
+			NL_CAPABILITY_LINK_BUILD_ADD_REQUEST_SET_CHANGE,
+			NL_CAPABILITY_NL_RECVMSGS_PEEK_BY_DEFAULT),
+		_NL_SET (3,
+			NL_CAPABILITY_VERSION_3_2_29,
+			NL_CAPABILITY_XFRM_SP_SEC_CTX_LEN,
+			NL_CAPABILITY_VERSION_3_3_0,
+			NL_CAPABILITY_VERSION_3_4_0,
+			NL_CAPABILITY_ROUTE_FIX_VLAN_SET_EGRESS_MAP,
+			NL_CAPABILITY_VERSION_3_5_0,
 			0,
 			0),
+		/* IMPORTANT: these capability numbers are intended to be universal and stable
+		 * for libnl3. Don't allocate new numbers on your own that differ from upstream
+		 * libnl3.
+		 *
+		 * Instead register a capability number upstream too. We will take patches
+		 * for that. We especially take patches to register a capability number that is
+		 * only implemented in your fork of libnl3.
+		 *
+		 * If you really don't want that, use capabilities in the range 0x7000 to 0x7FFF.
+		 * (NL_CAPABILITY_IS_USER_RESERVED). Upstream libnl3 will not register conflicting
+		 * capabilities in that range.
+		 *
+		 * Obviously, only backport capability numbers to libnl versions that actually
+		 * implement that capability as well. */
 #undef _NL_SET
 #undef _NL_SETV
 #undef _NL_ASSERT

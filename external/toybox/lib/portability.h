@@ -4,8 +4,13 @@
 // in specific compiler, library, or OS versions, localize all that here
 // and in portability.c
 
+// Always use long file support.
+// This must come before we #include any system header file to take effect!
+#define _FILE_OFFSET_BITS 64
+
 // For musl
 #define _ALL_SOURCE
+#include <regex.h>
 #ifndef REG_STARTEND
 #define REG_STARTEND 0
 #endif
@@ -28,9 +33,6 @@
 #else
 #define printf_format
 #endif
-
-// Always use long file support.
-#define _FILE_OFFSET_BITS 64
 
 // This isn't in the spec, but it's how we determine what libc we're using.
 
@@ -103,6 +105,8 @@ char *dirname(char *path);
 char *__xpg_basename(char *path);
 static inline char *basename(char *path) { return __xpg_basename(path); }
 char *strcasestr(const char *haystack, const char *needle);
+void *memmem(const void *haystack, size_t haystack_length,
+  const void *needle, size_t needle_length);
 #endif // defined(glibc)
 
 // getopt_long(), getopt_long_only(), and struct option.
@@ -129,7 +133,7 @@ char *strcasestr(const char *haystack, const char *needle);
 #define bswap_32(x) OSSwapInt32(x)
 #define bswap_64(x) OSSwapInt64(x)
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
 
 #include <sys/endian.h>
 
@@ -180,7 +184,7 @@ char *strcasestr(const char *haystack, const char *needle);
 
 #ifdef __APPLE__
 #include <util.h>
-#elif !defined(__FreeBSD__)
+#elif !defined(__FreeBSD__) && !defined(__OpenBSD__)
 #include <pty.h>
 #else
 #include <termios.h>
@@ -204,11 +208,23 @@ ssize_t xattr_lset(const char*, const char*, const void*, size_t, int);
 ssize_t xattr_fset(int, const char*, const void*, size_t, int);
 #endif
 
+#if defined(__APPLE__)
 // macOS doesn't have these functions, but we can fake them.
-#ifdef __APPLE__
 int mknodat(int, const char*, mode_t, dev_t);
 int posix_fallocate(int, off_t, off_t);
+
+// macOS keeps newlocale(3) in the non-POSIX <xlocale.h> rather than <locale.h>.
+#include <xlocale.h>
 #endif
+
+#if defined(__APPLE__) || defined(__OpenBSD__)
+static inline long statfs_bsize(struct statfs *sf) { return sf->f_iosize; }
+static inline long statfs_frsize(struct statfs *sf) { return sf->f_bsize; }
+#else
+static inline long statfs_bsize(struct statfs *sf) { return sf->f_bsize; }
+static inline long statfs_frsize(struct statfs *sf) { return sf->f_frsize; }
+#endif
+
 
 // Android is missing some headers and functions
 // "generated/config.h" is included first
@@ -338,10 +354,6 @@ struct xnotify *xnotify_init(int max);
 int xnotify_add(struct xnotify *not, int fd, char *path);
 int xnotify_wait(struct xnotify *not, char **path);
 
-#ifdef __APPLE__
-#define f_frsize f_iosize
-#endif
-
 int sig_to_num(char *s);
 char *num_to_sig(int sig);
 
@@ -357,3 +369,5 @@ int dev_major(int dev);
 int dev_makedev(int major, int minor);
 
 char *fs_type_name(struct statfs *statfs);
+
+int get_block_device_size(int fd, unsigned long long *size);

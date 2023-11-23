@@ -5,7 +5,7 @@
 
 #include <xnnpack/assembly.h>
 
-# void xnn_f32_gemm${"inc" if INC else ""}_ukernel_5x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}(
+# void xnn_f32_gemm${"inc" if INC else ""}_minmax_ukernel_5x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}(
 #     size_t mr,                x0
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
@@ -17,9 +17,9 @@
 #     size_t cn_stride,         [sp] -> x14
 $if INC:
   #     const float*restrict acc,  [sp + 8] -> x15
-  #     const union xnn_f32_output_params params[restrict static 1])  [sp + 16] -> x8
+  #     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 16] -> x8
 $else:
-  #     const union xnn_f32_output_params params[restrict static 1])  [sp + 8] -> x8
+  #     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> x8
 
 # unused compared to 5x8
 #  x4 a5
@@ -27,8 +27,7 @@ $else:
 # A5  v10 v11
 # C   v30 v31
 
-# d8-d15 need to be preserved if used.
-# x19-x30 need to be preserved if used.  x18 is reserved for OS.
+# d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
 # A pointers
 #  x3 a0
@@ -59,7 +58,16 @@ $else:
 # C   v28 v29
 # Clamp v30 v31
 
-BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_5x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_minmax_ukernel_5x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+
+        $if INC:
+          # Load cn_stride, acc
+          LDP x14, x15, [sp]
+          # Load params pointer
+          LDR x8, [sp, 16]
+        $else:
+          # Load cn_stride, params pointer
+          LDP x14, x8, [sp]
 
         # Clamp A and C pointers / Save d8-d15 on stack
         STP  d8,  d9, [sp, -48]!
@@ -83,24 +91,14 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_5x8__aarch64_neonfma_
         CSEL x11, x10, x11, LO   //   a3 = a2
         CSEL x13, x17, x13, LO   //   c3 = c2
 
-        $if INC:
-          # Load acc, params pointer
-          LDP x15, x8, [sp, 56]
-        $else:
-          # Load params pointer
-          LDR x8, [sp, 56]
-
         ADD x12, x11, x4         // a4 = a3 + a_stride
         ADD x7, x13, x7         // c4 = c3 + cm_stride
-                                 // if mr <= 5
+                                 // if mr <= 4
         CSEL x12, x11, x12, LS   //   a4 = a3
         CSEL x7, x13, x7, LS   //   c4 = c3
 
         # Load clamp values
         LD2R {v30.4s, v31.4s}, [x8]
-
-        # Load cn_stride
-        LDR x14, [sp, 48]
 
 0:
         $if INC:
@@ -396,27 +394,27 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_5x8__aarch64_neonfma_
 
         # Clamp
 3:
-        FMIN v20.4s, v20.4s, v30.4s
+        FMAX v20.4s, v20.4s, v30.4s
         SUBS x1, x1, 8
-        FMIN v21.4s, v21.4s, v30.4s
-        FMIN v22.4s, v22.4s, v30.4s
-        FMIN v23.4s, v23.4s, v30.4s
-        FMIN v24.4s, v24.4s, v30.4s
-        FMIN v25.4s, v25.4s, v30.4s
-        FMIN v26.4s, v26.4s, v30.4s
-        FMIN v27.4s, v27.4s, v30.4s
-        FMIN v28.4s, v28.4s, v30.4s
-        FMIN v29.4s, v29.4s, v30.4s
-        FMAX v20.4s, v20.4s, v31.4s
-        FMAX v21.4s, v21.4s, v31.4s
-        FMAX v22.4s, v22.4s, v31.4s
-        FMAX v23.4s, v23.4s, v31.4s
-        FMAX v24.4s, v24.4s, v31.4s
-        FMAX v25.4s, v25.4s, v31.4s
-        FMAX v26.4s, v26.4s, v31.4s
-        FMAX v27.4s, v27.4s, v31.4s
-        FMAX v28.4s, v28.4s, v31.4s
-        FMAX v29.4s, v29.4s, v31.4s
+        FMAX v21.4s, v21.4s, v30.4s
+        FMAX v22.4s, v22.4s, v30.4s
+        FMAX v23.4s, v23.4s, v30.4s
+        FMAX v24.4s, v24.4s, v30.4s
+        FMAX v25.4s, v25.4s, v30.4s
+        FMAX v26.4s, v26.4s, v30.4s
+        FMAX v27.4s, v27.4s, v30.4s
+        FMAX v28.4s, v28.4s, v30.4s
+        FMAX v29.4s, v29.4s, v30.4s
+        FMIN v20.4s, v20.4s, v31.4s
+        FMIN v21.4s, v21.4s, v31.4s
+        FMIN v22.4s, v22.4s, v31.4s
+        FMIN v23.4s, v23.4s, v31.4s
+        FMIN v24.4s, v24.4s, v31.4s
+        FMIN v25.4s, v25.4s, v31.4s
+        FMIN v26.4s, v26.4s, v31.4s
+        FMIN v27.4s, v27.4s, v31.4s
+        FMIN v28.4s, v28.4s, v31.4s
+        FMIN v29.4s, v29.4s, v31.4s
 
         # Store full 5 x 8
         B.LO 7f
@@ -658,7 +656,7 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_5x8__aarch64_neonfma_
         LDP  d8,  d9, [sp], 48
         RET
 
-END_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_5x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+END_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_minmax_ukernel_5x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
 
 #ifdef __ELF__
 .section ".note.GNU-stack","",%progbits

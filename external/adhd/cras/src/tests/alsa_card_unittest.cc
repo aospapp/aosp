@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include <gtest/gtest.h>
-#include <iniparser.h>
 #include <stdio.h>
 #include <sys/param.h>
 #include <syslog.h>
@@ -76,9 +75,10 @@ static std::vector<int> cras_system_rm_select_fd_values;
 static size_t snd_hctl_handle_events_called;
 static size_t iniparser_freedict_called;
 static size_t iniparser_load_called;
-static struct cras_device_blacklist* fake_blacklist;
-static int cras_device_blacklist_check_retval;
+static struct cras_device_blocklist* fake_blocklist;
+static int cras_device_blocklist_check_retval;
 static unsigned ucm_create_called;
+static char ucm_create_name[100];
 static unsigned ucm_destroy_called;
 static size_t ucm_get_dev_for_mixer_called;
 static size_t ucm_get_flag_called;
@@ -96,6 +96,8 @@ static int cras_alsa_mixer_add_controls_in_section_return_value;
 static int cras_alsa_mixer_add_main_volume_control_by_name_called;
 static int cras_alsa_mixer_add_main_volume_control_by_name_return_value;
 static int ucm_get_echo_reference_dev_name_for_dev_called;
+static size_t cras_system_check_ignore_ucm_suffix_called;
+static bool cras_system_check_ignore_ucm_suffix_value;
 static const char* ucm_get_echo_reference_dev_name_for_dev_return_value[4];
 
 static void ResetStubData() {
@@ -145,9 +147,10 @@ static void ResetStubData() {
   cras_system_rm_select_fd_values.clear();
   iniparser_freedict_called = 0;
   iniparser_load_called = 0;
-  fake_blacklist = reinterpret_cast<struct cras_device_blacklist*>(3);
-  cras_device_blacklist_check_retval = 0;
+  fake_blocklist = reinterpret_cast<struct cras_device_blocklist*>(3);
+  cras_device_blocklist_check_retval = 0;
   ucm_create_called = 0;
+  memset(ucm_create_name, 0, sizeof(ucm_get_flag_name));
   ucm_destroy_called = 0;
   ucm_get_dev_for_mixer_called = 0;
   ucm_get_flag_called = 0;
@@ -166,6 +169,8 @@ static void ResetStubData() {
   cras_alsa_mixer_add_main_volume_control_by_name_called = 0;
   cras_alsa_mixer_add_main_volume_control_by_name_return_value = 0;
   ucm_get_echo_reference_dev_name_for_dev_called = 0;
+  cras_system_check_ignore_ucm_suffix_called = 0;
+  cras_system_check_ignore_ucm_suffix_value = 0;
   fake_dev1.nodes = NULL;
   fake_dev2.nodes = NULL;
   fake_dev3.nodes = NULL;
@@ -179,7 +184,7 @@ TEST(AlsaCard, CreateFailInvalidCard) {
   ResetStubData();
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 55;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -194,7 +199,7 @@ TEST(AlsaCard, CreateFailMixerInit) {
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
   cras_alsa_mixer_create_return = static_cast<struct cras_alsa_mixer*>(NULL);
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -210,7 +215,7 @@ TEST(AlsaCard, CreateFailCtlOpen) {
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
   snd_ctl_open_return = -1;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(1, snd_ctl_open_called);
@@ -229,7 +234,7 @@ TEST(AlsaCard, CreateFailHctlOpen) {
   snd_hctl_open_pointer_val = NULL;
   snd_hctl_open_return_value = -1;
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(1, snd_ctl_open_called);
@@ -251,7 +256,7 @@ TEST(AlsaCard, CreateFailHctlLoad) {
   card_info.card_index = 0;
   snd_hctl_load_return_value = -1;
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(1, snd_ctl_open_called);
@@ -277,7 +282,7 @@ TEST(AlsaCard, AddSelectForHctlNoDevices) {
   snd_hctl_poll_descriptors_fds = poll_fds;
   snd_hctl_poll_descriptors_num_fds = ARRAY_SIZE(poll_fds);
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(1, snd_ctl_open_called);
@@ -312,7 +317,7 @@ TEST(AlsaCard, AddSelectForHctlWithDevices) {
   snd_hctl_poll_descriptors_fds = poll_fds;
   snd_hctl_poll_descriptors_num_fds = ARRAY_SIZE(poll_fds);
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -344,7 +349,7 @@ TEST(AlsaCard, CreateFailCtlCardInfo) {
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
   snd_ctl_card_info_ret = -1;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(1, snd_ctl_open_called);
@@ -360,7 +365,7 @@ TEST(AlsaCard, CreateNoDevices) {
   ResetStubData();
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 1;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -385,7 +390,7 @@ TEST(AlsaCard, CreateOneOutputNextDevError) {
   snd_ctl_pcm_next_device_return_error = true;
   card_info.card_type = ALSA_CARD_TYPE_USB;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(cras_alsa_mixer_create_called, cras_alsa_mixer_destroy_called);
@@ -406,7 +411,7 @@ TEST(AlsaCard, CreateOneOutput) {
   snd_ctl_pcm_info_rets = info_rets;
   card_info.card_type = ALSA_CARD_TYPE_USB;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -431,7 +436,7 @@ TEST(AlsaCard, CreateOneOutput) {
   EXPECT_EQ(iniparser_load_called, iniparser_freedict_called);
 }
 
-TEST(AlsaCard, CreateOneOutputBlacklisted) {
+TEST(AlsaCard, CreateOneOutputBlocklisted) {
   struct cras_alsa_card* c;
   int dev_nums[] = {0};
   int info_rets[] = {0, -1};
@@ -443,10 +448,10 @@ TEST(AlsaCard, CreateOneOutputBlacklisted) {
   snd_ctl_pcm_info_rets_size = ARRAY_SIZE(info_rets);
   snd_ctl_pcm_info_rets = info_rets;
   alsa_iodev_has_hctl_jacks_return = 0;
-  cras_device_blacklist_check_retval = 1;
+  cras_device_blocklist_check_retval = 1;
   card_info.card_type = ALSA_CARD_TYPE_USB;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -476,7 +481,7 @@ TEST(AlsaCard, CreateTwoOutputs) {
   snd_ctl_pcm_info_rets = info_rets;
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -509,7 +514,7 @@ TEST(AlsaCard, CreateTwoDuplicateDeviceIndex) {
   snd_ctl_pcm_info_rets = info_rets;
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -542,7 +547,7 @@ TEST(AlsaCard, CreateOneInput) {
   snd_ctl_pcm_info_rets = info_rets;
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -574,7 +579,7 @@ TEST(AlsaCard, CreateOneInputAndOneOutput) {
   snd_ctl_pcm_info_rets = info_rets;
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -606,7 +611,7 @@ TEST(AlsaCard, CreateOneInputAndOneOutputTwoDevices) {
   snd_ctl_pcm_info_rets = info_rets;
   card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
   card_info.card_index = 0;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -657,7 +662,7 @@ TEST(AlsaCard, CreateOneOutputWithCoupledMixers) {
   DL_APPEND(ucm_get_coupled_mixer_names_return_value, mixer_name_1);
   DL_APPEND(ucm_get_coupled_mixer_names_return_value, mixer_name_2);
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
 
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
@@ -703,7 +708,7 @@ TEST(AlsaCard, CreateFullyUCMNoSections) {
   card_info.card_index = 0;
   ucm_has_fully_specified_ucm_flag_return_value = 1;
   ucm_get_sections_return_value = NULL;
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
@@ -746,7 +751,7 @@ TEST(AlsaCard, CreateFullyUCMTwoMainVolume) {
   DL_APPEND(ucm_get_main_volume_names_return_value, mixer_name_1);
   DL_APPEND(ucm_get_main_volume_names_return_value, mixer_name_2);
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
 
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
@@ -766,34 +771,81 @@ TEST(AlsaCard, CreateFullyUCMTwoMainVolume) {
   EXPECT_EQ(iniparser_load_called, iniparser_freedict_called);
 }
 
+TEST(AlsaCard, TwoUCMSecionsDependentPCM) {
+  struct cras_alsa_card* c;
+  cras_alsa_card_info card_info;
+  struct ucm_section* sections = NULL;
+  struct ucm_section* section;
+
+  /* Create UCM so that MIC1 and MIC2 will be two nodes on the same iodev. */
+  section = ucm_section_create("MIC1", "hw:0,3", 0, -1, CRAS_STREAM_INPUT,
+                               "my-sound-card Headset Jack", "gpio");
+  DL_APPEND(sections, section);
+  section = ucm_section_create("MIC2", "hw:0,5", 0, 3, CRAS_STREAM_INPUT,
+                               "my-sound-card Headset Jack", "gpio");
+  DL_APPEND(sections, section);
+
+  ResetStubData();
+  int info_rets[] = {0, 0};
+  card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
+  card_info.card_index = 0;
+  snd_ctl_pcm_info_rets_size = ARRAY_SIZE(info_rets);
+  snd_ctl_pcm_info_rets = info_rets;
+  ucm_has_fully_specified_ucm_flag_return_value = 1;
+  ucm_get_sections_return_value = sections;
+  ASSERT_NE(ucm_get_sections_return_value, (struct ucm_section*)NULL);
+
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
+                            NULL);
+
+  EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
+  EXPECT_EQ(snd_ctl_close_called, snd_ctl_open_called);
+  EXPECT_EQ(1, snd_ctl_card_info_called);
+  EXPECT_EQ(1, ucm_get_sections_called);
+  EXPECT_EQ(1, snd_ctl_pcm_info_called);
+  EXPECT_EQ(2, cras_alsa_mixer_add_controls_in_section_called);
+  EXPECT_EQ(1, cras_alsa_iodev_create_called);
+  EXPECT_EQ(2, cras_alsa_iodev_ucm_add_nodes_and_jacks_called);
+  EXPECT_EQ(1, cras_alsa_iodev_ucm_complete_init_called);
+
+  cras_alsa_card_destroy(c);
+  EXPECT_EQ(1, ucm_destroy_called);
+  EXPECT_EQ(1, cras_alsa_iodev_destroy_called);
+  EXPECT_EQ(cras_alsa_iodev_create_return[0], cras_alsa_iodev_destroy_arg);
+  EXPECT_EQ(cras_alsa_mixer_create_called, cras_alsa_mixer_destroy_called);
+  EXPECT_EQ(iniparser_load_called, iniparser_freedict_called);
+}
+
 struct ucm_section* GenerateUcmSections(void) {
   struct ucm_section* sections = NULL;
   struct ucm_section* section;
 
-  section = ucm_section_create("Headphone", 0, CRAS_STREAM_OUTPUT,
+  section = ucm_section_create("Headphone", "hw:0,1", 0, -1, CRAS_STREAM_OUTPUT,
                                "my-sound-card Headset Jack", "gpio");
   ucm_section_add_coupled(section, "HP-L", MIXER_NAME_VOLUME);
   ucm_section_add_coupled(section, "HP-R", MIXER_NAME_VOLUME);
   DL_APPEND(sections, section);
 
-  section = ucm_section_create("Speaker", 0, CRAS_STREAM_OUTPUT, NULL, NULL);
+  section = ucm_section_create("Speaker", "hw:0,1", 0, -1, CRAS_STREAM_OUTPUT,
+                               NULL, NULL);
   ucm_section_add_coupled(section, "SPK-L", MIXER_NAME_VOLUME);
   ucm_section_add_coupled(section, "SPK-R", MIXER_NAME_VOLUME);
   DL_APPEND(sections, section);
 
-  section =
-      ucm_section_create("Internal Mic", 0, CRAS_STREAM_INPUT, NULL, NULL);
+  section = ucm_section_create("Internal Mic", "hw:0,1", 0, -1,
+                               CRAS_STREAM_INPUT, NULL, NULL);
   ucm_section_add_coupled(section, "INT-MIC-L", MIXER_NAME_VOLUME);
   ucm_section_add_coupled(section, "INT-MIC-R", MIXER_NAME_VOLUME);
   DL_APPEND(sections, section);
 
-  section = ucm_section_create("Mic", 1, CRAS_STREAM_INPUT,
+  section = ucm_section_create("Mic", "hw:0,1", 1, -1, CRAS_STREAM_INPUT,
                                "my-sound-card Headset Jack", "gpio");
   ucm_section_add_coupled(section, "MIC-L", MIXER_NAME_VOLUME);
   ucm_section_add_coupled(section, "MIC-R", MIXER_NAME_VOLUME);
   DL_APPEND(sections, section);
 
-  section = ucm_section_create("HDMI", 2, CRAS_STREAM_OUTPUT, NULL, NULL);
+  section = ucm_section_create("HDMI", "hw:0,1", 2, -1, CRAS_STREAM_OUTPUT,
+                               NULL, NULL);
   ucm_section_set_mixer_name(section, "HDMI");
   DL_APPEND(sections, section);
 
@@ -813,7 +865,7 @@ TEST(AlsaCard, CreateFullyUCMFailureOnControls) {
 
   cras_alsa_mixer_add_controls_in_section_return_value = -EINVAL;
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
 
   EXPECT_EQ(static_cast<struct cras_alsa_card*>(NULL), c);
@@ -850,7 +902,7 @@ TEST(AlsaCard, CreateFullyUCMFourDevicesFiveSections) {
   cras_alsa_iodev_index_return[cras_alsa_iodev_create_return[3]] = 2;
   ASSERT_NE(ucm_get_sections_return_value, (struct ucm_section*)NULL);
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
 
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
@@ -897,11 +949,50 @@ TEST(AlsaCard, GG) {
 
   ucm_get_echo_reference_dev_name_for_dev_return_value[0] = strdup(echo_ref);
 
-  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blacklist,
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
                             NULL);
 
   EXPECT_NE(static_cast<struct cras_alsa_card*>(NULL), c);
   EXPECT_EQ(fake_dev1.echo_reference_dev, &fake_dev4);
+  cras_alsa_card_destroy(c);
+}
+
+TEST(AlsaCard, UCMSuffix) {
+  struct cras_alsa_card* c;
+  cras_alsa_card_info card_info;
+  int info_rets[] = {0, 0, 0, 0, 0, -1};
+
+  ResetStubData();
+  card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
+  card_info.card_index = 0;
+  snd_ctl_pcm_info_rets_size = ARRAY_SIZE(info_rets);
+  snd_ctl_pcm_info_rets = info_rets;
+  ucm_has_fully_specified_ucm_flag_return_value = 1;
+  ucm_get_sections_return_value = GenerateUcmSections();
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
+                            "1mic");
+  EXPECT_EQ(0, strcmp(ucm_create_name, "TestName.1mic"));
+  EXPECT_EQ(1, cras_system_check_ignore_ucm_suffix_called);
+  cras_alsa_card_destroy(c);
+}
+
+TEST(AlsaCard, UCMIgnoreSuffix) {
+  struct cras_alsa_card* c;
+  cras_alsa_card_info card_info;
+  int info_rets[] = {0, 0, 0, 0, 0, -1};
+
+  ResetStubData();
+  card_info.card_type = ALSA_CARD_TYPE_INTERNAL;
+  card_info.card_index = 0;
+  snd_ctl_pcm_info_rets_size = ARRAY_SIZE(info_rets);
+  snd_ctl_pcm_info_rets = info_rets;
+  ucm_has_fully_specified_ucm_flag_return_value = 1;
+  ucm_get_sections_return_value = GenerateUcmSections();
+  cras_system_check_ignore_ucm_suffix_value = true;
+  c = cras_alsa_card_create(&card_info, device_config_dir, fake_blocklist,
+                            "1mic");
+  EXPECT_EQ(0, strcmp(ucm_create_name, "TestName"));
+  EXPECT_EQ(1, cras_system_check_ignore_ucm_suffix_called);
   cras_alsa_card_destroy(c);
 }
 
@@ -935,6 +1026,7 @@ void cras_alsa_mixer_destroy(struct cras_alsa_mixer* cras_mixer) {
 struct cras_iodev* alsa_iodev_create(size_t card_index,
                                      const char* card_name,
                                      size_t device_index,
+                                     const char* pcm_name,
                                      const char* dev_name,
                                      const char* dev_id,
                                      enum CRAS_ALSA_CARD_TYPE card_type,
@@ -1103,17 +1195,18 @@ struct cras_volume_curve* cras_card_config_get_volume_curve_for_control(
   return NULL;
 }
 
-int cras_device_blacklist_check(struct cras_device_blacklist* blacklist,
+int cras_device_blocklist_check(struct cras_device_blocklist* blocklist,
                                 unsigned vendor_id,
                                 unsigned product_id,
                                 unsigned device_index) {
-  EXPECT_EQ(fake_blacklist, blacklist);
+  EXPECT_EQ(fake_blocklist, blocklist);
 
-  return cras_device_blacklist_check_retval;
+  return cras_device_blocklist_check_retval;
 }
 
 struct cras_use_case_mgr* ucm_create(const char* name) {
   ucm_create_called++;
+  strncpy(ucm_create_name, name, sizeof(ucm_create_name) - 1);
   return reinterpret_cast<struct cras_use_case_mgr*>(0x44);
 }
 
@@ -1169,6 +1262,11 @@ int cras_alsa_mixer_add_controls_in_section(struct cras_alsa_mixer* cmix,
                                             struct ucm_section* section) {
   cras_alsa_mixer_add_controls_in_section_called++;
   return cras_alsa_mixer_add_controls_in_section_return_value;
+}
+
+bool cras_system_check_ignore_ucm_suffix(const char* card_name) {
+  cras_system_check_ignore_ucm_suffix_called++;
+  return cras_system_check_ignore_ucm_suffix_value;
 }
 
 void ucm_free_mixer_names(struct mixer_name* names) {

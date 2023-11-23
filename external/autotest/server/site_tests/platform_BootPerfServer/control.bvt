@@ -14,10 +14,8 @@ This test gathers performance metrics about a system by rebooting it and
 collecting boot times.
 """
 
-
 def run_bootperf(machine):
     host = hosts.create_host(machine)
-    job.run_test('platform_BootPerfServer', host=host)
-
+    job.run_test('platform_BootPerfServer', host=host, cmdline_args=args)
 
 parallel_simple(run_bootperf, machines)

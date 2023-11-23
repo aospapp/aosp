@@ -18,8 +18,6 @@ package io.grpc.netty;
 
 import io.grpc.Internal;
 import io.grpc.internal.ClientTransportFactory;
-import io.grpc.internal.ProxyParameters;
-import java.net.SocketAddress;
 
 /**
  * Internal {@link NettyChannelBuilder} accessor.  This is intended for usage internal to the gRPC
@@ -39,28 +37,17 @@ public final class InternalNettyChannelBuilder {
     channelBuilder.overrideAuthorityChecker(authorityChecker);
   }
 
-  /**
-   * Interface to create netty dynamic parameters.
-   */
-  public interface TransportCreationParamsFilterFactory
-      extends NettyChannelBuilder.TransportCreationParamsFilterFactory {
-    @Override
-    TransportCreationParamsFilter create(
-        SocketAddress targetServerAddress, String authority, String userAgent,
-        ProxyParameters proxy);
-  }
+  /** A class that provides a Netty handler to control protocol negotiation. */
+  public interface ProtocolNegotiatorFactory
+      extends NettyChannelBuilder.ProtocolNegotiatorFactory {}
 
   /**
-   * {@link TransportCreationParamsFilter} are those that may depend on late-known information about
-   * a client transport.  This interface can be used to dynamically alter params based on the
-   * params of {@code ClientTransportFactory#newClientTransport}.
+   * Sets the {@link ProtocolNegotiatorFactory} to be used. Overrides any specified negotiation type
+   * and {@code SslContext}.
    */
-  public interface TransportCreationParamsFilter
-      extends NettyChannelBuilder.TransportCreationParamsFilter {}
-
-  public static void setDynamicTransportParamsFactory(
-      NettyChannelBuilder builder, TransportCreationParamsFilterFactory factory) {
-    builder.setDynamicParamsFactory(factory);
+  public static void setProtocolNegotiatorFactory(
+      NettyChannelBuilder builder, ProtocolNegotiatorFactory protocolNegotiator) {
+    builder.protocolNegotiatorFactory(protocolNegotiator);
   }
 
   public static void setStatsEnabled(NettyChannelBuilder builder, boolean value) {

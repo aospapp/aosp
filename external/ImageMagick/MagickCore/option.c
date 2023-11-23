@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -209,6 +209,40 @@ static const OptionInfo
     { "29", (ssize_t) (1L << 29), UndefinedOptionFlag, MagickFalse },
     { "30", (ssize_t) (1L << 30), UndefinedOptionFlag, MagickFalse },
     { "31", (ssize_t) (1L << 31), UndefinedOptionFlag, MagickFalse },
+#if MAGICKCORE_SIZEOF_SSIZE_T > 4
+    { "32", (ssize_t) (1L << 32), UndefinedOptionFlag, MagickFalse },
+    { "33", (ssize_t) (1L << 33), UndefinedOptionFlag, MagickFalse },
+    { "34", (ssize_t) (1L << 34), UndefinedOptionFlag, MagickFalse },
+    { "35", (ssize_t) (1L << 35), UndefinedOptionFlag, MagickFalse },
+    { "36", (ssize_t) (1L << 36), UndefinedOptionFlag, MagickFalse },
+    { "37", (ssize_t) (1L << 37), UndefinedOptionFlag, MagickFalse },
+    { "38", (ssize_t) (1L << 38), UndefinedOptionFlag, MagickFalse },
+    { "39", (ssize_t) (1L << 39), UndefinedOptionFlag, MagickFalse },
+    { "40", (ssize_t) (1L << 40), UndefinedOptionFlag, MagickFalse },
+    { "41", (ssize_t) (1L << 41), UndefinedOptionFlag, MagickFalse },
+    { "42", (ssize_t) (1L << 42), UndefinedOptionFlag, MagickFalse },
+    { "43", (ssize_t) (1L << 43), UndefinedOptionFlag, MagickFalse },
+    { "44", (ssize_t) (1L << 44), UndefinedOptionFlag, MagickFalse },
+    { "45", (ssize_t) (1L << 45), UndefinedOptionFlag, MagickFalse },
+    { "46", (ssize_t) (1L << 46), UndefinedOptionFlag, MagickFalse },
+    { "47", (ssize_t) (1L << 47), UndefinedOptionFlag, MagickFalse },
+    { "48", (ssize_t) (1L << 48), UndefinedOptionFlag, MagickFalse },
+    { "49", (ssize_t) (1L << 49), UndefinedOptionFlag, MagickFalse },
+    { "50", (ssize_t) (1L << 50), UndefinedOptionFlag, MagickFalse },
+    { "51", (ssize_t) (1L << 41), UndefinedOptionFlag, MagickFalse },
+    { "52", (ssize_t) (1L << 52), UndefinedOptionFlag, MagickFalse },
+    { "53", (ssize_t) (1L << 53), UndefinedOptionFlag, MagickFalse },
+    { "54", (ssize_t) (1L << 54), UndefinedOptionFlag, MagickFalse },
+    { "55", (ssize_t) (1L << 55), UndefinedOptionFlag, MagickFalse },
+    { "56", (ssize_t) (1L << 56), UndefinedOptionFlag, MagickFalse },
+    { "57", (ssize_t) (1L << 57), UndefinedOptionFlag, MagickFalse },
+    { "58", (ssize_t) (1L << 58), UndefinedOptionFlag, MagickFalse },
+    { "59", (ssize_t) (1L << 59), UndefinedOptionFlag, MagickFalse },
+    { "60", (ssize_t) (1L << 60), UndefinedOptionFlag, MagickFalse },
+    { "61", (ssize_t) (1L << 61), UndefinedOptionFlag, MagickFalse },
+    { "62", (ssize_t) (1L << 62), UndefinedOptionFlag, MagickFalse },
+    { "63", (ssize_t) (1L << 63), UndefinedOptionFlag, MagickFalse },
+#endif
     { (char *) NULL, UndefinedChannel, UndefinedOptionFlag, MagickFalse }
   },
   ClassOptions[] =
@@ -228,6 +262,7 @@ static const OptionInfo
     { "  authenticate", 0, UndefinedOptionFlag, MagickFalse },
     { "  background", 0, UndefinedOptionFlag, MagickFalse },
     { "  bias", 0, UndefinedOptionFlag, MagickFalse },
+    { "  bilateral-blur", 0, UndefinedOptionFlag, MagickFalse },
     { "  black-point-compensation", 0, UndefinedOptionFlag, MagickFalse },
     { "  blue-primary", 0, UndefinedOptionFlag, MagickFalse },
     { "  bordercolor", 0, UndefinedOptionFlag, MagickFalse },
@@ -309,6 +344,7 @@ static const OptionInfo
     { "  colors", 0, UndefinedOptionFlag, MagickFalse },
     { "  colorize", 0, UndefinedOptionFlag, MagickFalse },
     { "  colorspace", 0, UndefinedOptionFlag, MagickFalse },
+    { "  color-threshold", 0, UndefinedOptionFlag, MagickFalse },
     { "  compose", 0, UndefinedOptionFlag, MagickFalse },
     { "  contrast", 0, UndefinedOptionFlag, MagickFalse },
     { "  convolve", 0, UndefinedOptionFlag, MagickFalse },
@@ -460,9 +496,11 @@ static const OptionInfo
   ColorspaceOptions[] =
   {
     { "Undefined", UndefinedColorspace, UndefinedOptionFlag, MagickTrue },
+    { "Adobe98", Adobe98Colorspace, UndefinedOptionFlag, MagickFalse },
     { "CIELab", LabColorspace, UndefinedOptionFlag, MagickFalse },
     { "CMY", CMYColorspace, UndefinedOptionFlag, MagickFalse },
     { "CMYK", CMYKColorspace, UndefinedOptionFlag, MagickFalse },
+    { "DisplayP3", DisplayP3Colorspace, UndefinedOptionFlag, MagickFalse },
     { "Gray", GRAYColorspace, UndefinedOptionFlag, MagickFalse },
     { "HCL", HCLColorspace, UndefinedOptionFlag, MagickFalse },
     { "HCLp", HCLpColorspace, UndefinedOptionFlag, MagickFalse },
@@ -471,6 +509,7 @@ static const OptionInfo
     { "HSL", HSLColorspace, UndefinedOptionFlag, MagickFalse },
     { "HSV", HSVColorspace, UndefinedOptionFlag, MagickFalse },
     { "HWB", HWBColorspace, UndefinedOptionFlag, MagickFalse },
+    { "Jzazbz", JzazbzColorspace, UndefinedOptionFlag, MagickFalse },
     { "Lab", LabColorspace, UndefinedOptionFlag, MagickFalse },
     { "LCH", LCHColorspace, UndefinedOptionFlag, MagickFalse },
     { "LCHab", LCHabColorspace, UndefinedOptionFlag, MagickFalse },
@@ -480,6 +519,7 @@ static const OptionInfo
     { "Log", LogColorspace, UndefinedOptionFlag, MagickFalse },
     { "Luv", LuvColorspace, UndefinedOptionFlag, MagickFalse },
     { "OHTA", OHTAColorspace, UndefinedOptionFlag, MagickFalse },
+    { "ProPhoto", ProPhotoColorspace, UndefinedOptionFlag, MagickFalse },
     { "Rec601YCbCr", Rec601YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
     { "Rec709YCbCr", Rec709YCbCrColorspace, UndefinedOptionFlag, MagickFalse },
     { "RGB", RGBColorspace, UndefinedOptionFlag, MagickFalse },
@@ -578,6 +618,8 @@ static const OptionInfo
     { "-bench", 1L, GenesisOptionFlag, MagickFalse },
     { "+bias", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-bias", 1L, ImageInfoOptionFlag, MagickFalse },
+    { "+bilateral-blur", 1L, DeprecateOptionFlag, MagickTrue },
+    { "-bilateral-blur", 1L, SimpleOperatorFlag, MagickFalse },
     { "-black-point-compensation", 0L, ImageInfoOptionFlag, MagickFalse },
     { "+black-point-compensation", 0L, ImageInfoOptionFlag, MagickFalse },
     { "+black-threshold", 0L, DeprecateOptionFlag, MagickTrue },
@@ -639,6 +681,8 @@ static const OptionInfo
     { "-colors", 1L, SimpleOperatorFlag, MagickFalse },
     { "+colorspace", 0L, ImageInfoOptionFlag | SimpleOperatorFlag, MagickFalse },
     { "-colorspace", 1L, ImageInfoOptionFlag | SimpleOperatorFlag, MagickFalse },
+    { "+color-threshold", 0L, DeprecateOptionFlag, MagickTrue },
+    { "-color-threshold", 1L, SimpleOperatorFlag, MagickFalse },
     { "-combine", 0L, ListOperatorFlag | FireOptionFlag, MagickFalse },
     { "+combine", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
     { "+comment", 0L, ImageInfoOptionFlag | NeverInterpretArgsFlag, MagickFalse },
@@ -800,6 +844,8 @@ static const OptionInfo
     { "-implode", 1L, SimpleOperatorFlag, MagickFalse },
     { "+insert", 0L, ListOperatorFlag | FireOptionFlag, MagickFalse },
     { "-insert", 1L, ListOperatorFlag | FireOptionFlag, MagickFalse },
+    { "+illuminant", 1L, ImageInfoOptionFlag, MagickFalse },
+    { "-illuminant", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+intensity", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-intensity", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+intent", 0L, ImageInfoOptionFlag, MagickFalse },
@@ -1019,6 +1065,8 @@ static const OptionInfo
     { "-snaps", 1L, NonMagickOptionFlag, MagickFalse },
     { "+solarize", 1L, DeprecateOptionFlag, MagickTrue },
     { "-solarize", 1L, SimpleOperatorFlag, MagickFalse },
+    { "+sort-pixels", 0L, DeprecateOptionFlag, MagickTrue },
+    { "-sort-pixels", 0L, SimpleOperatorFlag, MagickFalse },
     { "+sparse-color", 1L, DeprecateOptionFlag, MagickTrue },
     { "-sparse-color", 2L, SimpleOperatorFlag | AlwaysInterpretArgsFlag, MagickFalse },
     { "+splice", 1L, DeprecateOptionFlag, MagickTrue },
@@ -1116,6 +1164,8 @@ static const OptionInfo
     { "-wavelet-denoise", 1L, SimpleOperatorFlag, MagickFalse },
     { "+weight", 1L, DeprecateOptionFlag, MagickTrue },
     { "-weight", 1L, DrawInfoOptionFlag, MagickFalse },
+    { "+white-balance", 0L, DeprecateOptionFlag, MagickTrue },
+    { "-white-balance", 0L, SimpleOperatorFlag, MagickFalse },
     { "+white-point", 0L, ImageInfoOptionFlag, MagickFalse },
     { "-white-point", 1L, ImageInfoOptionFlag, MagickFalse },
     { "+white-threshold", 1L, DeprecateOptionFlag, MagickTrue },
@@ -1144,6 +1194,7 @@ static const OptionInfo
   ComposeOptions[] =
   {
     { "Undefined", UndefinedCompositeOp, UndefinedOptionFlag, MagickTrue },
+    { "Add", ModulusAddCompositeOp, DeprecateOptionFlag, MagickTrue },
     { "Atop", AtopCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Blend", BlendCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Blur", BlurCompositeOp, UndefinedOptionFlag, MagickFalse },
@@ -1156,44 +1207,50 @@ static const OptionInfo
     { "CopyAlpha", CopyAlphaCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "CopyBlack", CopyBlackCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "CopyBlue", CopyBlueCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Copy", CopyCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "CopyCyan", CopyCyanCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "CopyGreen", CopyGreenCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "Copy", CopyCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "CopyMagenta", CopyMagentaCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "CopyOpacity", CopyAlphaCompositeOp, UndefinedOptionFlag, MagickTrue },
     { "CopyRed", CopyRedCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "CopyYellow", CopyYellowCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Darken", DarkenCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "DarkenIntensity", DarkenIntensityCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "DivideDst", DivideDstCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "DivideSrc", DivideSrcCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "Dst", DstCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Difference", DifferenceCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Displace", DisplaceCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Dissolve", DissolveCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Distort", DistortCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Divide", DivideDstCompositeOp, DeprecateOptionFlag, MagickTrue },
+    { "DivideDst", DivideDstCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "DivideSrc", DivideSrcCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "DstAtop", DstAtopCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Dst", DstCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "DstIn", DstInCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "DstOut", DstOutCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "DstOver", DstOverCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Exclusion", ExclusionCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Freeze", FreezeCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "HardLight", HardLightCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "HardMix", HardMixCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Hue", HueCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "In", InCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Intensity", IntensityCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "Lighten", LightenCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Interpolate", InterpolateCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "LightenIntensity", LightenIntensityCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Lighten", LightenCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "LinearBurn", LinearBurnCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "LinearDodge", LinearDodgeCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "LinearLight", LinearLightCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Luminize", LuminizeCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Mathematics", MathematicsCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "MinusDst", MinusDstCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Minus", MinusDstCompositeOp, DeprecateOptionFlag, MagickTrue },
     { "MinusSrc", MinusSrcCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Modulate", ModulateCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "ModulusAdd", ModulusAddCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "ModulusSubtract", ModulusSubtractCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Multiply", MultiplyCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Negate", NegateCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "None", NoCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Out", OutCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Overlay", OverlayCompositeOp, UndefinedOptionFlag, MagickFalse },
@@ -1201,24 +1258,25 @@ static const OptionInfo
     { "PegtopLight", PegtopLightCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "PinLight", PinLightCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Plus", PlusCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Reflect", ReflectCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Replace", ReplaceCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "RMSE", RMSECompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Saturate", SaturateCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Screen", ScreenCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "SoftBurn", SoftBurnCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "SoftDodge", SoftDodgeCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "SoftLight", SoftLightCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "Src", SrcCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "SrcAtop", SrcAtopCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "SrcIn", SrcInCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "SrcOut", SrcOutCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "SrcOver", SrcOverCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Src", SrcCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Stamp", StampCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Stereo", StereoCompositeOp, UndefinedOptionFlag, MagickFalse },
+    { "Subtract", ModulusSubtractCompositeOp, DeprecateOptionFlag, MagickTrue },
+    { "Threshold", ThresholdCompositeOp, DeprecateOptionFlag, MagickTrue },
     { "VividLight", VividLightCompositeOp, UndefinedOptionFlag, MagickFalse },
     { "Xor", XorCompositeOp, UndefinedOptionFlag, MagickFalse },
-    { "Divide", DivideDstCompositeOp, DeprecateOptionFlag, MagickTrue },
-    { "Minus", MinusDstCompositeOp, DeprecateOptionFlag, MagickTrue },
-    { "Subtract", ModulusSubtractCompositeOp, DeprecateOptionFlag, MagickTrue },
-    { "Add", ModulusAddCompositeOp, DeprecateOptionFlag, MagickTrue },
-    { "Threshold", ThresholdCompositeOp, DeprecateOptionFlag, MagickTrue },
-    { "CopyOpacity", CopyAlphaCompositeOp, UndefinedOptionFlag, MagickTrue },
     { (char *) NULL, UndefinedCompositeOp, UndefinedOptionFlag, MagickFalse }
   },
   CompressOptions[] =
@@ -1293,6 +1351,7 @@ static const OptionInfo
   DistortOptions[] =
   {
     { "Affine", AffineDistortion, UndefinedOptionFlag, MagickFalse },
+    { "RigidAffine", RigidAffineDistortion, UndefinedOptionFlag, MagickFalse },
     { "AffineProjection", AffineProjectionDistortion, UndefinedOptionFlag, MagickFalse },
     { "ScaleRotateTranslate", ScaleRotateTranslateDistortion, UndefinedOptionFlag, MagickFalse },
     { "SRT", ScaleRotateTranslateDistortion, UndefinedOptionFlag, MagickFalse },
@@ -1342,6 +1401,7 @@ static const OptionInfo
     { "Exponential", ExponentialEvaluateOperator, UndefinedOptionFlag, MagickFalse },
     { "GaussianNoise", GaussianNoiseEvaluateOperator, UndefinedOptionFlag, MagickFalse },
     { "ImpulseNoise", ImpulseNoiseEvaluateOperator, UndefinedOptionFlag, MagickFalse },
+    { "InverseLog", InverseLogEvaluateOperator, UndefinedOptionFlag, MagickFalse },
     { "LaplacianNoise", LaplacianNoiseEvaluateOperator, UndefinedOptionFlag, MagickFalse },
     { "LeftShift", LeftShiftEvaluateOperator, UndefinedOptionFlag, MagickFalse },
     { "Log", LogEvaluateOperator, UndefinedOptionFlag, MagickFalse },
@@ -1445,6 +1505,22 @@ static const OptionInfo
     { "SouthWest", SouthWestGravity, UndefinedOptionFlag, MagickFalse },
     { "West", WestGravity, UndefinedOptionFlag, MagickFalse },
     { (char *) NULL, UndefinedGravity, UndefinedOptionFlag, MagickFalse }
+  },
+  IlluminantOptions[] =
+  {
+    { "Undefined", UndefinedIlluminant, UndefinedOptionFlag, MagickTrue },
+    { "A", AIlluminant, UndefinedOptionFlag, MagickFalse },
+    { "B", BIlluminant, UndefinedOptionFlag, MagickFalse },
+    { "C", CIlluminant, UndefinedOptionFlag, MagickFalse },
+    { "D50", D50Illuminant, UndefinedOptionFlag, MagickFalse },
+    { "D55", D55Illuminant, UndefinedOptionFlag, MagickFalse },
+    { "D65", D65Illuminant, UndefinedOptionFlag, MagickFalse },
+    { "D75", D75Illuminant, UndefinedOptionFlag, MagickFalse },
+    { "E", EIlluminant, UndefinedOptionFlag, MagickFalse },
+    { "F2", F2Illuminant, UndefinedOptionFlag, MagickFalse },
+    { "F7", F7Illuminant, UndefinedOptionFlag, MagickFalse },
+    { "F11", F11Illuminant, UndefinedOptionFlag, MagickFalse },
+    { (char *) NULL, UndefinedIntent, UndefinedOptionFlag, MagickFalse }
   },
   IntentOptions[] =
   {
@@ -1601,6 +1677,7 @@ static const OptionInfo
     { "Function", MagickFunctionOptions, UndefinedOptionFlag, MagickFalse },
     { "Gradient", MagickGradientOptions, UndefinedOptionFlag, MagickFalse },
     { "Gravity", MagickGravityOptions, UndefinedOptionFlag, MagickFalse },
+    { "Illuminant", MagickIlluminantOptions, UndefinedOptionFlag, MagickFalse },
     { "Intensity", MagickPixelIntensityOptions, UndefinedOptionFlag, MagickFalse },
     { "Intent", MagickIntentOptions, UndefinedOptionFlag, MagickFalse },
     { "Interlace", MagickInterlaceOptions, UndefinedOptionFlag, MagickFalse },
@@ -1960,6 +2037,7 @@ static const OptionInfo
   StatisticOptions[] =
   {
     { "Undefined", UndefinedStatistic, UndefinedOptionFlag, MagickTrue },
+    { "Contrast", ContrastStatistic, UndefinedOptionFlag, MagickFalse },
     { "Gradient", GradientStatistic, UndefinedOptionFlag, MagickFalse },
     { "Maximum", MaximumStatistic, UndefinedOptionFlag, MagickFalse },
     { "Mean", MeanStatistic, UndefinedOptionFlag, MagickFalse },
@@ -2003,7 +2081,6 @@ static const OptionInfo
   {
     { "Undefined", UndefinedStyle, UndefinedOptionFlag, MagickTrue },
     { "Any", AnyStyle, UndefinedOptionFlag, MagickFalse },
-    { "Bold", BoldStyle, UndefinedOptionFlag, MagickFalse },
     { "Italic", ItalicStyle, UndefinedOptionFlag, MagickFalse },
     { "Normal", NormalStyle, UndefinedOptionFlag, MagickFalse },
     { "Oblique", ObliqueStyle, UndefinedOptionFlag, MagickFalse },
@@ -2184,7 +2261,7 @@ MagickExport MagickBooleanType DefineImageOption(ImageInfo *image_info,
     key[MagickPathExtent],
     value[MagickPathExtent];
 
-  register char
+  char
     *p;
 
   assert(image_info != (ImageInfo *) NULL);
@@ -2379,6 +2456,7 @@ static const OptionInfo *GetOptionInfo(const CommandOption option)
     case MagickFunctionOptions: return(FunctionOptions);
     case MagickGradientOptions: return(GradientOptions);
     case MagickGravityOptions: return(GravityOptions);
+    case MagickIlluminantOptions: return(IlluminantOptions);
     case MagickIntentOptions: return(IntentOptions);
     case MagickInterlaceOptions: return(InterlaceOptions);
     case MagickInterpolateOptions: return(InterpolateOptions);
@@ -2436,13 +2514,13 @@ MagickExport ssize_t GetCommandOptionFlags(const CommandOption option,
   MagickBooleanType
     negate;
 
-  register char
+  char
     *q;
 
-  register const char
+  const char
     *p;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -2529,7 +2607,7 @@ MagickExport ssize_t GetCommandOptionFlags(const CommandOption option,
 */
 MagickExport const OptionInfo *GetCommandOptionInfo(const char *option)
 {
-  register ssize_t
+  ssize_t
     i;
 
   for (i=0; CommandOptions[i].mnemonic != (char *) NULL; i++)
@@ -2568,7 +2646,7 @@ MagickExport char **GetCommandOptions(const CommandOption option)
   const OptionInfo
     *option_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   option_info=GetOptionInfo(option);
@@ -2686,7 +2764,7 @@ MagickExport const char *CommandOptionToMnemonic(const CommandOption option,
   const OptionInfo
     *option_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   option_info=GetOptionInfo(option);
@@ -2739,7 +2817,7 @@ MagickExport MagickBooleanType IsOptionMember(const char *option,
   MagickBooleanType
     member;
 
-  register ssize_t
+  ssize_t
     i;
 
   /*
@@ -2806,7 +2884,7 @@ MagickExport MagickBooleanType ListCommandOptions(FILE *file,
   const OptionInfo
     *option_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   magick_unreferenced(exception);
@@ -2849,7 +2927,7 @@ MagickExport MagickBooleanType ListCommandOptions(FILE *file,
 */
 MagickExport ssize_t ParseChannelOption(const char *channels)
 {
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -2987,13 +3065,13 @@ MagickExport ssize_t ParseCommandOption(const CommandOption option,
   MagickBooleanType
     negate;
 
-  register char
+  char
     *q;
 
-  register const char
+  const char
     *p;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t

@@ -48,11 +48,13 @@ int test_compile_filter(
     FILE* policy_file,
     struct sock_fprog* prog,
     enum block_action action = ACTION_RET_KILL,
-    enum use_logging allow_logging = NO_LOGGING) {
+    enum use_logging allow_logging = NO_LOGGING,
+    bool allow_dup_syscalls = true) {
   struct filter_options filteropts {
     .action = action,
     .allow_logging = allow_logging != NO_LOGGING,
     .allow_syscalls_for_logging = allow_logging == USE_SIGSYS_LOGGING,
+    .allow_duplicate_syscalls = allow_dup_syscalls,
   };
   return compile_filter(filename.c_str(), policy_file, prog, &filteropts);
 }
@@ -65,14 +67,23 @@ int test_compile_file(
     struct bpf_labels* labels,
     enum block_action action = ACTION_RET_KILL,
     enum use_logging allow_logging = NO_LOGGING,
-    unsigned int include_level = 0) {
+    unsigned int include_level = 0,
+    bool allow_dup_syscalls = false) {
   struct filter_options filteropts {
     .action = action,
     .allow_logging = allow_logging != NO_LOGGING,
     .allow_syscalls_for_logging = allow_logging == USE_SIGSYS_LOGGING,
+    .allow_duplicate_syscalls = allow_dup_syscalls,
   };
-  return compile_file(filename.c_str(), policy_file, head, arg_blocks, labels,
-                      &filteropts, include_level);
+  size_t num_syscalls = get_num_syscalls();
+  struct parser_state **previous_syscalls =
+      (struct parser_state **)calloc(num_syscalls,
+                                     sizeof(struct parser_state *));
+  int res = compile_file(filename.c_str(), policy_file, head, arg_blocks,
+                         labels, &filteropts, previous_syscalls,
+                         include_level);
+  free_previous_syscalls(previous_syscalls);
+  return res;
 }
 
 struct filter_block* test_compile_policy_line(
@@ -87,120 +98,6 @@ struct filter_block* test_compile_policy_line(
 }
 
 }  // namespace
-
-TEST(util, parse_constant_unsigned) {
-  char *end;
-  long int c = 0;
-  std::string constant;
-
-#if defined(BITS32)
-  constant = "0x80000000";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(0x80000000U, static_cast<unsigned long int>(c));
-
-#elif defined(BITS64)
-  constant = "0x8000000000000000";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(0x8000000000000000UL, static_cast<unsigned long int>(c));
-#endif
-}
-
-TEST(util, parse_constant_unsigned_toobig) {
-  char *end;
-  long int c = 0;
-  std::string constant;
-
-#if defined(BITS32)
-  constant = "0x100000000";  // Too big for 32-bit unsigned long int.
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  // Error case should return 0.
-  EXPECT_EQ(0, c);
-
-#elif defined(BITS64)
-  constant = "0x10000000000000000";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  // Error case should return 0.
-  EXPECT_EQ(0, c);
-#endif
-}
-
-TEST(util, parse_constant_signed) {
-  char *end;
-  long int c = 0;
-  std::string constant = "-1";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(-1, c);
-}
-
-TEST(util, parse_constant_signed_toonegative) {
-  char *end;
-  long int c = 0;
-  std::string constant;
-
-#if defined(BITS32)
-  constant = "-0x80000001";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  // Error case should return 0.
-  EXPECT_EQ(0, c);
-
-#elif defined(BITS64)
-  constant = "-0x8000000000000001";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  // Error case should return 0.
-  EXPECT_EQ(0, c);
-#endif
-}
-
-TEST(util, parse_constant_complements) {
-  char* end;
-  long int c = 0;
-  std::string constant;
-
-#if defined(BITS32)
-  constant = "~0x005AF0FF|~0xFFA50FFF";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(c, 0xFFFFFF00);
-  constant = "0x0F|~(0x005AF000|0x00A50FFF)|0xF0";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(c, 0xFF0000FF);
-
-#elif defined(BITS64)
-  constant = "~0x00005A5AF0F0FFFF|~0xFFFFA5A50F0FFFFF";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(c, 0xFFFFFFFFFFFF0000UL);
-  constant = "0x00FF|~(0x00005A5AF0F00000|0x0000A5A50F0FFFFF)|0xFF00";
-  c = parse_constant(const_cast<char*>(constant.data()), &end);
-  EXPECT_EQ(c, 0xFFFF00000000FFFFUL);
-#endif
-}
-
-TEST(util, parse_parenthesized_expresions) {
-  char* end;
-
-  const std::vector<const char*> bad_expressions = {
-      "(1", "1)", "(1)1", "|(1)", "(1)|", "()",
-      "(",  "((", "(()",  "(()1", "1(0)",
-  };
-  for (const auto* expression : bad_expressions) {
-    std::string mutable_expression = expression;
-    long int c =
-        parse_constant(const_cast<char*>(mutable_expression.data()), &end);
-    EXPECT_EQ(reinterpret_cast<const void*>(end),
-              reinterpret_cast<const void*>(mutable_expression.data()));
-    // Error case should return 0.
-    EXPECT_EQ(c, 0) << "For expression: \"" << expression << "\"";
-  }
-
-  const std::vector<const char*> good_expressions = {
-      "(3)", "(1)|2", "1|(2)", "(1)|(2)", "((3))", "0|(1|2)", "(0|1|2)",
-  };
-  for (const auto* expression : good_expressions) {
-    std::string mutable_expression = expression;
-    long int c =
-        parse_constant(const_cast<char*>(mutable_expression.data()), &end);
-    EXPECT_EQ(c, 3) << "For expression: \"" << expression << "\"";
-  }
-}
 
 /* Test that setting one BPF instruction works. */
 TEST(bpf, set_bpf_instr) {
@@ -1423,6 +1320,90 @@ TEST(FilterTest, seccomp_mode1) {
   free(actual.filter);
 }
 
+TEST(FilterTest, seccomp_mode1_with_check) {
+  struct sock_fprog actual;
+  std::string policy =
+      "read: 1\n"
+      "write: 1\n"
+      "rt_sigreturn: 1\n"
+      "exit: 1\n";
+
+  FILE* policy_file = write_policy_to_pipe(policy);
+  ASSERT_NE(policy_file, nullptr);
+
+  int res = test_compile_filter("policy", policy_file, &actual,
+                                ACTION_RET_KILL, NO_LOGGING, false
+                                /* allow duplicate syscalls */);
+  fclose(policy_file);
+
+  /*
+   * Checks return value, filter length, and that the filter
+   * validates arch, loads syscall number, and
+   * only allows expected syscalls.
+   */
+  ASSERT_EQ(res, 0);
+  EXPECT_EQ(actual.len, 13);
+  EXPECT_ARCH_VALIDATION(actual.filter);
+  EXPECT_EQ_STMT(actual.filter + ARCH_VALIDATION_LEN,
+                 BPF_LD + BPF_W + BPF_ABS,
+                 syscall_nr);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 1, __NR_read);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 3, __NR_write);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 5,
+                       __NR_rt_sigreturn);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 7, __NR_exit);
+  EXPECT_EQ_STMT(actual.filter + ARCH_VALIDATION_LEN + 9,
+                 BPF_RET + BPF_K,
+                 SECCOMP_RET_KILL);
+
+  free(actual.filter);
+}
+
+/*
+ * This fails even with allow_duplicate_syscalls set to true because the
+ * creation of labels for the arguments causes conflicts which cause the
+ * compile_filter function to fail.
+ */
+TEST(FilterTest, duplicate_read_with_args) {
+  struct sock_fprog actual;
+  std::string policy =
+      "read: arg0 == 0\n"
+      "read: arg1 == 1\n"
+      "write: 1\n"
+      "rt_sigreturn: 1\n"
+      "exit: 1\n";
+
+  FILE* policy_file = write_policy_to_pipe(policy);
+  ASSERT_NE(policy_file, nullptr);
+  int res = test_compile_filter("policy", policy_file, &actual);
+  fclose(policy_file);
+
+  ASSERT_EQ(res, -1);
+}
+
+/*
+ * This does not fail because only one instance of read defines an argument.
+ */
+TEST(FilterTest, duplicate_read_with_one_arg) {
+  struct sock_fprog actual;
+  std::string policy =
+      "read: arg0 == 0\n"
+      "read: 1\n"
+      "write: 1\n"
+      "rt_sigreturn: 1\n"
+      "exit: 1\n";
+
+  FILE* policy_file = write_policy_to_pipe(policy);
+  ASSERT_NE(policy_file, nullptr);
+  int res = test_compile_filter("policy", policy_file, &actual);
+  fclose(policy_file);
+
+  /* TODO: Don't know how to generate a correct value to validate the filter
+   * that is generated. */
+  ASSERT_EQ(res, 0);
+  free(actual.filter);
+}
+
 TEST(FilterTest, seccomp_mode1_trap) {
   struct sock_fprog actual;
   std::string policy =
@@ -1520,6 +1501,45 @@ TEST(FilterTest, seccomp_mode1_log_fails) {
    * ACTION_RET_LOG should never be used without allowing logging.
    */
   ASSERT_EQ(res, -1);
+}
+
+TEST(FilterTest, seccomp_mode1_ret_kill_process) {
+  struct sock_fprog actual;
+  std::string policy =
+    "read: 1\n"
+    "write: 1\n"
+    "rt_sigreturn: 1\n"
+    "exit: 1\n";
+
+  FILE* policy_file = write_policy_to_pipe(policy);
+  ASSERT_NE(policy_file, nullptr);
+
+  int res = test_compile_filter("policy", policy_file, &actual, ACTION_RET_KILL_PROCESS,
+                                NO_LOGGING);
+  fclose(policy_file);
+
+  /*
+   * Checks return value, filter length, and that the filter
+   * validates arch, loads syscall number, and
+   * only allows expected syscalls.
+   */
+  ASSERT_EQ(res, 0);
+  EXPECT_EQ(actual.len, 13);
+  EXPECT_ARCH_VALIDATION(actual.filter);
+  EXPECT_EQ_STMT(actual.filter + ARCH_VALIDATION_LEN,
+      BPF_LD+BPF_W+BPF_ABS, syscall_nr);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 1,
+      __NR_read);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 3,
+      __NR_write);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 5,
+      __NR_rt_sigreturn);
+  EXPECT_ALLOW_SYSCALL(actual.filter + ARCH_VALIDATION_LEN + 7,
+      __NR_exit);
+  EXPECT_EQ_STMT(actual.filter + ARCH_VALIDATION_LEN + 9, BPF_RET+BPF_K,
+      SECCOMP_RET_KILL_PROCESS);
+
+  free(actual.filter);
 }
 
 TEST(FilterTest, seccomp_read_write) {
@@ -1685,7 +1705,7 @@ TEST(FilterTest, log) {
   index = ARCH_VALIDATION_LEN + 1;
   for (i = 0; i < log_syscalls_len; i++)
     EXPECT_ALLOW_SYSCALL(actual.filter + (index + 2 * i),
-                         lookup_syscall(log_syscalls[i]));
+                         lookup_syscall(log_syscalls[i], NULL));
 
   index += 2 * log_syscalls_len;
 
@@ -1731,7 +1751,7 @@ TEST(FilterTest, allow_log_but_kill) {
   index = ARCH_VALIDATION_LEN + 1;
   for (i = 0; i < log_syscalls_len; i++)
     EXPECT_ALLOW_SYSCALL(actual.filter + (index + 2 * i),
-             lookup_syscall(log_syscalls[i]));
+                         lookup_syscall(log_syscalls[i], NULL));
 
   index += 2 * log_syscalls_len;
 
@@ -1754,6 +1774,8 @@ TEST(FilterTest, frequency) {
   int res = test_compile_filter("policy", policy_file, &actual);
   fclose(policy_file);
   EXPECT_EQ(res, 0);
+
+  free(actual.filter);
 }
 
 TEST(FilterTest, include_invalid_token) {
@@ -1938,6 +1960,26 @@ TEST(FilterTest, include_same_syscalls) {
             ARCH_VALIDATION_LEN + 1 /* load syscall nr */ +
                 2 * 8 /* check syscalls twice */ + 1 /* filter return */);
   free(actual.filter);
+}
+
+TEST(FilterTest, include_same_syscalls_with_check) {
+  struct sock_fprog actual;
+  std::string policy =
+      "read: 1\n"
+      "write: 1\n"
+      "rt_sigreturn: 1\n"
+      "exit: 1\n"
+      "@include " + source_path("test/seccomp.policy") + "\n";
+
+  FILE* policy_file = write_policy_to_pipe(policy);
+  ASSERT_NE(policy_file, nullptr);
+
+  int res = test_compile_filter("policy", policy_file, &actual,
+                                ACTION_RET_KILL, NO_LOGGING, false
+                                /* allow duplicate syscalls */);
+  fclose(policy_file);
+
+  ASSERT_EQ(res, -1);
 }
 
 TEST(FilterTest, include_two) {

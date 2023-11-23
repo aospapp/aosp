@@ -254,16 +254,38 @@ void checkSupportImageSamplingInstance (Context& context, ImageSamplingInstanceP
 		}
 	}
 
-	if (params.samplerParams.pNext != DE_NULL)
+	void const* pNext = params.samplerParams.pNext;
+	while (pNext != DE_NULL)
 	{
-		const VkStructureType nextType = *reinterpret_cast<const VkStructureType*>(params.samplerParams.pNext);
-
-		if (nextType == VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT)
+		const VkStructureType nextType = *reinterpret_cast<const VkStructureType*>(pNext);
+		switch (nextType)
 		{
-			context.requireDeviceFunctionality("VK_EXT_sampler_filter_minmax");
+			case VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT:
+			{
+				context.requireDeviceFunctionality("VK_EXT_sampler_filter_minmax");
 
-			if (!isMinMaxFilteringSupported(context.getInstanceInterface(), context.getPhysicalDevice(), params.imageFormat, VK_IMAGE_TILING_OPTIMAL))
-				throw tcu::NotSupportedError(std::string("Unsupported format for min/max filtering: ") + getFormatName(params.imageFormat));
+				if (!isMinMaxFilteringSupported(context.getInstanceInterface(), context.getPhysicalDevice(), params.imageFormat, VK_IMAGE_TILING_OPTIMAL))
+					throw tcu::NotSupportedError(std::string("Unsupported format for min/max filtering: ") + getFormatName(params.imageFormat));
+
+				pNext = reinterpret_cast<const VkSamplerReductionModeCreateInfo*>(pNext)->pNext;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO:
+				context.requireDeviceFunctionality("VK_KHR_sampler_ycbcr_conversion");
+
+				pNext = reinterpret_cast<const VkSamplerYcbcrConversionInfo*>(pNext)->pNext;
+				break;
+			case VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT:
+				pNext = reinterpret_cast<const VkSamplerCustomBorderColorCreateInfoEXT*>(pNext)->pNext;
+
+				if (!context.getCustomBorderColorFeaturesEXT().customBorderColors)
+				{
+					throw tcu::NotSupportedError("customBorderColors feature is not supported");
+				}
+
+				break;
+			default:
+				TCU_FAIL("Unrecognized sType in chained sampler create info");
 		}
 	}
 
@@ -303,6 +325,20 @@ void checkSupportImageSamplingInstance (Context& context, ImageSamplingInstanceP
 
 	if (params.allocationKind == ALLOCATION_KIND_DEDICATED)
 		context.requireDeviceFunctionality("VK_KHR_dedicated_allocation");
+
+	if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset"))
+	{
+		const auto portabilitySubsetFeatures	= context.getPortabilitySubsetFeatures();
+		const auto componentMapping				= params.componentMapping;
+		if (!portabilitySubsetFeatures.imageViewFormatSwizzle &&
+			((componentMapping.r != VK_COMPONENT_SWIZZLE_IDENTITY) ||
+			 (componentMapping.g != VK_COMPONENT_SWIZZLE_IDENTITY) ||
+			 (componentMapping.b != VK_COMPONENT_SWIZZLE_IDENTITY) ||
+			 (componentMapping.a != VK_COMPONENT_SWIZZLE_IDENTITY)))
+		{
+			TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Implementation does not support remapping format components");
+		}
+	}
 }
 
 ImageSamplingInstance::ImageSamplingInstance (Context&						context,
@@ -333,9 +369,10 @@ ImageSamplingInstance::ImageSamplingInstance (Context&						context,
 	SimpleAllocator							memAlloc				(vk, vkDevice, getPhysicalDeviceMemoryProperties(context.getInstanceInterface(), context.getPhysicalDevice()));
 	const VkComponentMapping				componentMappingRGBA	= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
-	if (m_samplerParams.pNext != DE_NULL)
+	void const* pNext = m_samplerParams.pNext;
+	while (pNext != DE_NULL)
 	{
-		const VkStructureType nextType = *reinterpret_cast<const VkStructureType*>(m_samplerParams.pNext);
+		const VkStructureType nextType = *reinterpret_cast<const VkStructureType*>(pNext);
 		switch (nextType)
 		{
 			case VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT:
@@ -362,11 +399,46 @@ ImageSamplingInstance::ImageSamplingInstance (Context&						context,
 
 					m_componentMask = tcu::BVec4(true, false, false, false);
 
-					if (m_componentMapping.r != VK_COMPONENT_SWIZZLE_IDENTITY)
+					if (m_componentMapping.r != VK_COMPONENT_SWIZZLE_IDENTITY && m_componentMapping.r != VK_COMPONENT_SWIZZLE_R)
 					{
 						TCU_THROW(NotSupportedError, "filterMinmaxImageComponentMapping is not supported (R mapping is not IDENTITY)");
 					}
 				}
+				pNext = reinterpret_cast<const VkSamplerReductionModeCreateInfo*>(pNext)->pNext;
+			}
+			break;
+			case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO:
+				pNext = reinterpret_cast<const VkSamplerYcbcrConversionInfo*>(pNext)->pNext;
+				break;
+			case VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT:
+			{
+				const VkSamplerCustomBorderColorCreateInfoEXT customBorderColorCreateInfo = *reinterpret_cast<const VkSamplerCustomBorderColorCreateInfoEXT*>(pNext);
+
+				VkPhysicalDeviceCustomBorderColorFeaturesEXT	physicalDeviceCustomBorderColorFeatures =
+				{
+					VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT,
+					DE_NULL,
+					DE_FALSE,
+					DE_FALSE
+				};
+				VkPhysicalDeviceFeatures2						physicalDeviceFeatures;
+				physicalDeviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+				physicalDeviceFeatures.pNext = &physicalDeviceCustomBorderColorFeatures;
+
+				vki.getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &physicalDeviceFeatures);
+
+				if (physicalDeviceCustomBorderColorFeatures.customBorderColors != VK_TRUE)
+				{
+					TCU_THROW(NotSupportedError, "customBorderColors are not supported");
+				}
+
+				if (physicalDeviceCustomBorderColorFeatures.customBorderColorWithoutFormat != VK_TRUE &&
+					customBorderColorCreateInfo.format == VK_FORMAT_UNDEFINED)
+				{
+					TCU_THROW(NotSupportedError, "customBorderColorWithoutFormat is not supported");
+				}
+
+				pNext = reinterpret_cast<const VkSamplerCustomBorderColorCreateInfoEXT*>(pNext)->pNext;
 			}
 			break;
 			default:
@@ -1388,7 +1460,6 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 	ReferenceRenderer					refRenderer				(m_renderSize.x(), m_renderSize.y(), 1, colorFormat, depthStencilFormat, &rrProgram);
 
 	bool								compareOkAll			= true;
-	bool								anyWarnings				= false;
 
 	tcu::Vec4							lookupScale				(1.0f);
 	tcu::Vec4							lookupBias				(0.0f);
@@ -1413,8 +1484,6 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 		tcu::TextureLevel					errorMask		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), (int)m_renderSize.x(), (int)m_renderSize.y());
 		const tcu::PixelBufferAccess		errorAccess		= errorMask.getAccess();
 
-		const bool							allowSnorm8Bug	= m_texture->getTextureFormat().type == tcu::TextureFormat::SNORM_INT8 &&
-															  (m_samplerParams.minFilter == VK_FILTER_LINEAR || m_samplerParams.magFilter == VK_FILTER_LINEAR);
 		const bool							isNearestOnly	= (m_samplerParams.minFilter == VK_FILTER_NEAREST && m_samplerParams.magFilter == VK_FILTER_NEAREST);
 
 		tcu::LookupPrecision				lookupPrecision;
@@ -1486,40 +1555,6 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 																					  lookupBias,
 																					  resultAccess,
 																					  errorAccess);
-
-			if (!compareOk && allowSnorm8Bug)
-			{
-				// HW waiver (VK-GL-CTS issue: 229)
-				//
-				// Due to an error in bit replication of the fixed point SNORM values, linear filtered
-				// negative SNORM values will differ slightly from ideal precision in the last bit, moving
-				// the values towards 0.
-				//
-				// This occurs on all members of the PowerVR Rogue family of GPUs
-				tcu::LookupPrecision	relaxedPrecision;
-
-				relaxedPrecision.colorThreshold += tcu::Vec4(4.f / 255.f);
-
-				m_context.getTestContext().getLog()
-					<< tcu::TestLog::Message
-					<< "Warning: Strict validation failed, re-trying with lower precision for SNORM8 format"
-					<< tcu::TestLog::EndMessage;
-				anyWarnings = true;
-
-				compareOk = validateResultImage(*texture,
-												m_imageViewType,
-												subresource,
-												sampler,
-												m_componentMapping,
-												coordAccess,
-												lodBounds,
-												relaxedPrecision,
-												lookupScale,
-												lookupBias,
-												resultAccess,
-												errorAccess);
-			}
-
 			if (!compareOk)
 				m_context.getTestContext().getLog()
 				<< tcu::TestLog::Image("Result", "Result Image", resultAccess)
@@ -1530,12 +1565,7 @@ tcu::TestStatus ImageSamplingInstance::verifyImage (void)
 	}
 
 	if (compareOkAll)
-	{
-		if (anyWarnings)
-			return tcu::TestStatus(QP_TEST_RESULT_QUALITY_WARNING, "Inaccurate filtering results");
-		else
-			return tcu::TestStatus::pass("Result image matches reference");
-	}
+		return tcu::TestStatus::pass("Result image matches reference");
 	else
 		return tcu::TestStatus::fail("Image mismatch");
 }

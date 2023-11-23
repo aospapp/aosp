@@ -14,10 +14,49 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_libcxxabi_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_libcxxabi_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-NCSA",
+    ],
+    license_text: [
+        "LICENSE.TXT",
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "libc++abi_defaults",
     vendor_available: true,
+    product_available: true,
     ramdisk_available: true,
+    vendor_ramdisk_available: true,
     recovery_available: true,
     native_bridge_supported: true,
     include_dirs: ["external/libcxx/include"],
@@ -79,27 +118,7 @@ cc_library_static {
         "src/stdlib_stdexcept.cpp",
         "src/stdlib_typeinfo.cpp",
     ],
-    arch: {
-        arm: {
-            include_dirs: ["external/libunwind_llvm/include"],
-            cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=1"],
-        },
-        arm64: {
-            cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=0"],
-        },
-        mips: {
-            cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=0"],
-        },
-        mips64: {
-            cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=0"],
-        },
-        x86: {
-            cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=0"],
-        },
-        x86_64: {
-            cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=0"],
-        },
-    },
+    cppflags: ["-DLIBCXXABI_USE_LLVM_UNWINDER=1"],
     target: {
         android: {
             cppflags: ["-DHAVE___CXA_THREAD_ATEXIT_IMPL"],
@@ -138,15 +157,21 @@ cc_library_static {
                 "src/stdlib_new_delete.cpp",
             ],
         },
-        windows_x86: {
-            cppflags: [
-                "-fsjlj-exceptions",
-            ],
-        },
     },
     apex_available: [
         "//apex_available:platform",
         "//apex_available:anyapex",
     ],
     min_sdk_version: "apex_inherit",
+}
+
+cc_fuzz {
+    name: "cxa_demangle_fuzzer",
+    host_supported: true,
+    local_include_dirs: ["include"],
+
+    srcs: [
+        "fuzz/cxa_demangle_fuzzer.cpp",
+        "src/cxa_demangle.cpp",
+    ],
 }

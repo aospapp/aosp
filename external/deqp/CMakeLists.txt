@@ -1,7 +1,7 @@
 # dEQP cmake file
 
 # Module FindGit requires cmake >= 2.8.2
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10.2)
 
 find_package(Git)
 find_package(PythonInterp 3)
@@ -210,6 +210,7 @@ include_directories(
 	framework/randomshaders
 	framework/egl
 	framework/egl/wrapper
+	framework/xexml
 	external/vulkancts/framework/vulkan
 	)
 

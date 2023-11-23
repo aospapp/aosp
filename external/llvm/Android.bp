@@ -1,3 +1,47 @@
+package {
+    default_applicable_licenses: ["external_llvm_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+//
+// large-scale-change filtered out the below license kinds as false-positives:
+//   SPDX-license-identifier-GPL
+//   SPDX-license-identifier-GPL-3.0
+// See: http://go/android-license-faq
+license {
+    name: "external_llvm_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-NCSA",
+        "legacy_permissive",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE.TXT",
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "llvm-defaults",
     defaults: ["llvm-defaults-no-generated-headers"],
@@ -82,9 +126,7 @@ llvm_defaults {
             host_ldlibs: ["-luuid"],
         },
         linux_glibc: {
-            // Add on ncurses to have support for terminfo
             host_ldlibs: [
-                "-lncurses",
                 "-lgcc_s",
             ],
         },
@@ -93,11 +135,6 @@ llvm_defaults {
                 "-Wno-deprecated-declarations",
                 "-Woverloaded-virtual",
             ],
-
-            // Add on ncurses to have support for terminfo
-            host_ldlibs: [
-                "-lncurses",
-            ],
         },
     },
 }
@@ -105,6 +142,7 @@ llvm_defaults {
 cc_library_headers {
     name: "llvm-headers-no-generated-headers",
     vendor_available: true,
+    product_available: true,
     host_supported: true,
     // TODO(b/153609531): remove when no longer needed.
     native_bridge_supported: true,
@@ -128,6 +166,7 @@ cc_library_headers {
 cc_library_headers {
     name: "llvm-headers",
     vendor_available: true,
+    product_available: true,
     host_supported: true,
     // TODO(b/153609531): remove when no longer needed.
     native_bridge_supported: true,
@@ -210,6 +249,7 @@ cc_library {
     host_supported: true,
     name: "libLLVM_android",
     vendor_available: true,
+    product_available: true,
     defaults: [
         "llvm-defaults",
         "force_build_llvm_components",
@@ -294,12 +334,6 @@ cc_library {
             whole_static_libs: llvm_x86_static_libraries +
                 llvm_arm_static_libraries +
                 llvm_aarch64_static_libraries,
-        },
-        android_mips: {
-            whole_static_libs: llvm_mips_static_libraries,
-        },
-        android_mips64: {
-            whole_static_libs: llvm_mips_static_libraries,
         },
         android_arm64: {
             whole_static_libs: llvm_aarch64_static_libraries +

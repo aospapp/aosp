@@ -1,7 +1,7 @@
 $ $
-$ Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+$ SPDX-License-Identifier: BSD-2-Clause
 $ $
-$ All rights reserved.
+$ Copyright (c) 2018-2021 Gavin D. Howard and contributors.
 $ $
 $ Redistribution and use in source and binary forms, with or without
 $ modification, are permitted provided that the following conditions are met:
@@ -62,7 +62,7 @@ $set 4
 7 "expression vide"
 8 "instruction d'écriture invalide"
 9 "définition de fonction invalide"
-10 "affectation invalide : la partie gauche doit être 'scale', 'ibase', 'obase', 'last', une variable ou une case de tableau"
+10 "affectation invalide : la partie gauche doit être 'scale', 'ibase', 'obase', 'seed', 'last', une variable ou une case de tableau"
 11 "aucune variable auto trouvée"
 12 "Le paramètre de fonction ou variable auto \"%s%s\" existe déjà"
 13 "fin de bloc non trouvée"
@@ -103,4 +103,6 @@ $set 6
 3 "impossible d'ouvrir le fichier : %s"
 4 "fichier non ASCII : %s"
 5 "le chemin est un répertoire : %s"
-6 "option de ligne de commande invalide : '%c' (\"%s\")"
+6 "option de ligne de commande invalide : \"%s\""
+7 "l'option '%c' (\"%s\") requiert un argument"
+8 "l'option '%c' (\"%s\") ne prend pas d'argument"

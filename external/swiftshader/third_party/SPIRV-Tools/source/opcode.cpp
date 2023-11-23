@@ -1,4 +1,6 @@
-// Copyright (c) 2015-2016 The Khronos Group Inc.
+// Copyright (c) 2015-2020 The Khronos Group Inc.
+// Modifications Copyright (C) 2020 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -333,6 +335,9 @@ int32_t spvOpcodeGeneratesType(SpvOp op) {
     case SpvOpTypeNamedBarrier:
     case SpvOpTypeAccelerationStructureNV:
     case SpvOpTypeCooperativeMatrixNV:
+    // case SpvOpTypeAccelerationStructureKHR: covered by
+    // SpvOpTypeAccelerationStructureNV
+    case SpvOpTypeRayQueryKHR:
       return true;
     default:
       // In particular, OpTypeForwardPointer does not generate a type,
@@ -408,6 +413,7 @@ bool spvOpcodeIsAtomicWithLoad(const SpvOp opcode) {
     case SpvOpAtomicIIncrement:
     case SpvOpAtomicIDecrement:
     case SpvOpAtomicIAdd:
+    case SpvOpAtomicFAddEXT:
     case SpvOpAtomicISub:
     case SpvOpAtomicSMin:
     case SpvOpAtomicUMin:
@@ -438,13 +444,30 @@ bool spvOpcodeIsReturn(SpvOp opcode) {
   }
 }
 
+bool spvOpcodeIsAbort(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpKill:
+    case SpvOpUnreachable:
+    case SpvOpTerminateInvocation:
+    case SpvOpTerminateRayKHR:
+    case SpvOpIgnoreIntersectionKHR:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool spvOpcodeIsReturnOrAbort(SpvOp opcode) {
-  return spvOpcodeIsReturn(opcode) || opcode == SpvOpKill ||
-         opcode == SpvOpUnreachable;
+  return spvOpcodeIsReturn(opcode) || spvOpcodeIsAbort(opcode);
 }
 
 bool spvOpcodeIsBlockTerminator(SpvOp opcode) {
   return spvOpcodeIsBranch(opcode) || spvOpcodeIsReturnOrAbort(opcode);
+}
+
+bool spvOpcodeTerminatesExecution(SpvOp opcode) {
+  return opcode == SpvOpKill || opcode == SpvOpTerminateInvocation ||
+         opcode == SpvOpTerminateRayKHR || opcode == SpvOpIgnoreIntersectionKHR;
 }
 
 bool spvOpcodeIsBaseOpaqueType(SpvOp opcode) {
@@ -612,6 +635,75 @@ bool spvOpcodeIsDebug(SpvOp opcode) {
   }
 }
 
+bool spvOpcodeIsCommutativeBinaryOperator(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpPtrEqual:
+    case SpvOpPtrNotEqual:
+    case SpvOpIAdd:
+    case SpvOpFAdd:
+    case SpvOpIMul:
+    case SpvOpFMul:
+    case SpvOpDot:
+    case SpvOpIAddCarry:
+    case SpvOpUMulExtended:
+    case SpvOpSMulExtended:
+    case SpvOpBitwiseOr:
+    case SpvOpBitwiseXor:
+    case SpvOpBitwiseAnd:
+    case SpvOpOrdered:
+    case SpvOpUnordered:
+    case SpvOpLogicalEqual:
+    case SpvOpLogicalNotEqual:
+    case SpvOpLogicalOr:
+    case SpvOpLogicalAnd:
+    case SpvOpIEqual:
+    case SpvOpINotEqual:
+    case SpvOpFOrdEqual:
+    case SpvOpFUnordEqual:
+    case SpvOpFOrdNotEqual:
+    case SpvOpFUnordNotEqual:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool spvOpcodeIsLinearAlgebra(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpTranspose:
+    case SpvOpVectorTimesScalar:
+    case SpvOpMatrixTimesScalar:
+    case SpvOpVectorTimesMatrix:
+    case SpvOpMatrixTimesVector:
+    case SpvOpMatrixTimesMatrix:
+    case SpvOpOuterProduct:
+    case SpvOpDot:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool spvOpcodeIsImageSample(const SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpImageSampleImplicitLod:
+    case SpvOpImageSampleExplicitLod:
+    case SpvOpImageSampleDrefImplicitLod:
+    case SpvOpImageSampleDrefExplicitLod:
+    case SpvOpImageSampleProjImplicitLod:
+    case SpvOpImageSampleProjExplicitLod:
+    case SpvOpImageSampleProjDrefImplicitLod:
+    case SpvOpImageSampleProjDrefExplicitLod:
+    case SpvOpImageSparseSampleImplicitLod:
+    case SpvOpImageSparseSampleExplicitLod:
+    case SpvOpImageSparseSampleDrefImplicitLod:
+    case SpvOpImageSparseSampleDrefExplicitLod:
+      return true;
+    default:
+      return false;
+  }
+}
+
 std::vector<uint32_t> spvOpcodeMemorySemanticsOperandIndices(SpvOp opcode) {
   switch (opcode) {
     case SpvOpMemoryBarrier:
@@ -626,6 +718,7 @@ std::vector<uint32_t> spvOpcodeMemorySemanticsOperandIndices(SpvOp opcode) {
     case SpvOpAtomicIIncrement:
     case SpvOpAtomicIDecrement:
     case SpvOpAtomicIAdd:
+    case SpvOpAtomicFAddEXT:
     case SpvOpAtomicISub:
     case SpvOpAtomicSMin:
     case SpvOpAtomicUMin:
@@ -641,5 +734,34 @@ std::vector<uint32_t> spvOpcodeMemorySemanticsOperandIndices(SpvOp opcode) {
       return {4, 5};
     default:
       return {};
+  }
+}
+
+bool spvOpcodeIsAccessChain(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpAccessChain:
+    case SpvOpInBoundsAccessChain:
+    case SpvOpPtrAccessChain:
+    case SpvOpInBoundsPtrAccessChain:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool spvOpcodeIsBit(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpShiftRightLogical:
+    case SpvOpShiftRightArithmetic:
+    case SpvOpShiftLeftLogical:
+    case SpvOpBitwiseOr:
+    case SpvOpBitwiseXor:
+    case SpvOpBitwiseAnd:
+    case SpvOpNot:
+    case SpvOpBitReverse:
+    case SpvOpBitCount:
+      return true;
+    default:
+      return false;
   }
 }

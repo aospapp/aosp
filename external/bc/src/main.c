@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,43 +33,53 @@
  *
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <locale.h>
-#include <libgen.h>
 
+#ifndef _WIN32
+#include <libgen.h>
+#endif // _WIN32
+
+#include <setjmp.h>
+
+#include <version.h>
 #include <status.h>
 #include <vm.h>
 #include <bc.h>
 #include <dc.h>
 
-BcVm *vm;
-
 int main(int argc, char *argv[]) {
 
-	int s;
 	char *name;
 	size_t len = strlen(BC_EXECPREFIX);
 
-	vm = calloc(1, sizeof(BcVm));
-	if (BC_ERR(vm == NULL)) return (int) bc_vm_err(BC_ERROR_FATAL_ALLOC_ERR);
+	vm.locale = setlocale(LC_ALL, "");
 
-	vm->locale = setlocale(LC_ALL, "");
+	name = strrchr(argv[0], BC_FILE_SEP);
+	vm.name = (name == NULL) ? argv[0] : name + 1;
 
-	name = strrchr(argv[0], '/');
-	vm->name = (name == NULL) ? argv[0] : name + 1;
+	if (strlen(vm.name) > len) vm.name += len;
 
-	if (strlen(vm->name) > len) vm->name += len;
+	BC_SIG_LOCK;
+
+	bc_vec_init(&vm.jmp_bufs, sizeof(sigjmp_buf), NULL);
+
+	BC_SETJMP_LOCKED(exit);
 
 #if !DC_ENABLED
-	s = bc_main(argc, argv);
+	bc_main(argc, argv);
 #elif !BC_ENABLED
-	s = dc_main(argc, argv);
+	dc_main(argc, argv);
 #else
-	if (BC_IS_BC) s = bc_main(argc, argv);
-	else s = dc_main(argc, argv);
+	if (BC_IS_BC) bc_main(argc, argv);
+	else dc_main(argc, argv);
 #endif
 
-	return s;
+exit:
+	BC_SIG_MAYLOCK;
+
+	return bc_vm_atexit((int) vm.status);
 }

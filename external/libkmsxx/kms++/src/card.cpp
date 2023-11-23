@@ -1,13 +1,17 @@
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
 #include <fcntl.h>
 #include <utility>
 #include <stdexcept>
-#include <string.h>
+#include <cstring>
 #include <algorithm>
 #include <cerrno>
 #include <algorithm>
 #include <glob.h>
+
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -18,20 +22,19 @@ using namespace std;
 
 namespace kms
 {
-
 static vector<string> glob(const string& pattern)
 {
 	glob_t glob_result;
 	memset(&glob_result, 0, sizeof(glob_result));
 
 	int r = glob(pattern.c_str(), 0, NULL, &glob_result);
-	if(r != 0) {
+	if (r != 0) {
 		globfree(&glob_result);
 		throw runtime_error("failed to find DRM cards");
 	}
 
 	vector<string> filenames;
-	for(size_t i = 0; i < glob_result.gl_pathc; ++i)
+	for (size_t i = 0; i < glob_result.gl_pathc; ++i)
 		filenames.push_back(string(glob_result.gl_pathv[i]));
 
 	globfree(&glob_result);
@@ -104,6 +107,16 @@ static int open_device_by_driver(string name, uint32_t idx)
 	throw invalid_argument("Failed to find a DRM device " + name + ":" + to_string(idx));
 }
 
+std::unique_ptr<Card> Card::open_named_card(const std::string& name)
+{
+	int fd = drmOpen(name.c_str(), 0);
+
+	if (fd < 0)
+		throw invalid_argument(string(strerror(errno)) + " opening card \"" + name + "\"");
+
+	return std::unique_ptr<Card>(new Card(fd, true));
+}
+
 Card::Card(const std::string& dev_path)
 {
 	const char* drv_p = getenv("KMSXX_DRIVER");
@@ -148,18 +161,39 @@ Card::Card(const std::string& driver, uint32_t idx)
 	setup();
 }
 
+Card::Card(int fd, bool take_ownership)
+{
+	if (take_ownership) {
+		m_fd = fd;
+	} else {
+		m_fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+
+		if (m_fd < 0)
+			throw invalid_argument(string(strerror(errno)) + " duplicating fd");
+	}
+
+	setup();
+}
+
 void Card::setup()
 {
 	drmVersionPtr ver = drmGetVersion(m_fd);
-	m_version_major = ver->version_major;
-	m_version_minor = ver->version_minor;
-	m_version_patchlevel = ver->version_patchlevel;
-	m_version_name = string(ver->name, ver->name_len);
-	m_version_date = string(ver->date, ver->date_len);
-	m_version_desc = string(ver->desc, ver->desc_len);
+	m_version.major = ver->version_major;
+	m_version.minor = ver->version_minor;
+	m_version.patchlevel = ver->version_patchlevel;
+	m_version.name = string(ver->name, ver->name_len);
+	m_version.date = string(ver->date, ver->date_len);
+	m_version.desc = string(ver->desc, ver->desc_len);
 	drmFreeVersion(ver);
 
+	struct stat stats;
 	int r;
+
+	r = fstat(m_fd, &stats);
+	if (r < 0)
+		throw invalid_argument("Can't stat device (" + string(strerror(errno)) + ")");
+
+	m_minor = minor(stats.st_dev);
 
 	r = drmSetMaster(m_fd);
 	m_is_master = r == 0;
@@ -280,7 +314,7 @@ void Card::restore_modes()
 
 Connector* Card::get_first_connected_connector() const
 {
-	for(auto c : m_connectors) {
+	for (auto c : m_connectors) {
 		if (c->connected())
 			return c;
 	}
@@ -296,26 +330,40 @@ DrmObject* Card::get_object(uint32_t id) const
 	return nullptr;
 }
 
-const vector<DrmObject*> Card::get_objects() const
+std::vector<kms::DrmObject*> Card::get_objects() const
 {
 	vector<DrmObject*> v;
-	for(auto pair : m_obmap)
+	for (auto pair : m_obmap)
 		v.push_back(pair.second);
 	return v;
 }
 
-Connector* Card::get_connector(uint32_t id) const { return dynamic_cast<Connector*>(get_object(id)); }
-Crtc* Card::get_crtc(uint32_t id) const { return dynamic_cast<Crtc*>(get_object(id)); }
-Encoder* Card::get_encoder(uint32_t id) const { return dynamic_cast<Encoder*>(get_object(id)); }
-Property* Card::get_prop(uint32_t id) const { return dynamic_cast<Property*>(get_object(id)); }
-Plane* Card::get_plane(uint32_t id) const { return dynamic_cast<Plane*>(get_object(id)); }
+Connector* Card::get_connector(uint32_t id) const
+{
+	return dynamic_cast<Connector*>(get_object(id));
+}
+Crtc* Card::get_crtc(uint32_t id) const
+{
+	return dynamic_cast<Crtc*>(get_object(id));
+}
+Encoder* Card::get_encoder(uint32_t id) const
+{
+	return dynamic_cast<Encoder*>(get_object(id));
+}
+Property* Card::get_prop(uint32_t id) const
+{
+	return dynamic_cast<Property*>(get_object(id));
+}
+Plane* Card::get_plane(uint32_t id) const
+{
+	return dynamic_cast<Plane*>(get_object(id));
+}
 
 std::vector<kms::Pipeline> Card::get_connected_pipelines()
 {
 	vector<Pipeline> outputs;
 
-	for (auto conn : get_connectors())
-	{
+	for (auto conn : get_connectors()) {
 		if (conn->connected() == false)
 			continue;
 
@@ -335,7 +383,7 @@ std::vector<kms::Pipeline> Card::get_connected_pipelines()
 					       to_string(conn->idx()) +
 					       " has no possible crtcs");
 
-		outputs.push_back(Pipeline { crtc, conn });
+		outputs.push_back(Pipeline{ crtc, conn });
 	}
 
 	return outputs;
@@ -343,7 +391,7 @@ std::vector<kms::Pipeline> Card::get_connected_pipelines()
 
 static void page_flip_handler(int fd, unsigned int frame,
 			      unsigned int sec, unsigned int usec,
-			      void *data)
+			      void* data)
 {
 	auto handler = (PageFlipHandlerBase*)data;
 	double time = sec + usec / 1000000.0;
@@ -352,7 +400,7 @@ static void page_flip_handler(int fd, unsigned int frame,
 
 void Card::call_page_flip_handlers()
 {
-	drmEventContext ev { };
+	drmEventContext ev{};
 	ev.version = DRM_EVENT_CONTEXT_VERSION;
 	ev.page_flip_handler = page_flip_handler;
 
@@ -365,18 +413,18 @@ int Card::disable_all()
 
 	for (Crtc* c : m_crtcs) {
 		req.add(c, {
-				{ "ACTIVE", 0 },
-			});
+				   { "ACTIVE", 0 },
+			   });
 	}
 
 	for (Plane* p : m_planes) {
 		req.add(p, {
-				{ "FB_ID", 0 },
-				{ "CRTC_ID", 0 },
-			});
+				   { "FB_ID", 0 },
+				   { "CRTC_ID", 0 },
+			   });
 	}
 
 	return req.commit_sync(true);
 }
 
-}
+} // namespace kms

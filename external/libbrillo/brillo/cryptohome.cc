@@ -41,7 +41,7 @@ static char g_system_salt_path[PATH_MAX] = "/home/.shadow/salt";
 
 static std::string* salt = nullptr;
 
-static bool EnsureSystemSaltIsLoaded() {
+bool EnsureSystemSaltIsLoaded() {
   if (salt && !salt->empty())
     return true;
   FilePath salt_path(g_system_salt_path);

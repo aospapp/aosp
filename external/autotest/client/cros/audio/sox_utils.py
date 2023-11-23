@@ -40,7 +40,7 @@ def _format_args(channels, bits, rate):
 
 def generate_sine_tone_cmd(
         filename, channels=2, bits=16, rate=48000, duration=None, frequencies=440,
-        gain=None, raw=True):
+        gain=None, vol=None, raw=True):
     """Gets a command to generate sine tones at specified ferquencies.
 
     @param filename: The name of the file to store the sine wave in.
@@ -51,6 +51,9 @@ def generate_sine_tone_cmd(
     @param frequencies: The frequencies of the sine wave. Pass a number or a
                         list to specify frequency for each channel.
     @param gain: The gain (in db).
+    @param vol: A float for volume scale used in sox command.
+                         E.g. 1.0 is the same. 0.5 to scale volume by
+                         half. -1.0 to invert the data.
     @param raw: True to use raw data format. False to use what filename specifies.
 
     """
@@ -69,6 +72,8 @@ def generate_sine_tone_cmd(
         args += ['sine', str(freq)]
     if gain is not None:
         args += ['gain', str(gain)]
+    if vol is not None:
+        args += ['vol', str(vol)]
     return args
 
 
@@ -296,3 +301,44 @@ def lowpass_filter(path_src, channels_src, bits_src, rate_src,
     sox_cmd += [path_dst]
     sox_cmd += ['lowpass', '-2', str(frequency)]
     cmd_utils.execute(sox_cmd)
+
+
+def trim_silence_from_wav_file(path_src, path_dst, new_duration, volume=1,
+                               duration_threshold=0):
+    """Trim silence from beginning of a file.
+
+    Trim silence from beginning of file, and trim remaining audio to
+    new_duration seconds in length.
+
+    @param path_src: The path to the source file.
+    @oaram path_dst: The path to the destination file.
+    @param new_duration: The new duration of the destination file in seconds.
+    @param volume: [Optional] A float indicating the volume in percent, below
+                   which sox will consider silence, defaults to 1 (1%).
+    @param duration_threshold: [Optional] A float of the duration in seconds of
+                               sound above volume parameter required to consider
+                               end of silence. Defaults to 0 (0 seconds).
+    """
+    mins, secs = divmod(new_duration, 60)
+    hrs, mins = divmod(mins, 60)
+    length_str = '{:d}:{:02d}:{:.3f}'.format(int(hrs), int(mins), float(secs))
+
+    sox_cmd = [SOX_PATH]
+    sox_cmd += ['-G', path_src, path_dst]
+    sox_cmd += ['silence', '1', str(duration_threshold), '{}%'.format(volume)]
+    sox_cmd += ['trim', '0', length_str]
+
+    cmd_utils.execute(sox_cmd)
+
+
+def get_file_length(file_path, channels, bits, rate):
+    """Get the length in seconds of an audio file.
+
+    @param file_path: Path to audio file.
+    @param channels: The number of channels.
+    @param bits: The number of bits of each sample.
+    @param rate: The sampling rate.
+
+    @returns: float length in seconds
+    """
+    return get_stat(file_path, channels, bits, rate).length

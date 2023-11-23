@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -164,7 +164,8 @@ static Image *ReadEPTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     ept_info;
 
   Image
-    *image;
+    *image,
+    *tiff_image;
 
   ImageInfo
     *read_info;
@@ -248,30 +249,35 @@ static Image *ReadEPTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   postscript_data=ReadBlobStream(image,ept_info.postscript_length,
     ept_info.postscript,&count);
   if (count != (ssize_t) (ept_info.postscript_length))
-    (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageWarning,
-      "InsufficientImageDataInFile","`%s'",image->filename);
+    ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
   (void) CloseBlob(image);
   image=DestroyImage(image);
   read_info=CloneImageInfo(image_info);
+  read_info->number_scenes=1;
+  read_info->scene=0;
   (void) CopyMagickString(read_info->magick,"EPS",MagickPathExtent);
   image=BlobToImage(read_info,postscript_data,ept_info.postscript_length,
     exception);
-  if (image == (Image *) NULL)
-    {
-      (void) CopyMagickString(read_info->magick,"TIFF",MagickPathExtent);
-      image=BlobToImage(read_info,tiff_data,ept_info.tiff_length,exception);
-    }
-  read_info=DestroyImageInfo(read_info);
   if (image != (Image *) NULL)
     {
       (void) CopyMagickString(image->filename,image_info->filename,
         MagickPathExtent);
       (void) CopyMagickString(image->magick,"EPT",MagickPathExtent);
     }
+  (void) CopyMagickString(read_info->magick,"TIFF",MagickPathExtent);
+  tiff_image=BlobToImage(read_info,tiff_data,ept_info.tiff_length,exception);
+  if (tiff_image != (Image *) NULL)
+    {
+      if (image == (Image *) NULL)
+        image=tiff_image;
+      else
+        AppendImageToList(&image,tiff_image);
+    }
+  read_info=DestroyImageInfo(read_info);
   ept_info.tiff=(unsigned char *) RelinquishMagickMemory(ept_info.tiff);
   ept_info.postscript=(unsigned char *) RelinquishMagickMemory(
     ept_info.postscript);
-  return(image);
+  return(GetFirstImageInList(image));
 }
 
 /*

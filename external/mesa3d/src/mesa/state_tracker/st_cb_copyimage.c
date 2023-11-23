@@ -30,7 +30,7 @@
 #include "state_tracker/st_util.h"
 
 #include "util/u_box.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_inlines.h"
 
 
@@ -585,7 +585,7 @@ fallback_copy_image(struct st_context *st,
             GL_MAP_WRITE_BIT, &dst, &dst_stride);
    } else {
       dst = pipe_transfer_map(st->pipe, dst_res, 0, dst_z,
-                              PIPE_TRANSFER_WRITE,
+                              PIPE_MAP_WRITE,
                               dst_x, dst_y, dst_w, dst_h,
                               &dst_transfer);
       dst_stride = dst_transfer->stride;
@@ -598,7 +598,7 @@ fallback_copy_image(struct st_context *st,
             GL_MAP_READ_BIT, &src, &src_stride);
    } else {
       src = pipe_transfer_map(st->pipe, src_res, 0, src_z,
-                              PIPE_TRANSFER_READ,
+                              PIPE_MAP_READ,
                               src_x, src_y, src_w, src_h,
                               &src_transfer);
       src_stride = src_transfer->stride;
@@ -645,8 +645,9 @@ st_CopyImageSubData(struct gl_context *ctx,
 
    if (src_image) {
       struct st_texture_image *src = st_texture_image(src_image);
+      struct st_texture_object *stObj = st_texture_object(src_image->TexObject);
       src_res = src->pt;
-      src_level = src_image->Level;
+      src_level = stObj->pt != src_res ? 0 : src_image->Level;
       src_z += src_image->Face;
       if (src_image->TexObject->Immutable) {
          src_level += src_image->TexObject->MinLevel;
@@ -660,8 +661,9 @@ st_CopyImageSubData(struct gl_context *ctx,
 
    if (dst_image) {
       struct st_texture_image *dst = st_texture_image(dst_image);
+      struct st_texture_object *stObj = st_texture_object(dst_image->TexObject);
       dst_res = dst->pt;
-      dst_level = dst_image->Level;
+      dst_level = stObj->pt != dst_res ? 0 : dst_image->Level;
       dst_z += dst_image->Face;
       if (dst_image->TexObject->Immutable) {
          dst_level += dst_image->TexObject->MinLevel;

@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -97,7 +98,7 @@ class BRILLO_EXPORT ExportedPropertySet {
  public:
   using PropertyWriter = base::Callback<void(VariantDictionary* dict)>;
 
-  explicit ExportedPropertySet(dbus::Bus* bus);
+  explicit ExportedPropertySet(::dbus::Bus* bus);
   virtual ~ExportedPropertySet() = default;
 
   // Called to notify ExportedPropertySet that the Properties interface of the
@@ -148,7 +149,7 @@ class BRILLO_EXPORT ExportedPropertySet {
       const std::string& property_name,
       const ExportedPropertyBase* exported_property);
 
-  dbus::Bus* bus_;  // weak; owned by outer DBusObject containing this object.
+  ::dbus::Bus* bus_;  // weak; owned by outer DBusObject containing this object.
   // This is a map from interface name -> property name -> pointer to property.
   std::map<std::string, std::map<std::string, ExportedPropertyBase*>>
       properties_;

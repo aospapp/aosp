@@ -18,8 +18,8 @@ package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static dagger.internal.codegen.Compilers.CLASS_PATH_WITHOUT_GUAVA_OPTION;
-import static dagger.internal.codegen.Compilers.daggerCompiler;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_CODE_ANNOTATIONS;
 import static dagger.internal.codegen.GeneratedLines.IMPORT_GENERATED_ANNOTATION;
 
 import com.google.testing.compile.Compilation;
@@ -96,7 +96,7 @@ public class SetBindingRequestFulfillmentTest {
             "",
             "import dagger.internal.SetBuilder;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
             "  @Override",
             "  public Set<String> strings() {",
@@ -191,9 +191,9 @@ public class SetBindingRequestFulfillmentTest {
             "import other.UsesInaccessible;",
             "import other.UsesInaccessible_Factory;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
-            "  private Set getSetOfInaccessible2() {",
+            "  private Set setOfInaccessible2() {",
             "    return SetBuilder.newSetBuilder(1)",
             "        .addAll(TestModule_EmptySetFactory.emptySet())",
             "        .build();",
@@ -203,7 +203,7 @@ public class SetBindingRequestFulfillmentTest {
             "  public UsesInaccessible usesInaccessible() {",
             "    return UsesInaccessible_Factory.newInstance(",
             "        (Set) Collections.emptySet(),",
-            "        (Set) getSetOfInaccessible2());",
+            "        (Set) setOfInaccessible2());",
             "  }",
             "}");
     Compilation compilation =
@@ -266,7 +266,7 @@ public class SetBindingRequestFulfillmentTest {
             "import java.util.Set;",
             IMPORT_GENERATED_ANNOTATION,
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerParent implements Parent {",
             "  private DaggerParent() {}",
             "",
@@ -316,7 +316,7 @@ public class SetBindingRequestFulfillmentTest {
   }
 
   private Compiler daggerCompilerWithoutGuava() {
-    return daggerCompiler()
-        .withOptions(compilerMode.javacopts().append(CLASS_PATH_WITHOUT_GUAVA_OPTION));
+    return compilerWithOptions(compilerMode.javacopts())
+        .withClasspath(CLASS_PATH_WITHOUT_GUAVA_OPTION);
   }
 }

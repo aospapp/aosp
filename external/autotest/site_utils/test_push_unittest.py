@@ -3,10 +3,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import StringIO
+import six
 import mox
 import unittest
-import urllib2
+from six.moves import urllib
 
 import mock
 
@@ -47,9 +47,9 @@ class TestPushUnittests(mox.MoxTestBase):
 
         """
         self.mox.UnsetStubs()
-        response = StringIO.StringIO('some_value')
-        self.mox.StubOutWithMock(urllib2, 'urlopen')
-        urllib2.urlopen(mox.IgnoreArg()).AndReturn(response)
+        response = six.StringIO('some_value')
+        self.mox.StubOutWithMock(urllib.request, 'urlopen')
+        urllib.request.urlopen(mox.IgnoreArg()).AndReturn(response)
 
         self.mox.StubOutWithMock(test_push, 'check_dut_image')
         test_push.check_dut_image(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(

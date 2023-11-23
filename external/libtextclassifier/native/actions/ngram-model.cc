@@ -60,7 +60,7 @@ class FirstTokenIterator
 
 }  // anonymous namespace
 
-std::unique_ptr<NGramModel> NGramModel::Create(
+std::unique_ptr<NGramSensitiveModel> NGramSensitiveModel::Create(
     const UniLib* unilib, const NGramLinearRegressionModel* model,
     const Tokenizer* tokenizer) {
   if (model == nullptr) {
@@ -70,12 +70,13 @@ std::unique_ptr<NGramModel> NGramModel::Create(
     TC3_LOG(ERROR) << "No tokenizer options specified.";
     return nullptr;
   }
-  return std::unique_ptr<NGramModel>(new NGramModel(unilib, model, tokenizer));
+  return std::unique_ptr<NGramSensitiveModel>(
+      new NGramSensitiveModel(unilib, model, tokenizer));
 }
 
-NGramModel::NGramModel(const UniLib* unilib,
-                       const NGramLinearRegressionModel* model,
-                       const Tokenizer* tokenizer)
+NGramSensitiveModel::NGramSensitiveModel(
+    const UniLib* unilib, const NGramLinearRegressionModel* model,
+    const Tokenizer* tokenizer)
     : model_(model) {
   // Create new tokenizer if options are specified, reuse feature processor
   // tokenizer otherwise.
@@ -88,9 +89,10 @@ NGramModel::NGramModel(const UniLib* unilib,
 }
 
 // Returns whether a given n-gram matches the token stream.
-bool NGramModel::IsNGramMatch(const uint32* tokens, size_t num_tokens,
-                              const uint32* ngram_tokens,
-                              size_t num_ngram_tokens, int max_skips) const {
+bool NGramSensitiveModel::IsNGramMatch(const uint32* tokens, size_t num_tokens,
+                                       const uint32* ngram_tokens,
+                                       size_t num_ngram_tokens,
+                                       int max_skips) const {
   int token_idx = 0, ngram_token_idx = 0, skip_remain = 0;
   for (; token_idx < num_tokens && ngram_token_idx < num_ngram_tokens;) {
     if (tokens[token_idx] == ngram_tokens[ngram_token_idx]) {
@@ -112,8 +114,9 @@ bool NGramModel::IsNGramMatch(const uint32* tokens, size_t num_tokens,
 
 // Calculates the total number of skip-grams that can be created for a stream
 // with the given number of tokens.
-uint64 NGramModel::GetNumSkipGrams(int num_tokens, int max_ngram_length,
-                                   int max_skips) {
+uint64 NGramSensitiveModel::GetNumSkipGrams(int num_tokens,
+                                            int max_ngram_length,
+                                            int max_skips) {
   // Start with unigrams.
   uint64 total = num_tokens;
   for (int ngram_len = 2;
@@ -138,7 +141,8 @@ uint64 NGramModel::GetNumSkipGrams(int num_tokens, int max_ngram_length,
   return total;
 }
 
-std::pair<int, int> NGramModel::GetFirstTokenMatches(uint32 token_hash) const {
+std::pair<int, int> NGramSensitiveModel::GetFirstTokenMatches(
+    uint32 token_hash) const {
   const int num_ngrams = model_->ngram_weights()->size();
   const auto start_it = FirstTokenIterator(model_, 0);
   const auto end_it = FirstTokenIterator(model_, num_ngrams);
@@ -147,15 +151,13 @@ std::pair<int, int> NGramModel::GetFirstTokenMatches(uint32 token_hash) const {
   return std::make_pair(start, end);
 }
 
-bool NGramModel::Eval(const UnicodeText& text, float* score) const {
+std::pair<bool, float> NGramSensitiveModel::Eval(
+    const UnicodeText& text) const {
   const std::vector<Token> raw_tokens = tokenizer_->Tokenize(text);
 
   // If we have no tokens, then just bail early.
   if (raw_tokens.empty()) {
-    if (score != nullptr) {
-      *score = model_->default_token_weight();
-    }
-    return false;
+    return std::make_pair(false, model_->default_token_weight());
   }
 
   // Hash the tokens.
@@ -201,25 +203,25 @@ bool NGramModel::Eval(const UnicodeText& text, float* score) const {
   const float internal_score =
       (weight_matches + (model_->default_token_weight() * num_misses)) /
       num_candidates;
-  if (score != nullptr) {
-    *score = internal_score;
-  }
-  return internal_score > model_->threshold();
+  return std::make_pair(internal_score > model_->threshold(), internal_score);
 }
 
-bool NGramModel::EvalConversation(const Conversation& conversation,
-                                  const int num_messages) const {
+std::pair<bool, float> NGramSensitiveModel::EvalConversation(
+    const Conversation& conversation, const int num_messages) const {
+  float score = 0.0;
   for (int i = 1; i <= num_messages; i++) {
     const std::string& message =
         conversation.messages[conversation.messages.size() - i].text;
     const UnicodeText message_unicode(
         UTF8ToUnicodeText(message, /*do_copy=*/false));
     // Run ngram linear regression model.
-    if (Eval(message_unicode)) {
-      return true;
+    const auto prediction = Eval(message_unicode);
+    if (prediction.first) {
+      return prediction;
     }
+    score = std::max(score, prediction.second);
   }
-  return false;
+  return std::make_pair(false, score);
 }
 
 }  // namespace libtextclassifier3

@@ -38,6 +38,7 @@
 #include "util/u_upload_mgr.h"
 #include "compiler/nir/nir.h"
 #include "compiler/nir/nir_builder.h"
+#include "intel/common/gen_disasm.h"
 #include "intel/compiler/brw_compiler.h"
 #include "intel/compiler/brw_eu.h"
 #include "intel/compiler/brw_nir.h"
@@ -83,35 +84,13 @@ keybox_equals(const void *void_a, const void *void_b)
    return memcmp(a->data, b->data, a->size) == 0;
 }
 
-static unsigned
-get_program_string_id(enum iris_program_cache_id cache_id, const void *key)
-{
-   switch (cache_id) {
-   case IRIS_CACHE_VS:
-      return ((struct brw_vs_prog_key *) key)->program_string_id;
-   case IRIS_CACHE_TCS:
-      return ((struct brw_tcs_prog_key *) key)->program_string_id;
-   case IRIS_CACHE_TES:
-      return ((struct brw_tes_prog_key *) key)->program_string_id;
-   case IRIS_CACHE_GS:
-      return ((struct brw_gs_prog_key *) key)->program_string_id;
-   case IRIS_CACHE_CS:
-      return ((struct brw_cs_prog_key *) key)->program_string_id;
-   case IRIS_CACHE_FS:
-      return ((struct brw_wm_prog_key *) key)->program_string_id;
-   default:
-      unreachable("no program string id for this kind of program");
-   }
-}
-
 struct iris_compiled_shader *
 iris_find_cached_shader(struct iris_context *ice,
                         enum iris_program_cache_id cache_id,
                         uint32_t key_size,
                         const void *key)
 {
-   struct keybox *keybox =
-      make_keybox(ice->shaders.cache, cache_id, key, key_size);
+   struct keybox *keybox = make_keybox(NULL, cache_id, key, key_size);
    struct hash_entry *entry =
       _mesa_hash_table_search(ice->shaders.cache, keybox);
 
@@ -127,14 +106,68 @@ iris_find_previous_compile(const struct iris_context *ice,
 {
    hash_table_foreach(ice->shaders.cache, entry) {
       const struct keybox *keybox = entry->key;
+      const struct brw_base_prog_key *key = (const void *)keybox->data;
       if (keybox->cache_id == cache_id &&
-          get_program_string_id(cache_id, keybox->data) == program_string_id) {
+          key->program_string_id == program_string_id) {
          return keybox->data;
       }
    }
 
    return NULL;
 }
+
+void
+iris_delete_shader_variants(struct iris_context *ice,
+                            struct iris_uncompiled_shader *ish)
+{
+   struct hash_table *cache = ice->shaders.cache;
+   gl_shader_stage stage = ish->nir->info.stage;
+   enum iris_program_cache_id cache_id = stage;
+
+   hash_table_foreach(cache, entry) {
+      const struct keybox *keybox = entry->key;
+      const struct brw_base_prog_key *key = (const void *)keybox->data;
+
+      if (keybox->cache_id == cache_id &&
+          key->program_string_id == ish->program_id) {
+         struct iris_compiled_shader *shader = entry->data;
+
+         _mesa_hash_table_remove(cache, entry);
+
+         /* Shader variants may still be bound in the context even after
+          * the API-facing shader has been deleted.  In particular, a draw
+          * may not have triggered iris_update_compiled_shaders() yet.  In
+          * that case, we may be referring to that shader's VUE map, stream
+          * output settings, and so on.  We also like to compare the old and
+          * new shader programs when swapping them out to flag dirty state.
+          *
+          * So, it's hazardous to delete a bound shader variant.  We avoid
+          * doing so, choosing to instead move "deleted" shader variants to
+          * a list, deferring the actual deletion until they're not bound.
+          *
+          * For simplicity, we always move deleted variants to the list,
+          * even if we could delete them immediately.  We'll then process
+          * the list, catching both these variants and any others.
+          */
+         list_addtail(&shader->link, &ice->shaders.deleted_variants[stage]);
+      }
+   }
+
+   /* Process any pending deferred variant deletions. */
+   list_for_each_entry_safe(struct iris_compiled_shader, shader,
+                            &ice->shaders.deleted_variants[stage], link) {
+      /* If the shader is still bound, defer deletion. */
+      if (ice->shaders.prog[stage] == shader)
+         continue;
+
+      list_del(&shader->link);
+
+      /* Actually delete the variant. */
+      pipe_resource_reference(&shader->assembly.res, NULL);
+      ralloc_free(shader);
+   }
+}
+
 
 /**
  * Look for an existing entry in the cache that has identical assembly code.
@@ -167,12 +200,15 @@ iris_upload_shader(struct iris_context *ice,
                    uint32_t *streamout,
                    enum brw_param_builtin *system_values,
                    unsigned num_system_values,
-                   unsigned num_cbufs)
+                   unsigned kernel_input_size,
+                   unsigned num_cbufs,
+                   const struct iris_binding_table *bt)
 {
    struct hash_table *cache = ice->shaders.cache;
+   struct iris_screen *screen = (struct iris_screen *)ice->ctx.screen;
    struct iris_compiled_shader *shader =
       rzalloc_size(cache, sizeof(struct iris_compiled_shader) +
-                   ice->vtbl.derived_program_state_size(cache_id));
+                   screen->vtbl.derived_program_state_size(cache_id));
    const struct iris_compiled_shader *existing =
       find_existing_assembly(cache, assembly, prog_data->program_size);
 
@@ -192,24 +228,47 @@ iris_upload_shader(struct iris_context *ice,
                      &shader->assembly.offset, &shader->assembly.res,
                      &shader->map);
       memcpy(shader->map, assembly, prog_data->program_size);
+
+      struct iris_resource *res = (void *) shader->assembly.res;
+      uint64_t shader_data_addr = res->bo->gtt_offset +
+                                  shader->assembly.offset +
+                                  prog_data->const_data_offset;
+
+      struct brw_shader_reloc_value reloc_values[] = {
+         {
+            .id = IRIS_SHADER_RELOC_CONST_DATA_ADDR_LOW,
+            .value = shader_data_addr,
+         },
+         {
+            .id = IRIS_SHADER_RELOC_CONST_DATA_ADDR_HIGH,
+            .value = shader_data_addr >> 32,
+         },
+      };
+      brw_write_shader_relocs(&screen->devinfo, shader->map, prog_data,
+                              reloc_values, ARRAY_SIZE(reloc_values));
    }
+
+   list_inithead(&shader->link);
 
    shader->prog_data = prog_data;
    shader->streamout = streamout;
    shader->system_values = system_values;
    shader->num_system_values = num_system_values;
+   shader->kernel_input_size = kernel_input_size;
    shader->num_cbufs = num_cbufs;
+   shader->bt = *bt;
 
    ralloc_steal(shader, shader->prog_data);
+   ralloc_steal(shader->prog_data, (void *)prog_data->relocs);
    ralloc_steal(shader->prog_data, prog_data->param);
    ralloc_steal(shader->prog_data, prog_data->pull_param);
    ralloc_steal(shader, shader->streamout);
    ralloc_steal(shader, shader->system_values);
 
    /* Store the 3DSTATE shader packets and other derived state. */
-   ice->vtbl.store_derived_program_state(ice, cache_id, shader);
+   screen->vtbl.store_derived_program_state(ice, cache_id, shader);
 
-   struct keybox *keybox = make_keybox(cache, cache_id, key, key_size);
+   struct keybox *keybox = make_keybox(shader, cache_id, key, key_size);
    _mesa_hash_table_insert(ice->shaders.cache, keybox, shader);
 
    return shader;
@@ -234,13 +293,13 @@ iris_blorp_lookup_shader(struct blorp_batch *blorp_batch,
       iris_bo_offset_from_base_address(bo) + shader->assembly.offset;
    *((void **) prog_data_out) = shader->prog_data;
 
-   iris_use_pinned_bo(batch, bo, false);
+   iris_use_pinned_bo(batch, bo, false, IRIS_DOMAIN_NONE);
 
    return true;
 }
 
 bool
-iris_blorp_upload_shader(struct blorp_batch *blorp_batch,
+iris_blorp_upload_shader(struct blorp_batch *blorp_batch, uint32_t stage,
                          const void *key, uint32_t key_size,
                          const void *kernel, UNUSED uint32_t kernel_size,
                          const struct brw_stage_prog_data *prog_data_templ,
@@ -254,16 +313,19 @@ iris_blorp_upload_shader(struct blorp_batch *blorp_batch,
    void *prog_data = ralloc_size(NULL, prog_data_size);
    memcpy(prog_data, prog_data_templ, prog_data_size);
 
+   struct iris_binding_table bt;
+   memset(&bt, 0, sizeof(bt));
+
    struct iris_compiled_shader *shader =
       iris_upload_shader(ice, IRIS_CACHE_BLORP, key_size, key, kernel,
-                         prog_data, NULL, NULL, 0, 0);
+                         prog_data, NULL, NULL, 0, 0, 0, &bt);
 
    struct iris_bo *bo = iris_resource_bo(shader->assembly.res);
    *kernel_out =
       iris_bo_offset_from_base_address(bo) + shader->assembly.offset;
    *((void **) prog_data_out) = shader->prog_data;
 
-   iris_use_pinned_bo(batch, bo, false);
+   iris_use_pinned_bo(batch, bo, false, IRIS_DOMAIN_NONE);
 
    return true;
 }
@@ -277,6 +339,9 @@ iris_init_program_cache(struct iris_context *ice)
    ice->shaders.uploader =
       u_upload_create(&ice->ctx, 16384, PIPE_BIND_CUSTOM, PIPE_USAGE_IMMUTABLE,
                       IRIS_RESOURCE_FLAG_SHADER_MEMZONE);
+
+   for (int i = 0; i < MESA_SHADER_STAGES; i++)
+      list_inithead(&ice->shaders.deleted_variants[i]);
 }
 
 void
@@ -284,6 +349,11 @@ iris_destroy_program_cache(struct iris_context *ice)
 {
    for (int i = 0; i < MESA_SHADER_STAGES; i++) {
       ice->shaders.prog[i] = NULL;
+
+      list_for_each_entry_safe(struct iris_compiled_shader, shader,
+                               &ice->shaders.deleted_variants[i], link) {
+         pipe_resource_reference(&shader->assembly.res, NULL);
+      }
    }
 
    hash_table_foreach(ice->shaders.cache, entry) {
@@ -315,7 +385,6 @@ iris_print_program_cache(struct iris_context *ice)
       const struct keybox *keybox = entry->key;
       struct iris_compiled_shader *shader = entry->data;
       fprintf(stderr, "%s:\n", cache_name(keybox->cache_id));
-      brw_disassemble(devinfo, shader->map, 0,
-                      shader->prog_data->program_size, stderr);
+      gen_disassemble(devinfo, shader->map, 0, stderr);
    }
 }

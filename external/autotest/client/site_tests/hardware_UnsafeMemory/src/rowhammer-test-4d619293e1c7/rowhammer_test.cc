@@ -107,7 +107,7 @@ static void toggle(int iterations, int addr_count) {
       break;
     }
   }
-  t.print_iters(iterations * addr_count * toggles);
+  t.print_iters((uint64_t) iterations * addr_count * toggles);
 }
 
 void main_prog() {

@@ -34,6 +34,12 @@ PERFETTO_CONFIG = struct(
         # "perfetto_build_flags.h" file that can be included via:
         # #include "perfetto_build_flags.h".
         build_config = ["//:build_config_hdr"],
+
+        # Target exposing the PERFETTO_VERSION_STRING() and
+        # PERFETTO_VERSION_SCM_REVISION() macros. This is overridden in google
+        # internal builds.
+        version_header = ["//:cc_perfetto_version_header"],
+
         zlib = ["@perfetto_dep_zlib//:zlib"],
         jsoncpp = ["@perfetto_dep_jsoncpp//:jsoncpp"],
         linenoise = ["@perfetto_dep_linenoise//:linenoise"],
@@ -43,6 +49,7 @@ PERFETTO_CONFIG = struct(
         protoc_lib = ["@com_google_protobuf//:protoc_lib"],
         protobuf_lite = ["@com_google_protobuf//:protobuf_lite"],
         protobuf_full = ["@com_google_protobuf//:protobuf"],
+        protobuf_descriptor_proto = ["@com_google_protobuf//:descriptor_proto"]
     ),
 
     # This struct allows embedders to customize the cc_opts for Perfetto
@@ -85,6 +92,7 @@ PERFETTO_CONFIG = struct(
 
         proto_library = None,
         py_binary = None,
+        py_library = None,
 
         # We only need this for internal binaries. No other embeedder should
         # care about this.

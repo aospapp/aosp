@@ -128,6 +128,60 @@ int multiply10to20() {
 Methods generating methods! And since JavaPoet generates source instead of bytecode, you can
 read through it to make sure it's right.
 
+Some control flow statements, such as `if/else`, can have unlimited control flow possibilities.
+You can handle those options using `nextControlFlow()`:
+
+```java
+MethodSpec main = MethodSpec.methodBuilder("main")
+    .addStatement("long now = $T.currentTimeMillis()", System.class)
+    .beginControlFlow("if ($T.currentTimeMillis() < now)", System.class)
+    .addStatement("$T.out.println($S)", System.class, "Time travelling, woo hoo!")
+    .nextControlFlow("else if ($T.currentTimeMillis() == now)", System.class)
+    .addStatement("$T.out.println($S)", System.class, "Time stood still!")
+    .nextControlFlow("else")
+    .addStatement("$T.out.println($S)", System.class, "Ok, time still moving forward")
+    .endControlFlow()
+    .build();
+```
+
+Which generates:
+
+```java
+void main() {
+  long now = System.currentTimeMillis();
+  if (System.currentTimeMillis() < now)  {
+    System.out.println("Time travelling, woo hoo!");
+  } else if (System.currentTimeMillis() == now) {
+    System.out.println("Time stood still!");
+  } else {
+    System.out.println("Ok, time still moving forward");
+  }
+}
+``` 
+
+Catching exceptions using `try/catch` is also a use case for `nextControlFlow()`:
+
+```java
+MethodSpec main = MethodSpec.methodBuilder("main")
+    .beginControlFlow("try")
+    .addStatement("throw new Exception($S)", "Failed")
+    .nextControlFlow("catch ($T e)", Exception.class)
+    .addStatement("throw new $T(e)", RuntimeException.class)
+    .endControlFlow()
+    .build();
+```
+
+Which produces:
+
+```java
+void main() {
+  try {
+    throw new Exception("Failed");
+  } catch (Exception e) {
+    throw new RuntimeException(e);
+  }
+}
+```
 
 ### $L for Literals
 
@@ -674,7 +728,7 @@ public enum Roshambo {
 
 ### Anonymous Inner Classes
 
-In the enum code, we used `Types.anonymousInnerClass()`. Anonymous inner classes can also be used in
+In the enum code, we used `TypeSpec.anonymousInnerClass()`. Anonymous inner classes can also be used in
 code blocks. They are values that can be referenced with `$L`:
 
 ```java
@@ -838,12 +892,12 @@ Download [the latest .jar][dl] or depend via Maven:
 <dependency>
   <groupId>com.squareup</groupId>
   <artifactId>javapoet</artifactId>
-  <version>1.11.1</version>
+  <version>1.12.1</version>
 </dependency>
 ```
 or Gradle:
 ```groovy
-compile 'com.squareup:javapoet:1.11.1'
+compile 'com.squareup:javapoet:1.12.1'
 ```
 
 Snapshots of the development version are available in [Sonatype's `snapshots` repository][snap].

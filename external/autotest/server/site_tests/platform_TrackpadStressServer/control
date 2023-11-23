@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "Chrome OS Team"
-NAME = "TrackpadStressServer"
+NAME = "platform_TrackpadStressServer"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "platform"

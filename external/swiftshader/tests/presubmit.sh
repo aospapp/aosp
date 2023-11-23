@@ -46,7 +46,7 @@ function run_bug_in_commit_msg() {
   then
     echo "${red}Git commit message must have a Bug: line"
     echo "followed by a bug ID in the form b/# for Buganizer bugs or"
-    echo "project:# for Monorail bugs (e.g. 'Bug: chromium:123')."
+    echo "project:# for Monorail bugs (e.g. 'Bug: chromium:123' or 'Bug: fuchsia:123')."
     echo "Omit any digits when no ID is required (e.g. 'Bug: fix build').${normal}"
     return 1
   fi
@@ -80,6 +80,14 @@ function run_gofmt() {
   find ${SRC_DIR} ${TESTS_DIR} -name "*.go" | xargs $GOFMT -w
 }
 
+function run_check_build_files() {
+  go run ${TESTS_DIR}/check_build_files/main.go --root="${ROOT_DIR}"
+}
+
+function run_scan_sources() {
+  python3 ${TESTS_DIR}/scan_sources/main.py ${SRC_DIR}
+}
+
 # Ensure we are clean to start out with.
 check "git workspace must be clean" true
 
@@ -94,6 +102,12 @@ check clang-format run_clang_format
 
 # Check gofmt.
 check gofmt run_gofmt
+
+# Check build files.
+check "build files don't reference non-existent files" run_check_build_files
+
+# Check source files.
+check scan_sources run_scan_sources
 
 echo
 echo "${green}All check completed successfully.${normal}"

@@ -149,6 +149,50 @@ bool LinuxPtraceDumper::CopyFromProcess(void* dest, pid_t child,
   return true;
 }
 
+bool LinuxPtraceDumper::ReadRegisterSet(ThreadInfo* info, pid_t tid)
+{
+#ifdef PTRACE_GETREGSET
+  struct iovec io;
+  info->GetGeneralPurposeRegisters(&io.iov_base, &io.iov_len);
+  if (sys_ptrace(PTRACE_GETREGSET, tid, (void*)NT_PRSTATUS, (void*)&io) == -1) {
+    return false;
+  }
+
+  info->GetFloatingPointRegisters(&io.iov_base, &io.iov_len);
+  if (sys_ptrace(PTRACE_GETREGSET, tid, (void*)NT_FPREGSET, (void*)&io) == -1) {
+    return false;
+  }
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool LinuxPtraceDumper::ReadRegisters(ThreadInfo* info, pid_t tid) {
+#ifdef PTRACE_GETREGS
+  void* gp_addr;
+  info->GetGeneralPurposeRegisters(&gp_addr, NULL);
+  if (sys_ptrace(PTRACE_GETREGS, tid, NULL, gp_addr) == -1) {
+    return false;
+  }
+
+#if !(defined(__ANDROID__) && defined(__ARM_EABI__))
+  // When running an arm build on an arm64 device, attempting to get the
+  // floating point registers fails. On Android, the floating point registers
+  // aren't written to the cpu context anyway, so just don't get them here.
+  // See http://crbug.com/508324
+  void* fp_addr;
+  info->GetFloatingPointRegisters(&fp_addr, NULL);
+  if (sys_ptrace(PTRACE_GETFPREGS, tid, NULL, fp_addr) == -1) {
+    return false;
+  }
+#endif  // !(defined(__ANDROID__) && defined(__ARM_EABI__))
+  return true;
+#else  // PTRACE_GETREGS
+  return false;
+#endif
+}
+
 // Read thread info from /proc/$pid/status.
 // Fill out the |tgid|, |ppid| and |pid| members of |info|. If unavailable,
 // these members are set to -1. Returns true iff all three members are
@@ -188,28 +232,11 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
   if (info->ppid == -1 || info->tgid == -1)
     return false;
 
-#ifdef PTRACE_GETREGSET
-  struct iovec io;
-  io.iov_base = &info->regs;
-  io.iov_len = sizeof(info->regs);
-  if (sys_ptrace(PTRACE_GETREGSET, tid, (void*)NT_PRSTATUS, (void*)&io) == -1) {
-    return false;
+  if (!ReadRegisterSet(info, tid)) {
+    if (!ReadRegisters(info, tid)) {
+      return false;
+    }
   }
-
-  io.iov_base = &info->fpregs;
-  io.iov_len = sizeof(info->fpregs);
-  if (sys_ptrace(PTRACE_GETREGSET, tid, (void*)NT_FPREGSET, (void*)&io) == -1) {
-    return false;
-  }
-#else
-  if (sys_ptrace(PTRACE_GETREGS, tid, NULL, &info->regs) == -1) {
-    return false;
-  }
-
-  if (sys_ptrace(PTRACE_GETFPREGS, tid, NULL, &info->fpregs) == -1) {
-    return false;
-  }
-#endif
 
 #if defined(__i386)
 #if !defined(bit_FXSAVE)  // e.g. Clang
@@ -241,14 +268,22 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
 #endif
 
 #if defined(__mips__)
-  for (int i = 0; i < 3; ++i) {
-    sys_ptrace(PTRACE_PEEKUSER, tid,
-               reinterpret_cast<void*>(DSP_BASE + (i * 2)), &info->hi[i]);
-    sys_ptrace(PTRACE_PEEKUSER, tid,
-               reinterpret_cast<void*>(DSP_BASE + (i * 2) + 1), &info->lo[i]);
-  }
   sys_ptrace(PTRACE_PEEKUSER, tid,
-             reinterpret_cast<void*>(DSP_CONTROL), &info->dsp_control);
+             reinterpret_cast<void*>(PC), &info->mcontext.pc);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_BASE), &info->mcontext.hi1);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_BASE + 1), &info->mcontext.lo1);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_BASE + 2), &info->mcontext.hi2);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_BASE + 3), &info->mcontext.lo2);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_BASE + 4), &info->mcontext.hi3);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_BASE + 5), &info->mcontext.lo3);
+  sys_ptrace(PTRACE_PEEKUSER, tid,
+             reinterpret_cast<void*>(DSP_CONTROL), &info->mcontext.dsp);
 #endif
 
   const uint8_t* stack_pointer;
@@ -262,7 +297,7 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
   my_memcpy(&stack_pointer, &info->regs.sp, sizeof(info->regs.sp));
 #elif defined(__mips__)
   stack_pointer =
-      reinterpret_cast<uint8_t*>(info->regs.regs[MD_CONTEXT_MIPS_REG_SP]);
+      reinterpret_cast<uint8_t*>(info->mcontext.gregs[MD_CONTEXT_MIPS_REG_SP]);
 #else
 #error "This code hasn't been ported to your platform yet."
 #endif

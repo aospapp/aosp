@@ -31,6 +31,9 @@ include $(MESA_TOP)/src/mesa/Makefile.sources
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_program
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_STATIC_LIBRARIES := libmesa_nir \
 	libmesa_glsl

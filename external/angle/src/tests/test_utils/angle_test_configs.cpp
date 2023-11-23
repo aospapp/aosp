@@ -49,6 +49,11 @@ bool PlatformParameters::isSwiftshader() const
     return eglParameters.deviceType == EGL_PLATFORM_ANGLE_DEVICE_TYPE_SWIFTSHADER_ANGLE;
 }
 
+EGLint PlatformParameters::getAllocateNonZeroMemoryFeature() const
+{
+    return eglParameters.allocateNonZeroMemoryFeature;
+}
+
 void PlatformParameters::initDefaultParameters()
 {
     // Default debug layers to enabled in tests.
@@ -112,7 +117,7 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
             stream << "WGL";
             break;
         case GLESDriverType::SystemEGL:
-            stream << "GLES";
+            stream << "EGL";
             break;
         default:
             stream << "Error";
@@ -202,6 +207,75 @@ std::ostream &operator<<(std::ostream &stream, const PlatformParameters &pp)
     else if (pp.eglParameters.allocateNonZeroMemoryFeature == EGL_TRUE)
     {
         stream << "_AllocateNonZeroMemory";
+    }
+
+    if (pp.eglParameters.emulateCopyTexImage2DFromRenderbuffers == EGL_TRUE)
+    {
+        stream << "_EmulateCopyTexImage2DFromRenderbuffers";
+    }
+
+    if (pp.eglParameters.shaderStencilOutputFeature == EGL_FALSE)
+    {
+        stream << "_NoStencilOutput";
+    }
+
+    if (pp.eglParameters.genMultipleMipsPerPassFeature == EGL_FALSE)
+    {
+        stream << "_NoGenMultipleMipsPerPass";
+    }
+
+    switch (pp.eglParameters.emulatedPrerotation)
+    {
+        case 90:
+            stream << "_PreRotate90";
+            break;
+        case 180:
+            stream << "_PreRotate180";
+            break;
+        case 270:
+            stream << "_PreRotate270";
+            break;
+        default:
+            break;
+    }
+
+    if (pp.eglParameters.asyncCommandQueueFeatureVulkan == EGL_TRUE)
+    {
+        stream << "_AsyncQueue";
+    }
+
+    if (pp.eglParameters.hasExplicitMemBarrierFeatureMtl == EGL_FALSE)
+    {
+        stream << "_NoMetalExplicitMemoryBarrier";
+    }
+
+    if (pp.eglParameters.hasCheapRenderPassFeatureMtl == EGL_FALSE)
+    {
+        stream << "_NoMetalCheapRenderPass";
+    }
+
+    if (pp.eglParameters.forceBufferGPUStorageFeatureMtl == EGL_TRUE)
+    {
+        stream << "_ForceMetalBufferGPUStorage";
+    }
+
+    if (pp.eglParameters.supportsVulkanViewportFlip == EGL_TRUE)
+    {
+        stream << "_VulkanViewportFlip";
+    }
+    else if (pp.eglParameters.supportsVulkanViewportFlip == EGL_FALSE)
+    {
+        stream << "_NoVulkanViewportFlip";
+    }
+
+    if (pp.eglParameters.emulatedVAOs == EGL_TRUE)
+    {
+        stream << "_EmulatedVAOs";
+    }
+
+    if (pp.eglParameters.directSPIRVGeneration == EGL_TRUE)
+    {
+        stream << "_DirectSPIRVGen";
     }
 
     return stream;
@@ -745,6 +819,21 @@ PlatformParameters ES31_VULKAN_SWIFTSHADER()
     return PlatformParameters(3, 1, egl_platform::VULKAN_SWIFTSHADER());
 }
 
+PlatformParameters ES32_VULKAN()
+{
+    return PlatformParameters(3, 2, egl_platform::VULKAN());
+}
+
+PlatformParameters ES32_VULKAN_NULL()
+{
+    return PlatformParameters(3, 2, egl_platform::VULKAN_NULL());
+}
+
+PlatformParameters ES32_VULKAN_SWIFTSHADER()
+{
+    return PlatformParameters(3, 2, egl_platform::VULKAN_SWIFTSHADER());
+}
+
 PlatformParameters ES1_METAL()
 {
     return PlatformParameters(1, 0, egl_platform::METAL());
@@ -768,5 +857,15 @@ PlatformParameters ES2_WGL()
 PlatformParameters ES3_WGL()
 {
     return PlatformParameters(3, 0, GLESDriverType::SystemWGL);
+}
+
+PlatformParameters ES2_EGL()
+{
+    return PlatformParameters(2, 0, GLESDriverType::SystemEGL);
+}
+
+PlatformParameters ES3_EGL()
+{
+    return PlatformParameters(3, 0, GLESDriverType::SystemEGL);
 }
 }  // namespace angle

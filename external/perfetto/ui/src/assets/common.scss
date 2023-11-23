@@ -116,6 +116,22 @@ body>main {
     overflow: hidden;
 }
 
+body.filedrag::after {
+  content: 'Drop the trace file to open it';
+  position: fixed;
+  z-index: 99;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 10px dashed #404854;
+  text-align: center;
+  font-size: 3rem;
+  line-height: 100vh;
+  color: #333;
+  background: rgba(255, 255, 255, 0.5);
+}
+
 button {
   background: none;
   color: inherit;
@@ -210,25 +226,6 @@ button.close {
     }
 
   }
-}
-
-.home-page {
-    text-align: center;
-    padding-top: 20vh;
-    align-items: center;
-}
-
-.home-page .logo {
-    width: var(--track-shell-width);
-}
-
-.home-page-title {
-    font-size: 60px;
-    margin: 25px;
-    text-align: center;
-    font-family: 'Raleway', sans-serif;
-    font-weight: 100;
-    color: #333;
 }
 
 .query-table-container {
@@ -370,7 +367,7 @@ button.close {
   overflow-x: hidden;
   overflow-y: auto;
   flex: 1 1 auto;
-  // TODO(taylori): This causes the sticky header to flicker when scrolling.
+  // TODO(hjd): This causes the sticky header to flicker when scrolling.
   // Is will-change necessary in the details panel?
   // will-change: transform;
   display: grid;
@@ -534,6 +531,7 @@ button.query-ctrl {
   --collapsed-background: hsla(190, 49%, 97%, 1);
   --collapsed-transparent: hsla(190, 49%, 97%, 0);
   --expanded-background: hsl(215, 22%, 19%);
+  --expanded-transparent: hsl(215, 22%, 19%, 0);
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: 1fr;
@@ -547,7 +545,7 @@ button.query-ctrl {
     margin-top: -1px;
   }
   &[collapsed=true] {
-    background-color: var(--collapsed-background-transparent);
+    background-color: var(--collapsed-transparent);
     .shell {
       border-right: 1px solid #c7d0db;
       background-color: var(--collapsed-background);
@@ -557,7 +555,7 @@ button.query-ctrl {
     };
   }
   &[collapsed=false] {
-    background-color: var(--expanded-background);
+    background-color: var(--expanded-transparent);
     color: white;
     font-weight: bold;
     .shell.flash {
@@ -603,4 +601,44 @@ button.query-ctrl {
 
 .time-selection-panel {
   height: 10px;
+}
+
+
+.cookie-consent {
+  position: absolute;
+  z-index: 10;
+  left: 10px;
+  bottom: 10px;
+  width: 550px;
+  background-color:#19212b;
+  font-size: 14px;
+  color:rgb(180, 183, 186);
+  border-radius: 5px;
+  padding: 20px;
+
+  .buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+    font-size: 15px
+  }
+
+  button {
+    padding: 10px;
+    border-radius: 3px;
+    color: #fff;
+    margin-left: 5px;
+    a {
+      text-decoration: none;
+      color: #fff;
+    }
+  }
+  button:hover {
+    background-color: #373f4b;
+    cursor: pointer;
+  }
+}
+
+.disallow-selection {
+  user-select: none;
 }

@@ -21,7 +21,6 @@ import time
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import test as test_utils
 from autotest_lib.client.cros.input_playback import input_playback
 from autotest_lib.client.cros.power import power_utils
 from functools import wraps
@@ -80,7 +79,7 @@ class GraphicsTest(test.test):
         )
 
         if hasattr(super(GraphicsTest, self), "initialize"):
-            test_utils._cherry_pick_call(super(GraphicsTest, self).initialize,
+            utils.cherry_pick_call(super(GraphicsTest, self).initialize,
                                          *args, **kwargs)
 
     def input_check(self):
@@ -100,7 +99,7 @@ class GraphicsTest(test.test):
             self._player.close()
 
         if hasattr(super(GraphicsTest, self), "cleanup"):
-            test_utils._cherry_pick_call(super(GraphicsTest, self).cleanup,
+            utils.cherry_pick_call(super(GraphicsTest, self).cleanup,
                                          *args, **kwargs)
 
     @contextlib.contextmanager
@@ -167,8 +166,7 @@ class GraphicsTest(test.test):
                 instance = args[0]
                 with instance.failure_report(name, subtest):
                     # Cherry pick the arguments for the wrapped function.
-                    d_args, d_kwargs = test_utils._cherry_pick_args(fn, args,
-                                                                    kwargs)
+                    d_args, d_kwargs = utils.cherry_pick_args(fn, args, kwargs)
                     return fn(instance, *d_args, **d_kwargs)
             return wrapper
         return decorator
@@ -704,6 +702,16 @@ def get_modetest_planes():
     return planes
 
 
+def is_nv12_supported_by_drm_planes():
+    """
+    Returns if the planes information mention NV12 format or not.
+
+    This is a crude way to figure out if the device will not be able to promote
+    video frames to overlays at all, which happens for example on Broadwell.
+    """
+    modetest_output = utils.system_output('modetest -p')
+    return "nv12" in modetest_output.lower()
+
 def get_modetest_output_state():
     """
     Reduce the output of get_modetest_connectors to a dictionary of connector/active states.
@@ -1110,7 +1118,6 @@ class GraphicsStateChecker(object):
     Analyzes the state of the GPU and log history. Should be instantiated at the
     beginning of each graphics_* test.
     """
-    crash_blacklist = []
     dirty_writeback_centisecs = 0
     existing_hangs = {}
 
@@ -1265,6 +1272,7 @@ class GraphicsApiHelper(object):
 # Possible paths of the kernel DRI debug text file.
 _DRI_DEBUG_FILE_PATH_0 = "/sys/kernel/debug/dri/0/state"
 _DRI_DEBUG_FILE_PATH_1 = "/sys/kernel/debug/dri/1/state"
+_DRI_DEBUG_FILE_PATH_2 = "/sys/kernel/debug/dri/2/state"
 
 # The DRI debug file will have a lot of information, including the position and
 # sizes of each plane. Some planes might be disabled but have some lingering
@@ -1287,6 +1295,8 @@ def get_num_hardware_overlays():
         file_path = _DRI_DEBUG_FILE_PATH_0;
     elif os.path.exists(_DRI_DEBUG_FILE_PATH_1):
         file_path = _DRI_DEBUG_FILE_PATH_1;
+    elif os.path.exists(_DRI_DEBUG_FILE_PATH_2):
+        file_path = _DRI_DEBUG_FILE_PATH_2;
     else:
         raise RuntimeError('No DRI debug file exists (%s, %s)' %
             (_DRI_DEBUG_FILE_PATH_0, _DRI_DEBUG_FILE_PATH_1))
@@ -1314,7 +1324,8 @@ def is_drm_debug_supported():
     @returns true if either of the DRI debug files are present.
     """
     return (os.path.exists(_DRI_DEBUG_FILE_PATH_0) or
-            os.path.exists(_DRI_DEBUG_FILE_PATH_1))
+            os.path.exists(_DRI_DEBUG_FILE_PATH_1) or
+            os.path.exists(_DRI_DEBUG_FILE_PATH_2))
 
 # Path and file name regex defining the filesystem location for DRI devices.
 _DEV_DRI_FOLDER_PATH = '/dev/dri'

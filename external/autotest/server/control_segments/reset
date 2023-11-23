@@ -18,7 +18,7 @@ labels_list = [l.strip() for l in job_labels.split(',') if l]
 
 
 def reset(machine):
-    print 'Starting to reset host %s' % machine
+    print('Starting to reset host %s' % machine)
     try:
         job.record('START', None, 'reset')
         target = hosts.create_target_machine(machine)

@@ -49,7 +49,7 @@
 //  - static void Write(dbus::MessageWriter* writer, const CustomType& value);
 //  - static bool Read(dbus::MessageReader* reader, CustomType* value);
 // See an example in DBusUtils.CustomStruct unit test in
-// brillo/dbus/data_serialization_unittest.cc.
+// brillo/dbus/data_serialization_test.cc.
 
 #include <map>
 #include <memory>
@@ -125,16 +125,16 @@ struct IsTypeSupported<> : public std::false_type {};
 // Write the |value| of type T to D-Bus message.
 // Explicitly delete the overloads for scalar types that are not supported by
 // D-Bus.
-void AppendValueToWriter(dbus::MessageWriter* writer, char value) = delete;
-void AppendValueToWriter(dbus::MessageWriter* writer, float value) = delete;
+void AppendValueToWriter(::dbus::MessageWriter* writer, char value) = delete;
+void AppendValueToWriter(::dbus::MessageWriter* writer, float value) = delete;
 
 //----------------------------------------------------------------------------
 // PopValueFromReader<T>(dbus::MessageWriter* writer, T* value)
 // Reads the |value| of type T from D-Bus message.
 // Explicitly delete the overloads for scalar types that are not supported by
 // D-Bus.
-void PopValueFromReader(dbus::MessageReader* reader, char* value) = delete;
-void PopValueFromReader(dbus::MessageReader* reader, float* value) = delete;
+void PopValueFromReader(::dbus::MessageReader* reader, char* value) = delete;
+void PopValueFromReader(::dbus::MessageReader* reader, float* value) = delete;
 
 //----------------------------------------------------------------------------
 // Get D-Bus data signature from C++ data types.
@@ -153,9 +153,9 @@ namespace details {
 // into the Variant and updates the |*reader_ref| with the transient
 // |variant_reader| MessageReader instance passed in.
 // Returns false if it fails to descend into the Variant.
-inline bool DescendIntoVariantIfPresent(dbus::MessageReader** reader_ref,
-                                        dbus::MessageReader* variant_reader) {
-  if ((*reader_ref)->GetDataType() != dbus::Message::VARIANT)
+inline bool DescendIntoVariantIfPresent(::dbus::MessageReader** reader_ref,
+                                        ::dbus::MessageReader* variant_reader) {
+  if ((*reader_ref)->GetDataType() != ::dbus::Message::VARIANT)
     return true;
   if (!(*reader_ref)->PopVariant(variant_reader))
     return false;
@@ -187,198 +187,198 @@ inline std::string GetDBusDictEntryType() {
 // DBusType<T> for various C++ types that can be serialized over D-Bus.
 
 // bool -----------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         bool value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        bool* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       bool value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      bool* value);
 
 template<>
 struct DBusType<bool> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_BOOLEAN_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, bool value) {
+  inline static void Write(::dbus::MessageWriter* writer, bool value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, bool* value) {
+  inline static bool Read(::dbus::MessageReader* reader, bool* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // uint8_t --------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         uint8_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        uint8_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       uint8_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      uint8_t* value);
 
 template<>
 struct DBusType<uint8_t> {
   inline static std::string GetSignature() { return DBUS_TYPE_BYTE_AS_STRING; }
-  inline static void Write(dbus::MessageWriter* writer, uint8_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, uint8_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, uint8_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, uint8_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // int16_t --------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         int16_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        int16_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       int16_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      int16_t* value);
 
 template<>
 struct DBusType<int16_t> {
   inline static std::string GetSignature() { return DBUS_TYPE_INT16_AS_STRING; }
-  inline static void Write(dbus::MessageWriter* writer, int16_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, int16_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, int16_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, int16_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // uint16_t -------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         uint16_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        uint16_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       uint16_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      uint16_t* value);
 
 template<>
 struct DBusType<uint16_t> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_UINT16_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, uint16_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, uint16_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, uint16_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, uint16_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // int32_t --------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         int32_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        int32_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       int32_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      int32_t* value);
 
 template<>
 struct DBusType<int32_t> {
   inline static std::string GetSignature() { return DBUS_TYPE_INT32_AS_STRING; }
-  inline static void Write(dbus::MessageWriter* writer, int32_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, int32_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, int32_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, int32_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // uint32_t -------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         uint32_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        uint32_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       uint32_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      uint32_t* value);
 
 template<>
 struct DBusType<uint32_t> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_UINT32_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, uint32_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, uint32_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, uint32_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, uint32_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // int64_t --------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         int64_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        int64_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       int64_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      int64_t* value);
 
 template<>
 struct DBusType<int64_t> {
   inline static std::string GetSignature() { return DBUS_TYPE_INT64_AS_STRING; }
-  inline static void Write(dbus::MessageWriter* writer, int64_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, int64_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, int64_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, int64_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // uint64_t -------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         uint64_t value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        uint64_t* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       uint64_t value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      uint64_t* value);
 
 template<>
 struct DBusType<uint64_t> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_UINT64_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, uint64_t value) {
+  inline static void Write(::dbus::MessageWriter* writer, uint64_t value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, uint64_t* value) {
+  inline static bool Read(::dbus::MessageReader* reader, uint64_t* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // double ---------------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         double value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        double* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       double value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      double* value);
 
 template<>
 struct DBusType<double> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_DOUBLE_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, double value) {
+  inline static void Write(::dbus::MessageWriter* writer, double value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, double* value) {
+  inline static bool Read(::dbus::MessageReader* reader, double* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // std::string ----------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         const std::string& value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        std::string* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       const std::string& value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      std::string* value);
 
 template<>
 struct DBusType<std::string> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_STRING_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const std::string& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, std::string* value) {
+  inline static bool Read(::dbus::MessageReader* reader, std::string* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // const char*
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         const char* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       const char* value);
 
 template<>
 struct DBusType<const char*> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_STRING_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, const char* value) {
+  inline static void Write(::dbus::MessageWriter* writer, const char* value) {
     AppendValueToWriter(writer, value);
   }
 };
@@ -389,44 +389,44 @@ struct DBusType<const char[]> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_STRING_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer, const char* value) {
+  inline static void Write(::dbus::MessageWriter* writer, const char* value) {
     AppendValueToWriter(writer, value);
   }
 };
 
 // dbus::ObjectPath -----------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         const dbus::ObjectPath& value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        dbus::ObjectPath* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       const ::dbus::ObjectPath& value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      ::dbus::ObjectPath* value);
 
-template<>
-struct DBusType<dbus::ObjectPath> {
+template <>
+struct DBusType<::dbus::ObjectPath> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_OBJECT_PATH_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer,
-                           const dbus::ObjectPath& value) {
+  inline static void Write(::dbus::MessageWriter* writer,
+                           const ::dbus::ObjectPath& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader,
-                          dbus::ObjectPath* value) {
+  inline static bool Read(::dbus::MessageReader* reader,
+                          ::dbus::ObjectPath* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // brillo::dbus_utils::FileDescriptor/base::ScopedFD --------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         const FileDescriptor& value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        base::ScopedFD* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       const FileDescriptor& value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      base::ScopedFD* value);
 
 template<>
 struct DBusType<FileDescriptor> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_UNIX_FD_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const FileDescriptor& value) {
     AppendValueToWriter(writer, value);
   }
@@ -437,38 +437,37 @@ struct DBusType<base::ScopedFD> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_UNIX_FD_AS_STRING;
   }
-  inline static bool Read(dbus::MessageReader* reader,
+  inline static bool Read(::dbus::MessageReader* reader,
                           base::ScopedFD* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // brillo::Any --------------------------------------------------------------
-BRILLO_EXPORT void AppendValueToWriter(dbus::MessageWriter* writer,
-                                         const brillo::Any& value);
-BRILLO_EXPORT bool PopValueFromReader(dbus::MessageReader* reader,
-                                        brillo::Any* value);
+BRILLO_EXPORT void AppendValueToWriter(::dbus::MessageWriter* writer,
+                                       const brillo::Any& value);
+BRILLO_EXPORT bool PopValueFromReader(::dbus::MessageReader* reader,
+                                      brillo::Any* value);
 
 template<>
 struct DBusType<brillo::Any> {
   inline static std::string GetSignature() {
     return DBUS_TYPE_VARIANT_AS_STRING;
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const brillo::Any& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, brillo::Any* value) {
+  inline static bool Read(::dbus::MessageReader* reader, brillo::Any* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 // std::vector = D-Bus ARRAY. -------------------------------------------------
-template<typename T, typename ALLOC>
+template <typename T, typename ALLOC>
 typename std::enable_if<IsTypeSupported<T>::value>::type AppendValueToWriter(
-    dbus::MessageWriter* writer,
-    const std::vector<T, ALLOC>& value) {
-  dbus::MessageWriter array_writer(nullptr);
+    ::dbus::MessageWriter* writer, const std::vector<T, ALLOC>& value) {
+  ::dbus::MessageWriter array_writer(nullptr);
   writer->OpenArray(GetDBusSignature<T>(), &array_writer);
   for (const auto& element : value) {
     // Use DBusType<T>::Write() instead of AppendValueToWriter() to delay
@@ -479,11 +478,12 @@ typename std::enable_if<IsTypeSupported<T>::value>::type AppendValueToWriter(
   writer->CloseContainer(&array_writer);
 }
 
-template<typename T, typename ALLOC>
+template <typename T, typename ALLOC>
 typename std::enable_if<IsTypeSupported<T>::value, bool>::type
-PopValueFromReader(dbus::MessageReader* reader, std::vector<T, ALLOC>* value) {
-  dbus::MessageReader variant_reader(nullptr);
-  dbus::MessageReader array_reader(nullptr);
+PopValueFromReader(::dbus::MessageReader* reader,
+                   std::vector<T, ALLOC>* value) {
+  ::dbus::MessageReader variant_reader(nullptr);
+  ::dbus::MessageReader array_reader(nullptr);
   if (!details::DescendIntoVariantIfPresent(&reader, &variant_reader) ||
       !reader->PopArray(&array_reader))
     return false;
@@ -510,11 +510,11 @@ struct DBusArrayType {
   inline static std::string GetSignature() {
     return GetArrayDBusSignature(GetDBusSignature<T>());
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const std::vector<T, ALLOC>& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader,
+  inline static bool Read(::dbus::MessageReader* reader,
                           std::vector<T, ALLOC>* value) {
     return PopValueFromReader(reader, value);
   }
@@ -562,11 +562,10 @@ inline std::string GetStructDBusSignature() {
          DBUS_STRUCT_END_CHAR_AS_STRING;
 }
 
-template<typename U, typename V>
+template <typename U, typename V>
 typename std::enable_if<IsTypeSupported<U, V>::value>::type AppendValueToWriter(
-    dbus::MessageWriter* writer,
-    const std::pair<U, V>& value) {
-  dbus::MessageWriter struct_writer(nullptr);
+    ::dbus::MessageWriter* writer, const std::pair<U, V>& value) {
+  ::dbus::MessageWriter struct_writer(nullptr);
   writer->OpenStruct(&struct_writer);
   // Use DBusType<T>::Write() instead of AppendValueToWriter() to delay
   // binding to AppendValueToWriter() to the point of instantiation of this
@@ -576,11 +575,11 @@ typename std::enable_if<IsTypeSupported<U, V>::value>::type AppendValueToWriter(
   writer->CloseContainer(&struct_writer);
 }
 
-template<typename U, typename V>
+template <typename U, typename V>
 typename std::enable_if<IsTypeSupported<U, V>::value, bool>::type
-PopValueFromReader(dbus::MessageReader* reader, std::pair<U, V>* value) {
-  dbus::MessageReader variant_reader(nullptr);
-  dbus::MessageReader struct_reader(nullptr);
+PopValueFromReader(::dbus::MessageReader* reader, std::pair<U, V>* value) {
+  ::dbus::MessageReader variant_reader(nullptr);
+  ::dbus::MessageReader struct_reader(nullptr);
   if (!details::DescendIntoVariantIfPresent(&reader, &variant_reader) ||
       !reader->PopStruct(&struct_reader))
     return false;
@@ -602,11 +601,12 @@ struct DBusPairType {
   inline static std::string GetSignature() {
     return GetStructDBusSignature<U, V>();
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const std::pair<U, V>& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, std::pair<U, V>* value) {
+  inline static bool Read(::dbus::MessageReader* reader,
+                          std::pair<U, V>* value) {
     return PopValueFromReader(reader, value);
   }
 };
@@ -636,7 +636,7 @@ struct TupleIterator {
   using ValueType = typename std::tuple_element<I, Tuple>::type;
 
   // Write the tuple element at index I to D-Bus message.
-  static void Write(dbus::MessageWriter* writer, const Tuple& value) {
+  static void Write(::dbus::MessageWriter* writer, const Tuple& value) {
     // Use DBusType<T>::Write() instead of AppendValueToWriter() to delay
     // binding to AppendValueToWriter() to the point of instantiation of this
     // template.
@@ -645,7 +645,7 @@ struct TupleIterator {
   }
 
   // Read the tuple element at index I from D-Bus message.
-  static bool Read(dbus::MessageReader* reader, Tuple* value) {
+  static bool Read(::dbus::MessageReader* reader, Tuple* value) {
     // Use DBusType<T>::Read() instead of PopValueFromReader() to delay
     // binding to PopValueFromReader() to the point of instantiation of this
     // template.
@@ -658,29 +658,29 @@ struct TupleIterator {
 template<size_t N, typename... T>
 struct TupleIterator<N, N, T...> {
   using Tuple = std::tuple<T...>;
-  static void Write(dbus::MessageWriter* /* writer */,
+  static void Write(::dbus::MessageWriter* /* writer */,
                     const Tuple& /* value */) {}
-  static bool Read(dbus::MessageReader* /* reader */,
-                   Tuple* /* value */) { return true; }
+  static bool Read(::dbus::MessageReader* /* reader */, Tuple* /* value */) {
+    return true;
+  }
 };
 
 }  // namespace details
 
-template<typename... T>
+template <typename... T>
 typename std::enable_if<IsTypeSupported<T...>::value>::type AppendValueToWriter(
-    dbus::MessageWriter* writer,
-    const std::tuple<T...>& value) {
-  dbus::MessageWriter struct_writer(nullptr);
+    ::dbus::MessageWriter* writer, const std::tuple<T...>& value) {
+  ::dbus::MessageWriter struct_writer(nullptr);
   writer->OpenStruct(&struct_writer);
   details::TupleIterator<0, sizeof...(T), T...>::Write(&struct_writer, value);
   writer->CloseContainer(&struct_writer);
 }
 
-template<typename... T>
+template <typename... T>
 typename std::enable_if<IsTypeSupported<T...>::value, bool>::type
-PopValueFromReader(dbus::MessageReader* reader, std::tuple<T...>* value) {
-  dbus::MessageReader variant_reader(nullptr);
-  dbus::MessageReader struct_reader(nullptr);
+PopValueFromReader(::dbus::MessageReader* reader, std::tuple<T...>* value) {
+  ::dbus::MessageReader variant_reader(nullptr);
+  ::dbus::MessageReader struct_reader(nullptr);
   if (!details::DescendIntoVariantIfPresent(&reader, &variant_reader) ||
       !reader->PopStruct(&struct_reader))
     return false;
@@ -699,11 +699,11 @@ struct DBusTupleType {
   inline static std::string GetSignature() {
     return GetStructDBusSignature<T...>();
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const std::tuple<T...>& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader,
+  inline static bool Read(::dbus::MessageReader* reader,
                           std::tuple<T...>* value) {
     return PopValueFromReader(reader, value);
   }
@@ -720,14 +720,14 @@ struct DBusType<std::tuple<T...>>
     : public details::DBusTupleType<IsTypeSupported<T...>::value, T...> {};
 
 // std::map = D-Bus ARRAY of DICT_ENTRY. --------------------------------------
-template<typename KEY, typename VALUE, typename PRED, typename ALLOC>
+template <typename KEY, typename VALUE, typename PRED, typename ALLOC>
 typename std::enable_if<IsTypeSupported<KEY, VALUE>::value>::type
-AppendValueToWriter(dbus::MessageWriter* writer,
+AppendValueToWriter(::dbus::MessageWriter* writer,
                     const std::map<KEY, VALUE, PRED, ALLOC>& value) {
-  dbus::MessageWriter dict_writer(nullptr);
+  ::dbus::MessageWriter dict_writer(nullptr);
   writer->OpenArray(details::GetDBusDictEntryType<KEY, VALUE>(), &dict_writer);
   for (const auto& pair : value) {
-    dbus::MessageWriter entry_writer(nullptr);
+    ::dbus::MessageWriter entry_writer(nullptr);
     dict_writer.OpenDictEntry(&entry_writer);
     // Use DBusType<T>::Write() instead of AppendValueToWriter() to delay
     // binding to AppendValueToWriter() to the point of instantiation of this
@@ -739,18 +739,18 @@ AppendValueToWriter(dbus::MessageWriter* writer,
   writer->CloseContainer(&dict_writer);
 }
 
-template<typename KEY, typename VALUE, typename PRED, typename ALLOC>
+template <typename KEY, typename VALUE, typename PRED, typename ALLOC>
 typename std::enable_if<IsTypeSupported<KEY, VALUE>::value, bool>::type
-PopValueFromReader(dbus::MessageReader* reader,
+PopValueFromReader(::dbus::MessageReader* reader,
                    std::map<KEY, VALUE, PRED, ALLOC>* value) {
-  dbus::MessageReader variant_reader(nullptr);
-  dbus::MessageReader array_reader(nullptr);
+  ::dbus::MessageReader variant_reader(nullptr);
+  ::dbus::MessageReader array_reader(nullptr);
   if (!details::DescendIntoVariantIfPresent(&reader, &variant_reader) ||
       !reader->PopArray(&array_reader))
     return false;
   value->clear();
   while (array_reader.HasMoreData()) {
-    dbus::MessageReader dict_entry_reader(nullptr);
+    ::dbus::MessageReader dict_entry_reader(nullptr);
     if (!array_reader.PopDictEntry(&dict_entry_reader))
       return false;
     KEY key;
@@ -782,11 +782,11 @@ struct DBusMapType {
   inline static std::string GetSignature() {
     return GetArrayDBusSignature(GetDBusDictEntryType<KEY, VALUE>());
   }
-  inline static void Write(dbus::MessageWriter* writer,
+  inline static void Write(::dbus::MessageWriter* writer,
                            const std::map<KEY, VALUE, PRED, ALLOC>& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader,
+  inline static bool Read(::dbus::MessageReader* reader,
                           std::map<KEY, VALUE, PRED, ALLOC>* value) {
     return PopValueFromReader(reader, value);
   }
@@ -807,12 +807,12 @@ struct DBusType<std::map<KEY, VALUE, PRED, ALLOC>>
                                   ALLOC> {};
 
 // google::protobuf::MessageLite = D-Bus ARRAY of BYTE ------------------------
-inline void AppendValueToWriter(dbus::MessageWriter* writer,
+inline void AppendValueToWriter(::dbus::MessageWriter* writer,
                                 const google::protobuf::MessageLite& value) {
   writer->AppendProtoAsArrayOfBytes(value);
 }
 
-inline bool PopValueFromReader(dbus::MessageReader* reader,
+inline bool PopValueFromReader(::dbus::MessageReader* reader,
                                google::protobuf::MessageLite* value) {
   return reader->PopArrayOfBytesAsProto(value);
 }
@@ -835,23 +835,23 @@ struct DBusType<T, typename std::enable_if<is_protobuf<T>::value>::type> {
   inline static std::string GetSignature() {
     return GetDBusSignature<std::vector<uint8_t>>();
   }
-  inline static void Write(dbus::MessageWriter* writer, const T& value) {
+  inline static void Write(::dbus::MessageWriter* writer, const T& value) {
     AppendValueToWriter(writer, value);
   }
-  inline static bool Read(dbus::MessageReader* reader, T* value) {
+  inline static bool Read(::dbus::MessageReader* reader, T* value) {
     return PopValueFromReader(reader, value);
   }
 };
 
 //----------------------------------------------------------------------------
-// AppendValueToWriterAsVariant<T>(dbus::MessageWriter* writer, const T& value)
-// Write the |value| of type T to D-Bus message as a VARIANT.
-// This overload is provided only if T is supported by D-Bus.
-template<typename T>
+// AppendValueToWriterAsVariant<T>(::dbus::MessageWriter* writer, const T&
+// value) Write the |value| of type T to D-Bus message as a VARIANT. This
+// overload is provided only if T is supported by D-Bus.
+template <typename T>
 typename std::enable_if<IsTypeSupported<T>::value>::type
-AppendValueToWriterAsVariant(dbus::MessageWriter* writer, const T& value) {
+AppendValueToWriterAsVariant(::dbus::MessageWriter* writer, const T& value) {
   std::string data_type = GetDBusSignature<T>();
-  dbus::MessageWriter variant_writer(nullptr);
+  ::dbus::MessageWriter variant_writer(nullptr);
   writer->OpenVariant(data_type, &variant_writer);
   // Use DBusType<T>::Write() instead of AppendValueToWriter() to delay
   // binding to AppendValueToWriter() to the point of instantiation of this
@@ -862,13 +862,13 @@ AppendValueToWriterAsVariant(dbus::MessageWriter* writer, const T& value) {
 
 // Special case: do not allow to write a Variant containing a Variant.
 // Just redirect to normal AppendValueToWriter().
-inline void AppendValueToWriterAsVariant(dbus::MessageWriter* writer,
+inline void AppendValueToWriterAsVariant(::dbus::MessageWriter* writer,
                                          const brillo::Any& value) {
   return AppendValueToWriter(writer, value);
 }
 
 //----------------------------------------------------------------------------
-// PopVariantValueFromReader<T>(dbus::MessageWriter* writer, T* value)
+// PopVariantValueFromReader<T>(::dbus::MessageWriter* writer, T* value)
 // Reads a Variant containing the |value| of type T from D-Bus message.
 // Note that the generic PopValueFromReader<T>(...) can do this too.
 // This method is provided for two reasons:
@@ -876,10 +876,10 @@ inline void AppendValueToWriterAsVariant(dbus::MessageWriter* writer,
 //   2. To be used when it is important to assert that the data was sent
 //      specifically as a Variant.
 // This overload is provided only if T is supported by D-Bus.
-template<typename T>
+template <typename T>
 typename std::enable_if<IsTypeSupported<T>::value, bool>::type
-PopVariantValueFromReader(dbus::MessageReader* reader, T* value) {
-  dbus::MessageReader variant_reader(nullptr);
+PopVariantValueFromReader(::dbus::MessageReader* reader, T* value) {
+  ::dbus::MessageReader variant_reader(nullptr);
   if (!reader->PopVariant(&variant_reader))
     return false;
   // Use DBusType<T>::Read() instead of PopValueFromReader() to delay
@@ -889,7 +889,8 @@ PopVariantValueFromReader(dbus::MessageReader* reader, T* value) {
 }
 
 // Special handling of request to read a Variant of Variant.
-inline bool PopVariantValueFromReader(dbus::MessageReader* reader, Any* value) {
+inline bool PopVariantValueFromReader(::dbus::MessageReader* reader,
+                                      Any* value) {
   return PopValueFromReader(reader, value);
 }
 

@@ -30,6 +30,8 @@ import logging
 import os
 import subprocess
 
+GO_PATH = '/root/go/src/'
+
 
 def main():
   """Function to get a git repo's url and name referenced by OSS-Fuzz
@@ -55,7 +57,7 @@ def main():
   else:
     src_dir = os.environ.get('SRC', '/src')
 
-  for single_dir in os.listdir(src_dir):
+  for single_dir in get_dirs_to_search(src_dir, args.repo_name):
     full_path = os.path.join(src_dir, single_dir)
     if not os.path.isdir(full_path):
       continue
@@ -67,6 +69,25 @@ def main():
       return
   logging.error('No git repos with specific commit: %s found in %s',
                 args.example_commit, src_dir)
+
+
+def get_dirs_to_search(src_dir, repo_name):
+  """Gets a list of directories to search for the main git repo.
+
+  Args:
+    src_dir: The location set for the projects SRC.
+    repo_name: The name of the repo you are searching for.
+
+  Returns:
+    A list of directorys to search.
+  """
+  dirs_to_search = os.listdir(src_dir)
+  if os.path.exists(GO_PATH) and repo_name:
+    for root, dirs, _ in os.walk(GO_PATH):
+      for test_dir in dirs:
+        if repo_name in test_dir:
+          dirs_to_search.append(os.path.join(root, test_dir))
+  return dirs_to_search
 
 
 def get_repo(repo_path):
@@ -86,20 +107,25 @@ def get_repo(repo_path):
   return None
 
 
-def check_for_repo_name(repo_path, repo_name):
-  """Check to see if the repo_name matches the remote repository repo name.
+def check_for_repo_name(repo_path, expected_repo_name):
+  """Returns True if the repo at |repo_path| repo_name matches
+  |expected_repo_name|.
 
   Args:
-    repo_path: The directory of the git repo.
-    repo_name: The name of the target git repo.
+    repo_path: The directory of a git repo.
+    expected_repo_name: The name of the target git repo.
   """
   if not os.path.exists(os.path.join(repo_path, '.git')):
     return False
 
-  out, _ = execute(['git', 'config', '--get', 'remote.origin.url'],
-                   location=repo_path)
-  out = out.split('/')[-1].replace('.git', '').rstrip()
-  return out == repo_name
+  repo_url, _ = execute(['git', 'config', '--get', 'remote.origin.url'],
+                        location=repo_path)
+  # Handle two common cases:
+  # https://github.com/google/syzkaller/
+  # https://github.com/google/syzkaller.git
+  repo_url = repo_url.replace('.git', '').rstrip().rstrip('/')
+  actual_repo_name = repo_url.split('/')[-1]
+  return actual_repo_name == expected_repo_name
 
 
 def check_for_commit(repo_path, commit):

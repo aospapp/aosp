@@ -149,8 +149,6 @@ public class VariableInitializerParser {
             case START:
             case TYPE:
               break OUTER;
-            default:
-              break;
           }
           save();
           next();
@@ -162,8 +160,6 @@ public class VariableInitializerParser {
             case START:
             case TYPE:
               commas.add(tokens.size());
-              break;
-            default:
               break;
           }
           break;
@@ -209,14 +205,14 @@ public class VariableInitializerParser {
       result.add(
           ImmutableList.<SavedToken>builder()
               .addAll(tokens.subList(start, idx - 1))
-              .add(new SavedToken(Token.EOF, null, -1))
+              .add(new SavedToken(Token.EOF, null, tokens.get(idx - 1).position))
               .build());
       start = idx;
     }
     result.add(
         ImmutableList.<SavedToken>builder()
             .addAll(tokens.subList(start, tokens.size()))
-            .add(new SavedToken(Token.EOF, null, -1))
+            .add(new SavedToken(Token.EOF, null, lexer.position()))
             .build());
     return result;
   }
@@ -284,6 +280,9 @@ public class VariableInitializerParser {
     int lastType = -1;
     int lastComma = -1;
     for (int i = 0; i < many; i++) {
+      if (ltIndices.isEmpty()) {
+        throw error(ErrorKind.UNEXPECTED_TOKEN, ">");
+      }
       lastType = ltIndices.removeLast();
       lastComma = commaIndices.removeLast();
     }

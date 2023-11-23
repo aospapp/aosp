@@ -20,6 +20,8 @@ import libcore.util.NativeAllocationRegistry;
 
 /**
  * Provide an entry point to use ICU4C icu::RegexPattern.
+ *
+ * @hide
  */
 @libcore.api.IntraCoreApi
 public class PatternNative {
@@ -30,6 +32,18 @@ public class PatternNative {
     @dalvik.annotation.optimization.ReachabilitySensitive
     private final long address;
 
+    /**
+     * Create an {@link PatternNative} with a regular expression string.
+     *
+     * @param pattern the regular expression to be compiled
+     * @param flags a bit set of {@link java.util.regex.Pattern#UNIX_LINES},
+     *              {@link java.util.regex.Pattern#CASE_INSENSITIVE},
+     *              {@link java.util.regex.Pattern#COMMENTS},
+     *              {@link java.util.regex.Pattern#MULTILINE} and
+     *              {@link java.util.regex.Pattern#DOTALL}.
+     *
+     * @hide
+     */
     @libcore.api.IntraCoreApi
     public static PatternNative create(String pattern, int flags) {
         return new PatternNative(pattern, flags);

@@ -16,6 +16,7 @@
 
 package dagger.functional.subcomponent.hiding;
 
+
 import dagger.Subcomponent;
 
 @Subcomponent(modules = dagger.functional.subcomponent.hiding.b.CommonModuleName.class)

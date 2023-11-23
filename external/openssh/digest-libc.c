@@ -1,4 +1,4 @@
-/* $OpenBSD: digest-libc.c,v 1.5 2015/05/05 02:48:17 jsg Exp $ */
+/* $OpenBSD: digest-libc.c,v 1.7 2020/02/26 13:40:09 jsg Exp $ */
 /*
  * Copyright (c) 2013 Damien Miller <djm@mindrot.org>
  * Copyright (c) 2014 Markus Friedl.  All rights reserved.
@@ -28,7 +28,11 @@
 #if 0
 #include <md5.h>
 #include <rmd160.h>
+#endif
+#ifdef HAVE_SHA1_H
 #include <sha1.h>
+#endif
+#ifdef HAVE_SHA2_H
 #include <sha2.h>
 #endif
 
@@ -69,16 +73,6 @@ const struct ssh_digest digests[SSH_DIGEST_MAX] = {
 		(md_final_fn *) MD5Final
 	},
 	{
-		SSH_DIGEST_RIPEMD160,
-		"RIPEMD160",
-		RMD160_BLOCK_LENGTH,
-		RMD160_DIGEST_LENGTH,
-		sizeof(RMD160_CTX),
-		(md_init_fn *) RMD160Init,
-		(md_update_fn *) RMD160Update,
-		(md_final_fn *) RMD160Final
-	},
-	{
 		SSH_DIGEST_SHA1,
 		"SHA1",
 		SHA1_BLOCK_LENGTH,
@@ -93,30 +87,30 @@ const struct ssh_digest digests[SSH_DIGEST_MAX] = {
 		"SHA256",
 		SHA256_BLOCK_LENGTH,
 		SHA256_DIGEST_LENGTH,
-		sizeof(SHA256_CTX),
-		(md_init_fn *) SHA256_Init,
-		(md_update_fn *) SHA256_Update,
-		(md_final_fn *) SHA256_Final
+		sizeof(SHA2_CTX),
+		(md_init_fn *) SHA256Init,
+		(md_update_fn *) SHA256Update,
+		(md_final_fn *) SHA256Final
 	},
 	{
 		SSH_DIGEST_SHA384,
 		"SHA384",
 		SHA384_BLOCK_LENGTH,
 		SHA384_DIGEST_LENGTH,
-		sizeof(SHA384_CTX),
-		(md_init_fn *) SHA384_Init,
-		(md_update_fn *) SHA384_Update,
-		(md_final_fn *) SHA384_Final
+		sizeof(SHA2_CTX),
+		(md_init_fn *) SHA384Init,
+		(md_update_fn *) SHA384Update,
+		(md_final_fn *) SHA384Final
 	},
 	{
 		SSH_DIGEST_SHA512,
 		"SHA512",
 		SHA512_BLOCK_LENGTH,
 		SHA512_DIGEST_LENGTH,
-		sizeof(SHA512_CTX),
-		(md_init_fn *) SHA512_Init,
-		(md_update_fn *) SHA512_Update,
-		(md_final_fn *) SHA512_Final
+		sizeof(SHA2_CTX),
+		(md_init_fn *) SHA512Init,
+		(md_update_fn *) SHA512Update,
+		(md_final_fn *) SHA512Final
 	}
 };
 
@@ -236,8 +230,7 @@ ssh_digest_free(struct ssh_digest_ctx *ctx)
 		if (digest) {
 			explicit_bzero(ctx->mdctx, digest->ctx_len);
 			free(ctx->mdctx);
-			explicit_bzero(ctx, sizeof(*ctx));
-			free(ctx);
+			freezero(ctx, sizeof(*ctx));
 		}
 	}
 }

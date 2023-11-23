@@ -46,7 +46,7 @@ class ServiceDescriptor;
 
 class ClientImpl : public Client, public base::UnixSocket::EventListener {
  public:
-  ClientImpl(const char* socket_name, base::TaskRunner*);
+  ClientImpl(ConnArgs, base::TaskRunner*);
   ~ClientImpl() override;
 
   // Client implementation.
@@ -67,6 +67,8 @@ class ClientImpl : public Client, public base::UnixSocket::EventListener {
                         base::WeakPtr<ServiceProxy>,
                         int fd = -1);
 
+  base::UnixSocket* GetUnixSocketForTesting() { return sock_.get(); }
+
  private:
   struct QueuedRequest {
     QueuedRequest();
@@ -81,6 +83,7 @@ class ClientImpl : public Client, public base::UnixSocket::EventListener {
   ClientImpl(const ClientImpl&) = delete;
   ClientImpl& operator=(const ClientImpl&) = delete;
 
+  void TryConnect();
   bool SendFrame(const Frame&, int fd = -1);
   void OnFrameReceived(const Frame&);
   void OnBindServiceReply(QueuedRequest,
@@ -89,6 +92,9 @@ class ClientImpl : public Client, public base::UnixSocket::EventListener {
                            const protos::gen::IPCFrame_InvokeMethodReply&);
 
   bool invoking_method_reply_ = false;
+  const char* socket_name_ = nullptr;
+  bool socket_retry_ = false;
+  uint32_t socket_backoff_ms_ = 0;
   std::unique_ptr<base::UnixSocket> sock_;
   base::TaskRunner* const task_runner_;
   RequestID last_request_id_ = 0;

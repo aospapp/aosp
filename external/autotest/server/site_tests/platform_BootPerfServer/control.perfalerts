@@ -28,11 +28,9 @@ from autotest_lib.client.common_lib import utils
 dict_args = utils.args_to_dict(args)
 iterations = int(dict_args.get('iterations', 100))
 
-
 def run_bootperf(machine):
     host = hosts.create_host(machine)
     job.run_test('platform_BootPerfServer', host=host,
-                 iterations=iterations, upload_perf=True)
-
+                 iterations=iterations, upload_perf=True, cmdline_args=args)
 
 parallel_simple(run_bootperf, machines)

@@ -3,6 +3,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import errno
 import logging
@@ -13,6 +17,7 @@ import sys
 import common   # pylint: disable=unused-import
 
 from autotest_lib.client.common_lib import utils
+from six.moves import range
 
 
 class ImageGeneratorError(Exception):
@@ -80,8 +85,8 @@ class ImageGenerator(object):
         min_value = 255
         max_value = 0
         # scan the middle vertical line
-        x = w / 2
-        for i in range(0, h/2):
+        x = w // 2
+        for i in range(0, h // 2):
             v = image.getpixel((x, i))[0]
             if v < min_value:
                 min_value = v

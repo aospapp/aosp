@@ -3,7 +3,7 @@
  * Copyright © 2016 Bas Nieuwenhuizen
  *
  * Based on u_format.h which is:
- * Copyright 2009-2010 Vmware, Inc.
+ * Copyright 2009-2010 VMware, Inc.
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
@@ -280,22 +280,22 @@ radv_swizzle_conv(VkComponentSwizzle component, const unsigned char chan[4], VkC
 	case VK_COMPONENT_SWIZZLE_R:
 		for (x = 0; x < 4; x++)
 			if (chan[x] == 0)
-				return x;
+				return (enum vk_swizzle)x;
 		return VK_SWIZZLE_0;
 	case VK_COMPONENT_SWIZZLE_G:
 		for (x = 0; x < 4; x++)
 			if (chan[x] == 1)
-				return x;
+				return (enum vk_swizzle)x;
 		return VK_SWIZZLE_0;
 	case VK_COMPONENT_SWIZZLE_B:
 		for (x = 0; x < 4; x++)
 			if (chan[x] == 2)
-				return x;
+				return (enum vk_swizzle)x;
 		return VK_SWIZZLE_0;
 	case VK_COMPONENT_SWIZZLE_A:
 		for (x = 0; x < 4; x++)
 			if (chan[x] == 3)
-				return x;
+				return (enum vk_swizzle)x;
 		return VK_SWIZZLE_1;
 	default:
 		unreachable("Illegal swizzle");

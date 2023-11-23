@@ -29,6 +29,11 @@ angle::Result ContextImpl::onUnMakeCurrent(const gl::Context *context)
     return angle::Result::Continue;
 }
 
+angle::Result ContextImpl::handleNoopDrawEvent()
+{
+    return angle::Result::Continue;
+}
+
 void ContextImpl::setMemoryProgramCache(gl::MemoryProgramCache *memoryProgramCache)
 {
     mMemoryProgramCache = memoryProgramCache;
@@ -48,6 +53,16 @@ void ContextImpl::handleError(GLenum errorCode,
 egl::ContextPriority ContextImpl::getContextPriority() const
 {
     return egl::ContextPriority::Medium;
+}
+
+egl::Error ContextImpl::releaseHighPowerGPU(gl::Context *)
+{
+    return egl::NoError();
+}
+
+egl::Error ContextImpl::reacquireHighPowerGPU(gl::Context *)
+{
+    return egl::NoError();
 }
 
 }  // namespace rx

@@ -17,7 +17,8 @@
 package org.chromium.latency.walt;
 
 import android.content.Context;
-import android.support.v4.content.AsyncTaskLoader;
+
+import androidx.loader.content.AsyncTaskLoader;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;

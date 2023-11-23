@@ -1,5 +1,5 @@
-# Default code reviewers picked from top 3 or more developers.
-# Please update this list if you find better candidates.
+# owners for external/libvpx
+include platform/frameworks/av:/media/janitors/codec_OWNERS
 jianj@google.com
 marcone@google.com
 jzern@google.com

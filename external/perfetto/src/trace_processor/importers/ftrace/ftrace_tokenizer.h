@@ -18,22 +18,26 @@
 #define SRC_TRACE_PROCESSOR_IMPORTERS_FTRACE_FTRACE_TOKENIZER_H_
 
 #include "protos/perfetto/trace/ftrace/ftrace_event_bundle.pbzero.h"
+#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/storage/trace_storage.h"
-#include "src/trace_processor/trace_blob_view.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 
 namespace perfetto {
 namespace trace_processor {
+
+class PacketSequenceState;
 
 class FtraceTokenizer {
  public:
   explicit FtraceTokenizer(TraceProcessorContext* context)
       : context_(context) {}
 
-  void TokenizeFtraceBundle(TraceBlobView bundle);
+  void TokenizeFtraceBundle(TraceBlobView bundle, PacketSequenceState*);
 
  private:
-  void TokenizeFtraceEvent(uint32_t cpu, TraceBlobView event);
+  void TokenizeFtraceEvent(uint32_t cpu,
+                           TraceBlobView event,
+                           PacketSequenceState*);
   void TokenizeFtraceCompactSched(uint32_t cpu,
                                   const uint8_t* data,
                                   size_t size);

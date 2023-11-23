@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,36 +10,17 @@
 
 #include <mce.h>
 #include <memctrl_v2.h>
+#include <tegra186_private.h>
 #include <tegra_mc_def.h>
 #include <tegra_platform.h>
+#include <tegra_private.h>
+
+extern uint64_t tegra_bl31_phys_base;
 
 /*******************************************************************************
  * Array to hold stream_id override config register offsets
  ******************************************************************************/
 const static uint32_t tegra186_streamid_override_regs[] = {
-	MC_STREAMID_OVERRIDE_CFG_PTCR,
-	MC_STREAMID_OVERRIDE_CFG_AFIR,
-	MC_STREAMID_OVERRIDE_CFG_HDAR,
-	MC_STREAMID_OVERRIDE_CFG_HOST1XDMAR,
-	MC_STREAMID_OVERRIDE_CFG_NVENCSRD,
-	MC_STREAMID_OVERRIDE_CFG_SATAR,
-	MC_STREAMID_OVERRIDE_CFG_MPCORER,
-	MC_STREAMID_OVERRIDE_CFG_NVENCSWR,
-	MC_STREAMID_OVERRIDE_CFG_AFIW,
-	MC_STREAMID_OVERRIDE_CFG_HDAW,
-	MC_STREAMID_OVERRIDE_CFG_MPCOREW,
-	MC_STREAMID_OVERRIDE_CFG_SATAW,
-	MC_STREAMID_OVERRIDE_CFG_ISPRA,
-	MC_STREAMID_OVERRIDE_CFG_ISPWA,
-	MC_STREAMID_OVERRIDE_CFG_ISPWB,
-	MC_STREAMID_OVERRIDE_CFG_XUSB_HOSTR,
-	MC_STREAMID_OVERRIDE_CFG_XUSB_HOSTW,
-	MC_STREAMID_OVERRIDE_CFG_XUSB_DEVR,
-	MC_STREAMID_OVERRIDE_CFG_XUSB_DEVW,
-	MC_STREAMID_OVERRIDE_CFG_TSECSRD,
-	MC_STREAMID_OVERRIDE_CFG_TSECSWR,
-	MC_STREAMID_OVERRIDE_CFG_GPUSRD,
-	MC_STREAMID_OVERRIDE_CFG_GPUSWR,
 	MC_STREAMID_OVERRIDE_CFG_SDMMCRA,
 	MC_STREAMID_OVERRIDE_CFG_SDMMCRAA,
 	MC_STREAMID_OVERRIDE_CFG_SDMMCR,
@@ -47,47 +29,6 @@ const static uint32_t tegra186_streamid_override_regs[] = {
 	MC_STREAMID_OVERRIDE_CFG_SDMMCWAA,
 	MC_STREAMID_OVERRIDE_CFG_SDMMCW,
 	MC_STREAMID_OVERRIDE_CFG_SDMMCWAB,
-	MC_STREAMID_OVERRIDE_CFG_VICSRD,
-	MC_STREAMID_OVERRIDE_CFG_VICSWR,
-	MC_STREAMID_OVERRIDE_CFG_VIW,
-	MC_STREAMID_OVERRIDE_CFG_NVDECSRD,
-	MC_STREAMID_OVERRIDE_CFG_NVDECSWR,
-	MC_STREAMID_OVERRIDE_CFG_APER,
-	MC_STREAMID_OVERRIDE_CFG_APEW,
-	MC_STREAMID_OVERRIDE_CFG_NVJPGSRD,
-	MC_STREAMID_OVERRIDE_CFG_NVJPGSWR,
-	MC_STREAMID_OVERRIDE_CFG_SESRD,
-	MC_STREAMID_OVERRIDE_CFG_SESWR,
-	MC_STREAMID_OVERRIDE_CFG_ETRR,
-	MC_STREAMID_OVERRIDE_CFG_ETRW,
-	MC_STREAMID_OVERRIDE_CFG_TSECSRDB,
-	MC_STREAMID_OVERRIDE_CFG_TSECSWRB,
-	MC_STREAMID_OVERRIDE_CFG_GPUSRD2,
-	MC_STREAMID_OVERRIDE_CFG_GPUSWR2,
-	MC_STREAMID_OVERRIDE_CFG_AXISR,
-	MC_STREAMID_OVERRIDE_CFG_AXISW,
-	MC_STREAMID_OVERRIDE_CFG_EQOSR,
-	MC_STREAMID_OVERRIDE_CFG_EQOSW,
-	MC_STREAMID_OVERRIDE_CFG_UFSHCR,
-	MC_STREAMID_OVERRIDE_CFG_UFSHCW,
-	MC_STREAMID_OVERRIDE_CFG_NVDISPLAYR,
-	MC_STREAMID_OVERRIDE_CFG_BPMPR,
-	MC_STREAMID_OVERRIDE_CFG_BPMPW,
-	MC_STREAMID_OVERRIDE_CFG_BPMPDMAR,
-	MC_STREAMID_OVERRIDE_CFG_BPMPDMAW,
-	MC_STREAMID_OVERRIDE_CFG_AONR,
-	MC_STREAMID_OVERRIDE_CFG_AONW,
-	MC_STREAMID_OVERRIDE_CFG_AONDMAR,
-	MC_STREAMID_OVERRIDE_CFG_AONDMAW,
-	MC_STREAMID_OVERRIDE_CFG_SCER,
-	MC_STREAMID_OVERRIDE_CFG_SCEW,
-	MC_STREAMID_OVERRIDE_CFG_SCEDMAR,
-	MC_STREAMID_OVERRIDE_CFG_SCEDMAW,
-	MC_STREAMID_OVERRIDE_CFG_APEDMAR,
-	MC_STREAMID_OVERRIDE_CFG_APEDMAW,
-	MC_STREAMID_OVERRIDE_CFG_NVDISPLAYR1,
-	MC_STREAMID_OVERRIDE_CFG_VICSRD1,
-	MC_STREAMID_OVERRIDE_CFG_NVDECSRD1
 };
 
 /*******************************************************************************
@@ -95,71 +36,71 @@ const static uint32_t tegra186_streamid_override_regs[] = {
  ******************************************************************************/
 const static mc_streamid_security_cfg_t tegra186_streamid_sec_cfgs[] = {
 	mc_make_sec_cfg(SCEW, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(AFIR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(AFIW, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(NVDISPLAYR1, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(AFIR, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(AFIW, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(NVDISPLAYR1, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(XUSB_DEVR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(VICSRD1, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(NVENCSWR, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(TSECSRDB, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(VICSRD1, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(NVENCSWR, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(TSECSRDB, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(AXISW, SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(SDMMCWAB, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(AONDMAW, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(SDMMCWAB, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(AONDMAW, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(GPUSWR2, SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(SATAW, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(UFSHCW, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SDMMCR, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(SATAW, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(UFSHCW, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SDMMCR, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(SCEDMAW, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(UFSHCR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SDMMCWAA, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SESWR, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(MPCORER, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(PTCR, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(UFSHCR, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SDMMCWAA, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SESWR, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(MPCORER, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(PTCR, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(BPMPW, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(ETRW, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(ETRW, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(GPUSRD, SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(VICSWR, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(VICSWR, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(SCEDMAR, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(HDAW, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(HDAW, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(ISPWA, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(EQOSW, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(EQOSW, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(XUSB_HOSTW, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(TSECSWR, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SDMMCRAA, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(TSECSWR, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SDMMCRAA, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(VIW, NON_SECURE, OVERRIDE, ENABLE),
 	mc_make_sec_cfg(AXISR, SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(SDMMCW, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(SDMMCW, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(BPMPDMAW, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(ISPRA, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(NVDECSWR, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(NVDECSWR, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(XUSB_DEVW, NON_SECURE, OVERRIDE, ENABLE),
 	mc_make_sec_cfg(NVDECSRD, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(MPCOREW, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(NVDISPLAYR, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(MPCOREW, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(NVDISPLAYR, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(BPMPDMAR, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(NVJPGSWR, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(NVJPGSWR, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(NVDECSRD1, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(TSECSRD, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(NVJPGSRD, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SDMMCWA, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(TSECSRD, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(NVJPGSRD, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SDMMCWA, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(SCER, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(XUSB_HOSTR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(VICSRD, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(AONDMAR, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(AONW, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SDMMCRA, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(HOST1XDMAR, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(EQOSR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SATAR, NON_SECURE, OVERRIDE, ENABLE),
+	mc_make_sec_cfg(VICSRD, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(AONDMAR, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(AONW, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SDMMCRA, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(HOST1XDMAR, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(EQOSR, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SATAR, NON_SECURE, OVERRIDE, DISABLE),
 	mc_make_sec_cfg(BPMPR, NON_SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(HDAR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SDMMCRAB, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(ETRR, NON_SECURE, OVERRIDE, ENABLE),
-	mc_make_sec_cfg(AONR, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(SESRD, NON_SECURE, NO_OVERRIDE, ENABLE),
-	mc_make_sec_cfg(NVENCSRD, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(HDAR, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SDMMCRAB, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(ETRR, NON_SECURE, OVERRIDE, DISABLE),
+	mc_make_sec_cfg(AONR, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(SESRD, NON_SECURE, NO_OVERRIDE, DISABLE),
+	mc_make_sec_cfg(NVENCSRD, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(GPUSWR, SECURE, NO_OVERRIDE, DISABLE),
-	mc_make_sec_cfg(TSECSWRB, NON_SECURE, NO_OVERRIDE, ENABLE),
+	mc_make_sec_cfg(TSECSWRB, NON_SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(ISPWB, NON_SECURE, OVERRIDE, ENABLE),
 	mc_make_sec_cfg(GPUSRD2, SECURE, NO_OVERRIDE, DISABLE),
 	mc_make_sec_cfg(APEDMAW, NON_SECURE, NO_OVERRIDE, DISABLE),
@@ -461,15 +402,7 @@ static void tegra186_memctrl_reconfig_mss_clients(void)
 
 static void tegra186_memctrl_set_overrides(void)
 {
-	const tegra_mc_settings_t *plat_mc_settings = tegra_get_mc_settings();
-	const mc_txn_override_cfg_t *mc_txn_override_cfgs;
-	uint32_t num_txn_override_cfgs;
 	uint32_t i, val;
-
-	/* Get the settings from the platform */
-	assert(plat_mc_settings != NULL);
-	mc_txn_override_cfgs = plat_mc_settings->txn_override_cfg;
-	num_txn_override_cfgs = plat_mc_settings->num_txn_override_cfgs;
 
 	/*
 	 * Set the MC_TXN_OVERRIDE registers for write clients.
@@ -502,35 +435,226 @@ static void tegra186_memctrl_set_overrides(void)
 		/*
 		 * Settings for Tegra186 silicon rev. A02 and onwards.
 		 */
-		for (i = 0; i < num_txn_override_cfgs; i++) {
-			val = tegra_mc_read_32(mc_txn_override_cfgs[i].offset);
+		for (i = 0; i < ARRAY_SIZE(tegra186_txn_override_cfgs); i++) {
+			val = tegra_mc_read_32(tegra186_txn_override_cfgs[i].offset);
 			val &= (uint32_t)~MC_TXN_OVERRIDE_CGID_TAG_MASK;
-			tegra_mc_write_32(mc_txn_override_cfgs[i].offset,
-				val | mc_txn_override_cfgs[i].cgid_tag);
+			tegra_mc_write_32(tegra186_txn_override_cfgs[i].offset,
+				val | tegra186_txn_override_cfgs[i].cgid_tag);
 		}
 	}
 }
 
+
 /*******************************************************************************
- * Struct to hold the memory controller settings
+ * Array to hold MC context for Tegra186
  ******************************************************************************/
-static tegra_mc_settings_t tegra186_mc_settings = {
-	.streamid_override_cfg = tegra186_streamid_override_regs,
-	.num_streamid_override_cfgs = (uint32_t)ARRAY_SIZE(tegra186_streamid_override_regs),
-	.streamid_security_cfg = tegra186_streamid_sec_cfgs,
-	.num_streamid_security_cfgs = (uint32_t)ARRAY_SIZE(tegra186_streamid_sec_cfgs),
-	.txn_override_cfg = tegra186_txn_override_cfgs,
-	.num_txn_override_cfgs = (uint32_t)ARRAY_SIZE(tegra186_txn_override_cfgs),
-	.reconfig_mss_clients = tegra186_memctrl_reconfig_mss_clients,
-	.set_txn_overrides = tegra186_memctrl_set_overrides,
+static __attribute__((aligned(16))) mc_regs_t tegra186_mc_context[] = {
+	_START_OF_TABLE_,
+	mc_make_sid_security_cfg(SCEW),
+	mc_make_sid_security_cfg(AFIR),
+	mc_make_sid_security_cfg(NVDISPLAYR1),
+	mc_make_sid_security_cfg(XUSB_DEVR),
+	mc_make_sid_security_cfg(VICSRD1),
+	mc_make_sid_security_cfg(NVENCSWR),
+	mc_make_sid_security_cfg(TSECSRDB),
+	mc_make_sid_security_cfg(AXISW),
+	mc_make_sid_security_cfg(SDMMCWAB),
+	mc_make_sid_security_cfg(AONDMAW),
+	mc_make_sid_security_cfg(GPUSWR2),
+	mc_make_sid_security_cfg(SATAW),
+	mc_make_sid_security_cfg(UFSHCW),
+	mc_make_sid_security_cfg(AFIW),
+	mc_make_sid_security_cfg(SDMMCR),
+	mc_make_sid_security_cfg(SCEDMAW),
+	mc_make_sid_security_cfg(UFSHCR),
+	mc_make_sid_security_cfg(SDMMCWAA),
+	mc_make_sid_security_cfg(APEDMAW),
+	mc_make_sid_security_cfg(SESWR),
+	mc_make_sid_security_cfg(MPCORER),
+	mc_make_sid_security_cfg(PTCR),
+	mc_make_sid_security_cfg(BPMPW),
+	mc_make_sid_security_cfg(ETRW),
+	mc_make_sid_security_cfg(GPUSRD),
+	mc_make_sid_security_cfg(VICSWR),
+	mc_make_sid_security_cfg(SCEDMAR),
+	mc_make_sid_security_cfg(HDAW),
+	mc_make_sid_security_cfg(ISPWA),
+	mc_make_sid_security_cfg(EQOSW),
+	mc_make_sid_security_cfg(XUSB_HOSTW),
+	mc_make_sid_security_cfg(TSECSWR),
+	mc_make_sid_security_cfg(SDMMCRAA),
+	mc_make_sid_security_cfg(APER),
+	mc_make_sid_security_cfg(VIW),
+	mc_make_sid_security_cfg(APEW),
+	mc_make_sid_security_cfg(AXISR),
+	mc_make_sid_security_cfg(SDMMCW),
+	mc_make_sid_security_cfg(BPMPDMAW),
+	mc_make_sid_security_cfg(ISPRA),
+	mc_make_sid_security_cfg(NVDECSWR),
+	mc_make_sid_security_cfg(XUSB_DEVW),
+	mc_make_sid_security_cfg(NVDECSRD),
+	mc_make_sid_security_cfg(MPCOREW),
+	mc_make_sid_security_cfg(NVDISPLAYR),
+	mc_make_sid_security_cfg(BPMPDMAR),
+	mc_make_sid_security_cfg(NVJPGSWR),
+	mc_make_sid_security_cfg(NVDECSRD1),
+	mc_make_sid_security_cfg(TSECSRD),
+	mc_make_sid_security_cfg(NVJPGSRD),
+	mc_make_sid_security_cfg(SDMMCWA),
+	mc_make_sid_security_cfg(SCER),
+	mc_make_sid_security_cfg(XUSB_HOSTR),
+	mc_make_sid_security_cfg(VICSRD),
+	mc_make_sid_security_cfg(AONDMAR),
+	mc_make_sid_security_cfg(AONW),
+	mc_make_sid_security_cfg(SDMMCRA),
+	mc_make_sid_security_cfg(HOST1XDMAR),
+	mc_make_sid_security_cfg(EQOSR),
+	mc_make_sid_security_cfg(SATAR),
+	mc_make_sid_security_cfg(BPMPR),
+	mc_make_sid_security_cfg(HDAR),
+	mc_make_sid_security_cfg(SDMMCRAB),
+	mc_make_sid_security_cfg(ETRR),
+	mc_make_sid_security_cfg(AONR),
+	mc_make_sid_security_cfg(APEDMAR),
+	mc_make_sid_security_cfg(SESRD),
+	mc_make_sid_security_cfg(NVENCSRD),
+	mc_make_sid_security_cfg(GPUSWR),
+	mc_make_sid_security_cfg(TSECSWRB),
+	mc_make_sid_security_cfg(ISPWB),
+	mc_make_sid_security_cfg(GPUSRD2),
+	mc_make_sid_override_cfg(APER),
+	mc_make_sid_override_cfg(VICSRD),
+	mc_make_sid_override_cfg(NVENCSRD),
+	mc_make_sid_override_cfg(NVJPGSWR),
+	mc_make_sid_override_cfg(AONW),
+	mc_make_sid_override_cfg(BPMPR),
+	mc_make_sid_override_cfg(BPMPW),
+	mc_make_sid_override_cfg(HDAW),
+	mc_make_sid_override_cfg(NVDISPLAYR1),
+	mc_make_sid_override_cfg(APEDMAR),
+	mc_make_sid_override_cfg(AFIR),
+	mc_make_sid_override_cfg(AXISR),
+	mc_make_sid_override_cfg(VICSRD1),
+	mc_make_sid_override_cfg(TSECSRD),
+	mc_make_sid_override_cfg(BPMPDMAW),
+	mc_make_sid_override_cfg(MPCOREW),
+	mc_make_sid_override_cfg(XUSB_HOSTR),
+	mc_make_sid_override_cfg(GPUSWR),
+	mc_make_sid_override_cfg(XUSB_DEVR),
+	mc_make_sid_override_cfg(UFSHCW),
+	mc_make_sid_override_cfg(XUSB_HOSTW),
+	mc_make_sid_override_cfg(SDMMCWAB),
+	mc_make_sid_override_cfg(SATAW),
+	mc_make_sid_override_cfg(SCEDMAR),
+	mc_make_sid_override_cfg(HOST1XDMAR),
+	mc_make_sid_override_cfg(SDMMCWA),
+	mc_make_sid_override_cfg(APEDMAW),
+	mc_make_sid_override_cfg(SESWR),
+	mc_make_sid_override_cfg(AXISW),
+	mc_make_sid_override_cfg(AONDMAW),
+	mc_make_sid_override_cfg(TSECSWRB),
+	mc_make_sid_override_cfg(MPCORER),
+	mc_make_sid_override_cfg(ISPWB),
+	mc_make_sid_override_cfg(AONR),
+	mc_make_sid_override_cfg(BPMPDMAR),
+	mc_make_sid_override_cfg(HDAR),
+	mc_make_sid_override_cfg(SDMMCRA),
+	mc_make_sid_override_cfg(ETRW),
+	mc_make_sid_override_cfg(GPUSWR2),
+	mc_make_sid_override_cfg(EQOSR),
+	mc_make_sid_override_cfg(TSECSWR),
+	mc_make_sid_override_cfg(ETRR),
+	mc_make_sid_override_cfg(NVDECSRD),
+	mc_make_sid_override_cfg(TSECSRDB),
+	mc_make_sid_override_cfg(SDMMCRAA),
+	mc_make_sid_override_cfg(NVDECSRD1),
+	mc_make_sid_override_cfg(SDMMCR),
+	mc_make_sid_override_cfg(NVJPGSRD),
+	mc_make_sid_override_cfg(SCEDMAW),
+	mc_make_sid_override_cfg(SDMMCWAA),
+	mc_make_sid_override_cfg(APEW),
+	mc_make_sid_override_cfg(AONDMAR),
+	mc_make_sid_override_cfg(PTCR),
+	mc_make_sid_override_cfg(SCER),
+	mc_make_sid_override_cfg(ISPRA),
+	mc_make_sid_override_cfg(ISPWA),
+	mc_make_sid_override_cfg(VICSWR),
+	mc_make_sid_override_cfg(SESRD),
+	mc_make_sid_override_cfg(SDMMCW),
+	mc_make_sid_override_cfg(SDMMCRAB),
+	mc_make_sid_override_cfg(EQOSW),
+	mc_make_sid_override_cfg(GPUSRD2),
+	mc_make_sid_override_cfg(SCEW),
+	mc_make_sid_override_cfg(GPUSRD),
+	mc_make_sid_override_cfg(NVDECSWR),
+	mc_make_sid_override_cfg(XUSB_DEVW),
+	mc_make_sid_override_cfg(SATAR),
+	mc_make_sid_override_cfg(NVDISPLAYR),
+	mc_make_sid_override_cfg(VIW),
+	mc_make_sid_override_cfg(UFSHCR),
+	mc_make_sid_override_cfg(NVENCSWR),
+	mc_make_sid_override_cfg(AFIW),
+	mc_smmu_bypass_cfg,	/* TBU settings */
+	_END_OF_TABLE_,
 };
 
 /*******************************************************************************
- * Handler to return the pointer to the memory controller's settings struct
+ * Handler to return the pointer to the MC's context struct
  ******************************************************************************/
-tegra_mc_settings_t *tegra_get_mc_settings(void)
+mc_regs_t *plat_memctrl_get_sys_suspend_ctx(void)
 {
-	return &tegra186_mc_settings;
+	/* index of _END_OF_TABLE_ */
+	tegra186_mc_context[0].val = (uint32_t)(ARRAY_SIZE(tegra186_mc_context)) - 1U;
+
+	return tegra186_mc_context;
+}
+
+void plat_memctrl_setup(void)
+{
+	uint32_t val;
+	unsigned int i;
+
+	/* Program all the Stream ID overrides */
+	for (i = 0U; i < ARRAY_SIZE(tegra186_streamid_override_regs); i++) {
+		tegra_mc_streamid_write_32(tegra186_streamid_override_regs[i],
+			MC_STREAM_ID_MAX);
+	}
+
+	/* Program the security config settings for all Stream IDs */
+	for (i = 0U; i < ARRAY_SIZE(tegra186_streamid_sec_cfgs); i++) {
+		val = (tegra186_streamid_sec_cfgs[i].override_enable << 16) |
+		      (tegra186_streamid_sec_cfgs[i].override_client_inputs << 8) |
+		      (tegra186_streamid_sec_cfgs[i].override_client_ns_flag << 0);
+		tegra_mc_streamid_write_32(tegra186_streamid_sec_cfgs[i].offset, val);
+	}
+
+	/*
+	 * Re-configure MSS to allow ROC to deal with ordering of the
+	 * Memory Controller traffic. This is needed as the Memory Controller
+	 * boots with MSS having all control, but ROC provides a performance
+	 * boost as compared to MSS.
+	 */
+	tegra186_memctrl_reconfig_mss_clients();
+
+	/* Program overrides for MC transactions */
+	tegra186_memctrl_set_overrides();
+}
+
+/*******************************************************************************
+ * Handler to restore platform specific settings to the memory controller
+ ******************************************************************************/
+void plat_memctrl_restore(void)
+{
+	/*
+	 * Re-configure MSS to allow ROC to deal with ordering of the
+	 * Memory Controller traffic. This is needed as the Memory Controller
+	 * boots with MSS having all control, but ROC provides a performance
+	 * boost as compared to MSS.
+	 */
+	tegra186_memctrl_reconfig_mss_clients();
+
+	/* Program overrides for MC transactions */
+	tegra186_memctrl_set_overrides();
 }
 
 /*******************************************************************************

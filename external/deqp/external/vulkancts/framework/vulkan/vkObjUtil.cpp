@@ -29,8 +29,41 @@
 
 #include "tcuVector.hpp"
 
+#include "deSTLUtil.hpp"
+
 namespace vk
 {
+
+Move<VkPipeline> makeComputePipeline (const DeviceInterface&					vk,
+									  const VkDevice							device,
+									  const VkPipelineLayout					pipelineLayout,
+									  const VkPipelineCreateFlags				pipelineFlags,
+									  const VkShaderModule						shaderModule,
+									  const VkPipelineShaderStageCreateFlags	shaderFlags,
+									  const VkSpecializationInfo*				specializationInfo)
+{
+	const VkPipelineShaderStageCreateInfo pipelineShaderStageParams =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,	// VkStructureType						sType;
+		nullptr,												// const void*							pNext;
+		shaderFlags,											// VkPipelineShaderStageCreateFlags		flags;
+		VK_SHADER_STAGE_COMPUTE_BIT,							// VkShaderStageFlagBits				stage;
+		shaderModule,											// VkShaderModule						module;
+		"main",													// const char*							pName;
+		specializationInfo,										// const VkSpecializationInfo*			pSpecializationInfo;
+	};
+	const VkComputePipelineCreateInfo pipelineCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,		// VkStructureType					sType;
+		nullptr,											// const void*						pNext;
+		pipelineFlags,										// VkPipelineCreateFlags			flags;
+		pipelineShaderStageParams,							// VkPipelineShaderStageCreateInfo	stage;
+		pipelineLayout,										// VkPipelineLayout					layout;
+		DE_NULL,											// VkPipeline						basePipelineHandle;
+		0,													// deInt32							basePipelineIndex;
+	};
+	return createComputePipeline(vk, device, DE_NULL , &pipelineCreateInfo);
+}
 
 Move<VkPipeline> makeGraphicsPipeline(const DeviceInterface&						vk,
 									  const VkDevice								device,
@@ -392,7 +425,7 @@ Move<VkRenderPass> makeRenderPass (const DeviceInterface&				vk,
 	const bool								hasColor							= colorFormat != VK_FORMAT_UNDEFINED;
 	const bool								hasDepthStencil						= depthStencilFormat != VK_FORMAT_UNDEFINED;
 	const VkImageLayout						initialLayoutColor					= loadOperation == VK_ATTACHMENT_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-	const VkImageLayout						initialLayoutDepthStencil			= loadOperation == VK_ATTACHMENT_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+	const VkImageLayout						initialLayoutDepthStencil			= VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	const VkAttachmentDescription			colorAttachmentDescription			=
 	{
@@ -545,11 +578,46 @@ VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			size,
 	return bufferCreateInfo;
 }
 
+VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize				size,
+										 const VkBufferUsageFlags		usage,
+										 const std::vector<deUint32>&	queueFamilyIndices)
+{
+	const deUint32				queueFamilyIndexCount	= static_cast<deUint32>(queueFamilyIndices.size());
+	const deUint32*				pQueueFamilyIndices		= de::dataSafe(queueFamilyIndices);
+	const VkBufferCreateInfo	bufferCreateInfo		=
+	{
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
+		DE_NULL,								// const void*			pNext;
+		(VkBufferCreateFlags)0,					// VkBufferCreateFlags	flags;
+		size,									// VkDeviceSize			size;
+		usage,									// VkBufferUsageFlags	usage;
+		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
+		queueFamilyIndexCount,					// deUint32				queueFamilyIndexCount;
+		pQueueFamilyIndices,					// const deUint32*		pQueueFamilyIndices;
+	};
+
+	return bufferCreateInfo;
+}
+
+
 Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
 										   const VkDevice				device,
 										   const VkDescriptorSetLayout	descriptorSetLayout)
 {
 	return makePipelineLayout(vk, device, (descriptorSetLayout == DE_NULL) ? 0u : 1u, &descriptorSetLayout);
+}
+
+Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&								vk,
+										   const VkDevice										device,
+										   const std::vector<vk::Move<VkDescriptorSetLayout>>	&descriptorSetLayouts)
+{
+	// Create a list of descriptor sets without move pointers.
+	std::vector<vk::VkDescriptorSetLayout> descriptorSetLayoutsUnWrapped;
+	for (const auto& descriptorSetLayout : descriptorSetLayouts)
+	{
+		descriptorSetLayoutsUnWrapped.push_back(descriptorSetLayout.get());
+	}
+	return vk::makePipelineLayout(vk, device, static_cast<deUint32>(descriptorSetLayoutsUnWrapped.size()), descriptorSetLayoutsUnWrapped.data());
 }
 
 Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
@@ -571,6 +639,27 @@ Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
 	return createPipelineLayout(vk, device, &pipelineLayoutParams);
 }
 
+Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
+										   const VkDevice				device,
+										   const deUint32				setLayoutCount,
+										   const VkDescriptorSetLayout*	descriptorSetLayout,
+										   const deUint32               pushConstantRangeCount,
+										   const VkPushConstantRange*   pPushConstantRanges)
+{
+	const VkPipelineLayoutCreateInfo pipelineLayoutParams =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType					sType;
+		DE_NULL,											// const void*						pNext;
+		0u,													// VkPipelineLayoutCreateFlags		flags;
+		setLayoutCount,										// deUint32							setLayoutCount;
+		descriptorSetLayout,								// const VkDescriptorSetLayout*		pSetLayouts;
+		pushConstantRangeCount,								// deUint32							pushConstantRangeCount;
+		pPushConstantRanges,								// const VkPushConstantRange*		pPushConstantRanges;
+	};
+
+	return createPipelineLayout(vk, device, &pipelineLayoutParams);
+}
+
 Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
 									 const VkDevice			device,
 									 const VkRenderPass		renderPass,
@@ -586,7 +675,7 @@ Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
 									 const VkDevice			device,
 									 const VkRenderPass		renderPass,
 									 const deUint32			attachmentCount,
-									 const VkImageView*		colorAttachments,
+									 const VkImageView*		attachmentsArray,
 									 const deUint32			width,
 									 const deUint32			height,
 									 const deUint32			layers)
@@ -598,7 +687,7 @@ Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
 		(VkFramebufferCreateFlags)0,				// VkFramebufferCreateFlags	flags;
 		renderPass,									// VkRenderPass				renderPass;
 		attachmentCount,							// uint32_t					attachmentCount;
-		colorAttachments,							// const VkImageView*		pAttachments;
+		attachmentsArray,							// const VkImageView*		pAttachments;
 		width,										// uint32_t					width;
 		height,										// uint32_t					height;
 		layers,										// uint32_t					layers;

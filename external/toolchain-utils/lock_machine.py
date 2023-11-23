@@ -53,11 +53,11 @@ class LockManager(object):
   machines, using appropriate locking mechanisms for each.
   """
 
-  SKYLAB_PATH = '/usr/local/bin/skylab'
+  SKYLAB_PATH = 'skylab'
 
   # TODO(zhizhouy): lease time may needs to be dynamically adjusted. For now we
   # set it long enough to cover the period to finish nightly rotation tests.
-  LEASE_MINS = 1440
+  LEASE_MINS = 1439
 
   SKYLAB_CREDENTIAL = ('/usr/local/google/home/mobiletc-prebuild'
                        '/sheriff_utils/credentials/skylab'
@@ -378,12 +378,19 @@ class LockManager(object):
     if os.path.exists(self.SKYLAB_CREDENTIAL):
       credential = '--auth-service-account-json %s' % self.SKYLAB_CREDENTIAL
     swarming = os.path.join(self.chromeos_root, self.SWARMING)
-    cmd = (('%s query --swarming https://chromeos-swarming.appspot.com ' \
+    # TODO(zhizhouy): Swarming script doesn't support python3 so explicitly
+    # launch it with python2 until migrated.
+    cmd = (('python2 %s ' \
+            'query --swarming https://chromeos-swarming.appspot.com ' \
             "%s 'bots/list?is_dead=FALSE&dimensions=dut_name:%s'") % \
            (swarming,
             credential,
             machine.rstrip('.cros')))
-    ret_tup = self.ce.RunCommandWOutput(cmd)
+    exit_code, stdout, stderr = self.ce.RunCommandWOutput(cmd)
+    if exit_code:
+      raise ValueError(
+          'Querying bots failed (2); stdout: %r; stderr: %r' % (stdout, stderr))
+
     # The command will return a json output as stdout. If machine not in skylab
     # stdout will look like this:
     #  {
@@ -392,10 +399,7 @@ class LockManager(object):
     #  }
     # Otherwise there will be a tuple starting with 'items', we simply detect
     # this keyword for result.
-    if 'items' not in ret_tup[1]:
-      return False
-    else:
-      return True
+    return 'items' in stdout
 
   def LeaseSkylabMachine(self, machine):
     """Run command to lease dut from skylab.
@@ -517,12 +521,6 @@ def Main(argv):
     if not lock_manager.force:
       lock_manager.CheckMachineLocks(machine_states, cmd)
       lock_manager.UpdateMachines(False)
-
-  elif cmd == 'add':
-    lock_manager.AddMachinesToLocalServer()
-
-  elif cmd == 'remove':
-    lock_manager.RemoveMachinesFromLocalServer()
 
   return 0
 

@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 import subprocess as sp
+from six.moves import range
 
 
 def map_gpu_name(mesa_name):
@@ -22,27 +23,26 @@ def map_gpu_name(mesa_name):
     """
     family_name_map = {
         'Pineview': 'pinetrail',
-        'Ironlake': 'ironlake',
-        'Sandybridge': 'sandybridge',
-        'Ivybridge': 'ivybridge',
-        'Haswell': 'haswell',
-        'Bay Trail': 'baytrail',
-        'Broadwell': 'broadwell',
-        'Cherryview': 'braswell',
-        'Cherrytrail': 'braswell',
-        'Braswell': 'braswell',
-        'Skylake': 'skylake',
-        'Broxton': 'broxton',
-        'Kabylake': 'kabylake',
-        'Kaby Lake': 'kabylake',
-        'Geminilake': 'geminilake',
-        'Cannonlake': 'cannonlake',
-        'Coffeelake': 'coffeelake',
-        'Ice Lake': 'icelake',
-        'Comet Lake': 'cometlake',
-        'Whiskey Lake': 'whiskeylake',
+        'ILK': 'ironlake',
+        'SNB': 'sandybridge',
+        'IVB': 'ivybridge',
+        'HSW': 'haswell',
+        'BYT': 'baytrail',
+        'BDW': 'broadwell',
+        'CHV': 'braswell',
+        'BSW': 'braswell',
+        'SKL': 'skylake',
+        'APL': 'broxton',
+        'BXT': 'broxton',
+        'KBL': 'kabylake',
+        'GLK': 'geminilake',
+        'CNL': 'cannonlake',
+        'CFL': 'coffeelake',
+        'ICL': 'icelake',
+        'CML': 'cometlake',
+        'WHL': 'whiskeylake',
         'TGL': 'tigerlake',
-        'Jasper Lake': 'jasperlake'
+        'JSL': 'jasperlake'
     }
 
     for name in family_name_map:

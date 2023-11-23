@@ -11,7 +11,6 @@ from devil.android import device_errors
 logger = logging.getLogger(__name__)
 _atexit_messages = set()
 
-
 # Defines how to switch between the default performance configuration
 # ('default_mode') and the mode for use when benchmarking ('high_perf_mode').
 # For devices not in the list the defaults are to set up the scaling governor to
@@ -24,92 +23,137 @@ _atexit_messages = set()
 # TODO(crbug.com/383566): Add definitions for all devices used in the perf
 # waterfall.
 _PERFORMANCE_MODE_DEFINITIONS = {
-  # Fire TV Edition - 4K
-  'AFTKMST12': {
-    'default_mode_governor': 'interactive',
-  },
-  # Pixel 3
-  'blueline': {
-     'high_perf_mode': {
-       'bring_cpu_cores_online': True,
-       # The SoC is Arm big.LITTLE. The cores 0..3 are LITTLE, the 4..7 are big.
-       'cpu_max_freq': {'0..3': 1228800, '4..7': 1536000},
-       'gpu_max_freq': 520000000,
-     },
-     'default_mode': {
-       'cpu_max_freq': {'0..3': 1766400, '4..7': 2649600},
-       'gpu_max_freq': 710000000,
-     },
-    'default_mode_governor': 'schedutil',
-  },
-  'GT-I9300': {
-    'default_mode_governor': 'pegasusq',
-  },
-  'Galaxy Nexus': {
-    'default_mode_governor': 'interactive',
-  },
-  # Pixel
-  'msm8996': {
-     'high_perf_mode': {
-       'bring_cpu_cores_online': True,
-       'cpu_max_freq': 1209600,
-       'gpu_max_freq': 315000000,
-     },
-     'default_mode': {
-       # The SoC is Arm big.LITTLE. The cores 0..1 are LITTLE, the 2..3 are big.
-       'cpu_max_freq': {'0..1': 1593600, '2..3': 2150400},
-       'gpu_max_freq': 624000000,
-     },
-    'default_mode_governor': 'sched',
-  },
-  'Nexus 7': {
-    'default_mode_governor': 'interactive',
-  },
-  'Nexus 10': {
-    'default_mode_governor': 'interactive',
-  },
-  'Nexus 4': {
-    'high_perf_mode': {
-      'bring_cpu_cores_online': True,
+    # Fire TV Edition - 4K
+    'AFTKMST12': {
+        'default_mode_governor': 'interactive',
     },
-    'default_mode_governor': 'ondemand',
-  },
-  'Nexus 5': {
-    # The list of possible GPU frequency values can be found in:
-    #     /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies.
-    # For CPU cores the possible frequency values are at:
-    #     /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies
-    'high_perf_mode': {
-      'bring_cpu_cores_online': True,
-      'cpu_max_freq': 1190400,
-      'gpu_max_freq': 200000000,
+    # Pixel 3
+    'blueline': {
+        'high_perf_mode': {
+            'bring_cpu_cores_online': True,
+            # The SoC is Arm big.LITTLE. The cores 0..3 are LITTLE,
+            # the 4..7 are big.
+            'cpu_max_freq': {
+                '0..3': 1228800,
+                '4..7': 1536000
+            },
+            'gpu_max_freq': 520000000,
+        },
+        'default_mode': {
+            'cpu_max_freq': {
+                '0..3': 1766400,
+                '4..7': 2649600
+            },
+            'gpu_max_freq': 710000000,
+        },
+        'big_cores': ['4', '5', '6', '7'],
+        'default_mode_governor': 'schedutil',
     },
-    'default_mode': {
-      'cpu_max_freq': 2265600,
-      'gpu_max_freq': 450000000,
+    'Pixel 2': {
+        'high_perf_mode': {
+            'bring_cpu_cores_online': True,
+            # These are set to roughly 7/8 of the max frequency. The purpose of
+            # this is to ensure that thermal throttling doesn't kick in midway
+            # through a test and cause flaky results. It should also improve the
+            # longevity of the devices by keeping them cooler.
+            'cpu_max_freq': {
+                '0..3': 1670400,
+                '4..7': 2208000,
+            },
+            'gpu_max_freq': 670000000,
+        },
+        'default_mode': {
+            # These are the maximum frequencies available for these CPUs and
+            # GPUs.
+            'cpu_max_freq': {
+                '0..3': 1900800,
+                '4..7': 2457600,
+            },
+            'gpu_max_freq': 710000000,
+        },
+        'big_cores': ['4', '5', '6', '7'],
+        'default_mode_governor': 'schedutil',
     },
-    'default_mode_governor': 'ondemand',
-  },
-  'Nexus 5X': {
-    'high_perf_mode': {
-      'bring_cpu_cores_online': True,
-      'cpu_max_freq': 1248000,
-      'gpu_max_freq': 300000000,
+    'GT-I9300': {
+        'default_mode_governor': 'pegasusq',
     },
-    'default_mode': {
-      'governor': 'ondemand',
-      # The SoC is ARM big.LITTLE. The cores 4..5 are big, the 0..3 are LITTLE.
-      'cpu_max_freq': {'0..3': 1440000, '4..5': 1824000},
-      'gpu_max_freq': 600000000,
+    'Galaxy Nexus': {
+        'default_mode_governor': 'interactive',
     },
-    'default_mode_governor': 'ondemand',
-  },
+    # Pixel
+    'msm8996': {
+        'high_perf_mode': {
+            'bring_cpu_cores_online': True,
+            'cpu_max_freq': 1209600,
+            'gpu_max_freq': 315000000,
+        },
+        'default_mode': {
+            # The SoC is Arm big.LITTLE. The cores 0..1 are LITTLE,
+            # the 2..3 are big.
+            'cpu_max_freq': {
+                '0..1': 1593600,
+                '2..3': 2150400
+            },
+            'gpu_max_freq': 624000000,
+        },
+        'big_cores': ['2', '3'],
+        'default_mode_governor': 'sched',
+    },
+    'Nexus 7': {
+        'default_mode_governor': 'interactive',
+    },
+    'Nexus 10': {
+        'default_mode_governor': 'interactive',
+    },
+    'Nexus 4': {
+        'high_perf_mode': {
+            'bring_cpu_cores_online': True,
+        },
+        'default_mode_governor': 'ondemand',
+    },
+    'Nexus 5': {
+        # The list of possible GPU frequency values can be found in:
+        #     /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies.
+        # For CPU cores the possible frequency values are at:
+        #     /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies
+        'high_perf_mode': {
+            'bring_cpu_cores_online': True,
+            'cpu_max_freq': 1190400,
+            'gpu_max_freq': 200000000,
+        },
+        'default_mode': {
+            'cpu_max_freq': 2265600,
+            'gpu_max_freq': 450000000,
+        },
+        'default_mode_governor': 'ondemand',
+    },
+    'Nexus 5X': {
+        'high_perf_mode': {
+            'bring_cpu_cores_online': True,
+            'cpu_max_freq': 1248000,
+            'gpu_max_freq': 300000000,
+        },
+        'default_mode': {
+            'governor': 'ondemand',
+            # The SoC is ARM big.LITTLE. The cores 4..5 are big,
+            # the 0..3 are LITTLE.
+            'cpu_max_freq': {
+                '0..3': 1440000,
+                '4..5': 1824000
+            },
+            'gpu_max_freq': 600000000,
+        },
+        'big_cores': ['4', '5'],
+        'default_mode_governor': 'ondemand',
+    },
 }
+
 
 def _GetPerfModeDefinitions(product_model):
   if product_model.startswith('AOSP on '):
     product_model = product_model.replace('AOSP on ', '')
   return _PERFORMANCE_MODE_DEFINITIONS.get(product_model)
+
 
 def _NoisyWarning(message):
   message += ' Results may be NOISY!!'
@@ -144,7 +188,8 @@ class PerfControl(object):
     raw = self._ReadEachCpuFile(self._AVAILABLE_GOVERNORS_REL_PATH)
     self._available_governors = [
         (cpu, raw_governors.strip().split() if not exit_code else None)
-        for cpu, raw_governors, exit_code in raw]
+        for cpu, raw_governors, exit_code in raw
+    ]
 
   def _SetMaxFrequenciesFromMode(self, mode):
     """Set maximum frequencies for GPU and CPU cores.
@@ -158,15 +203,16 @@ class PerfControl(object):
       if not isinstance(cpu_max_freq, dict):
         self._SetScalingMaxFreqForCpus(cpu_max_freq, self._cpu_file_list)
       else:
-        for key, max_frequency in cpu_max_freq.iteritems():
+        for key, max_frequency in cpu_max_freq.items():
           # Convert 'X' to 'cpuX' and 'X..Y' to 'cpuX cpu<X+1> .. cpuY'.
           if '..' in key:
             range_min, range_max = key.split('..')
             range_min, range_max = int(range_min), int(range_max)
           else:
             range_min = range_max = int(key)
-          cpu_files = ['cpu%d' % number
-                       for number in xrange(range_min, range_max + 1)]
+          cpu_files = [
+              'cpu%d' % number for number in range(range_min, range_max + 1)
+          ]
           # Set the |max_frequency| on requested subset of the cores.
           self._SetScalingMaxFreqForCpus(max_frequency, ' '.join(cpu_files))
     gpu_max_freq = mode.get('gpu_max_freq')
@@ -197,6 +243,25 @@ class PerfControl(object):
     self.SetScalingGovernor('performance')
     self._SetMaxFrequenciesFromMode(high_perf_mode)
 
+  def SetLittleOnlyMode(self):
+    """Turns off big CPU cores on the device."""
+    try:
+      self._device.EnableRoot()
+    except device_errors.CommandFailedError:
+      _NoisyWarning('Need root to turn off cores.')
+      return
+    mode_definitions = _GetPerfModeDefinitions(self._device.product_model)
+    if not mode_definitions:
+      _NoisyWarning('Unknown device: %s. Can\'t turn off cores.'
+                    % self._device.product_model)
+      return
+    big_cores = mode_definitions.get('big_cores', [])
+    if not big_cores:
+      _NoisyWarning('No mode definition for device: %s.' %
+                    self._device.product_model)
+      return
+    self._ForceCpusOffline(cpu_list=big_cores)
+
   def SetDefaultPerfMode(self):
     """Sets the performance mode for the device to its default mode."""
     if not self._device.HasRoot():
@@ -207,7 +272,7 @@ class PerfControl(object):
     else:
       default_mode_governor = mode_definitions.get('default_mode_governor')
       assert default_mode_governor, ('Default mode governor must be provided '
-          'for all perf mode definitions.')
+                                     'for all perf mode definitions.')
       self.SetScalingGovernor(default_mode_governor)
       default_mode = mode_definitions.get('default_mode')
       if default_mode:
@@ -226,9 +291,10 @@ class PerfControl(object):
   def GetCpuInfo(self):
     online = (output.rstrip() == '1' and status == 0
               for (_, output, status) in self._ForEachCpu('cat "$CPU/online"'))
-    governor = (output.rstrip() if status == 0 else None
-                for (_, output, status)
-                in self._ForEachCpu('cat "$CPU/cpufreq/scaling_governor"'))
+    governor = (
+        output.rstrip() if status == 0 else None
+        for (_, output,
+             status) in self._ForEachCpu('cat "$CPU/cpufreq/scaling_governor"'))
     return zip(self._cpu_files, online, governor)
 
   def _ForEachCpu(self, cmd, cpu_list=None):
@@ -249,9 +315,7 @@ class PerfControl(object):
       cpu_list = self._cpu_file_list
     script = '; '.join([
         'for CPU in %s' % cpu_list,
-        'do %s' % cmd,
-        'echo -n "%~%$?%~%"',
-        'done'
+        'do %s' % cmd, 'echo -n "%~%$?%~%"', 'done'
     ])
     output = self._device.RunShellCommand(
         script, cwd=self._CPU_PATH, check_return=True, as_root=True, shell=True)
@@ -273,8 +337,7 @@ class PerfControl(object):
     self._ConditionallyWriteCpuFiles(path, value, cpu_files, condition='true')
 
   def _ReadEachCpuFile(self, path):
-    return self._ForEachCpu(
-        'cat "$CPU/{path}"'.format(path=path))
+    return self._ForEachCpu('cat "$CPU/{path}"'.format(path=path))
 
   def SetScalingGovernor(self, value):
     """Sets the scaling governor to the given value on all possible CPUs.
@@ -286,10 +349,9 @@ class PerfControl(object):
       value: [string] The new governor value.
     """
     condition = 'test -e "{path}" && grep -q {value} {path}'.format(
-        path=('${CPU}/%s' % self._AVAILABLE_GOVERNORS_REL_PATH),
-        value=value)
-    self._ConditionallyWriteCpuFiles(
-        'cpufreq/scaling_governor', value, self._cpu_file_list, condition)
+        path=('${CPU}/%s' % self._AVAILABLE_GOVERNORS_REL_PATH), value=value)
+    self._ConditionallyWriteCpuFiles('cpufreq/scaling_governor', value,
+                                     self._cpu_file_list, condition)
 
   def GetScalingGovernor(self):
     """Gets the currently set governor for each CPU.
@@ -299,9 +361,8 @@ class PerfControl(object):
       governor.
     """
     raw = self._ReadEachCpuFile('cpufreq/scaling_governor')
-    return [
-        (cpu, raw_governor.strip() if not exit_code else None)
-        for cpu, raw_governor, exit_code in raw]
+    return [(cpu, raw_governor.strip() if not exit_code else None)
+            for cpu, raw_governor, exit_code in raw]
 
   def ListAvailableGovernors(self):
     """Returns the list of available governors for each CPU.
@@ -316,9 +377,8 @@ class PerfControl(object):
     self._WriteCpuFiles('cpufreq/scaling_max_freq', '%d' % value, cpu_files)
 
   def _SetMaxGpuClock(self, value):
-    self._device.WriteFile('/sys/class/kgsl/kgsl-3d0/max_gpuclk',
-                           str(value),
-                           as_root=True)
+    self._device.WriteFile(
+        '/sys/class/kgsl/kgsl-3d0/max_gpuclk', str(value), as_root=True)
 
   def _AllCpusAreOnline(self):
     results = self._ForEachCpu('cat "$CPU/online"')
@@ -326,8 +386,7 @@ class PerfControl(object):
     # is likely because on these devices it is impossible to bring the cpu0
     # offline. Assuming the same for all devices until proven otherwise.
     return all(output.rstrip() == '1' and status == 0
-               for (cpu, output, status) in results
-               if cpu != 'cpu0')
+               for (cpu, output, status) in results if cpu != 'cpu0')
 
   def _ForceAllCpusOnline(self, force_online):
     """Enable all CPUs on a device.
@@ -352,3 +411,11 @@ class PerfControl(object):
 
     if force_online:
       self._ForEachCpu('echo 1 > "$CPU/online"')
+
+  def _ForceCpusOffline(self, cpu_list):
+    """Disable selected CPUs on a device."""
+    if self._have_mpdecision:
+      cmd = ['stop', 'mpdecision']
+      self._device.RunShellCommand(cmd, check_return=True, as_root=True)
+
+    self._ForEachCpu('echo 0 > "$CPU/online"', cpu_list=cpu_list)

@@ -17,7 +17,7 @@
 %                               January 2010                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -223,7 +223,7 @@ static KernelInfo *ParseKernelArray(const char *kernel_string)
     *p,
     *end;
 
-  register ssize_t
+  ssize_t
     i;
 
   double
@@ -235,7 +235,7 @@ static KernelInfo *ParseKernelArray(const char *kernel_string)
   GeometryInfo
     args;
 
-  kernel=(KernelInfo *) AcquireQuantumMemory(1,sizeof(*kernel));
+  kernel=(KernelInfo *) AcquireMagickMemory(sizeof(*kernel));
   if (kernel == (KernelInfo *) NULL)
     return(kernel);
   (void) memset(kernel,0,sizeof(*kernel));
@@ -954,10 +954,10 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
   KernelInfo
     *kernel;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register ssize_t
+  ssize_t
     u,
     v;
 
@@ -2212,7 +2212,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 */
 MagickExport KernelInfo *CloneKernelInfo(const KernelInfo *kernel)
 {
-  register ssize_t
+  ssize_t
     i;
 
   KernelInfo
@@ -2311,9 +2311,9 @@ static void FlopKernelInfo(KernelInfo *kernel)
     { /* Do a Flop by reversing each row. */
       size_t
         y;
-      register ssize_t
+      ssize_t
         x,r;
-      register double
+      double
         *k,t;
 
       for ( y=0, k=kernel->values; y < kernel->height; y++, k+=kernel->width)
@@ -2392,7 +2392,7 @@ static void ExpandMirrorKernelInfo(KernelInfo *kernel)
 static MagickBooleanType SameKernelInfo(const KernelInfo *kernel1,
      const KernelInfo *kernel2)
 {
-  register size_t
+  size_t
     i;
 
   /* check size and origin location */
@@ -2480,7 +2480,7 @@ RestoreMSCWarning
 */
 static void CalcKernelMetaData(KernelInfo *kernel)
 {
-  register size_t
+  size_t
     i;
 
   kernel->minimum = kernel->maximum = 0.0;
@@ -2572,7 +2572,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
   OffsetInfo
     offset;
 
-  register ssize_t
+  ssize_t
     j,
     y;
 
@@ -2642,7 +2642,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
 
   if ((method == ConvolveMorphology) && (kernel->width == 1))
     {
-      register ssize_t
+      ssize_t
         x;
 
       /*
@@ -2660,13 +2660,13 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         const int
           id = GetOpenMPThreadId();
 
-        register const Quantum
+        const Quantum
           *magick_restrict p;
 
-        register Quantum
+        Quantum
           *magick_restrict q;
 
-        register ssize_t
+        ssize_t
           r;
 
         ssize_t
@@ -2686,7 +2686,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         center=(ssize_t) GetPixelChannels(image)*offset.y;
         for (r=0; r < (ssize_t) image->rows; r++)
         {
-          register ssize_t
+          ssize_t
             i;
 
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -2703,13 +2703,13 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
               morphology_traits,
               traits;
 
-            register const MagickRealType
+            const MagickRealType
               *magick_restrict k;
 
-            register const Quantum
+            const Quantum
               *magick_restrict pixels;
 
-            register ssize_t
+            ssize_t
               v;
 
             size_t
@@ -2729,7 +2729,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
             k=(&kernel->values[kernel->height-1]);
             pixels=p;
             pixel=bias;
-            gamma=0.0;
+            gamma=1.0;
             count=0;
             if (((image->alpha_trait & BlendPixelTrait) == 0) ||
                 ((morphology_traits & BlendPixelTrait) == 0))
@@ -2738,24 +2738,26 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                 if (!IsNaN(*k))
                   {
                     pixel+=(*k)*pixels[i];
-                    gamma+=(*k);
                     count++;
                   }
                 k--;
                 pixels+=GetPixelChannels(image);
               }
             else
-              for (v=0; v < (ssize_t) kernel->height; v++)
               {
-                if (!IsNaN(*k))
-                  {
-                    alpha=(double) (QuantumScale*GetPixelAlpha(image,pixels));
-                    pixel+=alpha*(*k)*pixels[i];
-                    gamma+=alpha*(*k);
-                    count++;
-                  }
-                k--;
-                pixels+=GetPixelChannels(image);
+                gamma=0.0;
+                for (v=0; v < (ssize_t) kernel->height; v++)
+                {
+                  if (!IsNaN(*k))
+                    {
+                      alpha=(double) (QuantumScale*GetPixelAlpha(image,pixels));
+                      pixel+=alpha*(*k)*pixels[i];
+                      gamma+=alpha*(*k);
+                      count++;
+                    }
+                  k--;
+                  pixels+=GetPixelChannels(image);
+                }
               }
             if (fabs(pixel-p[center+i]) > MagickEpsilon)
               changes[id]++;
@@ -2804,13 +2806,13 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
     const int
       id = GetOpenMPThreadId();
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     ssize_t
@@ -2831,7 +2833,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
       GetPixelChannels(image)*offset.x);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -2851,14 +2853,14 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
           morphology_traits,
           traits;
 
-        register const MagickRealType
+        const MagickRealType
           *magick_restrict k;
 
-        register const Quantum
+        const Quantum
           *magick_restrict pixels,
           *magick_restrict quantum_pixels;
 
-        register ssize_t
+        ssize_t
           u;
 
         size_t
@@ -3149,10 +3151,10 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
           {
             /*
                Compute th iterative distance from black edge of a white image
-               shape.  Essentually white values are decreased to the smallest
+               shape.  Essentially white values are decreased to the smallest
                'distance from edge' it can find.
 
-               It works by adding kernel values to the neighbourhood, and and
+               It works by adding kernel values to the neighbourhood, and
                select the minimum value found. The kernel is rotated before
                use, so kernel distances match resulting distances, when a user
                provided asymmetric kernel is applied.
@@ -3166,7 +3168,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                GrayErode:  Kernel values subtracted and minimum value found No
                kernel rotation used.
 
-               Note the the Iterative Distance method is essentially a
+               Note the Iterative Distance method is essentially a
                GrayErode, but with negative kernel values, and kernel rotation
                applied.
             */
@@ -3304,13 +3306,13 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
   width=image->columns+kernel->width-1;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     /*
@@ -3334,7 +3336,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -3348,13 +3350,13 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         PixelTrait
           traits;
 
-        register const MagickRealType
+        const MagickRealType
           *magick_restrict k;
 
-        register const Quantum
+        const Quantum
           *magick_restrict pixels;
 
-        register ssize_t
+        ssize_t
           u;
 
         ssize_t
@@ -3467,13 +3469,13 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
   morphology_view=AcquireAuthenticCacheView(image,exception);
   for (y=(ssize_t) image->rows-1; y >= 0; y--)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     /*
@@ -3498,7 +3500,7 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
     q+=(image->columns-1)*GetPixelChannels(image);
     for (x=(ssize_t) image->columns-1; x >= 0; x--)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -3512,13 +3514,13 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         PixelTrait
           traits;
 
-        register const MagickRealType
+        const MagickRealType
           *magick_restrict k;
 
-        register const Quantum
+        const Quantum
           *magick_restrict pixels;
 
-        register ssize_t
+        ssize_t
           u;
 
         ssize_t
@@ -4363,10 +4365,10 @@ static void RotateKernelInfo(KernelInfo *kernel, double angle)
         }
       else if ( kernel->width == kernel->height )
         { /* Rotate a square array of values by 90 degrees */
-          { register ssize_t
+          { ssize_t
               i,j,x,y;
 
-            register MagickRealType
+            MagickRealType
               *k,t;
 
             k=kernel->values;
@@ -4380,7 +4382,7 @@ static void RotateKernelInfo(KernelInfo *kernel, double angle)
                 }
           }
           /* rotate the origin - relative to center of array */
-          { register ssize_t x,y;
+          { ssize_t x,y;
             x = (ssize_t) (kernel->x*2-kernel->width+1);
             y = (ssize_t) (kernel->y*2-kernel->height+1);
             kernel->x = (ssize_t) ( -y +(ssize_t) kernel->width-1)/2;
@@ -4402,7 +4404,7 @@ static void RotateKernelInfo(KernelInfo *kernel, double angle)
       MagickRealType
         t;
 
-      register MagickRealType
+      MagickRealType
         *k;
 
       ssize_t
@@ -4570,11 +4572,11 @@ MagickExport void ScaleGeometryKernelInfo (KernelInfo *kernel,
 MagickExport void ScaleKernelInfo(KernelInfo *kernel,
   const double scaling_factor,const GeometryFlags normalize_flags)
 {
-  register double
+  double
     pos_scale,
     neg_scale;
 
-  register ssize_t
+  ssize_t
     i;
 
   /* do the other kernels in a multi-kernel list first */
@@ -4774,7 +4776,7 @@ MagickExport void UnityAddKernelInfo(KernelInfo *kernel,
 */
 MagickPrivate void ZeroKernelNans(KernelInfo *kernel)
 {
-  register size_t
+  size_t
     i;
 
   /* do the other kernels in a multi-kernel list first */

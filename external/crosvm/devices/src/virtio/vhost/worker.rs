@@ -3,71 +3,58 @@
 // found in the LICENSE file.
 
 use std::os::raw::c_ulonglong;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
-use sys_util::{EventFd, PollContext, PollToken};
+use base::{error, Error as SysError, Event, PollToken, Tube, WaitContext};
 use vhost::Vhost;
 
+use super::control_socket::{VhostDevRequest, VhostDevResponse};
 use super::{Error, Result};
-use crate::virtio::{Queue, INTERRUPT_STATUS_USED_RING};
+use crate::virtio::{Interrupt, Queue, SignalableInterrupt};
+use libc::EIO;
 
-/// Worker that takes care of running the vhost device.  This mainly involves forwarding interrupts
-/// from the vhost driver to the guest VM because crosvm only supports the virtio-mmio transport,
-/// which requires a bit to be set in the interrupt status register before triggering the interrupt
-/// and the vhost driver doesn't do this for us.
+/// Worker that takes care of running the vhost device.
 pub struct Worker<T: Vhost> {
+    interrupt: Interrupt,
     queues: Vec<Queue>,
-    vhost_handle: T,
-    vhost_interrupt: EventFd,
-    interrupt_status: Arc<AtomicUsize>,
-    interrupt_evt: EventFd,
-    interrupt_resample_evt: EventFd,
+    pub vhost_handle: T,
+    pub vhost_interrupt: Vec<Event>,
     acked_features: u64,
+    pub kill_evt: Event,
+    pub response_tube: Option<Tube>,
 }
 
 impl<T: Vhost> Worker<T> {
     pub fn new(
         queues: Vec<Queue>,
         vhost_handle: T,
-        vhost_interrupt: EventFd,
-        interrupt_status: Arc<AtomicUsize>,
-        interrupt_evt: EventFd,
-        interrupt_resample_evt: EventFd,
+        vhost_interrupt: Vec<Event>,
+        interrupt: Interrupt,
         acked_features: u64,
+        kill_evt: Event,
+        response_tube: Option<Tube>,
     ) -> Worker<T> {
         Worker {
+            interrupt,
             queues,
             vhost_handle,
             vhost_interrupt,
-            interrupt_status,
-            interrupt_evt,
-            interrupt_resample_evt,
             acked_features,
+            kill_evt,
+            response_tube,
         }
     }
 
-    fn signal_used_queue(&self) {
-        self.interrupt_status
-            .fetch_or(INTERRUPT_STATUS_USED_RING as usize, Ordering::SeqCst);
-        self.interrupt_evt.write(1).unwrap();
-    }
-
-    pub fn run<F>(
+    pub fn run<F1, F2>(
         &mut self,
-        queue_evts: Vec<EventFd>,
+        queue_evts: Vec<Event>,
         queue_sizes: &[u16],
-        kill_evt: EventFd,
-        activate_vqs: F,
+        activate_vqs: F1,
+        cleanup_vqs: F2,
     ) -> Result<()>
     where
-        F: FnOnce(&T) -> Result<()>,
+        F1: FnOnce(&T) -> Result<()>,
+        F2: FnOnce(&T) -> Result<()>,
     {
-        // Preliminary setup for vhost net.
-        self.vhost_handle
-            .set_owner()
-            .map_err(Error::VhostSetOwner)?;
-
         let avail_features = self
             .vhost_handle
             .get_features()
@@ -102,9 +89,7 @@ impl<T: Vhost> Worker<T> {
             self.vhost_handle
                 .set_vring_base(queue_index, 0)
                 .map_err(Error::VhostSetVringBase)?;
-            self.vhost_handle
-                .set_vring_call(queue_index, &self.vhost_interrupt)
-                .map_err(Error::VhostSetVringCall)?;
+            self.set_vring_call_for_entry(queue_index, queue.vector as usize)?;
             self.vhost_handle
                 .set_vring_kick(queue_index, &queue_evts[queue_index])
                 .map_err(Error::VhostSetVringKick)?;
@@ -114,41 +99,164 @@ impl<T: Vhost> Worker<T> {
 
         #[derive(PollToken)]
         enum Token {
-            VhostIrq,
+            VhostIrqi { index: usize },
             InterruptResample,
             Kill,
+            ControlNotify,
         }
 
-        let poll_ctx: PollContext<Token> = PollContext::new()
-            .and_then(|pc| pc.add(&self.vhost_interrupt, Token::VhostIrq).and(Ok(pc)))
-            .and_then(|pc| {
-                pc.add(&self.interrupt_resample_evt, Token::InterruptResample)
-                    .and(Ok(pc))
-            })
-            .and_then(|pc| pc.add(&kill_evt, Token::Kill).and(Ok(pc)))
-            .map_err(Error::CreatePollContext)?;
+        let wait_ctx: WaitContext<Token> =
+            WaitContext::build_with(&[(&self.kill_evt, Token::Kill)])
+                .map_err(Error::CreateWaitContext)?;
 
-        'poll: loop {
-            let events = poll_ctx.wait().map_err(Error::PollError)?;
+        for (index, vhost_int) in self.vhost_interrupt.iter().enumerate() {
+            wait_ctx
+                .add(vhost_int, Token::VhostIrqi { index })
+                .map_err(Error::CreateWaitContext)?;
+        }
+        if let Some(socket) = &self.response_tube {
+            wait_ctx
+                .add(socket, Token::ControlNotify)
+                .map_err(Error::CreateWaitContext)?;
+        }
+        if let Some(resample_evt) = self.interrupt.get_resample_evt() {
+            wait_ctx
+                .add(resample_evt, Token::InterruptResample)
+                .map_err(Error::CreateWaitContext)?;
+        }
 
-            let mut needs_interrupt = false;
-            for event in events.iter_readable() {
-                match event.token() {
-                    Token::VhostIrq => {
-                        needs_interrupt = true;
-                        self.vhost_interrupt.read().map_err(Error::VhostIrqRead)?;
+        'wait: loop {
+            let events = wait_ctx.wait().map_err(Error::WaitError)?;
+
+            for event in events.iter().filter(|e| e.is_readable) {
+                match event.token {
+                    Token::VhostIrqi { index } => {
+                        self.vhost_interrupt[index]
+                            .read()
+                            .map_err(Error::VhostIrqRead)?;
+                        self.interrupt.signal_used_queue(self.queues[index].vector);
                     }
                     Token::InterruptResample => {
-                        let _ = self.interrupt_resample_evt.read();
-                        if self.interrupt_status.load(Ordering::SeqCst) != 0 {
-                            self.interrupt_evt.write(1).unwrap();
+                        self.interrupt.interrupt_resample();
+                    }
+                    Token::Kill => {
+                        let _ = self.kill_evt.read();
+                        break 'wait;
+                    }
+                    Token::ControlNotify => {
+                        if let Some(socket) = &self.response_tube {
+                            match socket.recv() {
+                                Ok(VhostDevRequest::MsixEntryChanged(index)) => {
+                                    let mut qindex = 0;
+                                    for (queue_index, queue) in self.queues.iter().enumerate() {
+                                        if queue.vector == index as u16 {
+                                            qindex = queue_index;
+                                            break;
+                                        }
+                                    }
+                                    let response =
+                                        match self.set_vring_call_for_entry(qindex, index) {
+                                            Ok(()) => VhostDevResponse::Ok,
+                                            Err(e) => {
+                                                error!(
+                                                "Set vring call failed for masked entry {}: {:?}",
+                                                index, e
+                                            );
+                                                VhostDevResponse::Err(SysError::new(EIO))
+                                            }
+                                        };
+                                    if let Err(e) = socket.send(&response) {
+                                        error!("Vhost failed to send VhostMsixEntryMasked Response for entry {}: {:?}", index, e);
+                                    }
+                                }
+                                Ok(VhostDevRequest::MsixChanged) => {
+                                    let response = match self.set_vring_calls() {
+                                        Ok(()) => VhostDevResponse::Ok,
+                                        Err(e) => {
+                                            error!("Set vring calls failed: {:?}", e);
+                                            VhostDevResponse::Err(SysError::new(EIO))
+                                        }
+                                    };
+                                    if let Err(e) = socket.send(&response) {
+                                        error!(
+                                            "Vhost failed to send VhostMsixMasked Response: {:?}",
+                                            e
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Vhost failed to receive Control request: {:?}", e);
+                                }
+                            }
                         }
                     }
-                    Token::Kill => break 'poll,
                 }
             }
-            if needs_interrupt {
-                self.signal_used_queue();
+        }
+        cleanup_vqs(&self.vhost_handle)?;
+        Ok(())
+    }
+
+    fn set_vring_call_for_entry(&self, queue_index: usize, vector: usize) -> Result<()> {
+        // No response_socket means it doesn't have any control related
+        // with the msix. Due to this, cannot use the direct irq fd but
+        // should fall back to indirect irq fd.
+        if self.response_tube.is_some() {
+            if let Some(msix_config) = self.interrupt.get_msix_config() {
+                let msix_config = msix_config.lock();
+                let msix_masked = msix_config.masked();
+                if msix_masked {
+                    return Ok(());
+                }
+                if !msix_config.table_masked(vector) {
+                    if let Some(irqfd) = msix_config.get_irqfd(vector) {
+                        self.vhost_handle
+                            .set_vring_call(queue_index, irqfd)
+                            .map_err(Error::VhostSetVringCall)?;
+                    } else {
+                        self.vhost_handle
+                            .set_vring_call(queue_index, &self.vhost_interrupt[queue_index])
+                            .map_err(Error::VhostSetVringCall)?;
+                    }
+                    return Ok(());
+                }
+            }
+        }
+
+        self.vhost_handle
+            .set_vring_call(queue_index, &self.vhost_interrupt[queue_index])
+            .map_err(Error::VhostSetVringCall)?;
+        Ok(())
+    }
+
+    fn set_vring_calls(&self) -> Result<()> {
+        if let Some(msix_config) = self.interrupt.get_msix_config() {
+            let msix_config = msix_config.lock();
+            if msix_config.masked() {
+                for (queue_index, _) in self.queues.iter().enumerate() {
+                    self.vhost_handle
+                        .set_vring_call(queue_index, &self.vhost_interrupt[queue_index])
+                        .map_err(Error::VhostSetVringCall)?;
+                }
+            } else {
+                for (queue_index, queue) in self.queues.iter().enumerate() {
+                    let vector = queue.vector as usize;
+                    if !msix_config.table_masked(vector) {
+                        if let Some(irqfd) = msix_config.get_irqfd(vector) {
+                            self.vhost_handle
+                                .set_vring_call(queue_index, irqfd)
+                                .map_err(Error::VhostSetVringCall)?;
+                        } else {
+                            self.vhost_handle
+                                .set_vring_call(queue_index, &self.vhost_interrupt[queue_index])
+                                .map_err(Error::VhostSetVringCall)?;
+                        }
+                    } else {
+                        self.vhost_handle
+                            .set_vring_call(queue_index, &self.vhost_interrupt[queue_index])
+                            .map_err(Error::VhostSetVringCall)?;
+                    }
+                }
             }
         }
         Ok(())

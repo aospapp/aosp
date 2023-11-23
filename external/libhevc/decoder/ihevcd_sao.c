@@ -103,15 +103,13 @@ void ihevcd_sao_ctb(sao_ctxt_t *ps_sao_ctxt)
     UWORD8 *pu1_no_loop_filter_flag;
     WORD32 loop_filter_strd;
 
-    WORD8 ai1_offset_y[5];
-    WORD8 ai1_offset_cb[5];
-    WORD8 ai1_offset_cr[5];
+    /* Only first 5 values are used, but arrays are large
+     enough so that SIMD functions can read 64 bits at a time */
+    WORD8 ai1_offset_y[8] = {0};
+    WORD8 ai1_offset_cb[8] = {0};
+    WORD8 ai1_offset_cr[8] = {0};
 
     PROFILE_DISABLE_SAO();
-
-    ai1_offset_y[0] = 0;
-    ai1_offset_cb[0] = 0;
-    ai1_offset_cr[0] = 0;
 
     ps_sps = ps_sao_ctxt->ps_sps;
     log2_ctb_size = ps_sps->i1_log2_ctb_size;
@@ -568,18 +566,14 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
     UWORD8  *pu1_sao_src_top_left_luma_bot_left;
     UWORD8 *au1_sao_src_top_left_chroma_bot_left;
     UWORD8 *pu1_sao_src_top_left_chroma_bot_left;
-    /* Only 5 values are used, but arrays are large
+    /* Only first 5 values are used, but arrays are large
      enough so that SIMD functions can read 64 bits at a time */
-    WORD8 ai1_offset_y[8];
-    WORD8 ai1_offset_cb[8];
-    WORD8 ai1_offset_cr[8];
+    WORD8 ai1_offset_y[8] = {0};
+    WORD8 ai1_offset_cb[8] = {0};
+    WORD8 ai1_offset_cr[8] = {0};
     WORD32  chroma_yuv420sp_vu = ps_sao_ctxt->is_chroma_yuv420sp_vu;
 
     PROFILE_DISABLE_SAO();
-
-    ai1_offset_y[0] = 0;
-    ai1_offset_cb[0] = 0;
-    ai1_offset_cr[0] = 0;
 
     ps_sps = ps_sao_ctxt->ps_sps;
     ps_pps = ps_sao_ctxt->ps_pps;

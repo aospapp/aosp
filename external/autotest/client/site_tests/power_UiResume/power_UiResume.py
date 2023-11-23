@@ -2,8 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
+
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import arc, chrome
+from autotest_lib.client.cros import upstart
 
 
 class power_UiResume(arc.ArcTest):
@@ -18,14 +22,14 @@ class power_UiResume(arc.ArcTest):
     """
     version = 3
 
-    def initialize(self):
+    def initialize(self, no_arc=False):
         """
         Entry point. Initialize ARC if it is enabled on the DUT, otherwise log
         in Chrome browser.
 
         """
-        self._arc_available = utils.is_arc_available()
-        if self._arc_available:
+        self._enable_arc = utils.is_arc_available() and not no_arc
+        if self._enable_arc:
             super(power_UiResume, self).initialize()
         else:
             self._chrome = chrome.Chrome()
@@ -37,20 +41,41 @@ class power_UiResume(arc.ArcTest):
         Run client side autotest power_Resume, to reduce duplicate code.
 
         """
+        service = 'powerd'
+        err = 0
+        pid_start = upstart.get_pid(service)
+        if not pid_start:
+            upstart.restart_job(service)
+        pid_start = upstart.get_pid(service)
+        if not pid_start:
+            logging.error('%s is not running at start of test', service)
+            err += 1
+
         self.job.run_test(
                 'power_Resume',
                 max_devs_returned=max_devs_returned,
                 seconds=seconds,
                 ignore_kernel_warns=ignore_kernel_warns,
-                measure_arc=self._arc_available)
+                measure_arc=self._enable_arc)
 
+        pid_end = upstart.get_pid('powerd')
+        if not pid_end:
+            logging.error('%s is not running at end of test', service)
+            err += 1
+
+        if pid_start and pid_end and pid_start != pid_end:
+            logging.error('%s respawned during test', service)
+            err += 1
+
+        if err:
+            raise error.TestFail('Test failed.  See errors for details.')
 
     def cleanup(self):
         """
         Clean up ARC if it is enabled on the DUT, otherwise close the Chrome
         browser.
         """
-        if self._arc_available:
+        if self._enable_arc:
             super(power_UiResume, self).cleanup()
         else:
             self._chrome.close()

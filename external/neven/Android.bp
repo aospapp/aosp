@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_neven_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_neven_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_shared {
     name: "libFFTEm",
 
@@ -110,6 +127,8 @@ cc_library_shared {
         "-Depl_LINUX",
         "-Wno-unused-parameter",
     ],
+
+    header_libs: ["jni_headers"],
 
     local_include_dirs: [
         "FaceRecEm/common/src/b_FDSDK",

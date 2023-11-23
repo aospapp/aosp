@@ -33,7 +33,7 @@ class firmware_Cr50WilcoEcrst(Cr50Test):
             raise error.TestNAError("Nothing needs to be tested on this device")
 
         # Open Cr50, so the test has access to ecrst.
-        self.fast_open(True)
+        self.fast_ccd_open(True)
 
 
     def cr50_ecrst(self, state):

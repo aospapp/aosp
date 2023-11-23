@@ -1,8 +1,0 @@
-{
-  "presubmit" : [
-    {
-      "name" : "acloud_test",
-      "host" : true
-    }
-  ]
-}

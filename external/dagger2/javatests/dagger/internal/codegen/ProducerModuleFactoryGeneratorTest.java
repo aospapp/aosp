@@ -214,6 +214,7 @@ public class ProducerModuleFactoryGeneratorTest {
         .onLine(6);
   }
 
+
   @Test
   public void enclosedInPrivateModule() {
     JavaFileObject moduleFile = JavaFileObjects.forSourceLines("test.Enclosing",
@@ -369,8 +370,8 @@ public class ProducerModuleFactoryGeneratorTest {
             IMPORT_GENERATED_ANNOTATION,
             "import javax.inject.Provider;",
             "",
-            "@SuppressWarnings(\"FutureReturnValueIgnored\")",
             GENERATED_ANNOTATION,
+            "@SuppressWarnings({\"FutureReturnValueIgnored\", \"unchecked\", \"rawtypes\"})",
             "public final class TestModule_ProduceStringFactory",
             "    extends AbstractProducesMethodProducer<Void, String> {",
             "  private final TestModule module;",
@@ -442,8 +443,8 @@ public class ProducerModuleFactoryGeneratorTest {
             IMPORT_GENERATED_ANNOTATION,
             "import javax.inject.Provider;",
             "",
-            "@SuppressWarnings(\"FutureReturnValueIgnored\")",
             GENERATED_ANNOTATION,
+            "@SuppressWarnings({\"FutureReturnValueIgnored\", \"unchecked\", \"rawtypes\"})",
             "public final class TestModule_ProduceStringFactory",
             "    extends AbstractProducesMethodProducer<Void, String> {",
             "  private final TestModule module;",

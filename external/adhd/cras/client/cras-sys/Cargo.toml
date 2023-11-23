@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["The Chromium OS Authors"]
 
 [dependencies]
-data_model = { path = "../../../../../platform/crosvm/data_model" } # provided by ebuild
+audio_streams = { path = "../../../audio_streams" } # provided by ebuild
+data_model = { path = "../../../../crosvm/data_model" } # provided by ebuild

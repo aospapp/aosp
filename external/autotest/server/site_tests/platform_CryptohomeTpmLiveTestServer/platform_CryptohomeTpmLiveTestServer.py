@@ -14,14 +14,15 @@ class platform_CryptohomeTpmLiveTestServer(test.test):
     version = 1
 
     def run_once(self, host=None):
+        """Runs a single iteration of the test."""
         self.client = host
 
         # Skip the test if the TPM is unavailable.
         tpm_status = tpm_utils.TPMStatus(self.client)
-        if 'Enabled' not in tpm_status:
+        if 'is_enabled' not in tpm_status:
             raise error.TestError('Error obtaining TPM enabled state. Status '
                                   'returned by cryptohome: ' + str(tpm_status))
-        if not tpm_status['Enabled']:
+        if not tpm_status['is_enabled']:
             return
 
         # Clear the TPM, so that the client test is able to obtain the TPM owner

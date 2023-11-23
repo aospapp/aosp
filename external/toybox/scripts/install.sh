@@ -43,7 +43,7 @@ if [ -z "$UNINSTALL" ]
 then
   mkdir -p "${PREFIX}/${LONG_PATH}" &&
   rm -f "${PREFIX}/${LONG_PATH}/toybox" &&
-  cp toybox ${PREFIX}/${LONG_PATH} || exit 1
+  cp toybox"${TARGET:+-$TARGET}" ${PREFIX}/${LONG_PATH} || exit 1
 else
   rm -f "${PREFIX}/${LONG_PATH}/toybox" 2>/dev/null
 fi
@@ -86,13 +86,13 @@ do
   # Create link
   if [ -z "$UNINSTALL" ]
   then
-    ln $DO_FORCE $LINK_TYPE ${DOTPATH}toybox $i || EXIT=1
+    ln $DO_FORCE $LINK_TYPE ${DOTPATH}"toybox${TARGET:+-$TARGET}" $i || EXIT=1
   else
     rm -f $i || EXIT=1
   fi
 done
 
-[ -z "$AIRLOCK" ] && exit 0
+[ -z "$AIRLOCK" ] && exit $EXIT
 
 # --airlock creates a single directory you can point the $PATH to for cross
 # compiling, which contains just toybox and symlinks to toolchain binaries.
@@ -111,13 +111,10 @@ PENDING="dd diff expr ftpd less tr vi wget awk sh sha512sum sha256sum unxz xzcat
 # "gcc" should go away for llvm, but some things still hardwire it
 TOOLCHAIN="as cc ld gcc objdump"
 
-if [ ! -z "$AIRLOCK" ]
-then
-
-  # Tools needed to build packages
-  for i in $TOOLCHAIN $PENDING $HOST_EXTRA
-  do
-    if [ ! -f "$i" ]
+# Tools needed to build packages
+for i in $TOOLCHAIN $PENDING $HOST_EXTRA
+do
+  if [ ! -f "$i" ]
   then
     # Loop through each instance, populating fallback directories (used by
     # things like distcc, which require multiple instances of the same binary
@@ -144,9 +141,5 @@ then
     fi
   fi
 done
-
-
-
-fi
 
 exit $EXIT

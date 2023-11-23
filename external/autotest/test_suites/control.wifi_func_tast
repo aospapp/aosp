@@ -12,12 +12,13 @@ TEST_CLASS = "suite"
 TEST_TYPE = "Server"
 
 DOC = """
-The suite is the Tast counterpart of suite:wifi_matfunc.
+The suite is a placeholder for new WiFi Tast tests.
 
-The reason why we need a separate suite is because "test_that" command
-cannot run Tast tests if devserver is not presented (crbug.com/948805).
-Placing Tast tests on this suite can avoid possible regression of
-suite:wifi_matfunc.
+It is the landing suite for new/ported WiFi Tast tests. After a test is
+stable enough (say at least the same pass rate compare to Autotest
+version), the test can be moved to suite:wifi_matfunc.
+
+Refer to https://goto.google.com/cros-wifi-tast-suites for detail.
 """
 
 import common

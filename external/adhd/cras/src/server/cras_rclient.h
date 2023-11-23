@@ -20,6 +20,9 @@ struct cras_server_message;
  *  fd - Connection for client communication.
  *  ops - cras_rclient_ops for the cras_rclient.
  *  supported_directions - Bit mask for supported stream directions.
+ *  client_type - Client type of this rclient. If this is set to value other
+ *                than CRAS_CLIENT_TYPE_UNKNOWN, rclient will overwrite incoming
+ *                messages' client type.
  */
 struct cras_rclient {
 	struct cras_observer_client *observer;
@@ -27,6 +30,7 @@ struct cras_rclient {
 	int fd;
 	const struct cras_rclient_ops *ops;
 	int supported_directions;
+	enum CRAS_CLIENT_TYPE client_type;
 };
 
 /* Operations for cras_rclient.

@@ -53,7 +53,7 @@ Error CrosGralloc4Allocator::allocate(const BufferDescriptorInfo& descriptor, ui
     }
 
     if (!supported) {
-        std::string drmFormatString = getDrmFormatString(crosDescriptor.drm_format);
+        std::string drmFormatString = get_drm_format_string(crosDescriptor.drm_format);
         std::string pixelFormatString = getPixelFormatString(descriptor.format);
         std::string usageString = getUsageString(descriptor.usage);
         drv_log("Unsupported combination -- pixel format: %s, drm format:%s, usage: %s\n",

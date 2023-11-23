@@ -24,7 +24,8 @@ import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
-import android.support.v4.content.LocalBroadcastManager;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -44,7 +45,7 @@ public abstract class BaseUsbConnection {
     protected UsbDeviceConnection usbConnection;
 
     public BaseUsbConnection(Context context) {
-        this.context = context;
+        this.context = context.getApplicationContext();
         usbManager = (UsbManager) this.context.getSystemService(Context.USB_SERVICE);
         logger = SimpleLogger.getInstance(context);
         broadcastManager = LocalBroadcastManager.getInstance(context);
@@ -184,7 +185,8 @@ public abstract class BaseUsbConnection {
 
     public UsbDevice findUsbDevice() {
 
-        logger.log(String.format("Looking for TeensyUSB VID=0x%x PID=0x%x", getVid(), getPid()));
+        logger.log(String.format(Locale.US,
+            "Looking for TeensyUSB VID=0x%x PID=0x%x", getVid(), getPid()));
 
         HashMap<String, UsbDevice> deviceHash = usbManager.getDeviceList();
         if (deviceHash.size() == 0) {

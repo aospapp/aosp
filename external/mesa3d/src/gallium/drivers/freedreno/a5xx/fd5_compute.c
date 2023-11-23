@@ -64,7 +64,7 @@ static void
 fd5_delete_compute_state(struct pipe_context *pctx, void *hwcso)
 {
 	struct fd5_compute_stateobj *so = hwcso;
-	ir3_shader_destroy(so->shader);
+	ir3_shader_state_delete(pctx, so->shader);
 	free(so);
 }
 
@@ -122,7 +122,8 @@ cs_program_emit(struct fd_ringbuffer *ring, struct ir3_shader_variant *v,
 		A5XX_SP_CS_CONFIG_SHADEROBJOFFSET(0) |
 		A5XX_SP_CS_CONFIG_ENABLED);
 
-	unsigned constlen = align(v->constlen, 4) / 4;
+	assert(v->constlen % 4 == 0);
+	unsigned constlen = v->constlen / 4;
 	OUT_PKT4(ring, REG_A5XX_HLSQ_CS_CONSTLEN, 2);
 	OUT_RING(ring, constlen);          /* HLSQ_CS_CONSTLEN */
 	OUT_RING(ring, instrlen);          /* HLSQ_CS_INSTRLEN */
@@ -149,44 +150,13 @@ cs_program_emit(struct fd_ringbuffer *ring, struct ir3_shader_variant *v,
 }
 
 static void
-emit_setup(struct fd_context *ctx)
-{
-	struct fd_ringbuffer *ring = ctx->batch->draw;
-
-	fd5_emit_restore(ctx->batch, ring);
-	fd5_emit_lrz_flush(ring);
-
-	OUT_PKT7(ring, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
-	OUT_RING(ring, 0x0);
-
-	OUT_PKT7(ring, CP_EVENT_WRITE, 1);
-	OUT_RING(ring, PC_CCU_INVALIDATE_COLOR);
-
-	OUT_PKT4(ring, REG_A5XX_PC_POWER_CNTL, 1);
-	OUT_RING(ring, 0x00000003);   /* PC_POWER_CNTL */
-
-	OUT_PKT4(ring, REG_A5XX_VFD_POWER_CNTL, 1);
-	OUT_RING(ring, 0x00000003);   /* VFD_POWER_CNTL */
-
-	/* 0x10000000 for BYPASS.. 0x7c13c080 for GMEM: */
-	fd_wfi(ctx->batch, ring);
-	OUT_PKT4(ring, REG_A5XX_RB_CCU_CNTL, 1);
-	OUT_RING(ring, 0x10000000);   /* RB_CCU_CNTL */
-
-	OUT_PKT4(ring, REG_A5XX_RB_CNTL, 1);
-	OUT_RING(ring, A5XX_RB_CNTL_BYPASS);
-}
-
-static void
 fd5_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
 {
 	struct fd5_compute_stateobj *so = ctx->compute;
 	struct ir3_shader_key key = {};
 	struct ir3_shader_variant *v;
 	struct fd_ringbuffer *ring = ctx->batch->draw;
-	unsigned i, nglobal = 0;
-
-	emit_setup(ctx);
+	unsigned nglobal = 0;
 
 	v = ir3_shader_variant(so->shader, key, false, &ctx->debug);
 	if (!v)
@@ -196,7 +166,7 @@ fd5_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
 		cs_program_emit(ring, v, info);
 
 	fd5_emit_cs_state(ctx, ring, v);
-	ir3_emit_cs_consts(v, ring, ctx, info);
+	fd5_emit_cs_consts(v, ring, ctx, info);
 
 	foreach_bit(i, ctx->global_bindings.enabled_mask)
 		nglobal++;
@@ -211,7 +181,7 @@ fd5_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info)
 		OUT_PKT7(ring, CP_NOP, 2 * nglobal);
 		foreach_bit(i, ctx->global_bindings.enabled_mask) {
 			struct pipe_resource *prsc = ctx->global_bindings.buf[i];
-			OUT_RELOCW(ring, fd_resource(prsc)->bo, 0, 0, 0);
+			OUT_RELOC(ring, fd_resource(prsc)->bo, 0, 0, 0);
 		}
 	}
 

@@ -84,7 +84,7 @@ public class ShadowWebViewTest {
 
     assertThat(shadowOf(webView).getWebViewClient()).isNull();
     webView.setWebViewClient(webViewClient);
-    assertThat(shadowOf(webView).getWebViewClient()).isSameAs(webViewClient);
+    assertThat(shadowOf(webView).getWebViewClient()).isSameInstanceAs(webViewClient);
   }
 
   @Test
@@ -92,7 +92,7 @@ public class ShadowWebViewTest {
     WebChromeClient webChromeClient = new WebChromeClient();
     assertThat(shadowOf(webView).getWebChromeClient()).isNull();
     webView.setWebChromeClient(webChromeClient);
-    assertThat(shadowOf(webView).getWebChromeClient()).isSameAs(webChromeClient);
+    assertThat(shadowOf(webView).getWebChromeClient()).isSameInstanceAs(webChromeClient);
   }
 
   @Test
@@ -102,7 +102,7 @@ public class ShadowWebViewTest {
       Object obj = new Object();
       assertThat(shadowOf(webView).getJavascriptInterface(name)).isNull();
       webView.addJavascriptInterface(obj, name);
-      assertThat(shadowOf(webView).getJavascriptInterface(name)).isSameAs(obj);
+      assertThat(shadowOf(webView).getJavascriptInterface(name)).isSameInstanceAs(obj);
     }
   }
 
@@ -242,7 +242,7 @@ public class ShadowWebViewTest {
     assertThat(webView.getLayoutParams()).isNull();
     LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
     webView.setLayoutParams(params);
-    assertThat(webView.getLayoutParams()).isSameAs(params);
+    assertThat(webView.getLayoutParams()).isSameInstanceAs(params);
   }
 
   @Test

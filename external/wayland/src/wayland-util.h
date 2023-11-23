@@ -640,7 +640,7 @@ wl_fixed_from_double(double d)
 
 	u.d = d + (3LL << (51 - 8));
 
-	return u.i;
+	return (wl_fixed_t)u.i;
 }
 
 /**

@@ -21,11 +21,13 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+
 #include "util.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/select.h>
 
 int vtest_wait_for_fd_read(int fd)
 {
@@ -36,11 +38,25 @@ int vtest_wait_for_fd_read(int fd)
    FD_SET(fd, &read_fds);
 
    ret = select(fd + 1, &read_fds, NULL, NULL, NULL);
-   if (ret < 0)
+   if (ret < 0) {
       return ret;
+   }
 
    if (FD_ISSET(fd, &read_fds)) {
       return 0;
    }
+
    return -1;
+}
+
+int __failed_call(const char* func, const char *called, int ret)
+{
+   fprintf(stderr, "%s called %s which failed (%d)\n", func, called, ret);
+   return ret;
+}
+
+int __failure(const char* func, const char *reason, int ret)
+{
+   fprintf(stderr, "%s %s (%d)\n", func, reason, ret);
+   return ret;
 }

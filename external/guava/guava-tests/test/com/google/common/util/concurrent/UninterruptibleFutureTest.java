@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import junit.framework.TestCase;
 
-// TODO(azana/cpovirk): Should this be merged into UninterruptiblesTest?
+// TODO(cpovirk): Should this be merged into UninterruptiblesTest?
 /**
  * Unit test for {@link Uninterruptibles#getUninterruptibly}
  *
@@ -97,7 +97,7 @@ public class UninterruptibleFutureTest extends TestCase {
 
     assertFalse(Thread.interrupted());
     try {
-      delayedFuture.get(10000, TimeUnit.MILLISECONDS);
+      delayedFuture.get(20000, TimeUnit.MILLISECONDS);
       fail("expected to be interrupted");
     } catch (InterruptedException expected) {
     } catch (TimeoutException e) {

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -49,6 +49,7 @@
 #include "MagickCore/color.h"
 #include "MagickCore/color-private.h"
 #include "MagickCore/colormap.h"
+#include "MagickCore/colormap-private.h"
 #include "MagickCore/client.h"
 #include "MagickCore/configure.h"
 #include "MagickCore/exception.h"
@@ -104,7 +105,7 @@
 MagickExport MagickBooleanType AcquireImageColormap(Image *image,
   const size_t colors,ExceptionInfo *exception)
 {
-  register ssize_t
+  ssize_t
     i;
 
   /*
@@ -209,10 +210,10 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     ssize_t
@@ -302,7 +303,7 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -347,10 +348,10 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
     Quantum
       index;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     q=GetCacheViewAuthenticPixels(image_view,0,y,image->columns,1,exception);
@@ -361,7 +362,8 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      index=(Quantum) pixels[(ssize_t) GetPixelIndex(image,q)];
+      i=ConstrainColormapIndex(image,GetPixelIndex(image,q),exception);
+      index=(Quantum) pixels[i];
       SetPixelIndex(image,index,q);
       SetPixelViaPixelInfo(image,image->colormap+(ssize_t) index,q);
       q+=GetPixelChannels(image);

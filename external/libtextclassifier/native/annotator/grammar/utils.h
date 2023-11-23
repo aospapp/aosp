@@ -35,7 +35,7 @@ Tokenizer BuildTokenizer(const UniLib* unilib,
 // Returns the ID associated with the created classification rule.
 int AddRuleClassificationResult(const std::string& collection,
                                 const ModeFlag& enabled_modes,
-                                GrammarModelT* model);
+                                float priority_score, GrammarModelT* model);
 
 }  // namespace libtextclassifier3
 

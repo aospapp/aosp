@@ -30,6 +30,8 @@ void FillInterpretations(const DatetimeParsedData& parse,
                          const DatetimeGranularity& granularity,
                          std::vector<DatetimeParsedData>* interpretations);
 
+// Logic to decide if XX will be 20XX or 19XX
+int GetAdjustedYear(const int parsed_year);
 }  // namespace libtextclassifier3
 
 #endif  // LIBTEXTCLASSIFIER_ANNOTATOR_DATETIME_UTILS_H_

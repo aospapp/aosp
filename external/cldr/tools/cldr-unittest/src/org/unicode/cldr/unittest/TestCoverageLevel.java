@@ -1,10 +1,13 @@
 package org.unicode.cldr.unittest;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -24,9 +27,11 @@ import org.unicode.cldr.util.Counter2;
 import org.unicode.cldr.util.DtdData;
 import org.unicode.cldr.util.DtdData.Element;
 import org.unicode.cldr.util.DtdType;
+import org.unicode.cldr.util.GrammarInfo;
 import org.unicode.cldr.util.LanguageTagParser;
 import org.unicode.cldr.util.Level;
 import org.unicode.cldr.util.LogicalGrouping;
+import org.unicode.cldr.util.LogicalGrouping.PathType;
 import org.unicode.cldr.util.PathHeader;
 import org.unicode.cldr.util.PathHeader.Factory;
 import org.unicode.cldr.util.PathStarrer;
@@ -40,10 +45,12 @@ import org.unicode.cldr.util.SupplementalDataInfo.OfficialStatus;
 import org.unicode.cldr.util.SupplementalDataInfo.PopulationData;
 import org.unicode.cldr.util.XPathParts;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row.R2;
 import com.ibm.icu.text.CompactDecimalFormat;
@@ -88,7 +95,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
         SupplementalDataInfo sdi = SupplementalDataInfo
             .getInstance(CLDRPaths.DEFAULT_SUPPLEMENTAL_DIRECTORY);
 
-        Set<String> allPaths = new HashSet<String>();
+        Set<String> allPaths = new HashSet<>();
         M4<String, String, Level, Boolean> starredToLocalesToLevels = ChainedMap
             .of(new TreeMap<String, Object>(),
                 new TreeMap<String, Object>(),
@@ -106,7 +113,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
         }
 
         Set<Level> levelsFound = EnumSet.noneOf(Level.class);
-        Set<String> localesWithUniqueLevels = new TreeSet<String>();
+        Set<String> localesWithUniqueLevels = new TreeSet<>();
         for (Entry<String, Map<String, Map<Level, Boolean>>> entry : starredToLocalesToLevels) {
             String starred = entry.getKey();
             Map<String, Map<Level, Boolean>> localesToLevels = entry.getValue();
@@ -131,15 +138,14 @@ public class TestCoverageLevel extends TestFmwkPlus {
             System.out.println(maxLevelCount
                 + "\t"
                 + localesWithUniqueLevels.size()
-                    / localeCount
+                / localeCount
                 + "\t"
                 + starred
                 + "\t"
-                + CollectionUtilities.join(levelsFound, ", ")
+                + Joiner.on(", ").join(levelsFound)
                 + "\t"
                 + (maxLevelCount == 1 ? "all" : localesWithUniqueLevels
-                    .size() == 0 ? "none" : CollectionUtilities.join(
-                        localesWithUniqueLevels, ", ")));
+                    .size() == 0 ? "none" : Joiner.on(", ").join(localesWithUniqueLevels)));
         }
     }
 
@@ -154,12 +160,12 @@ public class TestCoverageLevel extends TestFmwkPlus {
 
     static Relation<String, LanguageStatus> languageStatus = Relation.of(
         new HashMap<String, Set<LanguageStatus>>(), TreeSet.class);
-    static Counter2<String> languageLiteratePopulation = new Counter2<String>();
-    static Map<String, Date> currencyToLast = new HashMap<String, Date>();
-    static Set<String> officialSomewhere = new HashSet<String>();
+    static Counter2<String> languageLiteratePopulation = new Counter2<>();
+    static Map<String, Date> currencyToLast = new HashMap<>();
+    static Set<String> officialSomewhere = new HashSet<>();
 
     static {
-        Counter2<String> territoryLiteratePopulation = new Counter2<String>();
+        Counter2<String> territoryLiteratePopulation = new Counter2<>();
         LanguageTagParser parser = new LanguageTagParser();
         // cf
         // http://cldr.unicode.org/development/development-process/design-proposals/languages-to-show-for-translation
@@ -253,15 +259,15 @@ public class TestCoverageLevel extends TestFmwkPlus {
             switch (field) {
             case CLDRFile.LANGUAGE_NAME:
                 dep = SDI.getLocaleAliasInfo()
-                    .get("language");
+                .get("language");
                 break;
             case CLDRFile.TERRITORY_NAME:
                 dep = SDI.getLocaleAliasInfo()
-                    .get("territory");
+                .get("territory");
                 break;
             case CLDRFile.SCRIPT_NAME:
                 dep = SDI.getLocaleAliasInfo()
-                    .get("script");
+                .get("script");
                 break;
             default:
                 dep = null;
@@ -269,6 +275,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
             }
         }
 
+        @Override
         public String transform(String source) {
             String result = ENGLISH.getName(field, source);
             String extra = "";
@@ -292,11 +299,12 @@ public class TestCoverageLevel extends TestFmwkPlus {
 
     RegexLookup<Level> exceptions = RegexLookup.of(null,
         new Transform<String, Level>() {
-            public Level transform(String source) {
-                return Level.fromLevel(Integer.parseInt(source));
-            }
-        }, null).loadFromFile(TestCoverageLevel.class,
-            "TestCoverageLevel.txt");
+        @Override
+        public Level transform(String source) {
+            return Level.fromLevel(Integer.parseInt(source));
+        }
+    }, null).loadFromFile(TestCoverageLevel.class,
+        "TestCoverageLevel.txt");
 
     public void TestExceptions() {
         for (Map.Entry<Finder, Level> x : exceptions) {
@@ -370,10 +378,10 @@ public class TestCoverageLevel extends TestFmwkPlus {
             + "kj|anp|an|niu|mni|dv|swb|pau|gor|nqo|krc|crs|gwi|zza|mad|nog|lez|byn|sad|ssy|mag|iba|"
             + "tpi|kum|wal|mos|dzg|gez|io|tn|snk|mai|ady|chy|mwl|sco|av|efi|war|mic|loz|scn|smj|tem|"
             + "dgr|mak|inh|lun|ts|fj|na|kpe|sr_ME|trv|rap|bug|ban|xal|oc|alt|nia|myv|ain|rar|krl|ay|"
-            + "syr|kv|umb|)");
+            + "syr|kv|umb|cu|prg|vo)");
 
         final Pattern script100 = PatternCache.get("("
-            + "Adlm|Afak|Aghb|Ahom|Armi|Avst|Bali|Bamu|Bass|Batk|Bhks|Blis|Brah|Bugi|Buhd|"
+            + "Adlm|Afak|Aghb|Ahom|Aran|Armi|Avst|Bali|Bamu|Bass|Batk|Bhks|Blis|Brah|Bugi|Buhd|"
             + "Cakm|Cans|Cari|Cham|Chrs|Cher|Cirt|Copt|Cprt|Cyrs|"
             + "Diak|Dogr|Dsrt|Dupl|Egy[dhp]|Elba|Elym|Geok|Glag|Gong|Gonm|Goth|Gran|"
             + "Hatr|Hanb|Hano|Hluw|Hmng|Hmnp|Hrkt|Hung|Inds|Ital|Jamo|Java|Jurc|"
@@ -393,7 +401,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
             + "finance|native|traditional|adlm|ahom|bali|bhks|brah|cakm|cham|cyrl|diak|"
             + "gong|gonm|hanidays|hmng|hmnp|java|jpanyear|kali|lana(tham)?|lepc|limb|"
             + "math(bold|dbl|mono|san[bs])|modi|mong|mroo|mtei|mymr(shan|tlng)|"
-            + "newa|nkoo|olck|osma|rohg|saur|shrd|sin[dh]|sora|sund|takr|talu|tirh|vaii|wara|wcho)");
+            + "newa|nkoo|olck|osma|rohg|saur|segment|shrd|sin[dh]|sora|sund|takr|talu|tirh|vaii|wara|wcho)");
 
         final Pattern collation100 = PatternCache.get("("
             + "big5han|compat|dictionary|emoji|eor|gb2312han|phonebook|phonetic|pinyin|reformed|searchjl|stroke|traditional|unihan|zhuyin)");
@@ -613,7 +621,9 @@ public class TestCoverageLevel extends TestFmwkPlus {
                 }
             } else if (path.startsWith("//ldml/units")) {
                 // Skip paths for narrow unit fields.
-                if ("narrow".equals(xpp.findAttributeValue("unitLength", "type"))) {
+                if ("narrow".equals(xpp.findAttributeValue("unitLength", "type"))
+                    || path.endsWith("/compoundUnitPattern1")
+                    ) {
                     continue;
                 }
             }
@@ -638,8 +648,11 @@ public class TestCoverageLevel extends TestFmwkPlus {
                 continue;
             }
             Set<String> grouping = LogicalGrouping.getPaths(cldrFile, path);
+            seen.add(path);
+            if (grouping == null) {
+                continue;
+            }
             seen.addAll(grouping);
-            seen.add(path); // needed too?
             levelToPaths.clear();
             for (String groupingPath : grouping) {
                 if (LogicalGrouping.isOptional(cldrFile, groupingPath)) {
@@ -657,5 +670,146 @@ public class TestCoverageLevel extends TestFmwkPlus {
             }
             ++count;
         }
+    }
+
+    public void testLogicalGroupingSamples() {
+        System.out.println(GrammarInfo.SEED_LOCALES);
+        String[][] test = {
+            {"de",
+                "SINGLETON",
+                "//ldml/localeDisplayNames/localeDisplayPattern/localePattern",
+            },
+            {"de",
+                "METAZONE",
+                "//ldml/dates/timeZoneNames/metazone[@type=\"Alaska\"]/long/generic",
+                "//ldml/dates/timeZoneNames/metazone[@type=\"Alaska\"]/long/standard",
+                "//ldml/dates/timeZoneNames/metazone[@type=\"Alaska\"]/long/daylight",
+            },
+            {"de",
+                "DAYS",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"sun\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"mon\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"tue\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"wed\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"thu\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"fri\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/days/dayContext[@type=\"format\"]/dayWidth[@type=\"wide\"]/day[@type=\"sat\"]",
+            },
+            {"nl",
+                "DAY_PERIODS",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dayPeriods/dayPeriodContext[@type=\"format\"]/dayPeriodWidth[@type=\"wide\"]/dayPeriod[@type=\"morning1\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dayPeriods/dayPeriodContext[@type=\"format\"]/dayPeriodWidth[@type=\"wide\"]/dayPeriod[@type=\"afternoon1\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dayPeriods/dayPeriodContext[@type=\"format\"]/dayPeriodWidth[@type=\"wide\"]/dayPeriod[@type=\"evening1\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dayPeriods/dayPeriodContext[@type=\"format\"]/dayPeriodWidth[@type=\"wide\"]/dayPeriod[@type=\"night1\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/dayPeriods/dayPeriodContext[@type=\"format\"]/dayPeriodWidth[@type=\"wide\"]/dayPeriod[@type=\"midnight\"]",
+            },
+            {"de",
+                "QUARTERS",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/quarters/quarterContext[@type=\"format\"]/quarterWidth[@type=\"wide\"]/quarter[@type=\"1\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/quarters/quarterContext[@type=\"format\"]/quarterWidth[@type=\"wide\"]/quarter[@type=\"2\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/quarters/quarterContext[@type=\"format\"]/quarterWidth[@type=\"wide\"]/quarter[@type=\"3\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/quarters/quarterContext[@type=\"format\"]/quarterWidth[@type=\"wide\"]/quarter[@type=\"4\"]",
+            },
+            {"de",
+                "MONTHS",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"1\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"2\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"3\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"4\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"5\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"6\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"7\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"8\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"9\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"10\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"11\"]",
+                "//ldml/dates/calendars/calendar[@type=\"gregorian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"12\"]",
+            },
+            {"de",
+                "RELATIVE",
+                "//ldml/dates/fields/field[@type=\"week-short\"]/relative[@type=\"-1\"]",
+                "//ldml/dates/fields/field[@type=\"week-short\"]/relative[@type=\"0\"]",
+                "//ldml/dates/fields/field[@type=\"week-short\"]/relative[@type=\"1\"]",
+            },
+            {"de",
+                "DECIMAL_FORMAT_LENGTH",
+                "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"long\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"one\"]",
+                "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"long\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"other\"]",
+                "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"long\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"10000\"][@count=\"one\"]",
+                "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"long\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"10000\"][@count=\"other\"]",
+                "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"long\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"100000\"][@count=\"one\"]",
+                "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"long\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"100000\"][@count=\"other\"]",
+            },
+            {"cs",
+                "COUNT",
+                "//ldml/numbers/currencies/currency[@type=\"BMD\"]/displayName[@count=\"one\"]",
+                "//ldml/numbers/currencies/currency[@type=\"BMD\"]/displayName[@count=\"few\"]",
+                "//ldml/numbers/currencies/currency[@type=\"BMD\"]/displayName[@count=\"many\"]",
+                "//ldml/numbers/currencies/currency[@type=\"BMD\"]/displayName[@count=\"other\"]",
+            },
+            {"de",
+                "COUNT",
+                "//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"one\"]",
+                "//ldml/numbers/minimalPairs/pluralMinimalPairs[@count=\"other\"]",
+            },
+            {"de",
+                "COUNT_CASE",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"one\"][@case=\"accusative\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"one\"][@case=\"dative\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"one\"][@case=\"genitive\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"one\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"other\"][@case=\"accusative\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"other\"][@case=\"dative\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"other\"][@case=\"genitive\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/unit[@type=\"area-square-kilometer\"]/unitPattern[@count=\"other\"]",
+            },
+            {"hi",
+                "COUNT_CASE_GENDER",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"one\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"one\"][@gender=\"feminine\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"other\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"other\"][@gender=\"feminine\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"one\"][@case=\"oblique\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"one\"][@gender=\"feminine\"][@case=\"oblique\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"other\"][@case=\"oblique\"]",
+                "//ldml/units/unitLength[@type=\"long\"]/compoundUnit[@type=\"power2\"]/compoundUnitPattern1[@count=\"other\"][@gender=\"feminine\"][@case=\"oblique\"]"
+            }
+        };
+        Set<PathType> seenPt = new TreeSet<>(Arrays.asList(PathType.values()));
+        for (String[] row : test) {
+            String locale = row[0];
+            PathType expectedPathType = PathType.valueOf(row[1]);
+            CLDRFile cldrFile = testInfo.getCldrFactory().make(locale, true);
+            List<String> paths = Arrays.asList(row);
+            paths = paths.subList(2, paths.size());
+            Set<String> expected = new TreeSet<>(paths);
+            Set<Multimap<String, String>> seen = new LinkedHashSet<>();
+            for (String path : expected) {
+                Set<String> grouping = new TreeSet<>(LogicalGrouping.getPaths(cldrFile, path));
+                final Multimap<String, String> deltaValue = delta(expected, grouping);
+                if (seen.add(deltaValue)) {
+                    assertEquals("Logical group for " + path, ImmutableListMultimap.of(), deltaValue);
+                }
+                PathType actualPathType = PathType.getPathTypeFromPath(path);
+                assertEquals("PathType", expectedPathType, actualPathType);
+            }
+            seenPt.remove(expectedPathType);
+        }
+        assertEquals("PathTypes tested", Collections.emptySet(), seenPt);
+        logKnownIssue("CLDR-13951", "Add more LogicalGrouping tests, fix DECIMAL_FORMAT_LENGTH, etc.");
+    }
+
+    private Multimap<String,String> delta(Set<String> expected, Set<String> grouping) {
+        if (expected.equals(grouping)) {
+            return ImmutableListMultimap.of();
+        }
+        Multimap<String,String> result = LinkedHashMultimap.create();
+        TreeSet<String> aMinusB = new TreeSet<>(expected);
+        aMinusB.removeAll(grouping);
+        result.putAll("expected-actual", aMinusB);
+        TreeSet<String> bMinusA = new TreeSet<>(grouping);
+        bMinusA.removeAll(expected);
+        result.putAll("actual-expected", bMinusA);
+        return result;
     }
 }

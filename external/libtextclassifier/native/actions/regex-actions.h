@@ -23,7 +23,7 @@
 
 #include "actions/actions_model_generated.h"
 #include "actions/types.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/mutable.h"
 #include "utils/utf8/unilib.h"
 #include "utils/zlib/zlib.h"
 
@@ -55,7 +55,7 @@ class RegexActions {
   // Suggests actions for a conversation from a message stream using the regex
   // rules.
   bool SuggestActions(const Conversation& conversation,
-                      const ReflectiveFlatbufferBuilder* entity_data_builder,
+                      const MutableFlatbufferBuilder* entity_data_builder,
                       std::vector<ActionSuggestion>* actions) const;
 
  private:

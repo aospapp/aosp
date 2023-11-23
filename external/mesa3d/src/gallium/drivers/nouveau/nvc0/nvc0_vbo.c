@@ -25,7 +25,7 @@
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "translate/translate.h"
 
 #include "nvc0/nvc0_context.h"
@@ -184,17 +184,15 @@ nvc0_set_constant_vertex_attrib(struct nvc0_context *nvc0, const unsigned a)
    PUSH_SPACE(push, 6);
    BEGIN_NVC0(push, NVC0_3D(VTX_ATTR_DEFINE), 5);
    dst = &push->cur[1];
+   util_format_unpack_rgba(ve->src_format, dst, src, 1);
    if (desc->channel[0].pure_integer) {
       if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED) {
          mode = VTX_ATTR(a, 4, SINT, 32);
-         desc->unpack_rgba_sint(dst, 0, src, 0, 1, 1);
       } else {
          mode = VTX_ATTR(a, 4, UINT, 32);
-         desc->unpack_rgba_uint(dst, 0, src, 0, 1, 1);
       }
    } else {
       mode = VTX_ATTR(a, 4, FLOAT, 32);
-      desc->unpack_rgba_float(dst, 0, src, 0, 1, 1);
    }
    push->cur[0] = mode;
    push->cur += 5;
@@ -362,7 +360,11 @@ nvc0_validate_vertex_buffers(struct nvc0_context *nvc0)
          PUSH_DATAh(push, res->address + offset);
          PUSH_DATA (push, res->address + offset);
       }
-      BEGIN_NVC0(push, NVC0_3D(VERTEX_ARRAY_LIMIT_HIGH(i)), 2);
+
+      if (nvc0->screen->eng3d->oclass < TU102_3D_CLASS)
+         BEGIN_NVC0(push, NVC0_3D(VERTEX_ARRAY_LIMIT_HIGH(i)), 2);
+      else
+         BEGIN_NVC0(push, SUBC_3D(TU102_3D_VERTEX_ARRAY_LIMIT_HIGH(i)), 2);
       PUSH_DATAh(push, res->address + limit);
       PUSH_DATA (push, res->address + limit);
 
@@ -408,7 +410,11 @@ nvc0_validate_vertex_buffers_shared(struct nvc0_context *nvc0)
       PUSH_DATA (push, NVC0_3D_VERTEX_ARRAY_FETCH_ENABLE | vb->stride);
       PUSH_DATAh(push, buf->address + offset);
       PUSH_DATA (push, buf->address + offset);
-      BEGIN_NVC0(push, NVC0_3D(VERTEX_ARRAY_LIMIT_HIGH(b)), 2);
+
+      if (nvc0->screen->eng3d->oclass < TU102_3D_CLASS)
+         BEGIN_NVC0(push, NVC0_3D(VERTEX_ARRAY_LIMIT_HIGH(b)), 2);
+      else
+         BEGIN_NVC0(push, SUBC_3D(TU102_3D_VERTEX_ARRAY_LIMIT_HIGH(b)), 2);
       PUSH_DATAh(push, buf->address + limit);
       PUSH_DATA (push, buf->address + limit);
 
@@ -963,12 +969,23 @@ nvc0_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info)
       assert(nouveau_resource_mapped_by_gpu(&buf->base));
 
       PUSH_SPACE(push, 6);
-      BEGIN_NVC0(push, NVC0_3D(INDEX_ARRAY_START_HIGH), 5);
-      PUSH_DATAh(push, buf->address);
-      PUSH_DATA (push, buf->address);
-      PUSH_DATAh(push, buf->address + buf->base.width0 - 1);
-      PUSH_DATA (push, buf->address + buf->base.width0 - 1);
-      PUSH_DATA (push, info->index_size >> 1);
+      if (nvc0->screen->eng3d->oclass < TU102_3D_CLASS) {
+         BEGIN_NVC0(push, NVC0_3D(INDEX_ARRAY_START_HIGH), 5);
+         PUSH_DATAh(push, buf->address);
+         PUSH_DATA (push, buf->address);
+         PUSH_DATAh(push, buf->address + buf->base.width0 - 1);
+         PUSH_DATA (push, buf->address + buf->base.width0 - 1);
+         PUSH_DATA (push, info->index_size >> 1);
+      } else {
+         BEGIN_NVC0(push, NVC0_3D(INDEX_ARRAY_START_HIGH), 2);
+         PUSH_DATAh(push, buf->address);
+         PUSH_DATA (push, buf->address);
+         BEGIN_NVC0(push, SUBC_3D(TU102_3D_INDEX_ARRAY_LIMIT_HIGH), 2);
+         PUSH_DATAh(push, buf->address + buf->base.width0 - 1);
+         PUSH_DATA (push, buf->address + buf->base.width0 - 1);
+         BEGIN_NVC0(push, NVC0_3D(INDEX_FORMAT), 1);
+         PUSH_DATA (push, info->index_size >> 1);
+      }
 
       BCTX_REFN(nvc0->bufctx_3d, 3D_IDX, buf, RD);
    }

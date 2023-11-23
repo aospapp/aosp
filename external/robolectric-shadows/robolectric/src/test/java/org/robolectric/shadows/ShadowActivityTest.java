@@ -5,6 +5,7 @@ import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -250,7 +251,7 @@ public class ShadowActivityTest {
 
     Intent startedIntent = shadowActivity.getNextStartedActivity();
     assertThat(startedIntent).isNotNull();
-    assertThat(startedIntent).isSameAs(intent);
+    assertThat(startedIntent).isSameInstanceAs(intent);
   }
 
   @Test
@@ -265,7 +266,7 @@ public class ShadowActivityTest {
     assertThat(intentForResult).isNotNull();
     assertThat(shadowActivity.getNextStartedActivityForResult()).isNull();
     assertThat(intentForResult.intent).isNotNull();
-    assertThat(intentForResult.intent).isSameAs(intent);
+    assertThat(intentForResult.intent).isSameInstanceAs(intent);
     assertThat(intentForResult.requestCode).isEqualTo(142);
   }
 
@@ -279,9 +280,9 @@ public class ShadowActivityTest {
 
     ShadowActivity.IntentForResult intentForResult = shadowActivity.peekNextStartedActivityForResult();
     assertThat(intentForResult).isNotNull();
-    assertThat(shadowActivity.peekNextStartedActivityForResult()).isSameAs(intentForResult);
+    assertThat(shadowActivity.peekNextStartedActivityForResult()).isSameInstanceAs(intentForResult);
     assertThat(intentForResult.intent).isNotNull();
-    assertThat(intentForResult.intent).isSameAs(intent);
+    assertThat(intentForResult.intent).isSameInstanceAs(intent);
     assertThat(intentForResult.requestCode).isEqualTo(142);
   }
 
@@ -500,7 +501,7 @@ public class ShadowActivityTest {
 
     for (int mode : modes) {
       activity.setDefaultKeyMode(mode);
-      assertThat(shadow.getDefaultKeymode()).named("Unexpected key mode").isEqualTo(mode);
+      assertWithMessage("Unexpected key mode").that(shadow.getDefaultKeymode()).isEqualTo(mode);
     }
   }
 
@@ -558,7 +559,7 @@ public class ShadowActivityTest {
     activity.setContentView(contentView);
 
     FrameLayout contentViewContainer = (FrameLayout) activity.findViewById(android.R.id.content);
-    assertThat(contentViewContainer.getChildAt(0)).isSameAs(contentView);
+    assertThat(contentViewContainer.getChildAt(0)).isSameInstanceAs(contentView);
   }
 
   @Test
@@ -604,7 +605,7 @@ public class ShadowActivityTest {
 
     assertThat(shadow.getManagedCursors()).isNotNull();
     assertThat(shadow.getManagedCursors().size()).isEqualTo(1);
-    assertThat(shadow.getManagedCursors().get(0)).isSameAs(c);
+    assertThat(shadow.getManagedCursors().get(0)).isSameInstanceAs(c);
 
     activity.stopManagingCursor(c);
 
@@ -813,7 +814,7 @@ public class ShadowActivityTest {
     activity.startActivityFromFragment(new Fragment(), intent, 4);
 
     ShadowActivity.IntentForResult intentForResult = shadowOf(activity).getNextStartedActivityForResult();
-    assertThat(intentForResult.intent).isSameAs(intent);
+    assertThat(intentForResult.intent).isSameInstanceAs(intent);
     assertThat(intentForResult.requestCode).isEqualTo(4);
   }
 
@@ -826,8 +827,8 @@ public class ShadowActivityTest {
     activity.startActivityFromFragment(new Fragment(), intent, 5, options);
 
     ShadowActivity.IntentForResult intentForResult = shadowOf(activity).getNextStartedActivityForResult();
-    assertThat(intentForResult.intent).isSameAs(intent);
-    assertThat(intentForResult.options).isSameAs(options);
+    assertThat(intentForResult.intent).isSameInstanceAs(intent);
+    assertThat(intentForResult.options).isSameInstanceAs(options);
     assertThat(intentForResult.requestCode).isEqualTo(5);
   }
 
@@ -838,7 +839,7 @@ public class ShadowActivityTest {
 
     Bundle animationBundle = ActivityOptions.makeCustomAnimation(activity, R.anim.test_anim_1, R.anim.test_anim_1).toBundle();
     activity.startActivity(intent, animationBundle);
-    assertThat(shadowOf(activity).getNextStartedActivityForResult().options).isSameAs(animationBundle);
+    assertThat(shadowOf(activity).getNextStartedActivityForResult().options).isSameInstanceAs(animationBundle);
   }
 
   @Test

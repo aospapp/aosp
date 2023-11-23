@@ -4,6 +4,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# Note: this test has been ported to hardware.MemCheck Tast test.
+# Any change made here should be applied to the Tast test as well.
+
 __author__ = 'kdlucas@chromium.org (Kelly Lucas)'
 
 import logging, re

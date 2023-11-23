@@ -3,23 +3,21 @@
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+#
+# pylint: disable=global-statement
 
 """Creates the arguments for the patch manager for LLVM."""
 
 from __future__ import print_function
 
 import argparse
-import get_llvm_hash
 import os
-import patch_manager
 
-from assert_not_in_chroot import VerifyOutsideChroot
 from failure_modes import FailureModes
-from get_llvm_hash import CreateTempLLVMRepo
-from get_llvm_hash import GetGoogle3LLVMVersion
-from get_llvm_hash import LLVMHash
-from subprocess_helpers import ChrootRunCommand
-from subprocess_helpers import ExecCommandAndCaptureOutput
+import chroot
+import get_llvm_hash
+import patch_manager
+import subprocess_helpers
 
 # If set to `True`, then the contents of `stdout` after executing a command will
 # be displayed to the terminal.
@@ -123,7 +121,7 @@ def GetPathToFilesDirectory(chroot_path, package):
     raise ValueError('Invalid chroot provided: %s' % chroot_path)
 
   # Get the absolute chroot path to the ebuild.
-  chroot_ebuild_path = ChrootRunCommand(
+  chroot_ebuild_path = subprocess_helpers.ChrootRunCommand(
       chroot_path, ['equery', 'w', package], verbose=verbose)
 
   # Get the absolute chroot path to $FILESDIR's parent directory.
@@ -180,7 +178,7 @@ def _MoveSrcTreeHEADToGitHash(src_path, git_hash):
 
   move_head_cmd = ['git', '-C', src_path, 'checkout', git_hash]
 
-  ExecCommandAndCaptureOutput(move_head_cmd, verbose=verbose)
+  subprocess_helpers.ExecCommandAndCaptureOutput(move_head_cmd, verbose=verbose)
 
 
 def UpdatePackagesPatchMetadataFile(chroot_path, svn_version,
@@ -206,10 +204,10 @@ def UpdatePackagesPatchMetadataFile(chroot_path, svn_version,
   # that has information on the patches.
   package_info = {}
 
-  llvm_hash = LLVMHash()
+  llvm_hash = get_llvm_hash.LLVMHash()
 
   with llvm_hash.CreateTempDirectory() as temp_dir:
-    with CreateTempLLVMRepo(temp_dir) as src_path:
+    with get_llvm_hash.CreateTempLLVMRepo(temp_dir) as src_path:
       # Ensure that 'svn_version' exists in the chromiumum mirror of LLVM by
       # finding its corresponding git hash.
       git_hash = get_llvm_hash.GetGitHashFrom(src_path, svn_version)
@@ -247,14 +245,14 @@ def main():
     AssertionError: The script was run inside the chroot.
   """
 
-  VerifyOutsideChroot()
+  chroot.VerifyOutsideChroot()
 
   args_output = GetCommandLineArgs()
 
   # Get the google3 LLVM version if a LLVM version was not provided.
   llvm_version = args_output.llvm_version
   if llvm_version in ('', 'google3', 'google3-unstable'):
-    llvm_version = GetGoogle3LLVMVersion(
+    llvm_version = get_llvm_hash.GetGoogle3LLVMVersion(
         stable=llvm_version != 'google3-unstable')
 
   UpdatePackagesPatchMetadataFile(args_output.chroot_path, llvm_version,

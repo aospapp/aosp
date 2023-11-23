@@ -34,11 +34,63 @@ namespace trace_processor {
 // simpler (e.g. use arrays instead of vectors).
 constexpr size_t kMaxCpus = 128;
 
+// Enum which encodes how trace processor should try to sort the ingested data.
+enum class SortingMode {
+  // This option allows trace processor to use built-in heuristics about how to
+  // sort the data. Generally, this option is correct for most embedders as
+  // trace processor reads information from the trace (e.g. TraceConfig) to make
+  // the best decision.
+  //
+  // The exact heuristics are implementation details but will ensure that all
+  // relevant tables are sorted by timestamp.
+  //
+  // This is the default mode.
+  kDefaultHeuristics = 0,
+
+  // This option forces trace processor to wait for all trace packets to be
+  // passed to it before doing a full sort of all the packets. This causes any
+  // heuristics trace processor would normally use to ingest partially sorted
+  // data to be skipped.
+  kForceFullSort = 1,
+
+  // This option forces trace processor to use the |flush_period_ms| specified
+  // in the TraceConfig to perform a windowed sort of the data. The window size
+  // is not guaranteed to be exactly |flush_period_ms| but will be of the same
+  // order of magnitude; the exact value is an implementation detail and should
+  // not be relied upon.
+  //
+  // If a |flush_period_ms| is not specified in the TraceConfig, this mode will
+  // act the same as |SortingMode::kDefaultHeuristics|.
+  kForceFlushPeriodWindowedSort = 2
+};
+
+// Enum which encodes which event (if any) should be used to drop ftrace data
+// from before this timestamp of that event.
+enum class DropFtraceDataBefore {
+  // Drops ftrace data before timestmap specified by the
+  // TracingServiceEvent::tracing_started packet. If this packet is not in the
+  // trace, no data is dropped.
+  // Note: this event was introduced in S+ so no data will be dropped on R-
+  // traces.
+  // This is the default approach.
+  kTracingStarted = 0,
+
+  // Retains all ftrace data regardless of timestamp and other events.
+  kNoDrop = 1,
+
+  // Drops ftrace data before timestmap specified by the
+  // TracingServiceEvent::all_data_sources_started. If this packet is not in the
+  // trace, no data is dropped.
+  // This option can be used in cases where R- traces are being considered and
+  // |kTracingStart| cannot be used because the event was not present.
+  kAllDataSourcesStarted = 2,
+};
+
 // Struct for configuring a TraceProcessor instance (see trace_processor.h).
 struct PERFETTO_EXPORT Config {
-  // When set to true, this option forces trace processor to perform a full
-  // sort ignoring any internal heureustics to skip sorting parts of the data.
-  bool force_full_sort = false;
+  // Indicates the sortinng mode that trace processor should use on the passed
+  // trace packets. See the enum documentation for more details.
+  SortingMode sorting_mode = SortingMode::kDefaultHeuristics;
 
   // When set to false, this option makes the trace processor not include ftrace
   // events in the raw table; this makes converting events back to the systrace
@@ -49,6 +101,11 @@ struct PERFETTO_EXPORT Config {
   // this flag is false and all other events which parse into the raw table are
   // unaffected by this flag.
   bool ingest_ftrace_in_raw_table = true;
+
+  // Indicates the event which should be used as a marker to drop ftrace data in
+  // the trace before that event. See the ennu documenetation for more details.
+  DropFtraceDataBefore drop_ftrace_data_before =
+      DropFtraceDataBefore::kTracingStarted;
 };
 
 // Represents a dynamically typed value returned by SQL.
@@ -82,6 +139,14 @@ struct PERFETTO_EXPORT SqlValue {
     SqlValue value;
     value.string_value = v;
     value.type = Type::kString;
+    return value;
+  }
+
+  static SqlValue Bytes(const void* v, size_t size) {
+    SqlValue value;
+    value.bytes_value = v;
+    value.bytes_count = size;
+    value.type = Type::kBytes;
     return value;
   }
 

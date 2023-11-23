@@ -1,5 +1,5 @@
 import logging
-from autotest_lib.client.common_lib import enum, global_config
+from autotest_lib.client.common_lib import autotest_enum, global_config
 
 # Changing this file has consequences that need to be understood.
 # Adding a protection level to the enum requires you to append your change to
@@ -10,7 +10,8 @@ from autotest_lib.client.common_lib import enum, global_config
 # protection to a default protection level.
 # IF THIS IS NOT DONE HOSTS' PROTECTION LEVELS WILL BE CHANGED RANDOMLY.
 
-Protection = enum.Enum('No protection',          # Repair can do anything to
+Protection = autotest_enum.AutotestEnum(
+                       'No protection',          # Repair can do anything to
                                                  # this host.
                        'Repair software only',   # repair should try to fix any
                                                  # software problem

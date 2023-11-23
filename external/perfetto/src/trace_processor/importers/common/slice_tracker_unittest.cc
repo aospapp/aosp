@@ -72,6 +72,28 @@ TEST(SliceTrackerTest, OneSliceDetailed) {
   EXPECT_EQ(slices.arg_set_id()[0], kInvalidArgSetId);
 }
 
+TEST(SliceTrackerTest, NegativeTimestamps) {
+  TraceProcessorContext context;
+  context.storage.reset(new TraceStorage());
+  SliceTracker tracker(&context);
+
+  constexpr TrackId track{22u};
+  tracker.Begin(-1000 /*ts*/, track, kNullStringId /*cat*/,
+                StringId::Raw(1) /*name*/);
+  tracker.End(-501 /*ts*/, track, kNullStringId /*cat*/,
+              StringId::Raw(1) /*name*/);
+
+  const auto& slices = context.storage->slice_table();
+  EXPECT_EQ(slices.row_count(), 1u);
+  EXPECT_EQ(slices.ts()[0], -1000);
+  EXPECT_EQ(slices.dur()[0], 499);
+  EXPECT_EQ(slices.track_id()[0], track);
+  EXPECT_EQ(slices.category()[0].raw_id(), 0u);
+  EXPECT_EQ(slices.name()[0].raw_id(), 1u);
+  EXPECT_EQ(slices.depth()[0], 0u);
+  EXPECT_EQ(slices.arg_set_id()[0], kInvalidArgSetId);
+}
+
 TEST(SliceTrackerTest, OneSliceWithArgs) {
   TraceProcessorContext context;
   context.storage.reset(new TraceStorage());
@@ -303,6 +325,72 @@ TEST(SliceTrackerTest, EndEventOutOfOrder) {
   EXPECT_EQ(context.storage->slice_table().depth()[1], 1u);
   EXPECT_EQ(context.storage->slice_table().depth()[2], 0u);
   EXPECT_EQ(context.storage->slice_table().depth()[3], 0u);
+}
+
+TEST(SliceTrackerTest, GetTopmostSliceOnTrack) {
+  TraceProcessorContext context;
+  context.storage.reset(new TraceStorage());
+  SliceTracker tracker(&context);
+
+  TrackId track{1u};
+  TrackId track2{2u};
+
+  EXPECT_EQ(tracker.GetTopmostSliceOnTrack(track), base::nullopt);
+
+  tracker.Begin(100, track, StringId::Raw(11), StringId::Raw(11));
+  SliceId slice1 = context.storage->slice_table().id()[0];
+
+  EXPECT_EQ(tracker.GetTopmostSliceOnTrack(track).value(), slice1);
+
+  tracker.Begin(120, track, StringId::Raw(22), StringId::Raw(22));
+  SliceId slice2 = context.storage->slice_table().id()[1];
+
+  EXPECT_EQ(tracker.GetTopmostSliceOnTrack(track).value(), slice2);
+
+  EXPECT_EQ(tracker.GetTopmostSliceOnTrack(track2), base::nullopt);
+
+  tracker.End(140, track, StringId::Raw(22), StringId::Raw(22));
+
+  EXPECT_EQ(tracker.GetTopmostSliceOnTrack(track).value(), slice1);
+
+  tracker.End(330, track, StringId::Raw(11), StringId::Raw(11));
+
+  EXPECT_EQ(tracker.GetTopmostSliceOnTrack(track), base::nullopt);
+}
+
+TEST(SliceTrackerTest, OnSliceBeginCallback) {
+  TraceProcessorContext context;
+  context.storage.reset(new TraceStorage());
+  SliceTracker tracker(&context);
+
+  TrackId track1{1u};
+  TrackId track2{2u};
+
+  std::vector<TrackId> track_records;
+  std::vector<SliceId> slice_records;
+  tracker.SetOnSliceBeginCallback([&](TrackId track_id, SliceId slice_id) {
+    track_records.emplace_back(track_id);
+    slice_records.emplace_back(slice_id);
+  });
+
+  EXPECT_TRUE(track_records.empty());
+  EXPECT_TRUE(slice_records.empty());
+
+  tracker.Begin(100, track1, StringId::Raw(11), StringId::Raw(11));
+  SliceId slice1 = context.storage->slice_table().id()[0];
+  EXPECT_THAT(track_records, ElementsAre(TrackId{1u}));
+  EXPECT_THAT(slice_records, ElementsAre(slice1));
+
+  tracker.Begin(120, track2, StringId::Raw(22), StringId::Raw(22));
+  SliceId slice2 = context.storage->slice_table().id()[1];
+  EXPECT_THAT(track_records, ElementsAre(TrackId{1u}, TrackId{2u}));
+  EXPECT_THAT(slice_records, ElementsAre(slice1, slice2));
+
+  tracker.Begin(330, track1, StringId::Raw(33), StringId::Raw(33));
+  SliceId slice3 = context.storage->slice_table().id()[2];
+  EXPECT_THAT(track_records,
+              ElementsAre(TrackId{1u}, TrackId{2u}, TrackId{1u}));
+  EXPECT_THAT(slice_records, ElementsAre(slice1, slice2, slice3));
 }
 
 }  // namespace

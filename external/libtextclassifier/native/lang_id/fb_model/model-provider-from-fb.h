@@ -43,6 +43,11 @@ class ModelProviderFromFlatbuffer : public ModelProvider {
   // file descriptor |fd|.
   explicit ModelProviderFromFlatbuffer(FileDescriptorOrHandle fd);
 
+  // Constructs a model provider based on a flatbuffer-format SAFT model from
+  // file descriptor |fd|.
+  ModelProviderFromFlatbuffer(FileDescriptorOrHandle fd, std::size_t offset,
+                              std::size_t size);
+
   // Constructs a model provider from a flatbuffer-format SAFT model the bytes
   // of which are already in RAM (size bytes starting from address data).
   // Useful if you "transport" these bytes otherwise than via a normal file

@@ -17,6 +17,7 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
     Chrome OS test image (built by "build_image --test").
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     def initialize(self, host, cmdline_args, dev_mode=False):
         """Initialize the test"""
@@ -63,6 +64,10 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected normal boot, done.")
+
+        if self.faft_config.clear_dev_on_rec:
+            dev_mode=False
+
         self.check_state((self.checkers.crossystem_checker, {
                     'mainfw_type': 'developer' if dev_mode else 'normal',
                     }))

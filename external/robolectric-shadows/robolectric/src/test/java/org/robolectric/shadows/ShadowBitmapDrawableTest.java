@@ -48,7 +48,7 @@ public class ShadowBitmapDrawableTest {
   public void mutate_createsDeepCopy() throws Exception {
     BitmapDrawable original = (BitmapDrawable) resources.getDrawable(R.drawable.an_image);
     Drawable mutated = original.mutate();
-    assertThat(original).isNotSameAs(mutated);
+    assertThat(original).isNotSameInstanceAs(mutated);
     assertThat(mutated instanceof BitmapDrawable).isTrue();
     assertThat(mutated.getIntrinsicHeight()).isEqualTo(original.getIntrinsicHeight());
     assertThat(mutated.getIntrinsicWidth()).isEqualTo(original.getIntrinsicWidth());

@@ -19,6 +19,10 @@ import xnncommon
 
 parser = argparse.ArgumentParser(
   description='Vector binary operation microkernel test generator')
+parser.add_argument("-t", "--tester", metavar="TESTER", required=True,
+                    choices=["VAddMicrokernelTester", "VAddCMicrokernelTester",
+                    "VBinOpMicrokernelTester", "VBinOpCMicrokernelTester"],
+                    help="Tester class to be used in the generated test")
 parser.add_argument("-s", "--spec", metavar="FILE", required=True,
                     help="Specification (YAML) file")
 parser.add_argument("-o", "--output", metavar="FILE", required=True,
@@ -27,7 +31,7 @@ parser.set_defaults(defines=list())
 
 
 def split_ukernel_name(name):
-  match = re.match(r"^xnn_(f16|f32)_v(add|div|max|min|mul|sub|addc|divc|rdivc|maxc|minc|mulc|subc|rsubc)_ukernel__(.+)_x(\d+)$", name)
+  match = re.match(r"^xnn_(qs8|f16|f32)_v(add|div|max|min|mul|sqrdiff|sub|addc|divc|rdivc|maxc|minc|mulc|sqrdiffc|subc|rsubc)(_(minmax|relu))?_ukernel__(.+)_x(\d+)$", name)
   if match is None:
     raise ValueError("Unexpected microkernel name: " + name)
   op_type = {
@@ -36,6 +40,7 @@ def split_ukernel_name(name):
     "max": "Max",
     "min": "Min",
     "mul": "Mul",
+    "sqrdiff": "SqrDiff",
     "sub": "Sub",
     "addc": "AddC",
     "divc": "DivC",
@@ -43,13 +48,20 @@ def split_ukernel_name(name):
     "maxc": "MaxC",
     "minc": "MinC",
     "mulc": "MulC",
+    "sqrdiffc": "SqrDiffC",
     "subc": "SubC",
     "rsubc": "RSubC",
   }[match.group(2)]
-  batch_tile = int(match.group(4))
+  batch_tile = int(match.group(6))
 
-  arch, isa = xnncommon.parse_target_name(target_name=match.group(3))
-  return op_type, batch_tile, arch, isa
+  activation_type = match.group(4)
+  if activation_type is None:
+    activation_type = "LINEAR"
+  else:
+    activation_type = activation_type.upper()
+
+  arch, isa = xnncommon.parse_target_name(target_name=match.group(5))
+  return op_type, activation_type, batch_tile, arch, isa
 
 
 BINOP_TEST_TEMPLATE = """\
@@ -92,7 +104,7 @@ TEST(${TEST_NAME}, batch_gt_${BATCH_TILE}) {
   }
 }
 
-$if TESTER == "VBinOpCMicrokernelTester":
+$if TESTER in ["VAddCMicrokernelTester", "VBinOpCMicrokernelTester"]:
   TEST(${TEST_NAME}, inplace) {
     $if ISA_CHECK:
       ${ISA_CHECK};
@@ -138,36 +150,118 @@ $else:
     }
   }
 
-TEST(${TEST_NAME}, qmin) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
-    ${TESTER}()
-      .batch_size(batch_size)
-      .qmin(128)
-      .Test(${", ".join(TEST_ARGS)});
+$if DATATYPE == "QS8":
+  TEST(${TEST_NAME}, a_zero_point) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (int32_t a_zero_point = -128; a_zero_point <= 127; a_zero_point += 51) {
+        ${TESTER}()
+          .batch_size(batch_size)
+          .a_zero_point(a_zero_point)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
   }
-}
 
-TEST(${TEST_NAME}, qmax) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
-    ${TESTER}()
-      .batch_size(batch_size)
-      .qmax(128)
-      .Test(${", ".join(TEST_ARGS)});
+  TEST(${TEST_NAME}, b_zero_point) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (int32_t b_zero_point = -128; b_zero_point <= 127; b_zero_point += 51) {
+        ${TESTER}()
+          .batch_size(batch_size)
+          .b_zero_point(b_zero_point)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
   }
-}
+
+  TEST(${TEST_NAME}, y_zero_point) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (int32_t y_zero_point = -128; y_zero_point <= 127; y_zero_point += 51) {
+        ${TESTER}()
+          .batch_size(batch_size)
+          .y_zero_point(y_zero_point)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+  TEST(${TEST_NAME}, a_scale) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (float a_scale = 0.1f; a_scale <= 10.0f; a_scale *= 3.14f) {
+        ${TESTER}()
+          .batch_size(batch_size)
+          .a_scale(a_scale)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+  TEST(${TEST_NAME}, b_scale) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (float b_scale = 0.1f; b_scale <= 10.0f; b_scale *= 3.14f) {
+        ${TESTER}()
+          .batch_size(batch_size)
+          .b_scale(b_scale)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+  TEST(${TEST_NAME}, y_scale) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      for (float y_scale = 0.1f; y_scale <= 10.0f; y_scale *= 3.14f) {
+        ${TESTER}()
+          .batch_size(batch_size)
+          .y_scale(y_scale)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+$if ACTIVATION_TYPE == "MINMAX":
+  TEST(${TEST_NAME}, qmin) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      ${TESTER}()
+        .batch_size(batch_size)
+        .qmin(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
+  }
+
+  TEST(${TEST_NAME}, qmax) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+      ${TESTER}()
+        .batch_size(batch_size)
+        .qmax(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
+  }
 """
 
 
-def generate_test_cases(ukernel, op_type, batch_tile, isa):
+def generate_test_cases(ukernel, op_type, activation_type, tester, batch_tile, isa):
   """Generates all tests cases for a Vector Binary Operation micro-kernel.
 
   Args:
     ukernel: C name of the micro-kernel function.
     op_type: Operation type (ADD/MUL/SUB/etc).
+    activation_type: Activation type (LINEAR/MINMAX/RELU).
+    tester: C++ name of the tester class.
     batch_tile: Number of batch elements processed per one iteration of the
                 inner loop of the micro-kernel.
     isa: instruction set required to run the micro-kernel. Generated unit test
@@ -178,20 +272,19 @@ def generate_test_cases(ukernel, op_type, batch_tile, isa):
   """
   _, test_name = ukernel.split("_", 1)
   _, datatype, _ = ukernel.split("_", 2)
-  tester = "VBinOp%sMicrokernelTester" % ("C" if op_type.endswith("C") else "")
-  test_args = [
-    ukernel,
-    "%s::OpType::%s" % (tester, op_type),
-  ]
-  if not isa or isa == "psimd":
+  test_args = [ukernel]
+  if tester in ["VBinOpMicrokernelTester", "VBinOpCMicrokernelTester"]:
+    test_args.append("%s::OpType::%s" % (tester, op_type))
+  if not isa:
     test_args.append("%s::Variant::Scalar" % tester)
   return xngen.preprocess(BINOP_TEST_TEMPLATE, {
       "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),
       "TEST_ARGS": test_args,
       "TESTER": tester,
-      "DATATYPE": datatype,
+      "DATATYPE": datatype.upper(),
       "BATCH_TILE": batch_tile,
       "OP_TYPE": op_type,
+      "ACTIVATION_TYPE": activation_type,
       "ISA_CHECK": xnncommon.generate_isa_check_macro(isa),
     })
 
@@ -204,10 +297,19 @@ def main(args):
     if not isinstance(spec_yaml, list):
       raise ValueError("expected a list of micro-kernels in the spec")
 
-    if os.path.splitext(options.spec)[0].endswith("c"):
-      header = "vbinaryc-microkernel-tester.h"
-    else:
-      header = "vbinary-microkernel-tester.h"
+    spec_name = os.path.splitext(os.path.split(options.spec)[1])[0]
+    microkernel_header = {
+      "VAddMicrokernelTester": "xnnpack/vadd.h",
+      "VAddCMicrokernelTester": "xnnpack/vadd.h",
+      "VBinOpMicrokernelTester": "xnnpack/vbinary.h",
+      "VBinOpCMicrokernelTester": "xnnpack/vbinary.h",
+    }[options.tester]
+    tester_header = {
+      "VAddMicrokernelTester": "vadd-microkernel-tester.h",
+      "VAddCMicrokernelTester": "vaddc-microkernel-tester.h",
+      "VBinOpMicrokernelTester": "vbinary-microkernel-tester.h",
+      "VBinOpCMicrokernelTester": "vbinaryc-microkernel-tester.h",
+    }[options.tester]
     tests = """\
 // Copyright 2019 Google LLC
 //
@@ -224,18 +326,20 @@ def main(args):
 #include <xnnpack/common.h>
 #include <xnnpack/isa-checks.h>
 
-#include <xnnpack/vbinary.h>
-#include "{header}"
-""".format(specification=options.spec, generator=sys.argv[0], header=header)
+#include <{microkernel_header}>
+#include "{tester_header}"
+""".format(specification=options.spec, generator=sys.argv[0],
+           microkernel_header=microkernel_header, tester_header=tester_header)
 
     for ukernel_spec in spec_yaml:
       name = ukernel_spec["name"]
-      op_type, batch_tile, arch, isa = split_ukernel_name(name)
+      op_type, activation_type, batch_tile, arch, isa = split_ukernel_name(name)
 
       # specification can override architecture
       arch = ukernel_spec.get("arch", arch)
 
-      test_case = generate_test_cases(name, op_type, batch_tile, isa)
+      test_case = generate_test_cases(name, op_type, activation_type,
+                                      options.tester, batch_tile, isa)
       tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa)
 
     with codecs.open(options.output, "w", encoding="utf-8") as output_file:

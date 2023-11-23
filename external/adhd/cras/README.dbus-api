@@ -30,19 +30,12 @@ Methods		void SetOutputVolume(int32 volume)
 
 			Sets the system output mute from user action.
 
-		void SetInputGain(int32 gain)
-
-			Sets the capture gain of the system. Gain is specified
-			in dBFS * 100.  For example 5dB of gain would be
-			specified with an argument of 500, while -10 would be
-			specified with -1000, and 11.5 maps to 1150.
-
 		void SetInputNodeGain(uint64 node_id, int32 gain)
 
-			Sets the capture gain of the node. Gain is specified
-			in dBFS * 100.  For example 5dB of gain would be
-			specified with an argument of 500, while -10 would be
-			specified with -1000, and 11.5 maps to 1150.
+			Sets the capture gain of the node. gain is a 0-100
+			integer which linearly maps [0, 50] to range [-40dB, 0dB]
+			and [50, 100] to [0dB, 20dB],
+			Default gain value is 50, which is 0dB.
 
 		void SetInputMute(boolean mute_on)
 
@@ -112,9 +105,6 @@ Methods		void SetOutputVolume(int32 volume)
 				uint64 PluggedTime
 					The time that this device was plugged
 					in. This value is in microseconds.
-				string MicPositions
-					The string formed by floating numbers
-					describing the position of mic array.
 				unit64 NodeVolume
 					The node volume indexed from 0 to 100.
 				unit64 NodeCaptureGain
@@ -161,9 +151,9 @@ Methods		void SetOutputVolume(int32 volume)
 		int32 IsAudioOutputActive()
 
 			Returns 1 if there are currently any active output streams,
-			excluding 'dummy' streams that are not actually outputting any
+			excluding 'fake' streams that are not actually outputting any
 			audio. Returns 0 if there are no active streams, or all active
-			streams are 'dummy' streams.
+			streams are 'fake' streams.
 
 		void SetGlobalOutputChannelRemix(int32 num_channels,
 						 array:double coefficient)

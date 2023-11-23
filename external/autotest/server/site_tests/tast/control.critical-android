@@ -9,7 +9,7 @@ TEST_TYPE = 'Server'
 # Android tests can also be broken by Chrome and OS changes, so these tests need
 # to run in both PFQs and the CQ.
 ATTRIBUTES = 'suite:bvt-tast-cq, suite:bvt-tast-android-pfq, suite:bvt-tast-chrome-pfq'
-MAX_RESULT_SIZE_KB = 50 * 1024
+MAX_RESULT_SIZE_KB = 256 * 1024
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -29,14 +29,17 @@ See http://go/tast-failures for information about investigating failures.
 
 def run(machine):
     # TODO(crbug.com/992303): Fix android condition.
+    # Make sure if you modify this condition to update ATP side config
+    # in http://cs/file:tast_critical.gcl
     job.run_test('tast',
                  host=hosts.create_host(machine),
                  test_exprs=['('
-                             '!disabled && '
-                             '("group:mainline" || !"group:*") && '
+                             '"group:mainline" && '
                              '!informational && '
+                             '!"dep:plugin_vm" && '
                              '"dep:android*"'
                              ')'],
+                 download_data_lazily=False,
                  ignore_test_failures=False, max_run_sec=3600,
                  command_args=args)
 

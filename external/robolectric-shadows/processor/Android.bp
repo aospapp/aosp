@@ -2,6 +2,16 @@
 // Compile Robolectric processor
 //#############################################
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_robolectric-shadows_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-MIT
+    default_applicable_licenses: ["external_robolectric-shadows_license"],
+}
+
 java_plugin {
     name: "Robolectric_processor",
     processor_class: "org.robolectric.annotation.processing.RobolectricProcessor",
@@ -42,7 +52,7 @@ java_test_host {
         "Robolectric_processor",
         "Robolectric_shadowapi",
         "robolectric-javax.annotation-api-1.2",
-        "robolectric-compile-testing-0.15",
+        "robolectric-compile-testing-0.19",
         "mockito",
         "hamcrest",
         "guava",

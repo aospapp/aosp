@@ -88,13 +88,15 @@ gsctool = argparse.ArgumentParser()
 gsctool.add_argument('-a', '--any', dest='universal', action='store_true')
 # use /dev/tpm0 to send the command
 gsctool.add_argument('-s', '--systemdev', dest='systemdev', action='store_true')
+gsctool.add_argument('-o', '--ccd_open', dest='ccd_open', action='store_true')
 # Any command used for something other than updating. These commands should
-# never timeout because they forced cr50 to reboot. They should all just
+# never timeout because they do not force cr50 to reboot. They should all just
 # return information about cr50 and should only have a nonzero exit status if
 # something went wrong.
-gsctool.add_argument('-b', '--binvers', '-f', '--fwver', '-i', '--board_id',
-                     '-r', '--rma_auth', '-F', '--factory', '-m', '--tpm_mode',
-                     '-L', '--flog', dest='info_cmd', action='store_true')
+gsctool.add_argument('-b', '--binvers', '-f', '--fwver', '-g', '--getbootmode',
+                     '-i', '--board_id', '-r', '--rma_auth', '-F', '--factory',
+                     '-m', '--tpm_mode', '-L', '--flog',
+                     dest='info_cmd', action='store_true')
 # upstart and post_reset will post resets instead of rebooting immediately
 gsctool.add_argument('-u', '--upstart', '-p', '--post_reset', dest='post_reset',
                      action='store_true')

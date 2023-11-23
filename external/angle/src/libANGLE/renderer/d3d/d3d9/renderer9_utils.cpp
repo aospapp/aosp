@@ -17,7 +17,7 @@
 #include "libANGLE/renderer/d3d/d3d9/formatutils9.h"
 #include "libANGLE/renderer/driver_utils.h"
 #include "platform/FeaturesD3D.h"
-#include "platform/Platform.h"
+#include "platform/PlatformMethods.h"
 
 #include "third_party/systeminfo/SystemInfo.h"
 
@@ -722,7 +722,7 @@ void GenerateCaps(IDirect3D9 *d3d9,
     // correct blending result in reality. As a result of some regression reports by client app, we
     // decided to turn floatBlend on for D3D9
     extensions->floatBlend             = true;
-    extensions->framebufferBlit        = true;
+    extensions->framebufferBlitANGLE   = true;
     extensions->framebufferMultisample = true;
     extensions->instancedArraysANGLE   = deviceCaps.PixelShaderVersion >= D3DPS_VERSION(3, 0);
     // D3D9 requires at least one attribute that has a divisor of 0, which isn't required by the EXT

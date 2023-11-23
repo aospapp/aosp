@@ -35,7 +35,8 @@ struct AllocRecord {
   uint64_t data_source_instance_id;
   uint64_t timestamp;
   AllocMetadata alloc_metadata;
-  std::vector<FrameData> frames;
+  std::vector<unwindstack::FrameData> frames;
+  std::vector<std::string> build_ids;
 };
 
 // Batch of deallocations.
@@ -43,7 +44,13 @@ struct FreeRecord {
   pid_t pid;
   uint64_t data_source_instance_id;
   uint64_t timestamp;
-  FreeBatch free_batch;
+  FreeEntry entry;
+};
+
+struct HeapNameRecord {
+  pid_t pid;
+  uint64_t data_source_instance_id;
+  HeapName entry;
 };
 
 }  // namespace profiling

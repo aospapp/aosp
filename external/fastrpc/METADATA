@@ -12,6 +12,7 @@ third_party {
     value: "https://source.codeaurora.org/quic/lc/chromiumos/third_party/fastrpc"
   }
   version: "c2d1cdc0fb781ee673077c5d4b243eb239c73bb5"
+  license_type: NOTICE
   last_upgrade_date { year: 2019 month: 11 day: 6 }
 }
 

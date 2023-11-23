@@ -32,8 +32,6 @@
 using std::cout;
 using std::endl;
 
-using namespace fruit::impl;
-
 namespace fruit {
 namespace impl {
 
@@ -242,7 +240,7 @@ void BindingNormalization::addMultibindings(std::unordered_map<TypeId, Normalize
       NormalizedMultibinding normalized_multibinding;
       normalized_multibinding.is_constructed = true;
       normalized_multibinding.object = i->first.multibinding_for_constructed_object.object_ptr;
-      b.elems.push_back(std::move(normalized_multibinding));
+      b.elems.push_back(normalized_multibinding);
     } break;
 
     case ComponentStorageEntry::Kind::MULTIBINDING_FOR_OBJECT_TO_CONSTRUCT_THAT_NEEDS_NO_ALLOCATION: {
@@ -250,7 +248,7 @@ void BindingNormalization::addMultibindings(std::unordered_map<TypeId, Normalize
       NormalizedMultibinding normalized_multibinding;
       normalized_multibinding.is_constructed = false;
       normalized_multibinding.create = i->first.multibinding_for_object_to_construct.create;
-      b.elems.push_back(std::move(normalized_multibinding));
+      b.elems.push_back(normalized_multibinding);
     } break;
 
     case ComponentStorageEntry::Kind::MULTIBINDING_FOR_OBJECT_TO_CONSTRUCT_THAT_NEEDS_ALLOCATION: {
@@ -258,7 +256,7 @@ void BindingNormalization::addMultibindings(std::unordered_map<TypeId, Normalize
       NormalizedMultibinding normalized_multibinding;
       normalized_multibinding.is_constructed = false;
       normalized_multibinding.create = i->first.multibinding_for_object_to_construct.create;
-      b.elems.push_back(std::move(normalized_multibinding));
+      b.elems.push_back(normalized_multibinding);
     } break;
 
     default:
@@ -292,21 +290,21 @@ void BindingNormalization::normalizeBindingsWithUndoableBindingCompression(
       [&bindingCompressionInfoMap](TypeId c_type_id, NormalizedComponentStorage::CompressedBindingUndoInfo undo_info) {
         bindingCompressionInfoMap[c_type_id] = undo_info;
       },
-      [&fully_expanded_components_with_no_args](LazyComponentWithNoArgsSet& fully_expanded_components) {
+      [&fully_expanded_components_with_no_args, &memory_pool](LazyComponentWithNoArgsSet& fully_expanded_components) {
         fully_expanded_components_with_no_args = std::move(fully_expanded_components);
-        fully_expanded_components.clear();
+        fully_expanded_components = NormalizedComponentStorage::createLazyComponentWithNoArgsSet(0, memory_pool);
       },
-      [&fully_expanded_components_with_args](LazyComponentWithArgsSet& fully_expanded_components) {
+      [&fully_expanded_components_with_args, &memory_pool](LazyComponentWithArgsSet& fully_expanded_components) {
         fully_expanded_components_with_args = std::move(fully_expanded_components);
-        fully_expanded_components.clear();
+        fully_expanded_components = NormalizedComponentStorage::createLazyComponentWithArgsSet(0, memory_pool);
       },
-      [&component_with_no_args_replacements](LazyComponentWithNoArgsReplacementMap& component_replacements) {
+      [&component_with_no_args_replacements, &memory_pool](LazyComponentWithNoArgsReplacementMap& component_replacements) {
         component_with_no_args_replacements = std::move(component_replacements);
-        component_replacements.clear();
+        component_replacements = NormalizedComponentStorage::createLazyComponentWithNoArgsReplacementMap(0, memory_pool);
       },
-      [&component_with_args_replacements](LazyComponentWithArgsReplacementMap& component_replacements) {
+      [&component_with_args_replacements, &memory_pool](LazyComponentWithArgsReplacementMap& component_replacements) {
         component_with_args_replacements = std::move(component_replacements);
-        component_replacements.clear();
+        component_replacements = NormalizedComponentStorage::createLazyComponentWithArgsReplacementMap(0, memory_pool);
       });
 }
 
@@ -435,9 +433,9 @@ void BindingNormalization::normalizeBindingsAndAddTo(
     i_binding.kind = ComponentStorageEntry::Kind::BINDING_FOR_OBJECT_TO_CONSTRUCT_THAT_NEEDS_NO_ALLOCATION;
     i_binding.binding_for_object_to_construct = binding_compression_itr->second.i_binding;
 
-    new_bindings_vector.push_back(std::move(c_binding));
+    new_bindings_vector.push_back(c_binding);
     // This TypeId is already in normalized_component.bindings, we overwrite it here.
-    new_bindings_vector.push_back(std::move(i_binding));
+    new_bindings_vector.push_back(i_binding);
 
 #if FRUIT_EXTRA_DEBUG
     std::cout << "InjectorStorage: undoing binding compression for: " << binding_compression_itr->second.i_type_id

@@ -52,6 +52,8 @@ enum SpirVCaseT
 	SPIRV_CASETYPE_NONE = 0,
 	SPIRV_CASETYPE_COMPARE,
 	SPIRV_CASETYPE_FREM,
+	SPIRV_CASETYPE_MODFSTRUCT,
+	SPIRV_CASETYPE_FREXPSTRUCT,
 	SPIRV_CASETYPE_MAX_ENUM,
 };
 
@@ -66,11 +68,13 @@ struct ShaderSpec
 	vk::ShaderBuildOptions	buildOptions;
 	bool					packFloat16Bit;
 	SpirVCaseT				spirvCase;
+	int						localSizeX;			// May be used for compute shaders.
 
 	ShaderSpec (void)
 		: glslVersion		(glu::GLSL_VERSION_450)
 		, packFloat16Bit	(false)
 		, spirvCase			(SPIRV_CASETYPE_NONE)
+		, localSizeX		(1)
 	{}
 };
 
@@ -91,6 +95,9 @@ public:
 	bool					areInputs16Bit		(void) const;
 	bool					areOutputs16Bit		(void) const;
 	bool					isOutput16Bit		(const size_t ndx) const;
+	bool					areInputs64Bit		(void) const;
+	bool					areOutputs64Bit		(void) const;
+	bool					isOutput64Bit		(const size_t ndx) const;
 	bool					isSpirVShader		(void) { return (m_shaderSpec.spirvCase != SPIRV_CASETYPE_NONE); }
 	SpirVCaseT				spirvCase			(void) { return m_shaderSpec.spirvCase; }
 
@@ -111,6 +118,7 @@ private:
 bool				executorSupported	(glu::ShaderType shaderType);
 void				generateSources		(glu::ShaderType shaderType, const ShaderSpec& shaderSpec, vk::SourceCollections& dst);
 ShaderExecutor*		createExecutor		(Context& context, glu::ShaderType shaderType, const ShaderSpec& shaderSpec, vk::VkDescriptorSetLayout extraResourcesLayout = (vk::VkDescriptorSetLayout)0);
+void				checkSupportShader	(Context& context, const glu::ShaderType shaderType);
 
 } // shaderexecutor
 } // vkt

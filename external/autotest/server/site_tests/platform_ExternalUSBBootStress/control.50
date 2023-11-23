@@ -14,7 +14,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 # Stop running the test due to crbug.com/654478
 # ATTRIBUTES = "suite:usb_detect_stress"
-# DEPENDENCIES = "servo"
+# DEPENDENCIES = "servo_state:WORKING"
 
 
 DOC = """

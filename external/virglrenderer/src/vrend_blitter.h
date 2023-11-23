@@ -27,13 +27,20 @@
 /* shaders for blitting */
 
 #define HEADER_GL                               \
-   "// Blitter\n"                               \
    "#version 130\n"                             \
+   "// Blitter\n"                               \
 
 #define HEADER_GLES                             \
-   "// Blitter\n"                               \
    "#version 310 es\n"                          \
+   "// Blitter\n"                               \
    "precision mediump float;\n"                 \
+
+#define HEADER_GLES_MS_ARRAY                             \
+   "#version 310 es\n"                          \
+   "// Blitter\n"                               \
+   "#extension GL_OES_texture_storage_multisample_2d_array: require\n" \
+   "precision mediump float;\n"                 \
+
 
 #define VS_PASSTHROUGH_BODY                     \
    "in vec4 arg0;\n"                            \
@@ -59,9 +66,20 @@
    "   FragColor = cvec4(%s);\n"                \
    "}\n"
 
+#define FS_TEXFETCH_COL_GLES_1D_BODY            \
+   "%s"                                         \
+   "#define cvec4 %s\n"                         \
+   "uniform mediump %csampler%s samp;\n"        \
+   "in vec4 tc;\n"                              \
+   "out cvec4 FragColor;\n"                     \
+   "void main() {\n"                            \
+   "   cvec4 texel = texture(samp, vec2(tc%s, 0.5));\n"    \
+   "   FragColor = cvec4(%s);\n"                \
+   "}\n"
+
 #define FS_TEXFETCH_COL_GL HEADER_GL FS_TEXFETCH_COL_BODY
 #define FS_TEXFETCH_COL_GLES HEADER_GLES FS_TEXFETCH_COL_BODY
-
+#define FS_TEXFETCH_COL_GLES_1D HEADER_GLES FS_TEXFETCH_COL_GLES_1D_BODY
 
 #define FS_TEXFETCH_COL_MSAA_BODY                       \
    "%s"                                                 \
@@ -80,9 +98,10 @@
 
 #define FS_TEXFETCH_COL_MSAA_GL HEADER_GL FS_TEXFETCH_COL_MSAA_BODY
 #define FS_TEXFETCH_COL_MSAA_GLES HEADER_GLES FS_TEXFETCH_COL_MSAA_BODY
+#define FS_TEXFETCH_COL_MSAA_ARRAY_GLES HEADER_GLES_MS_ARRAY FS_TEXFETCH_COL_MSAA_BODY
 
 #define FS_TEXFETCH_DS_BODY                             \
-   "uniform sampler%s samp;\n"                          \
+   "uniform mediump sampler%s samp;\n"                          \
    "in vec4 tc;\n"                                      \
    "void main() {\n"                                    \
    "   gl_FragDepth = float(texture(samp, tc%s).x);\n"  \
@@ -90,7 +109,6 @@
 
 #define FS_TEXFETCH_DS_GL HEADER_GL FS_TEXFETCH_DS_BODY
 #define FS_TEXFETCH_DS_GLES HEADER_GLES FS_TEXFETCH_DS_BODY
-
 
 #define FS_TEXFETCH_DS_MSAA_BODY                                         \
    "#extension GL_ARB_texture_multisample : enable\n"                    \
@@ -100,8 +118,17 @@
    "   gl_FragDepth = float(texelFetch(samp, %s(tc%s), int(tc.z)).x);\n" \
    "}\n"
 
+#define FS_TEXFETCH_DS_MSAA_BODY_GLES                                     \
+   "uniform mediump sampler%s samp;\n"                                           \
+   "in vec4 tc;\n"                                                       \
+   "void main() {\n"                                                     \
+   "   gl_FragDepth = float(texelFetch(samp, %s(tc%s), int(tc.z)).x);\n" \
+   "}\n"
+
+
 #define FS_TEXFETCH_DS_MSAA_GL HEADER_GL FS_TEXFETCH_DS_MSAA_BODY
-#define FS_TEXFETCH_DS_MSAA_GLES HEADER_GLES FS_TEXFETCH_DS_MSAA_BODY
+#define FS_TEXFETCH_DS_MSAA_GLES HEADER_GLES FS_TEXFETCH_DS_MSAA_BODY_GLES
+#define FS_TEXFETCH_DS_MSAA_ARRAY_GLES HEADER_GLES_MS_ARRAY FS_TEXFETCH_DS_MSAA_BODY_GLES
 
 
 #endif

@@ -69,6 +69,10 @@ class DevicePolicy {
   // Returns true unless there is a policy on disk and loading it fails.
   virtual bool LoadPolicy() = 0;
 
+  // Returns true if OOBE has been completed and if the device has been enrolled
+  // as an enterprise or enterpriseAD device.
+  virtual bool IsEnterpriseEnrolled() const = 0;
+
   // Writes the value of the DevicePolicyRefreshRate policy in |rate|. Returns
   // true on success.
   virtual bool GetPolicyRefreshRate(int* rate) const = 0;
@@ -223,6 +227,18 @@ class DevicePolicy {
   // then 100% should be updated after 8 days.
   virtual bool GetDeviceUpdateStagingSchedule(
       std::vector<DayPercentagePair>* staging_schedule_out) const = 0;
+
+  // Writes the value of the DeviceQuickFixBuildToken to
+  // |device_quick_fix_build_token|.
+  // Returns true if it has been written, or false if the policy was not set.
+  virtual bool GetDeviceQuickFixBuildToken(
+      std::string* device_quick_fix_build_token) const = 0;
+
+  // Writes the value of the Directory API ID to |directory_api_id_out|.
+  // Returns true on success, false if the ID is not available (eg if the device
+  // is not enrolled).
+  virtual bool GetDeviceDirectoryApiId(
+      std::string* directory_api_id_out) const = 0;
 
  private:
   // Verifies that the policy signature is correct.

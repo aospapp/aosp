@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -64,7 +65,7 @@ class verity_image(object):
     def _device_release(self, cmd, device):
         if utils.system(cmd, ignore_status=True) == 0:
             return
-        logging.warning("Could not release %s. Retrying..." % (device))
+        logging.warning("Could not release %s. Retrying...", device)
         # Other things (like cros-disks) may have the device open briefly,
         # so if we initially fail, try again and attempt to gather details
         # on who else is using the device.
@@ -137,9 +138,6 @@ class verity_image(object):
         """sets up ext3 on the image"""
         self.has_fs = True
         system(self.mkfs_cmd % self.file)
-        if type(copy_files) is list:
-          for file in copy_files:
-              pass  # TODO(wad)
 
     def _hash_image(self):
         """runs verity over the image and saves the device mapper table"""
@@ -150,7 +148,7 @@ class verity_image(object):
         # The verity tool doesn't include a templated error value.
         # For now, we add one.
         self.table += " error_behavior=ERROR_BEHAVIOR"
-        logging.info("table is %s" % self.table)
+        logging.info("table is %s", self.table)
 
     def _append_hash(self):
         f = open(self.file, 'ab')
@@ -181,8 +179,8 @@ class verity_image(object):
         try:
             os_dep.commands('losetup', 'mkfs.ext3', 'dmsetup', 'verity', 'dd',
                             'dumpe2fs')
-        except ValueError, e:
-            logging.error('verity_image cannot be used without: %s' % e)
+        except ValueError as e:
+            logging.error('verity_image cannot be used without: %s', e)
             return False
 
         # Used for the mapper device name and the tmpfile names.
@@ -240,7 +238,7 @@ class verity_image(object):
             # TODO(wad) replace with mmap.mmap-based access
             system('dd if=%s of=/dev/null bs=4096' % self.device)
             return True
-        except error.CmdError, e:
+        except error.CmdError as e:
             return False
 
 
@@ -259,8 +257,8 @@ class VerityImageTest(test.test):
         """Overrides test.initialize() to setup a verity_image"""
         self.verity = verity_image()
 
-    # Example callback for mod_and_test that does nothing
     def mod_nothing(self, run_count, backing_path, block_size, block_count):
+        """Example callback for mod_and_test that does nothing."""
         pass
 
     def mod_and_test(self, modifier, count, expected):

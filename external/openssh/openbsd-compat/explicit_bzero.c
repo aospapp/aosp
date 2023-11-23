@@ -20,37 +20,32 @@
 void
 explicit_bzero(void *p, size_t n)
 {
+	if (n == 0)
+		return;
 	(void)memset_s(p, n, 0, n);
 }
 
 #else /* HAVE_MEMSET_S */
 
-#if defined(ANDROID) && defined(bzero)
-/* On some Android versions bzero is a macro */
-static void wrapped_bzero(void* dest, size_t sz) {
-  memset(dest, 0, sz);
-}
-
 /*
  * Indirect bzero through a volatile pointer to hopefully avoid
  * dead-store optimisation eliminating the call.
  */
-static void (* volatile ssh_bzero)(void *, size_t) = wrapped_bzero;
+#if defined(ANDROID)
+static void (* volatile ssh_bzero)(void *, size_t) = __bionic_bzero;
 #else
-/*
- * Indirect bzero through a volatile pointer to hopefully avoid
- * dead-store optimisation eliminating the call.
- */
 static void (* volatile ssh_bzero)(void *, size_t) = bzero;
 #endif
 
 void
 explicit_bzero(void *p, size_t n)
 {
+	if (n == 0)
+		return;
 	/*
 	 * clang -fsanitize=memory needs to intercept memset-like functions
 	 * to correctly detect memory initialisation. Make sure one is called
-	 * directly since our indirection trick above sucessfully confuses it.
+	 * directly since our indirection trick above successfully confuses it.
 	 */
 #if defined(__has_feature)
 # if __has_feature(memory_sanitizer)

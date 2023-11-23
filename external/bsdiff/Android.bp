@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_bsdiff_license"],
+}
+
+license {
+    name: "external_bsdiff_license",
+    visibility: [":__subpackages__"],
+    license_kinds: ["SPDX-license-identifier-Apache-2.0","SPDX-license-identifier-BSD"],
+    license_text: ["LICENSE"],
+}
+
 cc_defaults {
     name: "bsdiff_defaults",
     host_supported: true,
@@ -40,6 +51,7 @@ cc_library_static {
         "//bootable/recovery:__subpackages__",
         "//external/puffin:__subpackages__",
         "//system/update_engine:__subpackages__",
+        "//system/core/fs_mgr/libsnapshot:__subpackages__",
     ],
 
     srcs: [
@@ -150,5 +162,8 @@ cc_test {
         android: {
             cflags: ["-DBSDIFF_TARGET_UNITTEST"],
         },
+    },
+    test_options: {
+        unit_test: true,
     },
 }

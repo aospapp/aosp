@@ -5,7 +5,6 @@
 import logging
 import time
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros import vboot_constants as vboot
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -60,21 +59,13 @@ class firmware_ConsecutiveBoot(FirmwareTest):
         # Call shutdown instead of long press the power key, since we're
         # testing the firmware, not the power manager and button handling.
         logging.info("Sending /sbin/shutdown -P now")
-
-        # Shut down in the background, after sleeping so the call gets a reply.
-        try:
-            self._client.run_background('sleep 0.5; /sbin/shutdown -P now')
-        except error.AutoservRunError as e:
-            # From the ssh man page, error code 255 indicates ssh errors.
-            if e.result_obj.exit_status == 255:
-                logging.warn("Ignoring error from ssh: %s", e)
-            else:
-                raise
-
+        self.run_shutdown_cmd()
         logging.info('Wait for client to go offline')
         self.switcher.wait_for_client_offline(timeout=100, orig_boot_id=boot_id)
         if self.check_ec_capability(['x86'], suppress_warning=True):
-            self.check_shutdown_power_state("G3", pwr_retries=13)
+            self.check_shutdown_power_state(
+                    self.POWER_STATE_G3, pwr_retries=13, orig_boot_id=boot_id)
+
         # Retry in case power_short_press was not registered.
         for i in xrange(self.POWER_ON_RETRY):
             logging.info("sleep %d, tap power key to boot.",

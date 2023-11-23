@@ -858,11 +858,12 @@ WORD32 ihevce_osal_delete(void *pv_hle_ctxt)
 *******************************************************************************
 */
 LWORD64 ihevce_ssd_calculator(
-    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd, UWORD32 ht)
+    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd,
+    UWORD32 ht, CHROMA_PLANE_ID_T chroma_plane)
 {
     UWORD32 i, j;
     LWORD64 ssd = 0;
-
+    UNUSED(chroma_plane);
     for(i = 0; i < ht; i++)
     {
         for(j = 0; j < wd; j++)
@@ -910,10 +911,13 @@ LWORD64 ihevce_ssd_calculator(
 *******************************************************************************
 */
 LWORD64 ihevce_chroma_interleave_ssd_calculator(
-    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd, UWORD32 ht)
+    UWORD8 *pu1_inp, UWORD8 *pu1_ref, UWORD32 inp_stride, UWORD32 ref_stride, UWORD32 wd,
+    UWORD32 ht, CHROMA_PLANE_ID_T chroma_plane)
 {
     UWORD32 i, j;
     LWORD64 ssd = 0;
+    pu1_inp += chroma_plane;
+    pu1_ref += chroma_plane;
 
     /* run a loop and find the ssd by doing diff followed by square */
     for(i = 0; i < ht; i++)

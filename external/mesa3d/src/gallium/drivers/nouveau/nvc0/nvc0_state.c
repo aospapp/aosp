@@ -28,6 +28,7 @@
 
 #include "tgsi/tgsi_parse.h"
 #include "compiler/nir/nir.h"
+#include "compiler/nir/nir_serialize.h"
 
 #include "nvc0/nvc0_stateobj.h"
 #include "nvc0/nvc0_context.h"
@@ -234,10 +235,7 @@ nvc0_rasterizer_state_create(struct pipe_context *pipe,
     SB_IMMED_3D(so, MULTISAMPLE_ENABLE, cso->multisample);
 
     SB_IMMED_3D(so, LINE_SMOOTH_ENABLE, cso->line_smooth);
-    /* On GM20x+, LINE_WIDTH_SMOOTH controls both aliased and smooth
-     * rendering and LINE_WIDTH_ALIASED seems to be ignored
-     */
-    if (cso->line_smooth || cso->multisample || class_3d >= GM200_3D_CLASS)
+    if (cso->line_smooth || cso->multisample)
        SB_BEGIN_3D(so, LINE_WIDTH_SMOOTH, 1);
     else
        SB_BEGIN_3D(so, LINE_WIDTH_ALIASED, 1);
@@ -463,22 +461,23 @@ nvc0_sampler_state_delete(struct pipe_context *pipe, void *hwcso)
 static inline void
 nvc0_stage_sampler_states_bind(struct nvc0_context *nvc0,
                                unsigned s,
-                               unsigned nr, void **hwcso)
+                               unsigned nr, void **hwcsos)
 {
    unsigned highest_found = 0;
    unsigned i;
 
    for (i = 0; i < nr; ++i) {
+      struct nv50_tsc_entry *hwcso = hwcsos ? nv50_tsc_entry(hwcsos[i]) : NULL;
       struct nv50_tsc_entry *old = nvc0->samplers[s][i];
 
-      if (hwcso[i])
+      if (hwcso)
          highest_found = i;
 
-      if (hwcso[i] == old)
+      if (hwcso == old)
          continue;
       nvc0->samplers_dirty[s] |= 1 << i;
 
-      nvc0->samplers[s][i] = nv50_tsc_entry(hwcso[i]);
+      nvc0->samplers[s][i] = hwcso;
       if (old)
          nvc0_screen_tsc_unlock(nvc0->screen, old);
    }
@@ -523,14 +522,15 @@ nvc0_stage_set_sampler_views(struct nvc0_context *nvc0, int s,
    unsigned i;
 
    for (i = 0; i < nr; ++i) {
+      struct pipe_sampler_view *view = views ? views[i] : NULL;
       struct nv50_tic_entry *old = nv50_tic_entry(nvc0->textures[s][i]);
 
-      if (views[i] == nvc0->textures[s][i])
+      if (view == nvc0->textures[s][i])
          continue;
       nvc0->textures_dirty[s] |= 1 << i;
 
-      if (views[i] && views[i]->texture) {
-         struct pipe_resource *res = views[i]->texture;
+      if (view && view->texture) {
+         struct pipe_resource *res = view->texture;
          if (res->target == PIPE_BUFFER &&
              (res->flags & PIPE_RESOURCE_FLAG_MAP_COHERENT))
             nvc0->textures_coherent[s] |= 1 << i;
@@ -548,7 +548,7 @@ nvc0_stage_set_sampler_views(struct nvc0_context *nvc0, int s,
          nvc0_screen_tic_unlock(nvc0->screen, old);
       }
 
-      pipe_sampler_view_reference(&nvc0->textures[s][i], views[i]);
+      pipe_sampler_view_reference(&nvc0->textures[s][i], view);
    }
 
    for (i = nr; i < nvc0->num_textures[s]; ++i) {
@@ -616,6 +616,7 @@ nvc0_sp_state_create(struct pipe_context *pipe,
 
    prog->translated = nvc0_program_translate(
       prog, nvc0_context(pipe)->screen->base.device->chipset,
+      nvc0_context(pipe)->screen->base.disk_shader_cache,
       &nouveau_context(pipe)->debug);
 
    return (void *)prog;
@@ -738,6 +739,15 @@ nvc0_cp_state_create(struct pipe_context *pipe,
    case PIPE_SHADER_IR_NIR:
       prog->pipe.ir.nir = (nir_shader *)cso->prog;
       break;
+   case PIPE_SHADER_IR_NIR_SERIALIZED: {
+      struct blob_reader reader;
+      const struct pipe_binary_program_header *hdr = cso->prog;
+
+      blob_reader_init(&reader, hdr->blob, hdr->num_bytes);
+      prog->pipe.ir.nir = nir_deserialize(NULL, pipe->screen->get_compiler_options(pipe->screen, PIPE_SHADER_IR_NIR, PIPE_SHADER_COMPUTE), &reader);
+      prog->pipe.type = PIPE_SHADER_IR_NIR;
+      break;
+   }
    default:
       assert(!"unsupported IR!");
       free(prog);
@@ -746,6 +756,7 @@ nvc0_cp_state_create(struct pipe_context *pipe,
 
    prog->translated = nvc0_program_translate(
       prog, nvc0_context(pipe)->screen->base.device->chipset,
+      nvc0_context(pipe)->screen->base.disk_shader_cache,
       &nouveau_context(pipe)->debug);
 
    return (void *)prog;
@@ -949,7 +960,7 @@ nvc0_set_viewport_states(struct pipe_context *pipe,
 
 static void
 nvc0_set_window_rectangles(struct pipe_context *pipe,
-                           boolean include,
+                           bool include,
                            unsigned num_rectangles,
                            const struct pipe_scissor_state *rectangles)
 {
@@ -1053,7 +1064,7 @@ nvc0_so_target_create(struct pipe_context *pipe,
    pipe_reference_init(&targ->pipe.reference, 1);
 
    assert(buf->base.target == PIPE_BUFFER);
-   util_range_add(&buf->valid_buffer_range, offset, offset + size);
+   util_range_add(&buf->base, &buf->valid_buffer_range, offset, offset + size);
 
    return &targ->pipe;
 }
@@ -1346,14 +1357,9 @@ nvc0_set_global_handle(uint32_t *phandle, struct pipe_resource *res)
 {
    struct nv04_resource *buf = nv04_resource(res);
    if (buf) {
-      uint64_t limit = (buf->address + buf->base.width0) - 1;
-      if (limit < (1ULL << 32)) {
-         *phandle = (uint32_t)buf->address;
-      } else {
-         NOUVEAU_ERR("Cannot map into TGSI_RESOURCE_GLOBAL: "
-                     "resource not contained within 32-bit address space !\n");
-         *phandle = 0;
-      }
+      uint64_t address = buf->address + *phandle;
+      /* even though it's a pointer to uint32_t that's fine */
+      memcpy(phandle, &address, 8);
    } else {
       *phandle = 0;
    }
@@ -1370,12 +1376,18 @@ nvc0_set_global_bindings(struct pipe_context *pipe,
    unsigned i;
    const unsigned end = start + nr;
 
+   if (!nr)
+      return;
+
    if (nvc0->global_residents.size <= (end * sizeof(struct pipe_resource *))) {
       const unsigned old_size = nvc0->global_residents.size;
-      const unsigned req_size = end * sizeof(struct pipe_resource *);
-      util_dynarray_resize(&nvc0->global_residents, req_size);
-      memset((uint8_t *)nvc0->global_residents.data + old_size, 0,
-             req_size - old_size);
+      if (util_dynarray_resize(&nvc0->global_residents, struct pipe_resource *, end)) {
+         memset((uint8_t *)nvc0->global_residents.data + old_size, 0,
+                nvc0->global_residents.size - old_size);
+      } else {
+         NOUVEAU_ERR("Could not resize global residents array\n");
+         return;
+      }
    }
 
    if (resources) {

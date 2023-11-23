@@ -24,9 +24,9 @@
             Disabled for all apps.
         <?cs else ?>
             Enabled for
-            <?cs if:change.enableAfterTargetSdk ?>
-                apps with a <code>targetSdkVersion</code> of greater than
-                <?cs var:change.enableAfterTargetSdk ?>.
+            <?cs if:change.enableSinceTargetSdk ?>
+                apps with a <code>targetSdkVersion</code> of greater than or equal to
+                <?cs var:change.enableSinceTargetSdk ?>.
             <?cs else ?>
                 all apps.
             <?cs /if ?>

@@ -12,8 +12,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:usb_detect"
-DEPENDENCIES = "servo, use_lid"
+#ATTRIBUTES = "suite:usb_detect"
+DEPENDENCIES = "servo_state:WORKING"
 JOB_RETRIES = 2
 
 DOC = """

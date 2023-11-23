@@ -1,5 +1,10 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import itertools
 import common
+import six
 
 
 def _get_unpassable_types(arg):
@@ -7,12 +12,12 @@ def _get_unpassable_types(arg):
     unpassable. If arg is an atomic type (e.g. int) it either returns an
     empty set (if the type is passable) or a singleton of the type (if the
     type is not passable). """
-    if isinstance(arg, (basestring, int, long)):
+    if isinstance(arg, (six.string_types, int, int)):
         return set()
     elif isinstance(arg, (list, tuple, set, frozenset, dict)):
         if isinstance(arg, dict):
             # keys and values must both be passable
-            parts = itertools.chain(arg.iterkeys(), arg.itervalues())
+            parts = itertools.chain(six.iterkeys(arg), six.itervalues(arg))
         else:
             # for all other containers we just iterate
             parts = iter(arg)

@@ -21,6 +21,8 @@
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
+#include <config.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -32,7 +34,7 @@
 #include "libusb.h"
 #include "ezusb.h"
 
-#if !defined(_WIN32) || defined(__CYGWIN__ )
+#if !defined(_WIN32) || defined(__CYGWIN__)
 #include <syslog.h>
 static bool dosyslog = false;
 #include <strings.h>
@@ -48,14 +50,11 @@ static bool dosyslog = false;
 #endif
 
 void logerror(const char *format, ...)
-	__attribute__ ((format (__printf__, 1, 2)));
-
-void logerror(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
 
-#if !defined(_WIN32) || defined(__CYGWIN__ )
+#if !defined(_WIN32) || defined(__CYGWIN__)
 	if (dosyslog)
 		vsyslog(LOG_ERR, format, ap);
 	else
@@ -178,7 +177,7 @@ int main(int argc, char*argv[])
 		logerror("libusb_init() failed: %s\n", libusb_error_name(status));
 		return -1;
 	}
-	libusb_set_debug(NULL, verbose);
+	libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, verbose);
 
 	/* try to pick up missing parameters from known devices */
 	if ((type == NULL) || (device_id == NULL) || (device_path != NULL)) {

@@ -29,7 +29,11 @@ class audio_AudioBasicInternalSpeaker(audio_test.AudioTest):
         if not audio_test_utils.has_internal_speaker(self.host):
             return
 
-        golden_file = audio_test_data.SIMPLE_FREQUENCY_SPEAKER_TEST_FILE
+        golden_file = audio_test_data.GenerateAudioTestData(
+                        path=os.path.join(self.bindir, 'fix_440_16_0.5.raw'),
+                        duration_secs=10,
+                        frequencies=[440, 440],
+                        volume_scale=0.5)
 
         source = self.widget_factory.create_widget(
                 chameleon_audio_ids.CrosIds.SPEAKER)

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -106,7 +107,7 @@ class Backchannel(object):
                     lambda: self._is_route_ready(),
                     exception=utils.TimeoutError('Timed out waiting for route'),
                     timeout=30)
-        except Exception, e:
+        except Exception as e:
             logging.error(e)
             return False
         finally:

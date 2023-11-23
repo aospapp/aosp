@@ -34,19 +34,15 @@ constexpr const char* kFiller = "<filler>";
 // All rules for a grammar will be collected in a rules object.
 //
 //    Rules r;
-//    CallbackId date_output_callback = 1;
-//    CallbackId day_filter_callback = 2;  r.DefineFilter(day_filter_callback);
-//    CallbackId year_filter_callback = 3; r.DefineFilter(year_filter_callback);
-//    r.Add("<date>", {"<monthname>", "<day>", <year>"},
-//          date_output_callback);
+//    r.Add("<date>", {"<monthname>", "<day>", <year>"});
 //    r.Add("<monthname>", {"January"});
 //    ...
 //    r.Add("<monthname>", {"December"});
-//    r.Add("<day>", {"<string_of_digits>"}, day_filter_callback);
-//    r.Add("<year>", {"<string_of_digits>"}, year_filter_callback);
+//    r.Add("<day>", {"<string_of_digits>"});
+//    r.Add("<year>", {"<string_of_digits>"});
 //
-// The Add() method adds a rule with a given lhs, rhs, and (optionally)
-// callback.  The rhs is just a list of terminals and nonterminals.  Anything
+// The Add() method adds a rule with a given lhs, rhs/
+// The rhs is just a list of terminals and nonterminals.  Anything
 // surrounded in angle brackets is considered a nonterminal.  A "?" can follow
 // any element of the RHS, like this:
 //
@@ -55,26 +51,35 @@ constexpr const char* kFiller = "<filler>";
 // This indicates that the <day> and "," parts of the rhs are optional.
 // (This is just notational shorthand for adding a bunch of rules.)
 //
-// Once you're done adding rules and callbacks to the Rules object,
-// call r.Finalize() on it. This lowers the rule set into an internal
-// representation.
+// Once you're done adding rules, r.Finalize() lowers the rule set into an
+// internal representation.
 class Rules {
  public:
-  explicit Rules(const int num_shards = 1) : num_shards_(num_shards) {}
+  explicit Rules(const LocaleShardMap& locale_shard_map)
+      : locale_shard_map_(locale_shard_map) {}
 
   // Represents one item in a right-hand side, a single terminal or nonterminal.
   struct RhsElement {
     RhsElement() {}
     explicit RhsElement(const std::string& terminal, const bool is_optional)
-        : is_terminal(true), terminal(terminal), is_optional(is_optional) {}
-    explicit RhsElement(const int nonterminal, const bool is_optional)
+        : is_terminal(true),
+          terminal(terminal),
+          is_optional(is_optional),
+          is_constituent(false) {}
+    explicit RhsElement(const int nonterminal, const bool is_optional,
+                        const bool is_constituent = true)
         : is_terminal(false),
           nonterminal(nonterminal),
-          is_optional(is_optional) {}
+          is_optional(is_optional),
+          is_constituent(is_constituent) {}
     bool is_terminal;
     std::string terminal;
     int nonterminal;
     bool is_optional;
+
+    // Whether the element is a constituent of a rule - these are the explicit
+    // nonterminals, but not terminals or implicitly added anchors.
+    bool is_constituent;
   };
 
   // Represents the right-hand side, and possibly callback, of one rule.
@@ -139,6 +144,9 @@ class Rules {
                        const std::vector<std::string>& rhs, int64 value,
                        int8 max_whitespace_gap = -1,
                        bool case_sensitive = false, int shard = 0);
+  void AddValueMapping(int lhs, const std::vector<RhsElement>& rhs, int64 value,
+                       int8 max_whitespace_gap = -1,
+                       bool case_sensitive = false, int shard = 0);
 
   // Adds a regex rule.
   void AddRegex(const std::string& lhs, const std::string& regex_pattern);
@@ -161,15 +169,15 @@ class Rules {
   // nonterminal.
   void AddAlias(const std::string& nonterminal_name, const std::string& alias);
 
-  // Defines a new filter id.
-  void DefineFilter(const CallbackId filter_id) { filters_.insert(filter_id); }
-
   // Lowers the rule set into the intermediate representation.
   // Treats nonterminals given by the argument `predefined_nonterminals` as
   // defined externally. This allows to define rules that are dependent on
   // non-terminals produced by e.g. existing text annotations and that will be
   // fed to the matcher by the lexer.
   Ir Finalize(const std::set<std::string>& predefined_nonterminals = {}) const;
+
+  const std::vector<NontermInfo>& nonterminals() const { return nonterminals_; }
+  const std::vector<Rule>& rules() const { return rules_; }
 
  private:
   void ExpandOptionals(
@@ -180,7 +188,8 @@ class Rules {
       std::vector<bool>* omit_these);
 
   // Applies optimizations to the right hand side of a rule.
-  std::vector<RhsElement> OptimizeRhs(const std::vector<RhsElement>& rhs);
+  std::vector<RhsElement> OptimizeRhs(const std::vector<RhsElement>& rhs,
+                                      int shard = 0);
 
   // Removes start and end anchors in case they are followed (respectively
   // preceded) by unbounded filler.
@@ -198,13 +207,17 @@ class Rules {
   // `<a_with_tokens> ::= <a>`
   // `<a_with_tokens> ::= <a_with_tokens> <token>`
   // In this each occurrence of `<a>` can start a sequence of tokens.
-  std::vector<RhsElement> ResolveFillers(const std::vector<RhsElement>& rhs);
+  std::vector<RhsElement> ResolveFillers(const std::vector<RhsElement>& rhs,
+                                         int shard = 0);
 
   // Checks whether an element denotes a specific nonterminal.
   bool IsNonterminalOfName(const RhsElement& element,
                            const std::string& nonterminal) const;
 
-  const int num_shards_;
+  // Checks whether the fillers are used in any active rule.
+  bool UsesFillers() const;
+
+  const LocaleShardMap& locale_shard_map_;
 
   // Non-terminal to id map.
   std::unordered_map<std::string, int> nonterminal_names_;
@@ -215,9 +228,6 @@ class Rules {
   // Rules.
   std::vector<Rule> rules_;
   std::vector<std::string> regex_rules_;
-
-  // Ids of callbacks that should be treated as filters.
-  std::unordered_set<CallbackId> filters_;
 };
 
 }  // namespace libtextclassifier3::grammar

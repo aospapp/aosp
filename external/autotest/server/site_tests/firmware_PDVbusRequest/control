@@ -16,9 +16,9 @@ TEST_TYPE = "server"
 
 DOC = """
 This test checks:
-  - PD Dual role mode is operational in the DUT
-  - Ability to initiate new PD contract with 5/12/20 VBUS value.
-  - Receive Source capabilty messages from PDTester
+  - PD Dual role mode is operational in the DUT.
+  - Ability to initiate new PD contract with various VBUS values.
+  - Receive Source capabilty messages from PDTester.
 """
 
 args_dict = utils.args_to_dict(args)
@@ -29,6 +29,7 @@ def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args,
                              pdtester_args=pdtester_args)
     job.run_test("firmware_PDVbusRequest", host=host, cmdline_args=args,
-                 disable_sysinfo=True, flip_cc=False, tag="normal")
+                 disable_sysinfo=True, flip_cc=False, dts_mode=False,
+                 tag="normal")
 
 parallel_simple(run, machines)

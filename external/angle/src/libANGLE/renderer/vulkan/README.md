@@ -24,30 +24,31 @@ of a front-end OpenGL Context. ContextVk processes state changes and handles act
 
 ## Command recording
 
-The back-end records commands into command buffers via the the following `ContextVk` APIs:
+The back-end records commands into command buffers via the following `ContextVk` APIs:
 
- * `endRenderPassAndGetCommandBuffer`: returns a secondary command buffer *outside* a RenderPass instance.
- * `flushAndBeginRenderPass`: returns a secondary command buffer *inside* a RenderPass instance.
- * `flushAndGetPrimaryCommandBuffer`: returns the primary command buffer. You should rarely need this API.
+ * `beginNewRenderPass`: Writes out (aka flushes) prior pending commands into a primary command
+   buffer, then starts a new render pass. Returns a secondary command buffer *inside* a render pass
+   instance.
+ * `getOutsideRenderPassCommandBuffer`: May flush prior command buffers and close the render pass if
+   necessary, in addition to issuing the appropriate barriers. Returns a secondary command buffer
+   *outside* a render pass instance.
+ * `getStartedRenderPassCommands`: Returns a reference to the currently open render pass' commands
+   buffer.
 
-*Note*: All of these commands may write out (aka flush) prior pending commands into a primary
-command buffer. When a RenderPass is open `endRenderPassAndGetCommandBuffer` will flush the
-pending RenderPass commands. `flushAndBeginRenderPass` will flush out pending commands outside a
-RenderPass to a primary buffer. On submit ANGLE submits the primary command buffer to a `VkQueue`.
+The back-end (mostly) records Image and Buffer barriers through additional `CommandBufferAccess`
+APIs, the result of which is passed to `getOutsideRenderPassCommandBuffer`.  Note that the
+barriers are not actually recorded until `getOutsideRenderPassCommandBuffer` is called:
 
-If you need to record inside a RenderPass, use `flushAndBeginRenderPass`. Otherwise, use
-`endRenderPassAndGetCommandBuffer`. You should rarely need to call `flushAndGetPrimaryCommandBuffer`.
-It's there for commands like debug labels, barriers and queries that need to be recorded serially on
-the primary command buffer.
+ * `onBufferTransferRead` and `onBufferComputeShaderRead` accumulate `VkBuffer` read barriers.
+ * `onBufferTransferWrite` and `onBufferComputeShaderWrite` accumulate `VkBuffer` write barriers.
+ * `onBuffferSelfCopy` is a special case for `VkBuffer` self copies. It behaves the same as write.
+ * `onImageTransferRead` and `onImageComputerShadeRead` accumulate `VkImage` read barriers.
+ * `onImageTransferWrite` and `onImageComputerShadeWrite` accumulate `VkImage` write barriers.
+ * `onImageRenderPassRead` and `onImageRenderPassWrite` accumulate `VkImage` barriers inside a
+   started RenderPass.
 
-The back-end usually records Image and Buffer barriers through additional `ContextVk` APIs:
-
- * `onBufferRead` and `onBufferWrite` accumulate `VkBuffer` barriers.
- * `onImageRead` and `onImageWrite` accumulate `VkImage` barriers.
- * `onRenderPassImageWrite` is a special API for write barriers inside a RenderPass instance.
-
-After the back-end records commands to the primary buffer we flush (e.g. on swap) or when we call
-`ContextVk::finishToSerial`.
+After the back-end records commands to the primary buffer and we flush (e.g. on swap) or when we call
+`ContextVk::finishToSerial`, ANGLE submits the primary command buffer to a `VkQueue`.
 
 See the [code][CommandAPIs] for more details.
 
@@ -56,15 +57,16 @@ See the [code][CommandAPIs] for more details.
 In this example we'll be recording a buffer copy command:
 
 ```
-    # Ensure that ANGLE sets proper read and write barriers for the Buffers.
-    ANGLE_TRY(contextVk->onBufferWrite(VK_ACCESS_TRANSFER_WRITE_BIT, destBuffer));
-    ANGLE_TRY(contextVk->onBufferRead(VK_ACCESS_TRANSFER_READ_BIT, srcBuffer));
+    // Ensure that ANGLE sets proper read and write barriers for the Buffers.
+    vk::CommandBufferAccess access;
+    access.onBufferTransferWrite(destBuffer);
+    access.onBufferTransferRead(srcBuffer);
 
-    # Get a pointer to a secondary command buffer for command recording. May "flush" the RP.
+    // Get a pointer to a secondary command buffer for command recording.
     vk::CommandBuffer *commandBuffer;
-    ANGLE_TRY(contextVk->endRenderPassAndGetCommandBuffer(&commandBuffer));
+    ANGLE_TRY(contextVk->getOutsideRenderPassCommandBuffer(access, &commandBuffer));
 
-    # Record the copy command into the secondary buffer. We're done!
+    // Record the copy command into the secondary buffer. We're done!
     commandBuffer->copyBuffer(srcBuffer->getBuffer(), destBuffer->getBuffer(), copyCount, copies);
 ```
 
@@ -76,8 +78,10 @@ More implementation details can be found in the `doc` directory:
 - [Shader Module Compilation](doc/ShaderModuleCompilation.md)
 - [OpenGL Line Segment Rasterization](doc/OpenGLLineSegmentRasterization.md)
 - [Format Tables and Emulation](doc/FormatTablesAndEmulation.md)
+- [Deferred Clears](doc/DeferredClears.md)
+- [Queries](doc/Queries.md)
 
 [VkDevice]: https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkDevice.html
 [VkQueue]: https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkQueue.html
-[CommandAPIs]: https://chromium.googlesource.com/angle/angle/+/aa09ca69e4173cb14261e39be3b7bdf56bbd3840/src/libANGLE/renderer/vulkan/ContextVk.h#579
+[CommandAPIs]: https://chromium.googlesource.com/angle/angle/+/df31624eaf3df986a0bdf3f58a87b79b0cc8db5c/src/libANGLE/renderer/vulkan/ContextVk.h#620
 

@@ -6,7 +6,7 @@
 
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_CTS_Instant.x86.CtsFragmentTestCasesSdk26'
-ATTRIBUTES = 'suite:cts_P'
+ATTRIBUTES = 'suite:cts_P, suite:cts'
 DEPENDENCIES = 'arc, cts_cpu_x86'
 JOB_RETRIES = 1
 TEST_TYPE = 'server'

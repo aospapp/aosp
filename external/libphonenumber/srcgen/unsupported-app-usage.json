@@ -23,58 +23,94 @@
     "@location": "method:com.android.i18n.phonenumbers.NumberParseException#getErrorType()"
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getDomesticCarrierCodeFormattingRule()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getDomesticCarrierCodeFormattingRule()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getFormat()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getFormat()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getLeadingDigitsPattern(int)"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getLeadingDigitsPattern(int)",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getNationalPrefixFormattingRule()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getNationalPrefixFormattingRule()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getPattern()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#getPattern()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#leadingDigitsPatternSize()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$NumberFormat#leadingDigitsPatternSize()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getCountryCode()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getCountryCode()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getGeneralDesc()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getGeneralDesc()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getNationalPrefixForParsing()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getNationalPrefixForParsing()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getNationalPrefixTransformRule()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getNationalPrefixTransformRule()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getPreferredExtnPrefix()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#getPreferredExtnPrefix()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#hasNationalPrefix()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#hasNationalPrefix()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#hasPreferredExtnPrefix()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#hasPreferredExtnPrefix()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#intlNumberFormats()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#intlNumberFormats()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#numberFormats()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadata#numberFormats()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadataCollection#PhoneMetadataCollection()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadataCollection#PhoneMetadataCollection()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadataCollection#getMetadataList()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneMetadataCollection#getMetadataList()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneNumberDesc#getNationalNumberPattern()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonemetadata$PhoneNumberDesc#getNationalNumberPattern()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "enumConstant:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber$CountryCodeSource#FROM_DEFAULT_COUNTRY"
@@ -93,7 +129,9 @@
     "implicitMember": "values()[Lcom/android/i18n/phonenumbers/Phonenumber$PhoneNumber$CountryCodeSource;"
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#clearCountryCode()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#clearCountryCode()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#getCountryCode()"
@@ -102,7 +140,9 @@
     "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#getCountryCodeSource()"
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#getExtension()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#getExtension()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#getNationalNumber()"
@@ -111,19 +151,29 @@
     "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#hasCountryCode()"
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#hasExtension()"
+    "@location": "method:com.android.i18n.phonenumbers.Phonenumber$PhoneNumber#hasExtension()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#end()"
+    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#end()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#number()"
+    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#number()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#rawString()"
+    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#rawString()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
-    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#start()"
+    "@location": "method:com.android.i18n.phonenumbers.PhoneNumberMatch#start()",
+    "maxTargetSdk": 30,
+    "trackingBug": 170729553
   },
   {
     "@location": "enumConstant:com.android.i18n.phonenumbers.PhoneNumberUtil$Leniency#POSSIBLE"

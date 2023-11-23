@@ -8,8 +8,7 @@ use std::path::Path;
 use std::process;
 use std::result;
 
-use libc::{c_long, pid_t, syscall, CLONE_NEWPID, CLONE_NEWUSER, SIGCHLD};
-use syscall_defines::linux::LinuxSyscall::SYS_clone;
+use libc::{c_long, pid_t, syscall, SYS_clone, CLONE_NEWPID, CLONE_NEWUSER, SIGCHLD};
 
 use crate::errno_result;
 
@@ -97,7 +96,6 @@ where
 mod tests {
     use super::*;
     use crate::{getpid, EventFd};
-    use libc;
 
     fn wait_process(pid: libc::pid_t) -> crate::Result<libc::c_int> {
         let mut status: libc::c_int = 0;
@@ -127,13 +125,17 @@ mod tests {
         assert_eq!(evt_fd.read(), Ok(1));
     }
 
+    // This test can deadlock occasionally when running in the builders VM. It
+    // is disabled for now.
+    // TODO(b/179924844): Investigate the issue and re-enable
     #[test]
+    #[ignore]
     fn panic_safe() {
         let pid = getpid();
         assert_ne!(pid, 0);
 
         let clone_pid = clone_process(CloneNamespace::Inherit, || {
-            assert!(false);
+            panic!();
         })
         .expect("failed to clone");
 

@@ -16,10 +16,9 @@
 /config.log
 /config.status
 /configure
-/coverage
 /cov-int
-/doltcompile
-/doltlibtool
+/coverage
+/kmod-*.tar.*
 /libtool
 /stamp-h1
 /test-suite.log

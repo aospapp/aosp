@@ -23,7 +23,7 @@
 %                                 August 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -94,10 +94,7 @@ static MagickWand *CloneMagickWandFromImages(const MagickWand *wand,
   assert(wand->signature == MagickWandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  clone_wand=(MagickWand *) AcquireMagickMemory(sizeof(*clone_wand));
-  if (clone_wand == (MagickWand *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      images->filename);
+  clone_wand=(MagickWand *) AcquireCriticalMemory(sizeof(*clone_wand));
   (void) memset(clone_wand,0,sizeof(*clone_wand));
   clone_wand->id=AcquireWandId();
   (void) FormatLocaleString(clone_wand->name,MagickPathExtent,"%s-%.20g",
@@ -367,7 +364,7 @@ WandExport MagickBooleanType MagickAdaptiveThresholdImage(MagickWand *wand,
 %
 %  Use MagickSetLastIterator(), to append new images into an existing wand,
 %  current image will be set to last image so later adds with also be
-%  appened to end of wand.
+%  appended to end of wand.
 %
 %  Use MagickSetFirstIterator() to prepend new images into wand, any more
 %  images added will also be prepended before other images in the wand.
@@ -877,6 +874,73 @@ WandExport MagickBooleanType MagickAutoThresholdImage(MagickWand *wand,
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   M a g i c k B i l a t e r a l B l u r I m a g e                           %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  MagickBilateralBlurImage() is a non-linear, edge-preserving, and
+%  noise-reducing smoothing filter for images.  It replaces the intensity of
+%  each pixel with a weighted average of intensity values from nearby pixels.
+%  This weight is based on a Gaussian distribution.  The weights depend not
+%  only on Euclidean distance of pixels, but also on the radiometric
+%  differences (e.g., range differences, such as color intensity, depth
+%  distance, etc.). This preserves sharp edges.
+%
+%  The format of the MagickBilateralBlurImage method is:
+%
+%      MagickBooleanType MagickBilateralBlurImage(MagickWand *wand,
+%        const double radius,const double sigma,const double intensity_sigma,
+%        const double spatial_sigma)
+%
+%  A description of each parameter follows:
+%
+%    o wand: the magick wand.
+%
+%    o radius: the radius of the Gaussian, in pixels, not counting the center
+%      pixel.
+%
+%    o sigma: the standard deviation of the , in pixels.
+%
+%    o intensity_sigma: sigma in the intensity space. A larger value means
+%      that farther colors within the pixel neighborhood (see spatial_sigma)
+%      will be mixed together, resulting in larger areas of semi-equal color.
+%
+%    o spatial_sigma: sigma in the coordinate space. A larger value means that
+%      farther pixels influence each other as long as their colors are close
+%      enough (see intensity_sigma ). When the neigborhood diameter is greater
+%      than zero, it specifies the neighborhood size regardless of
+%      spatial_sigma. Otherwise, the neigborhood diameter is proportional to
+%      spatial_sigma.
+%
+*/
+WandExport MagickBooleanType MagickBilateralBlurImage(MagickWand *wand,
+  const double radius,const double sigma,const double intensity_sigma,
+  const double spatial_sigma)
+{
+  Image
+    *blur_image;
+
+  assert(wand != (MagickWand *) NULL);
+  assert(wand->signature == MagickWandSignature);
+  if (wand->debug != MagickFalse)
+    (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
+  if (wand->images == (Image *) NULL)
+    ThrowWandException(WandError,"ContainsNoImages",wand->name);
+  blur_image=BilateralBlurImage(wand->images,radius,sigma,intensity_sigma,
+    spatial_sigma,wand->exception);
+  if (blur_image == (Image *) NULL)
+    return(MagickFalse);
+  ReplaceImageInList(&wand->images,blur_image);
+  return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %   M a g i c k B l a c k T h r e s h o l d I m a g e                         %
 %                                                                             %
 %                                                                             %
@@ -988,7 +1052,7 @@ WandExport MagickBooleanType MagickBlueShiftImage(MagickWand *wand,
 %
 %    o wand: the magick wand.
 %
-%    o radius: the radius of the , in pixels, not counting the center
+%    o radius: the radius of the Gaussian, in pixels, not counting the center
 %      pixel.
 %
 %    o sigma: the standard deviation of the , in pixels.
@@ -1778,6 +1842,52 @@ WandExport MagickBooleanType MagickColorMatrixImage(MagickWand *wand,
     return(MagickFalse);
   ReplaceImageInList(&wand->images,color_image);
   return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   M a g i c k C o l o r T h r e s h o l d I m a g e                         %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  MagickColorThresholdImage() forces all pixels in the color range to white
+%  otherwise black.
+%
+%  The format of the MagickWhiteThresholdImage method is:
+%
+%      MagickBooleanType MagickWhiteThresholdImage(MagickWand *wand,
+%        const PixelWand *start_color,const PixelWand *stop_color)
+%
+%  A description of each parameter follows:
+%
+%    o wand: the magick wand.
+%
+%    o start-color: the start color pixel wand.
+%
+%    o stop-color: the stop color pixel wand.
+%
+*/
+WandExport MagickBooleanType MagickColorThresholdImage(MagickWand *wand,
+  const PixelWand *start_color,const PixelWand *stop_color)
+{
+  PixelInfo
+    start,
+    stop;
+
+  assert(wand != (MagickWand *) NULL);
+  assert(wand->signature == MagickWandSignature);
+  if (wand->debug != MagickFalse)
+    (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
+  if (wand->images == (Image *) NULL)
+    ThrowWandException(WandError,"ContainsNoImages",wand->name);
+  PixelGetMagickColor(start_color,&start);
+  PixelGetMagickColor(stop_color,&stop);
+  return(ColorThresholdImage(wand->images,&start,&stop,wand->exception));
 }
 
 /*
@@ -5220,7 +5330,7 @@ WandExport PixelWand **MagickGetImageHistogram(MagickWand *wand,
   PixelWand
     **pixel_wands;
 
-  register ssize_t
+  ssize_t
     i;
 
   assert(wand != (MagickWand *) NULL);
@@ -5545,7 +5655,7 @@ WandExport MagickBooleanType MagickGetImagePage(MagickWand *wand,
 WandExport MagickBooleanType MagickGetImagePixelColor(MagickWand *wand,
   const ssize_t x,const ssize_t y,PixelWand *color)
 {
-  register const Quantum
+  const Quantum
     *p;
 
   CacheView
@@ -6354,6 +6464,7 @@ WandExport char *MagickIdentifyImage(MagickWand *wand)
     file=fdopen(unique_file,"wb");
   if ((unique_file == -1) || (file == (FILE *) NULL))
     {
+      (void) RelinquishUniqueFileResource(filename);
       (void) ThrowMagickException(wand->exception,GetMagickModule(),WandError,
         "UnableToCreateTemporaryFile","`%s'",wand->name);
       return((char *) NULL);
@@ -6471,8 +6582,8 @@ WandExport MagickBooleanType MagickImplodeImage(MagickWand *wand,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  MagickImportImagePixels() accepts pixel datand stores it in the image at the
-%  location you specify.  The method returns MagickFalse on success otherwise
-%  MagickTrue if an error is encountered.  The pixel data can be either char,
+%  location you specify.  The method returns MagickTrue on success otherwise
+%  MagickFalse if an error is encountered.  The pixel data can be either char,
 %  short int, int, ssize_t, float, or double in the order specified by map.
 %
 %  Suppose your want to upload the first scanline of a 640x480 image from
@@ -6635,6 +6746,55 @@ WandExport MagickBooleanType MagickInverseFourierTransformImage(
     return(MagickFalse);
   ReplaceImageInList(&wand->images,inverse_image);
   return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   M a g i c k K m e a n s I m a g e                                         %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  MagickKmeansImage() applies k-means color reduction to an image. This is a
+%  colorspace clustering or segmentation technique.
+%
+%  The format of the MagickKuwaharaImage method is:
+%
+%      MagickBooleanType MagickKmeansImage(MagickWand *wand,
+%        const size_t number_colors, const size_t max_iterations,
+%        const double tolerance)
+%
+%  A description of each parameter follows:
+%
+%    o wand: the magick wand.
+%
+%    o number_colors: number of colors to use as seeds.
+%
+%    o max_iterations: maximum number of iterations while converging.
+%
+%    o tolerance: the maximum tolerance.
+%
+*/
+WandExport MagickBooleanType MagickKmeansImage(MagickWand *wand,
+  const size_t number_colors,const size_t max_iterations,
+  const double tolerance)
+{
+  MagickBooleanType
+    status;
+
+  assert(wand != (MagickWand *) NULL);
+  assert(wand->signature == MagickWandSignature);
+  if (wand->debug != MagickFalse)
+    (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
+  if (wand->images == (Image *) NULL)
+    ThrowWandException(WandError,"ContainsNoImages",wand->name);
+  status=KmeansImage(wand->images,number_colors,max_iterations,tolerance,
+    wand->exception);
+  return(status);
 }
 
 /*
@@ -8769,7 +8929,7 @@ WandExport MagickBooleanType MagickRandomThresholdImage(MagickWand *wand,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  MagickReadImage() reads an image or image sequence.  The images are inserted
-%  jjust before the current image pointer position.
+%  just before the current image pointer position.
 %
 %  Use MagickSetFirstIterator(), to insert new images before all the current
 %  images in the wand, MagickSetLastIterator() to append add to the end,
@@ -10883,7 +11043,7 @@ WandExport MagickBooleanType MagickSetImagePage(MagickWand *wand,
 WandExport MagickBooleanType MagickSetImagePixelColor(MagickWand *wand,
   const ssize_t x,const ssize_t y,const PixelWand *color)
 {
-  register Quantum
+  Quantum
     *q;
 
   CacheView
@@ -12988,6 +13148,44 @@ WandExport MagickBooleanType MagickWaveletDenoiseImage(MagickWand *wand,
     return(MagickFalse);
   ReplaceImageInList(&wand->images,noise_image);
   return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%   M a g i c k W h i t e B a l a n c e I m a g e                             %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  MagickWhiteBalanceImage() applies white balancing to an image according to
+%  a grayworld assumption in the LAB colorspace.
+%
+%  The format of the WhiteBalanceImage method is:
+%
+%      MagickBooleanType WhiteBalanceImage(MagickWand *wand)
+%
+%  A description of each parameter follows:
+%
+%    o wand: the magick wand.
+%
+*/
+WandExport MagickBooleanType MagickWhiteBalanceImage(MagickWand *wand)
+{
+  MagickBooleanType
+    status;
+
+  assert(wand != (MagickWand *) NULL);
+  assert(wand->signature == MagickWandSignature);
+  if (wand->debug != MagickFalse)
+    (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
+  if (wand->images == (Image *) NULL)
+    ThrowWandException(WandError,"ContainsNoImages",wand->name);
+  status=WhiteBalanceImage(wand->images, wand->exception);
+  return(status);
 }
 
 /*

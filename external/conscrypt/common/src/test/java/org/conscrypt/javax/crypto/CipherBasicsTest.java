@@ -16,13 +16,11 @@
 
 package org.conscrypt.javax.crypto;
 
+import static org.conscrypt.TestUtils.decodeHex;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
 import java.security.AlgorithmParameters;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -31,7 +29,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.Security;
 import java.security.spec.AlgorithmParameterSpec;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -54,26 +51,26 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class CipherBasicsTest {
 
-    private static final Map<String, String> BASIC_CIPHER_TO_TEST_DATA = new HashMap<String, String>();
+    private static final Map<String, String> BASIC_CIPHER_TO_TEST_DATA = new HashMap<>();
     static {
-        BASIC_CIPHER_TO_TEST_DATA.put("AES/ECB/NoPadding", "/crypto/aes-ecb.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("AES/CBC/NoPadding", "/crypto/aes-cbc.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("AES/CFB8/NoPadding", "/crypto/aes-cfb8.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("AES/CFB128/NoPadding", "/crypto/aes-cfb128.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("AES/OFB/NoPadding", "/crypto/aes-ofb.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/ECB/NoPadding", "/crypto/desede-ecb.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/CBC/NoPadding", "/crypto/desede-cbc.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/CFB8/NoPadding", "/crypto/desede-cfb8.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/CFB64/NoPadding", "/crypto/desede-cfb64.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/OFB/NoPadding", "/crypto/desede-ofb.csv");
-        BASIC_CIPHER_TO_TEST_DATA.put("ChaCha20", "/crypto/chacha20.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("AES/ECB/NoPadding", "crypto/aes-ecb.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("AES/CBC/NoPadding", "crypto/aes-cbc.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("AES/CFB8/NoPadding", "crypto/aes-cfb8.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("AES/CFB128/NoPadding", "crypto/aes-cfb128.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("AES/OFB/NoPadding", "crypto/aes-ofb.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/ECB/NoPadding", "crypto/desede-ecb.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/CBC/NoPadding", "crypto/desede-cbc.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/CFB8/NoPadding", "crypto/desede-cfb8.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/CFB64/NoPadding", "crypto/desede-cfb64.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("DESEDE/OFB/NoPadding", "crypto/desede-ofb.csv");
+        BASIC_CIPHER_TO_TEST_DATA.put("ChaCha20", "crypto/chacha20.csv");
     }
 
-    private static final Map<String, String> AEAD_CIPHER_TO_TEST_DATA = new HashMap<String, String>();
+    private static final Map<String, String> AEAD_CIPHER_TO_TEST_DATA = new HashMap<>();
     static {
-        AEAD_CIPHER_TO_TEST_DATA.put("AES/GCM/NoPadding", "/crypto/aes-gcm.csv");
-        AEAD_CIPHER_TO_TEST_DATA.put("AES/GCM-SIV/NoPadding", "/crypto/aes-gcm-siv.csv");
-        AEAD_CIPHER_TO_TEST_DATA.put("ChaCha20/Poly1305/NoPadding", "/crypto/chacha20-poly1305.csv");
+        AEAD_CIPHER_TO_TEST_DATA.put("AES/GCM/NoPadding", "crypto/aes-gcm.csv");
+        AEAD_CIPHER_TO_TEST_DATA.put("AES/GCM-SIV/NoPadding", "crypto/aes-gcm-siv.csv");
+        AEAD_CIPHER_TO_TEST_DATA.put("ChaCha20/Poly1305/NoPadding", "crypto/chacha20-poly1305.csv");
     }
 
     private static final int KEY_INDEX = 0;
@@ -117,13 +114,13 @@ public final class CipherBasicsTest {
                     continue;
                 }
 
-                List<String[]> data = readCsvResource(entry.getValue());
+                List<String[]> data = TestUtils.readCsvResource(entry.getValue());
                 for (String[] line : data) {
-                    Key key = new SecretKeySpec(toBytes(line[KEY_INDEX]),
+                    Key key = new SecretKeySpec(decodeHex(line[KEY_INDEX]),
                             getBaseAlgorithm(transformation));
-                    byte[] iv = toBytes(line[IV_INDEX]);
-                    byte[] plaintext = toBytes(line[PLAINTEXT_INDEX]);
-                    byte[] ciphertext = toBytes(line[CIPHERTEXT_INDEX]);
+                    byte[] iv = decodeHex(line[IV_INDEX]);
+                    byte[] plaintext = decodeHex(line[PLAINTEXT_INDEX]);
+                    byte[] ciphertext = decodeHex(line[CIPHERTEXT_INDEX]);
 
                     // Initialize the IV, if there is one
                     AlgorithmParameters params;
@@ -140,26 +137,59 @@ public final class CipherBasicsTest {
                                         + ", algorithm " + transformation
                                         + " reported the wrong output size",
                                 ciphertext.length, cipher.getOutputSize(plaintext.length));
-                        assertTrue("Provider " + p.getName()
-                                        + ", algorithm " + transformation
-                                        + " failed on encryption, data is " + Arrays.toString(line),
-                                Arrays.equals(ciphertext, cipher.doFinal(plaintext)));
+                        assertArrayEquals("Provider " + p.getName()
+                                + ", algorithm " + transformation
+                                + " failed on encryption, data is " + Arrays.toString(line),
+                                ciphertext, cipher.doFinal(plaintext));
 
                         cipher.init(Cipher.DECRYPT_MODE, key, params);
                         assertEquals("Provider " + p.getName()
                                         + ", algorithm " + transformation
                                         + " reported the wrong output size",
                                 plaintext.length, cipher.getOutputSize(ciphertext.length));
-                        assertTrue("Provider " + p.getName()
-                                        + ", algorithm " + transformation
-                                        + " failed on decryption, data is " + Arrays.toString(line),
-                                Arrays.equals(plaintext, cipher.doFinal(ciphertext)));
+                        assertArrayEquals("Provider " + p.getName()
+                                + ", algorithm " + transformation
+                                + " failed on decryption, data is " + Arrays.toString(line),
+                                plaintext, cipher.doFinal(ciphertext));
                     } catch (InvalidKeyException e) {
                         // Some providers may not support raw SecretKeySpec keys, that's allowed
                     }
                 }
             }
         }
+    }
+
+    public void arrayBasedAssessment(Cipher cipher, byte[] aad, byte[] tag, byte[] plaintext,
+                                     byte[] ciphertext, Key key, AlgorithmParameterSpec params,
+                                     String transformation, Provider p, String[] line) throws Exception {
+        cipher.init(Cipher.ENCRYPT_MODE, key, params);
+        if (aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
+        byte[] combinedOutput = new byte[ciphertext.length + tag.length];
+        assertEquals("Provider " + p.getName()
+                        + ", algorithm " + transformation
+                        + " reported the wrong output size",
+                combinedOutput.length, cipher.getOutputSize(plaintext.length));
+        System.arraycopy(ciphertext, 0, combinedOutput, 0, ciphertext.length);
+        System.arraycopy(tag, 0, combinedOutput, ciphertext.length, tag.length);
+        assertArrayEquals("Provider " + p.getName()
+                + ", algorithm " + transformation
+                + " failed on encryption, data is " + Arrays.toString(line),
+                combinedOutput, cipher.doFinal(plaintext));
+
+        cipher.init(Cipher.DECRYPT_MODE, key, params);
+        if (aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
+        assertEquals("Provider " + p.getName()
+                        + ", algorithm " + transformation
+                        + " reported the wrong output size",
+                plaintext.length, cipher.getOutputSize(combinedOutput.length));
+        assertArrayEquals("Provider " + p.getName()
+                + ", algorithm " + transformation
+                + " failed on decryption, data is " + Arrays.toString(line),
+                plaintext, cipher.doFinal(combinedOutput));
     }
 
     @Test
@@ -169,6 +199,13 @@ public final class CipherBasicsTest {
             for (Map.Entry<String, String> entry : AEAD_CIPHER_TO_TEST_DATA.entrySet()) {
                 String transformation = entry.getKey();
 
+                // On Android 10 and below, BC can return AES/GCM/NoPadding when asked for
+                // AES/GCM-SIV/NoPadding. Android will never actually ship AES/GCM-SIV/NoPadding
+                // in BC, so skip that combination.
+                if (p.getName().equals("BC") && transformation.equals("AES/GCM-SIV/NoPadding")) {
+                    continue;
+                }
+
                 Cipher cipher;
                 try {
                     cipher = Cipher.getInstance(transformation, p);
@@ -177,15 +214,15 @@ public final class CipherBasicsTest {
                     continue;
                 }
 
-                List<String[]> data = readCsvResource(entry.getValue());
+                List<String[]> data = TestUtils.readCsvResource(entry.getValue());
                 for (String[] line : data) {
-                    Key key = new SecretKeySpec(toBytes(line[KEY_INDEX]),
+                    Key key = new SecretKeySpec(decodeHex(line[KEY_INDEX]),
                             getBaseAlgorithm(transformation));
-                    byte[] iv = toBytes(line[IV_INDEX]);
-                    byte[] plaintext = toBytes(line[PLAINTEXT_INDEX]);
-                    byte[] ciphertext = toBytes(line[CIPHERTEXT_INDEX]);
-                    byte[] tag = toBytes(line[TAG_INDEX]);
-                    byte[] aad = toBytes(line[AAD_INDEX]);
+                    byte[] iv = decodeHex(line[IV_INDEX]);
+                    byte[] plaintext = decodeHex(line[PLAINTEXT_INDEX]);
+                    byte[] ciphertext = decodeHex(line[CIPHERTEXT_INDEX]);
+                    byte[] tag = decodeHex(line[TAG_INDEX]);
+                    byte[] aad = decodeHex(line[AAD_INDEX]);
 
                     // Some ChaCha20 tests include truncated tags, which the Java API doesn't
                     // support.  Skip those tests.
@@ -201,34 +238,18 @@ public final class CipherBasicsTest {
                     }
 
                     try {
-                        cipher.init(Cipher.ENCRYPT_MODE, key, params);
-                        if (aad.length > 0) {
-                            cipher.updateAAD(aad);
-                        }
-                        byte[] combinedOutput = new byte[ciphertext.length + tag.length];
-                        assertEquals("Provider " + p.getName()
-                                        + ", algorithm " + transformation
-                                        + " reported the wrong output size",
-                                combinedOutput.length, cipher.getOutputSize(plaintext.length));
-                        System.arraycopy(ciphertext, 0, combinedOutput, 0, ciphertext.length);
-                        System.arraycopy(tag, 0, combinedOutput, ciphertext.length, tag.length);
-                        assertTrue("Provider " + p.getName()
-                                        + ", algorithm " + transformation
-                                        + " failed on encryption, data is " + Arrays.toString(line),
-                                Arrays.equals(combinedOutput, cipher.doFinal(plaintext)));
-
-                        cipher.init(Cipher.DECRYPT_MODE, key, params);
-                        if (aad.length > 0) {
-                            cipher.updateAAD(aad);
-                        }
-                        assertEquals("Provider " + p.getName()
-                                        + ", algorithm " + transformation
-                                        + " reported the wrong output size",
-                                plaintext.length, cipher.getOutputSize(combinedOutput.length));
-                        assertTrue("Provider " + p.getName()
-                                        + ", algorithm " + transformation
-                                        + " failed on decryption, data is " + Arrays.toString(line),
-                                Arrays.equals(plaintext, cipher.doFinal(combinedOutput)));
+                        arrayBasedAssessment(cipher, aad, tag, plaintext, ciphertext, key, params, transformation, p,
+                                line);
+                        bufferBasedAssessment(cipher, aad, tag, plaintext, ciphertext, key, params, transformation, p,
+                                false, false);
+                        bufferBasedAssessment(cipher, aad, tag, plaintext, ciphertext, key, params, transformation, p,
+                                true, true);
+                        bufferBasedAssessment(cipher, aad, tag, plaintext, ciphertext, key, params, transformation, p,
+                                true, false);
+                        bufferBasedAssessment(cipher, aad, tag, plaintext, ciphertext, key, params, transformation, p,
+                                false, true);
+                        sharedBufferBasedAssessment(cipher, aad, tag, plaintext, ciphertext, key, params,
+                                transformation, p);
                     } catch (InvalidKeyException e) {
                         // Some providers may not support raw SecretKeySpec keys, that's allowed
                     } catch (InvalidAlgorithmParameterException e) {
@@ -240,26 +261,130 @@ public final class CipherBasicsTest {
         }
     }
 
-    private static List<String[]> readCsvResource(String resourceName) throws IOException {
-        InputStream stream = CipherBasicsTest.class.getResourceAsStream(resourceName);
-        List<String[]> lines = new ArrayList<String[]>();
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                lines.add(line.split(",", -1));
-            }
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
+    public void sharedBufferBasedAssessment(Cipher cipher, byte[] aad, byte[] tag, byte[] _plaintext,
+                                      byte[] _ciphertext, Key key, AlgorithmParameterSpec params,
+                                      String transformation, Provider p) throws Exception {
+        cipher.init(Cipher.ENCRYPT_MODE, key, params);
+        if (aad.length > 0) {
+            cipher.updateAAD(aad);
         }
-        return lines;
+        byte[] _combinedOutput = new byte[_ciphertext.length + tag.length];
+        byte[] _commonBacking = new byte[_plaintext.length + _combinedOutput.length];
+
+        assertEquals("Provider " + p.getName()
+                        + ", algorithm " + transformation
+                        + " reported the wrong output size",
+                _combinedOutput.length, cipher.getOutputSize(_plaintext.length));
+        System.arraycopy(_ciphertext, 0, _combinedOutput, 0, _ciphertext.length);
+        System.arraycopy(tag, 0, _combinedOutput, _ciphertext.length, tag.length);
+        System.arraycopy(_plaintext, 0, _commonBacking, 0, _plaintext.length);
+        System.arraycopy(_combinedOutput, 0, _commonBacking, _plaintext.length, _combinedOutput.length);
+        ByteBuffer combinedOutput = ByteBuffer.wrap(_commonBacking);
+        ByteBuffer plaintext = combinedOutput.slice();
+        plaintext.limit(_plaintext.length);
+        combinedOutput.position(_plaintext.length);
+        // both byte buffers have been created from common backed array and have correct respecting positions and limits
+
+        combinedOutput.position(combinedOutput.limit());
+        ByteBuffer outputbuffer = ByteBuffer.allocate(cipher.getOutputSize(plaintext.remaining()));
+
+        cipher.doFinal(plaintext, outputbuffer);
+        assertEquals("Cipher doFinal did not encrypt correctly", combinedOutput, outputbuffer);
+        assertEquals(" input was not shifted", plaintext.position(), plaintext.limit());
+
+        cipher.init(Cipher.DECRYPT_MODE, key, params);
+        if (aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
+        assertEquals("Provider " + p.getName()
+                        + ", algorithm " + transformation
+                        + " reported the wrong output size",
+                _plaintext.length, cipher.getOutputSize(_combinedOutput.length));
+        combinedOutput.position(_plaintext.length);
+
+        outputbuffer = ByteBuffer.allocate(cipher.getOutputSize(combinedOutput.remaining()));
+
+        combinedOutput.position(_plaintext.length);
+        plaintext.position(plaintext.limit());
+        cipher.doFinal(combinedOutput, outputbuffer);
+        assertEquals("Cipher doFinal did not decrypt correctly", plaintext, outputbuffer);
+        assertEquals(" input was not shifted", combinedOutput.position(), combinedOutput.limit());
     }
+
+    public void bufferBasedAssessment(Cipher cipher, byte[] aad, byte[] tag, byte[] _plaintext,
+                                           byte[] _ciphertext, Key key, AlgorithmParameterSpec params,
+                                           String transformation, Provider p, boolean inBoolDirect, boolean outBoolDirect) throws Exception {
+        cipher.init(Cipher.ENCRYPT_MODE, key, params);
+        if (aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
+        byte[] _combinedOutput = new byte[_ciphertext.length + tag.length];
+        ByteBuffer plaintext = ByteBuffer.wrap(_plaintext);
+        if (inBoolDirect) {
+            ByteBuffer plaintext_ = plaintext;
+            int incap = plaintext_.remaining();
+            plaintext = ByteBuffer.allocateDirect(incap);
+            plaintext.mark();
+            plaintext.put(plaintext_);
+            plaintext.reset();
+        }
+
+        assertEquals("Provider " + p.getName()
+                        + ", algorithm " + transformation
+                        + " reported the wrong output size",
+                _combinedOutput.length, cipher.getOutputSize(_plaintext.length));
+        System.arraycopy(_ciphertext, 0, _combinedOutput, 0, _ciphertext.length);
+        System.arraycopy(tag, 0, _combinedOutput, _ciphertext.length, tag.length);
+
+        ByteBuffer combinedOutput = ByteBuffer.wrap(_combinedOutput);
+        if (outBoolDirect) {
+            ByteBuffer combinedOutput_ = combinedOutput;
+            int outcap = combinedOutput_.remaining();
+            combinedOutput = ByteBuffer.allocateDirect(outcap);
+            combinedOutput.mark();
+            combinedOutput.put(combinedOutput_);
+        }
+        combinedOutput.position(combinedOutput.limit());
+        ByteBuffer outputbuffer;
+        if (outBoolDirect) {
+            outputbuffer = ByteBuffer.allocateDirect(cipher.getOutputSize(plaintext.remaining()));
+        } else {
+            outputbuffer = ByteBuffer.allocate(cipher.getOutputSize(plaintext.remaining()));
+        }
+
+        cipher.doFinal(plaintext, outputbuffer);
+        assertEquals("Cipher doFinal did not encrypt correctly", combinedOutput, outputbuffer);
+        assertEquals(" input was not shifted", plaintext.position(), plaintext.limit());
+
+        cipher.init(Cipher.DECRYPT_MODE, key, params);
+        if (aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
+        assertEquals("Provider " + p.getName()
+                        + ", algorithm " + transformation
+                        + " reported the wrong output size",
+                _plaintext.length, cipher.getOutputSize(_combinedOutput.length));
+        combinedOutput = ByteBuffer.wrap(_combinedOutput);
+        if (inBoolDirect) {
+            ByteBuffer combinedOutput_ = combinedOutput;
+            int incap = combinedOutput_.remaining();
+            combinedOutput = ByteBuffer.allocateDirect(incap);
+            combinedOutput.mark();
+            combinedOutput.put(combinedOutput_);
+            combinedOutput.reset();
+        }
+        if (outBoolDirect) {
+            outputbuffer = ByteBuffer.allocateDirect(cipher.getOutputSize(combinedOutput.remaining()));
+        } else {
+            outputbuffer = ByteBuffer.allocate(cipher.getOutputSize(combinedOutput.remaining()));
+        }
+        combinedOutput.position(0);
+        plaintext.position(plaintext.limit());
+        cipher.doFinal(combinedOutput, outputbuffer);
+        assertEquals("Cipher doFinal did not decrypt correctly", plaintext, outputbuffer);
+        assertEquals(" input was not shifted", combinedOutput.position(), combinedOutput.limit());
+    }
+
 
     /**
      * Returns the underlying cipher name given a cipher transformation.  For example,
@@ -272,7 +397,92 @@ public final class CipherBasicsTest {
         return transformation;
     }
 
-    private static byte[] toBytes(String hex) {
-        return TestUtils.decodeHex(hex, /* allowSingleChar= */ true);
+    /**
+     * Encryption with ByteBuffers should be copy-safe even if the buffers have different starting
+     * offsets and/or do not make the backing array visible.
+     *
+     * <p>Note that bugs in this often require a sizeable input to reproduce; the default
+     * implementation of engineUpdate(ByteBuffer, ByteBuffer) copies through 4KB bounce buffers, so we
+     * need to use something larger to see any problems - 8KB is what we use here.
+     *
+     * @see https://bugs.openjdk.java.net/browse/JDK-8181386
+     */
+    @Test
+    public void testByteBufferShiftedAlias() throws Exception {
+        byte[] ptVector = new byte[8192];
+
+        for (int i = 0; i < 3; i++) {
+            // outputOffset = offset relative to start of input.
+            for (int outputOffset = -1; outputOffset <= 1; outputOffset++) {
+
+                SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+                GCMParameterSpec parameters = new GCMParameterSpec(128, new byte[12]);
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.ENCRYPT_MODE, key, parameters);
+
+                ByteBuffer output, input, inputRO;
+
+                // We'll try three scenarios: Ordinary array backed buffers, array backed buffers where one
+                // is read-only, and direct byte buffers.
+                String mode;
+                // offsets relative to start of buffer
+                int inputOffsetInBuffer = 1;
+                int outputOffsetInBuffer = inputOffsetInBuffer + outputOffset;
+                int sliceLength = cipher.getOutputSize(ptVector.length);
+                int bufferSize = sliceLength + Math.max(inputOffsetInBuffer, outputOffsetInBuffer);
+
+                mode = "direct buffers";
+                ByteBuffer buf = ByteBuffer.allocateDirect(bufferSize);
+                output = buf.duplicate();
+                output.position(outputOffsetInBuffer);
+                output.limit(sliceLength + outputOffsetInBuffer);
+                output = output.slice();
+
+                input = buf.duplicate();
+                input.position(inputOffsetInBuffer);
+                input.limit(sliceLength + inputOffsetInBuffer);
+                input = input.slice();
+
+                inputRO = input.duplicate();
+
+                // Now that we have our overlapping 'input' and 'output' buffers, we can write our plaintext
+                // into the input buffer.
+                input.put(ptVector);
+                input.flip();
+                // Make sure the RO input buffer has the same limit in case the plaintext is shorter than
+                // sliceLength (which it generally will be for anything other than ECB or CTR mode)
+                inputRO.limit(input.limit());
+
+                try {
+                    int ctSize = cipher.doFinal(inputRO, output);
+
+                    // Now flip the buffers around and undo everything
+                    byte[] tmp = new byte[ctSize];
+                    output.flip();
+                    output.get(tmp);
+
+                    output.clear();
+                    input.clear();
+                    inputRO.clear();
+
+                    input.put(tmp);
+                    input.flip();
+                    inputRO.limit(input.limit());
+
+                    cipher.init(Cipher.DECRYPT_MODE, key, parameters);
+                    cipher.doFinal(inputRO, output);
+
+                    output.flip();
+                    assertEquals(ByteBuffer.wrap(ptVector), output);
+                } catch (Throwable t) {
+                    throw new AssertionError(
+                            "Overlapping buffers test failed with buffer type: "
+                                    + mode
+                                    + " and output offset "
+                                    + outputOffset,
+                            t);
+                }
+            }
+        }
     }
 }

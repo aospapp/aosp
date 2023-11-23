@@ -75,4 +75,21 @@ int input_data_put_for_stream(struct input_data *data,
 			      struct buffer_share *offsets,
 			      unsigned int frames);
 
+/*
+ * The software gain scaler of input path consist of two parts:
+ * (1) The device gain scaler used when lack of hardware gain control.
+ * Configured by the IntrinsicSensitivity label in alsa UCM config.
+ * (2) The gain scaler in cras_rstream set by app, for example the AGC
+ * module in Chrome.
+ * Args:
+ *    data - The input data that holds pointer to APM instance.
+ *    idev_sw_agin_scaler - The gain scaler configured on input iodev.
+ *    stream - To provide stream layer software gain.
+ * Returns:
+ *    1.0 if tuned APM in use, otherwise |iodev gain| * |cras_rstream gain|
+ */
+float input_data_get_software_gain_scaler(struct input_data *data,
+					  float idev_sw_gain_scaler,
+					  struct cras_rstream *stream);
+
 #endif /* INPUT_DATA_H_ */

@@ -9,24 +9,31 @@ import collections
 
 import perfetto_proto_classes as proto
 
+CLOCK_BOOTTIME = 6
+CLOCK_TELEMETRY = 64
 
 
-# Dicts of strings for interning.
-# Note that each thread has its own interning index.
-_interned_categories_by_tid = collections.defaultdict(dict)
-_interned_event_names_by_tid = collections.defaultdict(dict)
+def reset_global_state():
+  global _interned_categories_by_tid
+  global _interned_event_names_by_tid
+  global _next_sequence_id
+  global _sequence_ids
 
-# Trusted sequence ids from telemetry should not overlap with
-# trusted sequence ids from other trace producers. Chrome assigns
-# sequence ids incrementally starting from 1 and we expect all its ids
-# to be well below 10000. Starting from 2^20 will give us enough
-# confidence that it will not overlap.
-_next_sequence_id = 1<<20
-_sequence_ids = {}
+  # Dicts of strings for interning.
+  # Note that each thread has its own interning index.
+  _interned_categories_by_tid = collections.defaultdict(dict)
+  _interned_event_names_by_tid = collections.defaultdict(dict)
 
-# Timestamp of the last event from each thread. Used for delta-encoding
-# of timestamps.
-_last_timestamps = {}
+  # Trusted sequence ids from telemetry should not overlap with
+  # trusted sequence ids from other trace producers. Chrome assigns
+  # sequence ids incrementally starting from 1 and we expect all its ids
+  # to be well below 10000. Starting from 2^20 will give us enough
+  # confidence that it will not overlap.
+  _next_sequence_id = 1<<20
+  _sequence_ids = {}
+
+
+reset_global_state()
 
 
 def _get_sequence_id(tid):
@@ -67,7 +74,7 @@ def _intern_event_name(event_name, trace_packet, tid):
 
 
 def write_thread_descriptor_event(output, pid, tid, ts):
-  """ Write the first event in a sequence.
+  """Write the first event in a sequence.
 
   Call this function before writing any other events.
   Note that this function is NOT thread-safe.
@@ -78,12 +85,11 @@ def write_thread_descriptor_event(output, pid, tid, ts):
     tid: thread ID.
     ts: timestamp in microseconds.
   """
-  global _last_timestamps
-  ts_us = int(ts)
-  _last_timestamps[tid] = ts_us
-
   thread_descriptor_packet = proto.TracePacket()
   thread_descriptor_packet.trusted_packet_sequence_id = _get_sequence_id(tid)
+  thread_descriptor_packet.timestamp = int(ts * 1e3)
+  thread_descriptor_packet.timestamp_clock_id = CLOCK_TELEMETRY
+
   thread_descriptor_packet.thread_descriptor = proto.ThreadDescriptor()
   thread_descriptor_packet.thread_descriptor.pid = pid
   # Thread ID from threading module doesn't fit into int32.
@@ -91,14 +97,13 @@ def write_thread_descriptor_event(output, pid, tid, ts):
   # distinguish one thread from another. We assume that the last 31 bits
   # will do for that purpose.
   thread_descriptor_packet.thread_descriptor.tid = tid & 0x7FFFFFFF
-  thread_descriptor_packet.thread_descriptor.reference_timestamp_us = ts_us
   thread_descriptor_packet.incremental_state_cleared = True;
 
   proto.write_trace_packet(output, thread_descriptor_packet)
 
 
 def write_event(output, ph, category, name, ts, args, tid):
-  """ Write a trace event.
+  """Write a trace event.
 
   Note that this function is NOT thread-safe.
 
@@ -108,30 +113,49 @@ def write_event(output, ph, category, name, ts, args, tid):
     category: category of event.
     name: event name.
     ts: timestamp in microseconds.
-    args: this argument is currently ignored.
+    args: dict of arbitrary key-values to be stored as DebugAnnotations.
     tid: thread ID.
   """
-  del args  # TODO(khokhlov): Encode args as DebugAnnotations.
-
-  global _last_timestamps
-  ts_us = int(ts)
-  delta_ts = ts_us - _last_timestamps[tid]
-
   packet = proto.TracePacket()
   packet.trusted_packet_sequence_id = _get_sequence_id(tid)
+  packet.timestamp = int(ts * 1e3)
+  packet.timestamp_clock_id = CLOCK_TELEMETRY
+
   packet.track_event = proto.TrackEvent()
-
-  if delta_ts >= 0:
-    packet.track_event.timestamp_delta_us = delta_ts
-    _last_timestamps[tid] = ts_us
-  else:
-    packet.track_event.timestamp_absolute_us = ts_us
-
   packet.track_event.category_iids = [_intern_category(category, packet, tid)]
   legacy_event = proto.LegacyEvent()
   legacy_event.phase = ord(ph)
   legacy_event.name_iid = _intern_event_name(name, packet, tid)
   packet.track_event.legacy_event = legacy_event
+
+  for name, value in args.iteritems():
+    debug_annotation = proto.DebugAnnotation()
+    debug_annotation.name = name
+    if isinstance(value, int):
+      debug_annotation.int_value = value
+    elif isinstance(value, float):
+      debug_annotation.double_value = value
+    else:
+      debug_annotation.string_value = str(value)
+    packet.track_event.debug_annotations.append(debug_annotation)
+
+  proto.write_trace_packet(output, packet)
+
+
+def write_chrome_metadata(output, clock_domain):
+  """Write a chrome trace event with metadata.
+
+  Args:
+    output: a file-like object to write events into.
+    clock_domain: a string representing the trace clock domain.
+  """
+  chrome_metadata = proto.ChromeMetadata()
+  chrome_metadata.name = 'clock-domain'
+  chrome_metadata.string_value = clock_domain
+  chrome_event = proto.ChromeEventBundle()
+  chrome_event.metadata.append(chrome_metadata)
+  packet = proto.TracePacket()
+  packet.chrome_event = chrome_event
   proto.write_trace_packet(output, packet)
 
 
@@ -145,8 +169,8 @@ def write_metadata(
     story_tags,
     story_run_index,
     label=None,
-    had_failures=None,
 ):
+  """Write a ChromeBenchmarkMetadata message."""
   metadata = proto.ChromeBenchmarkMetadata()
   metadata.benchmark_start_time_us = int(benchmark_start_time_us)
   metadata.story_run_time_us = int(story_run_time_us)
@@ -157,10 +181,39 @@ def write_metadata(
   metadata.story_run_index = int(story_run_index)
   if label is not None:
     metadata.label = label
-  if had_failures is not None:
-    metadata.had_failures = had_failures
 
   packet = proto.TracePacket()
   packet.chrome_benchmark_metadata = metadata
   proto.write_trace_packet(output, packet)
 
+
+def write_clock_snapshot(
+    output,
+    tid,
+    telemetry_ts=None,
+    boottime_ts=None,
+):
+  """Write a ClockSnapshot message.
+
+  Note that this function is NOT thread-safe.
+
+  Args:
+    output: a file-like object to write events into.
+    telemetry_ts: host BOOTTIME timestamp in microseconds.
+    boottime_ts: device BOOTTIME timestamp in microseconds.
+  """
+  clock_snapshot = proto.ClockSnapshot()
+  if telemetry_ts is not None:
+    clock = proto.Clock()
+    clock.clock_id = CLOCK_TELEMETRY
+    clock.timestamp = int(telemetry_ts * 1e3)
+    clock_snapshot.clocks.append(clock)
+  if boottime_ts is not None:
+    clock = proto.Clock()
+    clock.clock_id = CLOCK_BOOTTIME
+    clock.timestamp = int(boottime_ts * 1e3)
+    clock_snapshot.clocks.append(clock)
+  packet = proto.TracePacket()
+  packet.trusted_packet_sequence_id = _get_sequence_id(tid)
+  packet.clock_snapshot = clock_snapshot
+  proto.write_trace_packet(output, packet)

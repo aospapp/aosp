@@ -59,6 +59,8 @@ class BtIoBasicSuite : public testing::Test {
     ResetStubData();
     SetUpIodev(&iodev_, CRAS_STREAM_OUTPUT);
     SetUpIodev(&iodev2_, CRAS_STREAM_OUTPUT);
+    iodev_.active_node = &node_;
+    iodev2_.active_node = &node2_;
 
     update_supported_formats_called_ = 0;
     frames_queued_called_ = 0;
@@ -137,6 +139,8 @@ class BtIoBasicSuite : public testing::Test {
   static struct cras_iodev* bt_iodev;
   static struct cras_iodev iodev_;
   static struct cras_iodev iodev2_;
+  static struct cras_ionode node_;
+  static struct cras_ionode node2_;
   static unsigned int update_supported_formats_called_;
   static unsigned int frames_queued_called_;
   static unsigned int delay_frames_called_;
@@ -149,6 +153,8 @@ class BtIoBasicSuite : public testing::Test {
 struct cras_iodev* BtIoBasicSuite::bt_iodev;
 struct cras_iodev BtIoBasicSuite::iodev_;
 struct cras_iodev BtIoBasicSuite::iodev2_;
+struct cras_ionode BtIoBasicSuite::node_;
+struct cras_ionode BtIoBasicSuite::node2_;
 unsigned int BtIoBasicSuite::update_supported_formats_called_;
 unsigned int BtIoBasicSuite::frames_queued_called_;
 unsigned int BtIoBasicSuite::delay_frames_called_;
@@ -172,6 +178,7 @@ TEST_F(BtIoBasicSuite, CreateBtIo) {
   bt_iodev->update_supported_formats(bt_iodev);
   EXPECT_EQ(1, update_supported_formats_called_);
 
+  bt_iodev->state = CRAS_IODEV_STATE_OPEN;
   bt_iodev->configure_dev(bt_iodev);
   EXPECT_EQ(1, configure_dev_called_);
   bt_iodev->frames_queued(bt_iodev, &tstamp);
@@ -228,6 +235,7 @@ TEST_F(BtIoBasicSuite, SwitchProfileOnCloseInputDev) {
   iodev_.direction = CRAS_STREAM_INPUT;
   bt_iodev = cras_bt_io_create(fake_device, &iodev_,
                                CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
+  bt_iodev->state = CRAS_IODEV_STATE_OPEN;
 
   cras_bt_device_get_active_profile_ret =
       CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY |
@@ -246,11 +254,29 @@ TEST_F(BtIoBasicSuite, NoSwitchProfileOnCloseInputDevNoSupportA2dp) {
   iodev_.direction = CRAS_STREAM_INPUT;
   bt_iodev = cras_bt_io_create(fake_device, &iodev_,
                                CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
+  bt_iodev->state = CRAS_IODEV_STATE_OPEN;
 
   cras_bt_device_get_active_profile_ret =
       CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY |
       CRAS_BT_DEVICE_PROFILE_HSP_AUDIOGATEWAY;
   cras_bt_device_has_a2dp_ret = 0;
+  bt_iodev->close_dev(bt_iodev);
+
+  EXPECT_EQ(0, cras_bt_device_switch_profile_called);
+  cras_bt_io_destroy(bt_iodev);
+}
+
+TEST_F(BtIoBasicSuite, NoSwitchProfileOnCloseInputDevInCloseState) {
+  ResetStubData();
+  iodev_.direction = CRAS_STREAM_INPUT;
+  bt_iodev = cras_bt_io_create(fake_device, &iodev_,
+                               CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
+  bt_iodev->state = CRAS_IODEV_STATE_CLOSE;
+
+  cras_bt_device_get_active_profile_ret =
+      CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY |
+      CRAS_BT_DEVICE_PROFILE_HSP_AUDIOGATEWAY;
+  cras_bt_device_has_a2dp_ret = 1;
   bt_iodev->close_dev(bt_iodev);
 
   EXPECT_EQ(0, cras_bt_device_switch_profile_called);
@@ -397,7 +423,8 @@ int cras_iodev_list_rm_input(struct cras_iodev* dev) {
 }
 
 // From bt device
-int cras_bt_device_get_active_profile(const struct cras_bt_device* device) {
+unsigned int cras_bt_device_get_active_profile(
+    const struct cras_bt_device* device) {
   return cras_bt_device_get_active_profile_ret;
 }
 
@@ -431,6 +458,10 @@ const char* cras_bt_device_object_path(const struct cras_bt_device* device) {
   return "/fake/object/path";
 }
 
+int cras_bt_device_get_stable_id(const struct cras_bt_device* device) {
+  return 123;
+}
+
 int cras_bt_device_get_use_hardware_volume(struct cras_bt_device* device) {
   return 1;
 }
@@ -440,6 +471,22 @@ int is_utf8_string(const char* string) {
 }
 
 int cras_iodev_default_no_stream_playback(struct cras_iodev* odev, int enable) {
+  return 0;
+}
+
+int cras_iodev_frames_queued(struct cras_iodev* iodev,
+                             struct timespec* hw_tstamp) {
+  return 0;
+}
+
+unsigned int cras_iodev_default_frames_to_play_in_sleep(
+    struct cras_iodev* odev,
+    unsigned int* hw_level,
+    struct timespec* hw_tstamp) {
+  return 0;
+}
+
+int hfp_iodev_is_hsp(struct cras_iodev* iodev) {
   return 0;
 }
 

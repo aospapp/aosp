@@ -30,4 +30,8 @@ class hardware_StorageQualSuspendStress(test.test):
                 tag='qual_suspend')], timeout=%d)""" % \
             (duration, fio_test, duration, timeout)
         client_at.run(control, '.', None)
+        client_at.run_test(fio_test, wait=60, disable_sysinfo=True,
+                           blkdiscard=False,
+                           requirements=[('write_stress', ['v'])],
+                           tag='qual_verify')
 

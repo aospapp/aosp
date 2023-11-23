@@ -27,6 +27,7 @@
 #include <assert.h>
 
 #include "c99_compat.h"
+#include "c11_compat.h"
 
 /* Compute the size of an array */
 #ifndef ARRAY_SIZE
@@ -71,7 +72,7 @@
  * Unreachable macro. Useful for suppressing "control reaches end of non-void
  * function" warnings.
  */
-#ifdef HAVE___BUILTIN_UNREACHABLE
+#if defined(HAVE___BUILTIN_UNREACHABLE) || __has_builtin(__builtin_unreachable)
 #define unreachable(str)    \
 do {                        \
    assert(!str);            \
@@ -218,25 +219,42 @@ do {                       \
  * inline a static function that we later use in an alias. - ajax
  */
 #ifndef PUBLIC
-#  if defined(__GNUC__)
-#    define PUBLIC __attribute__((visibility("default")))
-#    define USED __attribute__((used))
-#  elif defined(_MSC_VER)
+#  if defined(_WIN32)
 #    define PUBLIC __declspec(dllexport)
 #    define USED
+#  elif defined(__GNUC__)
+#    define PUBLIC __attribute__((visibility("default")))
+#    define USED __attribute__((used))
 #  else
 #    define PUBLIC
 #    define USED
 #  endif
 #endif
 
+/**
+ * UNUSED marks variables (or sometimes functions) that have to be defined,
+ * but are sometimes (or always) unused beyond that. A common case is for
+ * a function parameter to be used in some build configurations but not others.
+ * Another case is fallback vfuncs that don't do anything with their params.
+ *
+ * Note that this should not be used for identifiers used in `assert()`;
+ * see ASSERTED below.
+ */
 #ifdef HAVE_FUNC_ATTRIBUTE_UNUSED
 #define UNUSED __attribute__((unused))
 #else
 #define UNUSED
 #endif
 
-#define MAYBE_UNUSED UNUSED
+/**
+ * Use ASSERTED to indicate that an identifier is unused outside of an `assert()`,
+ * so that assert-free builds don't get "unused variable" warnings.
+ */
+#ifdef NDEBUG
+#define ASSERTED UNUSED
+#else
+#define ASSERTED
+#endif
 
 #ifdef HAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT
 #define MUST_CHECK __attribute__((warn_unused_result))
@@ -246,6 +264,8 @@ do {                       \
 
 #if defined(__GNUC__)
 #define ATTRIBUTE_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define ATTRIBUTE_NOINLINE __declspec(noinline)
 #else
 #define ATTRIBUTE_NOINLINE
 #endif
@@ -261,17 +281,20 @@ do {                       \
  */
 #define ASSERT_BITFIELD_SIZE(STRUCT, FIELD, MAXVAL) \
    do { \
-      MAYBE_UNUSED STRUCT s;                \
+      ASSERTED STRUCT s; \
       s.FIELD = (MAXVAL); \
       assert((int) s.FIELD == (MAXVAL) && "Insufficient bitfield size!"); \
    } while (0)
 
 
 /** Compute ceiling of integer quotient of A divided by B. */
-#define DIV_ROUND_UP( A, B )  ( (A) % (B) == 0 ? (A)/(B) : (A)/(B)+1 )
+#define DIV_ROUND_UP( A, B )  ( ((A) + (B) - 1) / (B) )
 
 /** Clamp X to [MIN,MAX].  Turn NaN into MIN, arbitrarily. */
 #define CLAMP( X, MIN, MAX )  ( (X)>(MIN) ? ((X)>(MAX) ? (MAX) : (X)) : (MIN) )
+
+/* Syntax sugar occuring frequently in graphics code */
+#define SATURATE( X ) CLAMP(X, 0.0f, 1.0f)
 
 /** Minimum of two values: */
 #define MIN2( A, B )   ( (A)<(B) ? (A) : (B) )
@@ -313,5 +336,29 @@ do {                       \
 /** Set count bits starting from bit b  */
 #define BITFIELD64_RANGE(b, count) \
    (BITFIELD64_MASK((b) + (count)) & ~BITFIELD64_MASK(b))
+
+/* TODO: In future we should try to move this to u_debug.h once header
+ * dependencies are reorganised to allow this.
+ */
+enum pipe_debug_type
+{
+   PIPE_DEBUG_TYPE_OUT_OF_MEMORY = 1,
+   PIPE_DEBUG_TYPE_ERROR,
+   PIPE_DEBUG_TYPE_SHADER_INFO,
+   PIPE_DEBUG_TYPE_PERF_INFO,
+   PIPE_DEBUG_TYPE_INFO,
+   PIPE_DEBUG_TYPE_FALLBACK,
+   PIPE_DEBUG_TYPE_CONFORMANCE,
+};
+
+#if !defined(alignof) && !defined(__cplusplus)
+#if __STDC_VERSION__ >= 201112L
+#define alignof(t) _Alignof(t)
+#elif defined(_MSC_VER)
+#define alignof(t) __alignof(t)
+#else
+#define alignof(t) __alignof__(t)
+#endif
+#endif
 
 #endif /* UTIL_MACROS_H */

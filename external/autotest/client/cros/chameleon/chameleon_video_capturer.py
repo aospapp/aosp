@@ -1,12 +1,18 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import os
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from six.moves import range
 
 
 class ChameleonVideoCapturer(object):
@@ -110,7 +116,7 @@ class ChameleonVideoCapturer(object):
         # Find the first frame that is different from previous ones. This
         # represents the start of 'interesting' frames
         first_index = 0
-        for i in xrange(1, count):
+        for i in range(1, count):
             if self.checksums[0] != self.checksums[i]:
                 first_index = i
                 break

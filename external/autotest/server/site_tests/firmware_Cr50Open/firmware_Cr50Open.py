@@ -2,9 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import logging
+import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import cr50_utils
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -21,7 +25,7 @@ class firmware_Cr50Open(Cr50Test):
             raise error.TestNAError('No power button. Unable to test ccd open')
 
         self.ccd_open_restricted = ccd_open_restricted
-        self.fast_open(enable_testlab=True)
+        self.fast_ccd_open(enable_testlab=True)
         self.cr50.send_command('ccd reset')
         self.cr50.set_ccd_level('lock')
 
@@ -46,7 +50,7 @@ class firmware_Cr50Open(Cr50Test):
         #Make sure open doesn't work from the console.
         try:
             self.cr50.set_ccd_level('open')
-        except error.TestFail, e:
+        except error.TestFail as e:
             if not batt_pres:
                 raise error.TestFail('Unable to open cr50 from console with '
                                      'batt disconnected: %s' % str(e))
@@ -63,14 +67,19 @@ class firmware_Cr50Open(Cr50Test):
                                      'console')
         self.cr50.set_ccd_level('lock')
 
+        if not batt_pres:
+            cr50_utils.GSCTool(self.host, ['-a', '-o'])
+            # Wait long enough for cr50 to open ccd and wipe the tpm.
+            time.sleep(10)
+            if self.cr50.OPEN != self.cr50.get_ccd_level():
+                raise error.TestFail('Unable to open cr50 from AP with batt '
+                                     'disconnected')
+            return
         #Make sure open only works from the AP when the device is in dev mode.
         try:
             self.ccd_open_from_ap()
-        except error.TestFail, e:
+        except error.TestFail as e:
             logging.info(e)
-            if not batt_pres:
-                raise error.TestFail('Unable to open cr50 from AP with batt '
-                                     'disconnected')
             # ccd open should work if the device is in dev mode or ccd open
             # isn't restricted. If open failed for some reason raise the error.
             if dev_mode or not self.ccd_open_restricted:

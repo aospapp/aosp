@@ -11,6 +11,7 @@ from autotest_lib.server import host_attributes
 
 AUTHOR = "Chrome OS Team"
 NAME = "platform_InstallTestImage.local"
+ATTRIBUTES = "suite:servo_lab"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Install"
 TEST_CLASS = "platform"

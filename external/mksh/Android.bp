@@ -2,6 +2,24 @@
 //    Thorsten Glaser <t.glaser@tarent.de>
 // This file is provided under the same terms as mksh.
 
+package {
+    default_applicable_licenses: ["external_mksh_license"],
+}
+
+license {
+    name: "external_mksh_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-Unicode-DFS",
+        "legacy_notice",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "sh-defaults",
 
@@ -107,7 +125,7 @@ cc_defaults {
         "-DHAVE_SYS_ERRLIST_DECL=0",
         "-DHAVE_SYS_SIGLIST_DECL=1",
         "-DHAVE_PERSISTENT_HISTORY=0",
-        "-DMKSH_BUILD_R=571",
+        "-DMKSH_BUILD_R=592",
 
         // Additional flags
         "-DMKSH_DEFAULT_PROFILEDIR=\"/system/etc\"",
@@ -124,6 +142,7 @@ cc_binary {
     name: "sh",
     defaults: ["sh-defaults"],
     recovery_available: true,
+    vendor_ramdisk_available: true,
 }
 
 cc_binary {

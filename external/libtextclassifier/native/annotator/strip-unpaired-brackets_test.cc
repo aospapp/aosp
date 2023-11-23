@@ -30,36 +30,36 @@ class StripUnpairedBracketsTest : public ::testing::Test {
 TEST_F(StripUnpairedBracketsTest, StripUnpairedBrackets) {
   // If the brackets match, nothing gets stripped.
   EXPECT_EQ(StripUnpairedBrackets("call me (123) 456 today", {8, 17}, unilib_),
-            std::make_pair(8, 17));
+            CodepointSpan(8, 17));
   EXPECT_EQ(StripUnpairedBrackets("call me (123 456) today", {8, 17}, unilib_),
-            std::make_pair(8, 17));
+            CodepointSpan(8, 17));
 
   // If the brackets don't match, they get stripped.
   EXPECT_EQ(StripUnpairedBrackets("call me (123 456 today", {8, 16}, unilib_),
-            std::make_pair(9, 16));
+            CodepointSpan(9, 16));
   EXPECT_EQ(StripUnpairedBrackets("call me )123 456 today", {8, 16}, unilib_),
-            std::make_pair(9, 16));
+            CodepointSpan(9, 16));
   EXPECT_EQ(StripUnpairedBrackets("call me 123 456) today", {8, 16}, unilib_),
-            std::make_pair(8, 15));
+            CodepointSpan(8, 15));
   EXPECT_EQ(StripUnpairedBrackets("call me 123 456( today", {8, 16}, unilib_),
-            std::make_pair(8, 15));
+            CodepointSpan(8, 15));
 
   // Strips brackets correctly from length-1 selections that consist of
   // a bracket only.
   EXPECT_EQ(StripUnpairedBrackets("call me at ) today", {11, 12}, unilib_),
-            std::make_pair(12, 12));
+            CodepointSpan(12, 12));
   EXPECT_EQ(StripUnpairedBrackets("call me at ( today", {11, 12}, unilib_),
-            std::make_pair(12, 12));
+            CodepointSpan(12, 12));
 
   // Handles invalid spans gracefully.
   EXPECT_EQ(StripUnpairedBrackets("call me at  today", {11, 11}, unilib_),
-            std::make_pair(11, 11));
+            CodepointSpan(11, 11));
   EXPECT_EQ(StripUnpairedBrackets("hello world", {0, 0}, unilib_),
-            std::make_pair(0, 0));
+            CodepointSpan(0, 0));
   EXPECT_EQ(StripUnpairedBrackets("hello world", {11, 11}, unilib_),
-            std::make_pair(11, 11));
+            CodepointSpan(11, 11));
   EXPECT_EQ(StripUnpairedBrackets("hello world", {-1, -1}, unilib_),
-            std::make_pair(-1, -1));
+            CodepointSpan(-1, -1));
 }
 
 }  // namespace

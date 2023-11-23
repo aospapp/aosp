@@ -5,7 +5,6 @@
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import site_eap_certs
-from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.common_lib.cros.network import xmlrpc_security_types
@@ -19,20 +18,6 @@ class network_WiFi_PMKSACaching(wifi_cell_test_base.WiFiCellTestBase):
     AP0_FREQUENCY = 2412
     AP1_FREQUENCY = 5220
     TIMEOUT_SECONDS = 15
-
-
-    def dut_sees_bss(self, bssid):
-        """
-        Check if a DUT can see a BSS in scan results.
-
-        @param bssid: string bssid of AP we expect to see in scan results.
-        @return True iff scan results from DUT include the specified BSS.
-
-        """
-        runner = iw_runner.IwRunner(remote_host=self.context.client.host)
-        is_requested_bss = lambda iw_bss: iw_bss.bss == bssid
-        scan_results = runner.scan(self.context.client.wifi_if)
-        return scan_results and filter(is_requested_bss, scan_results)
 
 
     def run_once(self):
@@ -62,12 +47,7 @@ class network_WiFi_PMKSACaching(wifi_cell_test_base.WiFiCellTestBase):
         self.context.configure(ap_config1, multi_interface=True)
         bssid0 = self.context.router.get_hostapd_mac(0)
         bssid1 = self.context.router.get_hostapd_mac(1)
-        utils.poll_for_condition(
-                condition=lambda: self.dut_sees_bss(bssid1),
-                exception=error.TestFail(
-                        'Timed out waiting for DUT to see second AP'),
-                timeout=self.TIMEOUT_SECONDS,
-                sleep_interval=1)
+        self.context.client.wait_for_bss(bssid1)
         self.context.client.request_roam(bssid1)
         if not self.context.client.wait_for_roam(
                 bssid1, timeout_seconds=self.TIMEOUT_SECONDS):

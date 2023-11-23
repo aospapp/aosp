@@ -1,4 +1,4 @@
-#	$OpenBSD: test-exec.sh,v 1.59 2017/02/07 23:03:11 dtucker Exp $
+#	$OpenBSD: test-exec.sh,v 1.76 2020/04/04 23:04:41 dtucker Exp $
 #	Placed in the Public Domain.
 
 #SUDO=sudo
@@ -12,10 +12,6 @@ OSF1*)
 	BIN_SH=xpg4
 	export BIN_SH
 	;;
-CYGWIN_NT-5.0)
-	os=cygwin
-	TEST_SSH_IPV6=no
-	;;
 CYGWIN*)
 	os=cygwin
 	;;
@@ -25,6 +21,16 @@ if [ ! -z "$TEST_SSH_PORT" ]; then
 	PORT="$TEST_SSH_PORT"
 else
 	PORT=4242
+fi
+
+# If configure tells us to use a different egrep, create a wrapper function
+# to call it.  This means we don't need to change all the tests that depend
+# on a good implementation.
+if test "x${EGREP}" != "x"; then
+	egrep ()
+{
+	 ${EGREP} "$@"
+}
 fi
 
 if [ -x /usr/ucb/whoami ]; then
@@ -76,10 +82,16 @@ SFTP=sftp
 SFTPSERVER=/usr/libexec/openssh/sftp-server
 SCP=scp
 
+# Set by make_tmpdir() on demand (below).
+SSH_REGRESS_TMP=
+
 # Interop testing
 PLINK=plink
 PUTTYGEN=puttygen
 CONCH=conch
+
+# Tools used by multiple tests
+NC=$OBJ/netcat
 
 if [ "x$TEST_SSH_SSH" != "x" ]; then
 	SSH="${TEST_SSH_SSH}"
@@ -129,11 +141,11 @@ if [ "x$TEST_SSH_CONCH" != "x" ]; then
 	*) CONCH=`which ${TEST_SSH_CONCH} 2>/dev/null` ;;
 	esac
 fi
-
-SSH_PROTOCOLS=2
-#SSH_PROTOCOLS=`$SSH -Q protocol-version`
-if [ "x$TEST_SSH_PROTOCOLS" != "x" ]; then
-	SSH_PROTOCOLS="${TEST_SSH_PROTOCOLS}"
+if [ "x$TEST_SSH_PKCS11_HELPER" != "x" ]; then
+	SSH_PKCS11_HELPER="${TEST_SSH_PKCS11_HELPER}"
+fi
+if [ "x$TEST_SSH_SK_HELPER" != "x" ]; then
+	SSH_SK_HELPER="${TEST_SSH_SK_HELPER}"
 fi
 
 # Path to sshd must be absolute for rexec
@@ -159,21 +171,35 @@ SFTPSERVER_BIN=${SFTPSERVER}
 SCP_BIN=${SCP}
 
 if [ "x$USE_VALGRIND" != "x" ]; then
-	mkdir -p $OBJ/valgrind-out
+	rm -rf $OBJ/valgrind-out $OBJ/valgrind-vgdb
+	mkdir -p $OBJ/valgrind-out $OBJ/valgrind-vgdb
+	# When using sudo ensure low-priv tests can write pipes and logs.
+	if [ "x$SUDO" != "x" ]; then
+		chmod 777 $OBJ/valgrind-out $OBJ/valgrind-vgdb
+	fi
 	VG_TEST=`basename $SCRIPT .sh`
 
 	# Some tests are difficult to fix.
 	case "$VG_TEST" in
-	connect-privsep|reexec)
+	reexec)
 		VG_SKIP=1 ;;
+	sftp-chroot)
+		if [ "x${SUDO}" != "x" ]; then
+			VG_SKIP=1
+		fi ;;
 	esac
 
 	if [ x"$VG_SKIP" = "x" ]; then
+		VG_LEAK="--leak-check=no"
+		if [ x"$VALGRIND_CHECK_LEAKS" != "x" ]; then
+			VG_LEAK="--leak-check=full"
+		fi
 		VG_IGNORE="/bin/*,/sbin/*,/usr/*,/var/*"
 		VG_LOG="$OBJ/valgrind-out/${VG_TEST}."
-		VG_OPTS="--track-origins=yes --leak-check=full"
+		VG_OPTS="--track-origins=yes $VG_LEAK"
 		VG_OPTS="$VG_OPTS --trace-children=yes"
 		VG_OPTS="$VG_OPTS --trace-children-skip=${VG_IGNORE}"
+		VG_OPTS="$VG_OPTS --vgdb-prefix=$OBJ/valgrind-vgdb/"
 		VG_PATH="valgrind"
 		if [ "x$VALGRIND_PATH" != "x" ]; then
 			VG_PATH="$VALGRIND_PATH"
@@ -223,6 +249,7 @@ echo "exec ${SSH} -E${TEST_SSH_LOGFILE} "'"$@"' >>$SSHLOGWRAP
 
 chmod a+rx $OBJ/ssh-log-wrapper.sh
 REAL_SSH="$SSH"
+REAL_SSHD="$SSHD"
 SSH="$SSHLOGWRAP"
 
 # Some test data.  We make a copy because some tests will overwrite it.
@@ -245,6 +272,7 @@ increase_datafile_size()
 
 # these should be used in tests
 export SSH SSHD SSHAGENT SSHADD SSHKEYGEN SSHKEYSCAN SFTP SFTPSERVER SCP
+export SSH_PKCS11_HELPER SSH_SK_HELPER
 #echo $SSH $SSHD $SSHAGENT $SSHADD $SSHKEYGEN $SSHKEYSCAN $SFTP $SFTPSERVER $SCP
 
 # Portable specific functions
@@ -310,11 +338,24 @@ stop_sshd ()
 					i=`expr $i + 1`
 					sleep $i
 				done
-				test -f $PIDFILE && \
-				    fatal "sshd didn't exit port $PORT pid $pid"
+				if test -f $PIDFILE; then
+					if $SUDO kill -0 $pid; then
+						echo "sshd didn't exit " \
+						    "port $PORT pid $pid"
+					else
+						echo "sshd died without cleanup"
+					fi
+					exit 1
+				fi
 			fi
 		fi
 	fi
+}
+
+make_tmpdir ()
+{
+	SSH_REGRESS_TMP="$($OBJ/mkdtemp openssh-XXXXXXXX)" || \
+	    fatal "failed to create temporary directory"
 }
 
 # helper
@@ -326,6 +367,9 @@ cleanup ()
 		else
 			kill $SSH_PID
 		fi
+	fi
+	if [ "x$SSH_REGRESS_TMP" != "x" ]; then
+		rm -rf "$SSH_REGRESS_TMP"
 	fi
 	stop_sshd
 }
@@ -374,7 +418,10 @@ fail ()
 	save_debug_log "FAIL: $@"
 	RESULT=1
 	echo "$@"
-
+	if test "x$TEST_SSH_FAIL_FATAL" != "x" ; then
+		cleanup
+		exit $RESULT
+	fi
 }
 
 fatal ()
@@ -386,21 +433,10 @@ fatal ()
 	exit $RESULT
 }
 
-ssh_version ()
-{
-	echo ${SSH_PROTOCOLS} | grep "$1" >/dev/null
-}
-
 RESULT=0
 PIDFILE=$OBJ/pidfile
 
 trap fatal 3 2
-
-if ssh_version 1; then
-	PROTO="2,1"
-else
-	PROTO="2"
-fi
 
 # create server config
 cat << EOF > $OBJ/sshd_config
@@ -422,6 +458,31 @@ EOF
 # be abused to locally escalate privileges.
 if [ ! -z "$TEST_SSH_UNSAFE_PERMISSIONS" ]; then
 	echo "StrictModes no" >> $OBJ/sshd_config
+else
+	# check and warn if excessive permissions are likely to cause failures.
+	unsafe=""
+	dir="${OBJ}"
+	while test ${dir} != "/"; do
+		if test -d "${dir}" && ! test -h "${dir}"; then
+			perms=`ls -ld ${dir}`
+			case "${perms}" in
+			?????w????*|????????w?*) unsafe="${unsafe} ${dir}" ;;
+			esac
+		fi
+		dir=`dirname ${dir}`
+	done
+	if ! test  -z "${unsafe}"; then
+		cat <<EOD
+
+WARNING: Unsafe (group or world writable) directory permissions found:
+${unsafe}
+
+These could be abused to locally escalate privileges.  If you are
+sure that this is not a risk (eg there are no other users), you can
+bypass this check by setting TEST_SSH_UNSAFE_PERMISSIONS=1
+
+EOD
+	fi
 fi
 
 if [ ! -z "$TEST_SSH_SSHD_CONFOPTS" ]; then
@@ -460,29 +521,57 @@ fi
 
 rm -f $OBJ/known_hosts $OBJ/authorized_keys_$USER
 
-if ssh_version 1; then
-	SSH_KEYTYPES="rsa rsa1"
-else
-	SSH_KEYTYPES="rsa ed25519"
+SSH_SK_PROVIDER=
+if ! config_defined ENABLE_SK; then
+	trace skipping sk-dummy
+elif [ -f "${SRC}/misc/sk-dummy/obj/sk-dummy.so" ] ; then
+	SSH_SK_PROVIDER="${SRC}/misc/sk-dummy/obj/sk-dummy.so"
+elif [ -f "${SRC}/misc/sk-dummy/sk-dummy.so" ] ; then
+	SSH_SK_PROVIDER="${SRC}/misc/sk-dummy/sk-dummy.so"
 fi
-trace "generate keys"
+export SSH_SK_PROVIDER
+
+if ! test -z "$SSH_SK_PROVIDER"; then
+	EXTRA_AGENT_ARGS='-P/*' # XXX want realpath(1)...
+	echo "SecurityKeyProvider $SSH_SK_PROVIDER" >> $OBJ/ssh_config
+	echo "SecurityKeyProvider $SSH_SK_PROVIDER" >> $OBJ/sshd_config
+	echo "SecurityKeyProvider $SSH_SK_PROVIDER" >> $OBJ/sshd_proxy
+fi
+export EXTRA_AGENT_ARGS
+
+maybe_filter_sk() {
+	if test -z "$SSH_SK_PROVIDER" ; then
+		grep -v ^sk
+	else
+		cat
+	fi
+}
+
+SSH_KEYTYPES=`$SSH -Q key-plain | maybe_filter_sk`
+SSH_HOSTKEY_TYPES=`$SSH -Q key-plain | maybe_filter_sk`
+
 for t in ${SSH_KEYTYPES}; do
 	# generate user key
 	if [ ! -f $OBJ/$t ] || [ ${SSHKEYGEN_BIN} -nt $OBJ/$t ]; then
+		trace "generating key type $t"
 		rm -f $OBJ/$t
 		${SSHKEYGEN} -q -N '' -t $t  -f $OBJ/$t ||\
 			fail "ssh-keygen for $t failed"
+	else
+		trace "using cached key type $t"
 	fi
 
+	# setup authorized keys
+	cat $OBJ/$t.pub >> $OBJ/authorized_keys_$USER
+	echo IdentityFile $OBJ/$t >> $OBJ/ssh_config
+done
+
+for t in ${SSH_HOSTKEY_TYPES}; do
 	# known hosts file for client
 	(
 		printf 'localhost-with-alias,127.0.0.1,::1 '
 		cat $OBJ/$t.pub
 	) >> $OBJ/known_hosts
-
-	# setup authorized keys
-	cat $OBJ/$t.pub >> $OBJ/authorized_keys_$USER
-	echo IdentityFile $OBJ/$t >> $OBJ/ssh_config
 
 	# use key as host key, too
 	$SUDO cp $OBJ/$t $OBJ/host.$t
@@ -516,6 +605,7 @@ if test "$REGRESS_INTEROP_PUTTY" = "yes" ; then
 	# Add a PuTTY key to authorized_keys
 	rm -f ${OBJ}/putty.rsa2
 	if ! puttygen -t rsa -o ${OBJ}/putty.rsa2 \
+	    --random-device=/dev/urandom \
 	    --new-passphrase /dev/null < /dev/null > /dev/null; then
 		echo "Your installed version of PuTTY is too old to support --new-passphrase; trying without (may require manual interaction) ..." >&2
 		puttygen -t rsa -o ${OBJ}/putty.rsa2 < /dev/null > /dev/null
@@ -524,10 +614,13 @@ if test "$REGRESS_INTEROP_PUTTY" = "yes" ; then
 	    >> $OBJ/authorized_keys_$USER
 
 	# Convert rsa2 host key to PuTTY format
-	${SRC}/ssh2putty.sh 127.0.0.1 $PORT $OBJ/rsa > \
+	cp $OBJ/ssh-rsa $OBJ/ssh-rsa_oldfmt
+	${SSHKEYGEN} -p -N '' -m PEM -f $OBJ/ssh-rsa_oldfmt >/dev/null
+	${SRC}/ssh2putty.sh 127.0.0.1 $PORT $OBJ/ssh-rsa_oldfmt > \
 	    ${OBJ}/.putty/sshhostkeys
-	${SRC}/ssh2putty.sh 127.0.0.1 22 $OBJ/rsa >> \
+	${SRC}/ssh2putty.sh 127.0.0.1 22 $OBJ/ssh-rsa_oldfmt >> \
 	    ${OBJ}/.putty/sshhostkeys
+	rm -f $OBJ/ssh-rsa_oldfmt
 
 	# Setup proxied session
 	mkdir -p ${OBJ}/.putty/sessions
@@ -539,13 +632,16 @@ if test "$REGRESS_INTEROP_PUTTY" = "yes" ; then
 	echo "ProxyTelnetCommand=sh ${SRC}/sshd-log-wrapper.sh ${TEST_SSHD_LOGFILE} ${SSHD} -i -f $OBJ/sshd_proxy" >> ${OBJ}/.putty/sessions/localhost_proxy
 	echo "ProxyLocalhost=1" >> ${OBJ}/.putty/sessions/localhost_proxy
 
+	PUTTYDIR=${OBJ}/.putty
+	export PUTTYDIR
+
 	REGRESS_INTEROP_PUTTY=yes
 fi
 
 # create a proxy version of the client config
 (
 	cat $OBJ/ssh_config
-	echo proxycommand ${SUDO} sh ${SRC}/sshd-log-wrapper.sh ${TEST_SSHD_LOGFILE} ${SSHD} -i -f $OBJ/sshd_proxy
+	echo proxycommand ${SUDO} env SSH_SK_HELPER=\"$SSH_SK_HELPER\" sh ${SRC}/sshd-log-wrapper.sh ${TEST_SSHD_LOGFILE} ${SSHD} -i -f $OBJ/sshd_proxy
 ) > $OBJ/ssh_proxy
 
 # check proxy config
@@ -555,7 +651,8 @@ start_sshd ()
 {
 	# start sshd
 	$SUDO ${SSHD} -f $OBJ/sshd_config "$@" -t || fatal "sshd_config broken"
-	$SUDO ${SSHD} -f $OBJ/sshd_config "$@" -E$TEST_SSHD_LOGFILE
+	$SUDO env SSH_SK_HELPER="$SSH_SK_HELPER" \
+	    ${SSHD} -f $OBJ/sshd_config "$@" -E$TEST_SSHD_LOGFILE
 
 	trace "wait for sshd"
 	i=0;
@@ -572,6 +669,31 @@ start_sshd ()
 
 # kill sshd
 cleanup
+
+if [ "x$USE_VALGRIND" != "x" ]; then
+	# wait for any running process to complete
+	wait; sleep 1
+	VG_RESULTS=$(find $OBJ/valgrind-out -type f -print)
+	VG_RESULT_COUNT=0
+	VG_FAIL_COUNT=0
+	for i in $VG_RESULTS; do
+		if grep "ERROR SUMMARY" $i >/dev/null; then
+			VG_RESULT_COUNT=$(($VG_RESULT_COUNT + 1))
+			if ! grep "ERROR SUMMARY: 0 errors" $i >/dev/null; then
+				VG_FAIL_COUNT=$(($VG_FAIL_COUNT + 1))
+				RESULT=1
+				verbose valgrind failure $i
+				cat $i
+			fi
+		fi
+	done
+	if [ x"$VG_SKIP" != "x" ]; then
+		verbose valgrind skipped
+	else
+		verbose valgrind results $VG_RESULT_COUNT failures $VG_FAIL_COUNT
+	fi
+fi
+
 if [ $RESULT -eq 0 ]; then
 	verbose ok $tid
 else

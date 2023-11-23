@@ -49,6 +49,7 @@ Detect if target is a 32-bit or 64-bit ARM system:
 ```
 
 Check if the host CPU support ARM NEON
+
 ```c
 cpuinfo_initialize();
 if (cpuinfo_has_arm_neon()) {
@@ -57,6 +58,7 @@ if (cpuinfo_has_arm_neon()) {
 ```
 
 Check if the host CPU supports x86 AVX
+
 ```c
 cpuinfo_initialize();
 if (cpuinfo_has_x86_avx()) {
@@ -65,6 +67,7 @@ if (cpuinfo_has_x86_avx()) {
 ```
 
 Check if the thread runs on a Cortex-A53 core
+
 ```c
 cpuinfo_initialize();
 switch (cpuinfo_get_current_core()->uarch) {
@@ -78,12 +81,14 @@ switch (cpuinfo_get_current_core()->uarch) {
 ```
 
 Get the size of level 1 data cache on the fastest core in the processor (e.g. big core in big.LITTLE ARM systems):
+
 ```c
 cpuinfo_initialize();
 const size_t l1_size = cpuinfo_get_processor(0)->cache.l1d->size;
 ```
 
 Pin thread to cores sharing L2 cache with the current core (Linux or Android)
+
 ```c
 cpuinfo_initialize();
 cpu_set_t cpu_set;
@@ -152,21 +157,20 @@ pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
   - [x] Using `ro.chipname`, `ro.board.platform`, `ro.product.board`, `ro.mediatek.platform`, `ro.arch` properties (Android)
   - [ ] Using kernel log (`dmesg`) on ARM Linux
 - Vendor and microarchitecture detection
-  - [x] Intel-designed x86/x86-64 cores (up to Kaby Lake, Airmont, and Knights Mill)
-  - [x] AMD-designed x86/x86-64 cores (up to Puma/Jaguar and Zen)
+  - [x] Intel-designed x86/x86-64 cores (up to Sunny Cove, Goldmont Plus, and Knights Mill)
+  - [x] AMD-designed x86/x86-64 cores (up to Puma/Jaguar and Zen 2)
   - [ ] VIA-designed x86/x86-64 cores
   - [ ] Other x86 cores (DM&P, RDC, Transmeta, Cyrix, Rise)
-  - [x] ARM-designed ARM cores (up to Cortex-A55 and Cortex-A75)
-  - [x] Qualcomm-designed ARM cores (up to Kryo, Kryo-280, and Kryo-385)
-  - [x] Nvidia-designed ARM cores (Denver)
-  - [x] Samsung-designed ARM cores (Mongoose and Meerkat)
+  - [x] ARM-designed ARM cores (up to Cortex-A55, Cortex-A77, and Neoverse E1/N1)
+  - [x] Qualcomm-designed ARM cores (Scorpion, Krait, and Kryo)
+  - [x] Nvidia-designed ARM cores (Denver and Carmel)
+  - [x] Samsung-designed ARM cores (Exynos)
   - [x] Intel-designed ARM cores (XScale up to 3rd-gen)
-  - [x] Apple-designed ARM cores (up to Hurricane)
+  - [x] Apple-designed ARM cores (up to Lightning and Thunder)
   - [x] Cavium-designed ARM cores (ThunderX)
   - [x] AppliedMicro-designed ARM cores (X-Gene)
 - Instruction set detection
   - [x] Using CPUID (x86/x86-64)
-  - [x] Using dynamic code generation validator (Native Client/x86-64)
   - [x] Using `/proc/cpuinfo` on 32-bit ARM EABI (Linux)
   - [x] Using microarchitecture heuristics on (32-bit ARM)
   - [x] Using `FPSID` and `WCID` registers (32-bit ARM)

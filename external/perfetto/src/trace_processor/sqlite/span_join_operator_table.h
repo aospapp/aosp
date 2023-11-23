@@ -70,6 +70,8 @@ namespace trace_processor {
 // are passed through unchanged.
 class SpanJoinOperatorTable : public SqliteTable {
  public:
+  static constexpr int kSourceGeqOpCode = SQLITE_INDEX_CONSTRAINT_FUNCTION + 1;
+
   // Enum indicating whether the queries on the two inner tables should
   // emit shadows.
   enum class EmitShadowType {
@@ -163,8 +165,16 @@ class SpanJoinOperatorTable : public SqliteTable {
     Query(Query&&) noexcept = default;
     Query& operator=(Query&&) = default;
 
+    enum class InitialEofBehavior {
+      kTreatAsEof,
+      kTreatAsMissingPartitionShadow
+    };
+
     // Initializes the query with the given constraints and query parameters.
-    util::Status Initialize(const QueryConstraints& qc, sqlite3_value** argv);
+    util::Status Initialize(
+        const QueryConstraints& qc,
+        sqlite3_value** argv,
+        InitialEofBehavior eof_behavior = InitialEofBehavior::kTreatAsEof);
 
     // Forwards the query to the next valid slice.
     util::Status Next();
@@ -351,6 +361,7 @@ class SpanJoinOperatorTable : public SqliteTable {
   util::Status Init(int, const char* const*, SqliteTable::Schema*) override;
   std::unique_ptr<SqliteTable::Cursor> CreateCursor() override;
   int BestIndex(const QueryConstraints& qc, BestIndexInfo* info) override;
+  int FindFunction(const char* name, FindFunctionFn* fn, void** args) override;
 
  private:
   // Columns of the span operator table.

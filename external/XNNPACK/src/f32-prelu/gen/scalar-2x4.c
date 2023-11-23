@@ -9,8 +9,6 @@
 
 #include <assert.h>
 
-#include <math.h>
-
 #include <xnnpack/math.h>
 #include <xnnpack/prelu.h>
 
@@ -22,8 +20,7 @@ void xnn_f32_prelu_ukernel__scalar_2x4(
     size_t input_stride,
     const float*restrict weights,
     float*restrict output,
-    size_t output_stride,
-    const union xnn_f32_output_params params[restrict static 1])
+    size_t output_stride)
 {
   assert(rows != 0);
   assert(channels != 0);
@@ -41,8 +38,6 @@ void xnn_f32_prelu_ukernel__scalar_2x4(
   const size_t input_increment = input_stride * 2 - channels;
   const size_t output_increment = output_stride * 2 - channels;
 
-  const float vmin = params->scalar.min;
-  const float vmax = params->scalar.max;
   do {
     const float* w = weights;
     size_t c = channels;
@@ -63,32 +58,14 @@ void xnn_f32_prelu_ukernel__scalar_2x4(
       const float vi1x3 = i1[3];
       i1 += 4;
 
-      float vacc0x0 = signbit(vi0x0) ? vi0x0 * vw0 : vi0x0;
-      float vacc0x1 = signbit(vi0x1) ? vi0x1 * vw1 : vi0x1;
-      float vacc0x2 = signbit(vi0x2) ? vi0x2 * vw2 : vi0x2;
-      float vacc0x3 = signbit(vi0x3) ? vi0x3 * vw3 : vi0x3;
-      float vacc1x0 = signbit(vi1x0) ? vi1x0 * vw0 : vi1x0;
-      float vacc1x1 = signbit(vi1x1) ? vi1x1 * vw1 : vi1x1;
-      float vacc1x2 = signbit(vi1x2) ? vi1x2 * vw2 : vi1x2;
-      float vacc1x3 = signbit(vi1x3) ? vi1x3 * vw3 : vi1x3;
-
-      vacc0x0 = math_max_f32(vacc0x0, vmin);
-      vacc0x1 = math_max_f32(vacc0x1, vmin);
-      vacc0x2 = math_max_f32(vacc0x2, vmin);
-      vacc0x3 = math_max_f32(vacc0x3, vmin);
-      vacc1x0 = math_max_f32(vacc1x0, vmin);
-      vacc1x1 = math_max_f32(vacc1x1, vmin);
-      vacc1x2 = math_max_f32(vacc1x2, vmin);
-      vacc1x3 = math_max_f32(vacc1x3, vmin);
-
-      vacc0x0 = math_min_f32(vacc0x0, vmax);
-      vacc0x1 = math_min_f32(vacc0x1, vmax);
-      vacc0x2 = math_min_f32(vacc0x2, vmax);
-      vacc0x3 = math_min_f32(vacc0x3, vmax);
-      vacc1x0 = math_min_f32(vacc1x0, vmax);
-      vacc1x1 = math_min_f32(vacc1x1, vmax);
-      vacc1x2 = math_min_f32(vacc1x2, vmax);
-      vacc1x3 = math_min_f32(vacc1x3, vmax);
+      const float vacc0x0 = XNN_UNPREDICTABLE(vi0x0 < 0.0f) ? vi0x0 * vw0 : vi0x0;
+      const float vacc0x1 = XNN_UNPREDICTABLE(vi0x1 < 0.0f) ? vi0x1 * vw1 : vi0x1;
+      const float vacc0x2 = XNN_UNPREDICTABLE(vi0x2 < 0.0f) ? vi0x2 * vw2 : vi0x2;
+      const float vacc0x3 = XNN_UNPREDICTABLE(vi0x3 < 0.0f) ? vi0x3 * vw3 : vi0x3;
+      const float vacc1x0 = XNN_UNPREDICTABLE(vi1x0 < 0.0f) ? vi1x0 * vw0 : vi1x0;
+      const float vacc1x1 = XNN_UNPREDICTABLE(vi1x1 < 0.0f) ? vi1x1 * vw1 : vi1x1;
+      const float vacc1x2 = XNN_UNPREDICTABLE(vi1x2 < 0.0f) ? vi1x2 * vw2 : vi1x2;
+      const float vacc1x3 = XNN_UNPREDICTABLE(vi1x3 < 0.0f) ? vi1x3 * vw3 : vi1x3;
 
       o0[0] = vacc0x0;
       o0[1] = vacc0x1;
@@ -109,14 +86,8 @@ void xnn_f32_prelu_ukernel__scalar_2x4(
       const float vi0 = *i0++;
       const float vi1 = *i1++;
 
-      float vacc0 = signbit(vi0) ? vi0 * vw : vi0;
-      float vacc1 = signbit(vi1) ? vi1 * vw : vi1;
-
-      vacc0 = math_max_f32(vacc0, vmin);
-      vacc1 = math_max_f32(vacc1, vmin);
-
-      vacc0 = math_min_f32(vacc0, vmax);
-      vacc1 = math_min_f32(vacc1, vmax);
+      const float vacc0 = XNN_UNPREDICTABLE(vi0 < 0.0f) ? vi0 * vw : vi0;
+      const float vacc1 = XNN_UNPREDICTABLE(vi1 < 0.0f) ? vi1 * vw : vi1;
 
       *o0++ = vacc0;
       *o1++ = vacc1;

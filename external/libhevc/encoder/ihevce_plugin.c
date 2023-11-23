@@ -735,6 +735,13 @@ IHEVCE_PLUGIN_STATUS_T ihevce_init(ihevce_static_cfg_params_t *ps_params, void *
             MIN(MAX_NUM_FRM_IN_GOP,
                 ps_ctxt->ps_static_cfg_prms->s_coding_tools_prms.i4_max_i_open_gop_period);
 
+        /* entropy sync is disabled if there is only one CTB row */
+        if(ps_ctxt->ps_static_cfg_prms->s_src_prms.i4_height <=
+            (1 << ps_ctxt->ps_static_cfg_prms->s_config_prms.i4_max_log2_cu_size))
+        {
+            ps_ctxt->ps_static_cfg_prms->s_coding_tools_prms.i4_enable_entropy_sync = 0;
+        }
+
         /* --------------------------------------------------------------------- */
         /*            High Level Encoder context init                            */
         /* --------------------------------------------------------------------- */
@@ -2055,6 +2062,8 @@ IHEVCE_PLUGIN_STATUS_T
                             ps_dyn_br->i4_tgt_res_id = 0;
                             ps_dyn_br->i4_new_tgt_bitrate =
                                 MIN(ps_inp->i4_curr_bitrate, max_bitrate);
+                            ps_dyn_br->i4_new_tgt_bitrate =
+                                MAX(ps_dyn_br->i4_new_tgt_bitrate, MIN_BITRATE);
                             ps_dyn_br->i4_new_peak_bitrate =
                                 MIN((ps_dyn_br->i4_new_tgt_bitrate << 1), max_bitrate);
                             pi4_cmd_buf += 2;
@@ -2067,7 +2076,7 @@ IHEVCE_PLUGIN_STATUS_T
                             /* ---------- set the buffer as produced ---------- */
                             ihevce_q_set_inp_ctrl_buff_prod(ps_interface_ctxt, buf_id);
 
-                            ps_ctxt->ai4_old_bitrate[0][0] = ps_inp->i4_curr_bitrate;
+                            ps_ctxt->ai4_old_bitrate[0][0] = ps_dyn_br->i4_new_tgt_bitrate;
                         }
                     }
 

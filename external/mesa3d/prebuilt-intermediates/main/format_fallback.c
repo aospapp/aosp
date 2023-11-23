@@ -49,14 +49,12 @@ _mesa_get_srgb_format_linear(mesa_format format)
       return MESA_FORMAT_R8G8B8X8_UNORM;
    case MESA_FORMAT_X8B8G8R8_SRGB:
       return MESA_FORMAT_X8B8G8R8_UNORM;
-   case MESA_FORMAT_L8A8_SRGB:
-      return MESA_FORMAT_L8A8_UNORM;
-   case MESA_FORMAT_A8L8_SRGB:
-      return MESA_FORMAT_A8L8_UNORM;
    case MESA_FORMAT_R_SRGB8:
       return MESA_FORMAT_R_UNORM8;
    case MESA_FORMAT_L_SRGB8:
       return MESA_FORMAT_L_UNORM8;
+   case MESA_FORMAT_LA_SRGB8:
+      return MESA_FORMAT_LA_UNORM8;
    case MESA_FORMAT_BGR_SRGB8:
       return MESA_FORMAT_BGR_UNORM8;
    case MESA_FORMAT_SRGB_DXT1:
@@ -153,14 +151,12 @@ _mesa_get_linear_format_srgb(mesa_format format)
       return MESA_FORMAT_R8G8B8X8_SRGB;
    case MESA_FORMAT_X8B8G8R8_UNORM:
       return MESA_FORMAT_X8B8G8R8_SRGB;
-   case MESA_FORMAT_L8A8_UNORM:
-      return MESA_FORMAT_L8A8_SRGB;
-   case MESA_FORMAT_A8L8_UNORM:
-      return MESA_FORMAT_A8L8_SRGB;
    case MESA_FORMAT_R_UNORM8:
       return MESA_FORMAT_R_SRGB8;
    case MESA_FORMAT_L_UNORM8:
       return MESA_FORMAT_L_SRGB8;
+   case MESA_FORMAT_LA_UNORM8:
+      return MESA_FORMAT_LA_SRGB8;
    case MESA_FORMAT_BGR_UNORM8:
       return MESA_FORMAT_BGR_SRGB8;
    case MESA_FORMAT_RGB_DXT1:
@@ -235,10 +231,9 @@ _mesa_get_linear_format_srgb(mesa_format format)
    case MESA_FORMAT_R8G8B8A8_SRGB:
    case MESA_FORMAT_R8G8B8X8_SRGB:
    case MESA_FORMAT_X8B8G8R8_SRGB:
-   case MESA_FORMAT_L8A8_SRGB:
-   case MESA_FORMAT_A8L8_SRGB:
    case MESA_FORMAT_R_SRGB8:
    case MESA_FORMAT_L_SRGB8:
+   case MESA_FORMAT_LA_SRGB8:
    case MESA_FORMAT_BGR_SRGB8:
    case MESA_FORMAT_SRGB_DXT1:
    case MESA_FORMAT_SRGBA_DXT1:
@@ -275,6 +270,43 @@ _mesa_get_linear_format_srgb(mesa_format format)
       return format;
    default:
       unreachable("Given format does not have an sRGB equivalent");
+   }
+}
+
+/**
+ * For an intensity format, return the corresponding red format.  For other
+ * formats, return the format as-is.
+ */
+mesa_format
+_mesa_get_intensity_format_red(mesa_format format)
+{
+   switch (format) {
+   case MESA_FORMAT_I_UNORM8:
+      return MESA_FORMAT_R_UNORM8;
+   case MESA_FORMAT_I_UNORM16:
+      return MESA_FORMAT_R_UNORM16;
+   case MESA_FORMAT_I_SNORM8:
+      return MESA_FORMAT_R_SNORM8;
+   case MESA_FORMAT_I_SNORM16:
+      return MESA_FORMAT_R_SNORM16;
+   case MESA_FORMAT_I_FLOAT16:
+      return MESA_FORMAT_R_FLOAT16;
+   case MESA_FORMAT_I_FLOAT32:
+      return MESA_FORMAT_R_FLOAT32;
+   case MESA_FORMAT_I_UINT8:
+      return MESA_FORMAT_R_UINT8;
+   case MESA_FORMAT_I_UINT16:
+      return MESA_FORMAT_R_UINT16;
+   case MESA_FORMAT_I_UINT32:
+      return MESA_FORMAT_R_UINT32;
+   case MESA_FORMAT_I_SINT8:
+      return MESA_FORMAT_R_SINT8;
+   case MESA_FORMAT_I_SINT16:
+      return MESA_FORMAT_R_SINT16;
+   case MESA_FORMAT_I_SINT32:
+      return MESA_FORMAT_R_SINT32;
+   default:
+      return format;
    }
 }
 
@@ -334,8 +366,6 @@ _mesa_format_fallback_rgbx_to_rgba(mesa_format format)
       return MESA_FORMAT_RGBA_FLOAT16;
    case MESA_FORMAT_RGBX_FLOAT32:
       return MESA_FORMAT_RGBA_FLOAT32;
-   case MESA_FORMAT_RGBX_UINT8:
-      return MESA_FORMAT_RGBA_UINT8;
    case MESA_FORMAT_RGBX_UINT16:
       return MESA_FORMAT_RGBA_UINT16;
    case MESA_FORMAT_RGBX_UINT32:

@@ -1,9 +1,11 @@
 /*
  * strcmp for ARMv6-M (optimized for performance, not size)
  *
- * Copyright (c) 2014-2019, Arm Limited.
+ * Copyright (c) 2014-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
+
+#if __ARM_ARCH == 6 && __ARM_ARCH_6M__ >= 1
 
 	.thumb_func
 	.syntax unified
@@ -111,3 +113,5 @@ ENTRY_ALIGN (__strcmp_armv6m, 4)
 	pop	{r4, r5, r6, pc}
 
 END (__strcmp_armv6m)
+
+#endif /* __ARM_ARCH == 6 && __ARM_ARCH_6M__ >= 1  */

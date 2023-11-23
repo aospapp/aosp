@@ -45,6 +45,8 @@
 static struct nla_policy htb_policy[TCA_HTB_MAX+1] = {
 	[TCA_HTB_INIT]	= { .minlen = sizeof(struct tc_htb_glob) },
 	[TCA_HTB_PARMS] = { .minlen = sizeof(struct tc_htb_opt) },
+	[TCA_HTB_RATE64] = { .minlen = sizeof(uint64_t) },
+	[TCA_HTB_CEIL64] = { .minlen = sizeof(uint64_t) },
 };
 
 static int htb_qdisc_msg_parser(struct rtnl_tc *tc, void *data)
@@ -55,7 +57,7 @@ static int htb_qdisc_msg_parser(struct rtnl_tc *tc, void *data)
 
 	if ((err = tca_parse(tb, TCA_HTB_MAX, tc, htb_policy)) < 0)
 		return err;
-	
+
 	if (tb[TCA_HTB_INIT]) {
 		struct tc_htb_glob opts;
 
@@ -78,7 +80,7 @@ static int htb_class_msg_parser(struct rtnl_tc *tc, void *data)
 
 	if ((err = tca_parse(tb, TCA_HTB_MAX, tc, htb_policy)) < 0)
 		return err;
-	
+
 	if (tb[TCA_HTB_PARMS]) {
 		struct tc_htb_opt opts;
 
@@ -86,10 +88,16 @@ static int htb_class_msg_parser(struct rtnl_tc *tc, void *data)
 		htb->ch_prio = opts.prio;
 		rtnl_copy_ratespec(&htb->ch_rate, &opts.rate);
 		rtnl_copy_ratespec(&htb->ch_ceil, &opts.ceil);
-		htb->ch_rbuffer = rtnl_tc_calc_bufsize(nl_ticks2us(opts.buffer),
-						       opts.rate.rate);
-		htb->ch_cbuffer = rtnl_tc_calc_bufsize(nl_ticks2us(opts.cbuffer),
-						       opts.ceil.rate);
+
+		if (tb[TCA_HTB_RATE64])
+		        nla_memcpy(&htb->ch_rate.rs_rate64, tb[TCA_HTB_RATE64], sizeof(uint64_t));
+		if (tb[TCA_HTB_CEIL64])
+		        nla_memcpy(&htb->ch_ceil.rs_rate64, tb[TCA_HTB_CEIL64], sizeof(uint64_t));
+
+		htb->ch_rbuffer = rtnl_tc_calc_bufsize64(nl_ticks2us(opts.buffer),
+		                                         htb->ch_rate.rs_rate64);
+		htb->ch_cbuffer = rtnl_tc_calc_bufsize64(nl_ticks2us(opts.cbuffer),
+		                                         htb->ch_ceil.rs_rate64);
 		htb->ch_quantum = opts.quantum;
 		htb->ch_level = opts.level;
 
@@ -135,8 +143,8 @@ static void htb_class_dump_line(struct rtnl_tc *tc, void *data,
 		double r, rbit;
 		char *ru, *rubit;
 
-		r = nl_cancel_down_bytes(htb->ch_rate.rs_rate, &ru);
-		rbit = nl_cancel_down_bits(htb->ch_rate.rs_rate*8, &rubit);
+		r = nl_cancel_down_bytes(htb->ch_rate.rs_rate64, &ru);
+		rbit = nl_cancel_down_bits(htb->ch_rate.rs_rate64*8, &rubit);
 
 		nl_dump(p, " rate %.2f%s/s (%.0f%s) log %u",
 			r, ru, rbit, rubit, 1<<htb->ch_rate.rs_cell_log);
@@ -156,8 +164,8 @@ static void htb_class_dump_details(struct rtnl_tc *tc, void *data,
 		double r, rbit;
 		char *ru, *rubit;
 
-		r = nl_cancel_down_bytes(htb->ch_ceil.rs_rate, &ru);
-		rbit = nl_cancel_down_bits(htb->ch_ceil.rs_rate*8, &rubit);
+		r = nl_cancel_down_bytes(htb->ch_ceil.rs_rate64, &ru);
+		rbit = nl_cancel_down_bits(htb->ch_ceil.rs_rate64*8, &rubit);
 
 		nl_dump(p, " ceil %.2f%s/s (%.0f%s) log %u",
 			r, ru, rbit, rubit, 1<<htb->ch_ceil.rs_cell_log);
@@ -191,9 +199,9 @@ static int htb_qdisc_msg_fill(struct rtnl_tc *tc, void *data,
 {
 	struct rtnl_htb_qdisc *htb = data;
 	struct tc_htb_glob opts = {
-        	.version = TC_HTB_PROTOVER,
-	        .rate2quantum = 10,
-        };
+		.version = TC_HTB_PROTOVER,
+		.rate2quantum = 10,
+	};
 
 	if (htb) {
 		if (htb->qh_mask & SCH_HTB_HAS_RATE2QUANTUM)
@@ -213,6 +221,8 @@ static int htb_class_msg_fill(struct rtnl_tc *tc, void *data,
 	uint32_t mtu, rtable[RTNL_TC_RTABLE_SIZE], ctable[RTNL_TC_RTABLE_SIZE];
 	struct tc_htb_opt opts;
 	int buffer, cbuffer;
+	uint64_t rate64;
+	uint64_t ceil64;
 
 	if (!htb || !(htb->ch_mask & SCH_HTB_HAS_RATE))
 		BUG();
@@ -227,36 +237,43 @@ static int htb_class_msg_fill(struct rtnl_tc *tc, void *data,
 
 	rtnl_tc_build_rate_table(tc, &htb->ch_rate, rtable);
 	rtnl_rcopy_ratespec(&opts.rate, &htb->ch_rate);
+	rate64 = htb->ch_rate.rs_rate64;
 
 	if (htb->ch_mask & SCH_HTB_HAS_CEIL) {
 		rtnl_tc_build_rate_table(tc, &htb->ch_ceil, ctable);
 		rtnl_rcopy_ratespec(&opts.ceil, &htb->ch_ceil);
+		ceil64 = htb->ch_ceil.rs_rate64;
 	} else {
 		/*
 		 * If not set, configured rate is used as ceil, which implies
 		 * no borrowing.
 		 */
 		memcpy(&opts.ceil, &opts.rate, sizeof(struct tc_ratespec));
+		ceil64 = rate64;
 	}
 
 	if (htb->ch_mask & SCH_HTB_HAS_RBUFFER)
 		buffer = htb->ch_rbuffer;
 	else
-		buffer = opts.rate.rate / nl_get_psched_hz() + mtu; /* XXX */
+		buffer = rate64 / nl_get_psched_hz() + mtu; /* XXX */
 
-	opts.buffer = nl_us2ticks(rtnl_tc_calc_txtime(buffer, opts.rate.rate));
+	opts.buffer = nl_us2ticks(rtnl_tc_calc_txtime64(buffer, rate64));
 
 	if (htb->ch_mask & SCH_HTB_HAS_CBUFFER)
 		cbuffer = htb->ch_cbuffer;
 	else
-		cbuffer = opts.ceil.rate / nl_get_psched_hz() + mtu; /* XXX */
+		cbuffer = ceil64 / nl_get_psched_hz() + mtu; /* XXX */
 
-	opts.cbuffer = nl_us2ticks(rtnl_tc_calc_txtime(cbuffer, opts.ceil.rate));
+	opts.cbuffer = nl_us2ticks(rtnl_tc_calc_txtime64(cbuffer, ceil64));
 
 	if (htb->ch_mask & SCH_HTB_HAS_QUANTUM)
 		opts.quantum = htb->ch_quantum;
 
 	NLA_PUT(msg, TCA_HTB_PARMS, sizeof(opts), &opts);
+	if (rate64 > 0xFFFFFFFFull)
+		NLA_PUT(msg, TCA_HTB_RATE64, sizeof(uint64_t), &rate64);
+	if (ceil64 > 0xFFFFFFFFull)
+		NLA_PUT(msg, TCA_HTB_CEIL64, sizeof(uint64_t), &ceil64);
 	NLA_PUT(msg, TCA_HTB_RTAB, sizeof(rtable), &rtable);
 	NLA_PUT(msg, TCA_HTB_CTAB, sizeof(ctable), &ctable);
 
@@ -269,14 +286,14 @@ nla_put_failure:
 static struct rtnl_tc_ops htb_qdisc_ops;
 static struct rtnl_tc_ops htb_class_ops;
 
-static struct rtnl_htb_qdisc *htb_qdisc_data(struct rtnl_qdisc *qdisc)
+static struct rtnl_htb_qdisc *htb_qdisc_data(struct rtnl_qdisc *qdisc, int *err)
 {
-	return rtnl_tc_data_check(TC_CAST(qdisc), &htb_qdisc_ops);
+	return rtnl_tc_data_check(TC_CAST(qdisc), &htb_qdisc_ops, err);
 }
 
-static struct rtnl_htb_class *htb_class_data(struct rtnl_class *class)
+static struct rtnl_htb_class *htb_class_data(struct rtnl_class *class, int *err)
 {
-	return rtnl_tc_data_check(TC_CAST(class), &htb_class_ops);
+	return rtnl_tc_data_check(TC_CAST(class), &htb_class_ops, err);
 }
 
 /**
@@ -294,8 +311,8 @@ uint32_t rtnl_htb_get_rate2quantum(struct rtnl_qdisc *qdisc)
 {
 	struct rtnl_htb_qdisc *htb;
 
-	if ((htb = htb_qdisc_data(qdisc)) &&
-	    htb->qh_mask & SCH_HTB_HAS_RATE2QUANTUM)
+	if ((htb = htb_qdisc_data(qdisc, NULL)) &&
+	    (htb->qh_mask & SCH_HTB_HAS_RATE2QUANTUM))
 		return htb->qh_rate2quantum;
 
 	return 0;
@@ -304,9 +321,10 @@ uint32_t rtnl_htb_get_rate2quantum(struct rtnl_qdisc *qdisc)
 int rtnl_htb_set_rate2quantum(struct rtnl_qdisc *qdisc, uint32_t rate2quantum)
 {
 	struct rtnl_htb_qdisc *htb;
+	int err;
 
-	if (!(htb = htb_qdisc_data(qdisc)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_qdisc_data(qdisc, &err)))
+		return err;
 
 	htb->qh_rate2quantum = rate2quantum;
 	htb->qh_mask |= SCH_HTB_HAS_RATE2QUANTUM;
@@ -327,7 +345,7 @@ uint32_t rtnl_htb_get_defcls(struct rtnl_qdisc *qdisc)
 {
 	struct rtnl_htb_qdisc *htb;
 
-	if ((htb = htb_qdisc_data(qdisc)) &&
+	if ((htb = htb_qdisc_data(qdisc, NULL)) &&
 	    htb->qh_mask & SCH_HTB_HAS_DEFCLS)
 		return htb->qh_defcls;
 
@@ -342,9 +360,10 @@ uint32_t rtnl_htb_get_defcls(struct rtnl_qdisc *qdisc)
 int rtnl_htb_set_defcls(struct rtnl_qdisc *qdisc, uint32_t defcls)
 {
 	struct rtnl_htb_qdisc *htb;
+	int err;
 
-	if (!(htb = htb_qdisc_data(qdisc)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_qdisc_data(qdisc, &err)))
+		return err;
 
 	htb->qh_defcls = defcls;
 	htb->qh_mask |= SCH_HTB_HAS_DEFCLS;
@@ -356,7 +375,8 @@ uint32_t rtnl_htb_get_prio(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
 
-	if ((htb = htb_class_data(class)) && htb->ch_mask & SCH_HTB_HAS_PRIO)
+	if ((htb = htb_class_data(class, NULL)) &&
+	    (htb->ch_mask & SCH_HTB_HAS_PRIO))
 		return htb->ch_prio;
 
 	return 0;
@@ -365,9 +385,10 @@ uint32_t rtnl_htb_get_prio(struct rtnl_class *class)
 int rtnl_htb_set_prio(struct rtnl_class *class, uint32_t prio)
 {
 	struct rtnl_htb_class *htb;
+	int err;
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_prio = prio;
 	htb->ch_mask |= SCH_HTB_HAS_PRIO;
@@ -379,15 +400,41 @@ int rtnl_htb_set_prio(struct rtnl_class *class, uint32_t prio)
  * Return rate of HTB class
  * @arg class		htb class object
  *
- * @return Rate in bytes/s or 0 if unspecified.
+ * @return Rate in bytes/s or 0 if unspecified. If the value
+ *   cannot be represented as 32 bit integer, (1<<32) is returned.
+ *   Use rtnl_htb_get_rate64() instead.
  */
 uint32_t rtnl_htb_get_rate(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
 
-	if ((htb = htb_class_data(class)) && htb->ch_mask & SCH_HTB_HAS_RATE)
-		return htb->ch_rate.rs_rate;
+	if (   !(htb = htb_class_data(class, NULL))
+	    || !(htb->ch_mask & SCH_HTB_HAS_RATE))
+	    return 0;
 
+	if (htb->ch_rate.rs_rate64 > 0xFFFFFFFFull)
+		return 0xFFFFFFFFull;
+
+	return htb->ch_rate.rs_rate64;
+}
+
+/**
+ * Return rate of HTB class
+ * @arg class		htb class object
+ * @arg out_rate64      on success, the set rate.
+ *
+ * @return 0 on success or a negative error code.
+ */
+int rtnl_htb_get_rate64(struct rtnl_class *class, uint64_t *out_rate64)
+{
+	struct rtnl_htb_class *htb;
+
+	if (!(htb = htb_class_data(class, NULL)))
+		return -NLE_INVAL;
+	if (!(htb->ch_mask & SCH_HTB_HAS_RATE))
+		return -NLE_NOATTR;
+
+	*out_rate64 = htb->ch_rate.rs_rate64;
 	return 0;
 }
 
@@ -400,13 +447,26 @@ uint32_t rtnl_htb_get_rate(struct rtnl_class *class)
  */
 int rtnl_htb_set_rate(struct rtnl_class *class, uint32_t rate)
 {
-	struct rtnl_htb_class *htb;
+	return rtnl_htb_set_rate64(class, rate);
+}
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+/**
+ * Set rate of HTB class
+ * @arg class		htb class object
+ * @arg rate		new rate in bytes per second
+ *
+ * @return 0 on success or a negative error code.
+ */
+int rtnl_htb_set_rate64(struct rtnl_class *class, uint64_t rate)
+{
+	struct rtnl_htb_class *htb;
+	int err;
+
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_rate.rs_cell_log = UINT8_MAX; /* use default value */
-	htb->ch_rate.rs_rate = rate;
+	htb->ch_rate.rs_rate64 = rate;
 	htb->ch_mask |= SCH_HTB_HAS_RATE;
 
 	return 0;
@@ -416,15 +476,41 @@ int rtnl_htb_set_rate(struct rtnl_class *class, uint32_t rate)
  * Return ceil rate of HTB class
  * @arg class		htb class object
  *
- * @return Ceil rate in bytes/s or 0 if unspecified
+ * @return Ceil rate in bytes/s or 0 if unspecified.  If the value
+ *   cannot be represented as 32 bit integer, (1<<32) is returned.
+ *   Use rtnl_htb_get_ceil64() instead.
  */
 uint32_t rtnl_htb_get_ceil(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
 
-	if ((htb = htb_class_data(class)) && htb->ch_mask & SCH_HTB_HAS_CEIL)
-		return htb->ch_ceil.rs_rate;
+	if (   !(htb = htb_class_data(class, NULL))
+	    || !(htb->ch_mask & SCH_HTB_HAS_CEIL))
+		return 0;
 
+	if (htb->ch_ceil.rs_rate64 > 0xFFFFFFFFull)
+		return 0xFFFFFFFFull;
+
+	return htb->ch_ceil.rs_rate64;
+}
+
+/**
+ * Return ceil rate of HTB class
+ * @arg class		htb class object
+ * @arg out_ceil64      on success, the set ceil value.
+ *
+ * @return 0 on success or a negative error code.
+ */
+int rtnl_htb_get_ceil64(struct rtnl_class *class, uint64_t *out_ceil64)
+{
+	struct rtnl_htb_class *htb;
+
+	if (!(htb = htb_class_data(class, NULL)))
+		return -NLE_INVAL;
+	if (!(htb->ch_mask & SCH_HTB_HAS_CEIL))
+		return -NLE_NOATTR;
+
+	*out_ceil64 = htb->ch_ceil.rs_rate64;
 	return 0;
 }
 
@@ -437,13 +523,26 @@ uint32_t rtnl_htb_get_ceil(struct rtnl_class *class)
  */
 int rtnl_htb_set_ceil(struct rtnl_class *class, uint32_t ceil)
 {
-	struct rtnl_htb_class *htb;
+	return rtnl_htb_set_ceil64(class, ceil);
+}
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+/**
+ * Set ceil rate of HTB class
+ * @arg class		htb class object
+ * @arg ceil64		new ceil rate number of bytes per second
+ *
+ * @return 0 on success or a negative error code.
+ */
+int rtnl_htb_set_ceil64(struct rtnl_class *class, uint64_t ceil64)
+{
+	struct rtnl_htb_class *htb;
+	int err;
+
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_ceil.rs_cell_log = UINT8_MAX; /* use default value */
-	htb->ch_ceil.rs_rate = ceil;
+	htb->ch_ceil.rs_rate64 = ceil64;
 	htb->ch_mask |= SCH_HTB_HAS_CEIL;
 
 	return 0;
@@ -459,7 +558,7 @@ uint32_t rtnl_htb_get_rbuffer(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
 
-	if ((htb = htb_class_data(class)) &&
+	if ((htb = htb_class_data(class, NULL)) &&
 	     htb->ch_mask & SCH_HTB_HAS_RBUFFER)
 		return htb->ch_rbuffer;
 
@@ -474,9 +573,10 @@ uint32_t rtnl_htb_get_rbuffer(struct rtnl_class *class)
 int rtnl_htb_set_rbuffer(struct rtnl_class *class, uint32_t rbuffer)
 {
 	struct rtnl_htb_class *htb;
+	int err;
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_rbuffer = rbuffer;
 	htb->ch_mask |= SCH_HTB_HAS_RBUFFER;
@@ -494,7 +594,7 @@ uint32_t rtnl_htb_get_cbuffer(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
 
-	if ((htb = htb_class_data(class)) &&
+	if ((htb = htb_class_data(class, NULL)) &&
 	     htb->ch_mask & SCH_HTB_HAS_CBUFFER)
 		return htb->ch_cbuffer;
 
@@ -509,9 +609,10 @@ uint32_t rtnl_htb_get_cbuffer(struct rtnl_class *class)
 int rtnl_htb_set_cbuffer(struct rtnl_class *class, uint32_t cbuffer)
 {
 	struct rtnl_htb_class *htb;
+	int err;
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_cbuffer = cbuffer;
 	htb->ch_mask |= SCH_HTB_HAS_CBUFFER;
@@ -531,7 +632,7 @@ uint32_t rtnl_htb_get_quantum(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
 
-	if ((htb = htb_class_data(class)) &&
+	if ((htb = htb_class_data(class, NULL)) &&
 	    htb->ch_mask & SCH_HTB_HAS_QUANTUM)
 		return htb->ch_quantum;
 
@@ -550,9 +651,10 @@ uint32_t rtnl_htb_get_quantum(struct rtnl_class *class)
 int rtnl_htb_set_quantum(struct rtnl_class *class, uint32_t quantum)
 {
 	struct rtnl_htb_class *htb;
+	int err;
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_quantum = quantum;
 	htb->ch_mask |= SCH_HTB_HAS_QUANTUM;
@@ -568,16 +670,18 @@ int rtnl_htb_set_quantum(struct rtnl_class *class, uint32_t quantum)
  * 0, root classes have level (TC_HTB_MAXDEPTH - 1). Interior classes
  * have a level of one less than their parent.
  *
- * @return Level or -NLE_OPNOTSUPP
+ * @return Level or a negative error code.
  */
 int rtnl_htb_get_level(struct rtnl_class *class)
 {
 	struct rtnl_htb_class *htb;
+	int err = -NLE_OPNOTSUPP;
 
-	if ((htb = htb_class_data(class)) && htb->ch_mask & SCH_HTB_HAS_LEVEL)
+	if ((htb = htb_class_data(class, &err)) &&
+	    (htb->ch_mask & SCH_HTB_HAS_LEVEL))
 		return htb->ch_level;
 
-	return -NLE_OPNOTSUPP;
+	return err;
 }
 
 /**
@@ -595,9 +699,10 @@ int rtnl_htb_get_level(struct rtnl_class *class)
 int rtnl_htb_set_level(struct rtnl_class *class, int level)
 {
 	struct rtnl_htb_class *htb;
+	int err;
 
-	if (!(htb = htb_class_data(class)))
-		return -NLE_OPNOTSUPP;
+	if (!(htb = htb_class_data(class, &err)))
+		return err;
 
 	htb->ch_level = level;
 	htb->ch_mask |= SCH_HTB_HAS_LEVEL;

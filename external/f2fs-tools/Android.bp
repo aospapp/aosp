@@ -1,12 +1,51 @@
 // Copyright 2017 The Android Open Source Project
 
+package {
+    default_applicable_licenses: ["external_f2fs-tools_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_f2fs-tools_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-LGPL-2.1",
+    ],
+    license_text: [
+        "COPYING",
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "f2fs-tools-defaults",
     cflags: [
         "-DF2FS_MAJOR_VERSION=1",
-        "-DF2FS_MINOR_VERSION=13",
-        "-DF2FS_TOOLS_VERSION=\"1.13.0\"",
-        "-DF2FS_TOOLS_DATE=\"2019-09-24\"",
+        "-DF2FS_MINOR_VERSION=14",
+        "-DF2FS_TOOLS_VERSION=\"1.14.0\"",
+        "-DF2FS_TOOLS_DATE=\"2020-08-24\"",
         "-DWITH_ANDROID",
         "-Wall",
         "-Werror",
@@ -25,6 +64,7 @@ cc_defaults {
     ],
     include_dirs: [
         "external/e2fsprogs/lib/",
+        "external/e2fsprogs/lib/uuid",
         "system/core/libsparse/include",
     ],
     target: {
@@ -70,6 +110,7 @@ cc_defaults {
         "fsck/mount.c",
         "lib/libf2fs.c",
         "lib/libf2fs_io.c",
+        "lib/libf2fs_zoned.c",
         "lib/nls_utf8.c",
         "fsck/dump.c",
     ],
@@ -103,8 +144,8 @@ cc_library_host_static {
     },
 }
 
-cc_binary {
-    name: "make_f2fs",
+cc_defaults {
+    name: "make_f2fs_defaults",
     defaults: [
         "f2fs-tools-defaults",
         "make_f2fs_src_files",
@@ -142,6 +183,28 @@ cc_binary {
 }
 
 cc_binary {
+    name: "make_f2fs",
+    defaults: [
+        "make_f2fs_defaults",
+    ],
+}
+
+cc_binary_host {
+    name: "make_f2fs_casefold",
+    defaults: [
+        "make_f2fs_defaults",
+    ],
+    target: {
+        host: {
+            cflags: ["-DCONF_CASEFOLD", "-DCONF_PROJID"],
+        },
+        windows: {
+            cflags: ["-DCONF_CASEFOLD", "-DCONF_PROJID"],
+        },
+    },
+}
+
+cc_binary {
     name: "fsck.f2fs",
     defaults: [
         "f2fs-tools-defaults",
@@ -167,7 +230,11 @@ cc_binary {
     host_supported: true,
     recovery_available: true,
     cflags: ["-DWITH_SLOAD"],
-    srcs: ["fsck/fsck.c", "fsck/sload.c"],
+    srcs: [
+        "fsck/fsck.c",
+        "fsck/sload.c",
+        "fsck/compress.c",
+        ],
     target: {
         android: {
             shared_libs: [
@@ -178,6 +245,7 @@ cc_binary {
                 "libselinux",
                 "libcutils",
                 "liblog",
+                "liblz4",
             ],
         },
         host: {
@@ -190,6 +258,7 @@ cc_binary {
                 "libcutils",
                 "liblog",
                 "libz",
+                "liblz4",
             ],
         },
     },

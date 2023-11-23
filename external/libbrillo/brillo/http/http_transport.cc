@@ -26,5 +26,32 @@ std::shared_ptr<Transport> Transport::CreateDefaultWithProxy(
   }
 }
 
+base::FilePath Transport::CertificateToPath(Transport::Certificate cert) {
+  const char* str;
+  switch (cert) {
+    case Certificate::kDefault:
+      str =
+#ifdef __ANDROID__
+        "/system/etc/security/cacerts_google";
+#else
+        "/usr/share/chromeos-ca-certificates";
+#endif
+      break;
+    case Certificate::kHermesProd:
+      str = "/usr/share/hermes-ca-certificates/prod";
+      break;
+    case Certificate::kHermesTest:
+      str = "/usr/share/hermes-ca-certificates/test";
+      break;
+    case Certificate::kNss:
+      str = "/etc/ssl/certs";
+      break;
+    default:
+      CHECK(false) << "Invalid certificate";
+      break;
+  }
+  return base::FilePath(str);
+}
+
 }  // namespace http
 }  // namespace brillo

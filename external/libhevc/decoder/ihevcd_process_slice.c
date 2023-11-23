@@ -1591,56 +1591,98 @@ void ihevcd_init_proc_ctxt(process_ctxt_t *ps_proc, WORD32 tu_coeff_data_ofst)
 }
 void ihevcd_process_thread(process_ctxt_t *ps_proc)
 {
+    IHEVCD_ERROR_T ret = (IHEVCD_ERROR_T)IHEVCD_SUCCESS;
     {
         ithread_set_affinity(ps_proc->i4_id + 1);
     }
+
+#ifdef KEEP_THREADS_ACTIVE
     while(1)
     {
-        IHEVCD_ERROR_T ret;
-        proc_job_t s_job;
+        codec_t *ps_dec = ps_proc->ps_codec;
+        DEBUG("In ihevcd_process_thread \n");
 
-        ret = ihevcd_jobq_dequeue((jobq_t *)ps_proc->pv_proc_jobq, &s_job,
-                                  sizeof(proc_job_t), 1);
+        ret = ithread_mutex_lock(ps_dec->apv_proc_start_mutex[ps_proc->i4_id]);
         if((IHEVCD_ERROR_T)IHEVCD_SUCCESS != ret)
             break;
 
-        ps_proc->i4_ctb_cnt = s_job.i2_ctb_cnt;
-        ps_proc->i4_ctb_x = s_job.i2_ctb_x;
-        ps_proc->i4_ctb_y = s_job.i2_ctb_y;
-        ps_proc->i4_cur_slice_idx = s_job.i2_slice_idx;
-
-
-
-        if(CMD_PROCESS == s_job.i4_cmd)
+        while(!ps_dec->ai4_process_start[ps_proc->i4_id])
         {
-            ihevcd_init_proc_ctxt(ps_proc, s_job.i4_tu_coeff_data_ofst);
-            ihevcd_process(ps_proc);
+            ithread_cond_wait(ps_dec->apv_proc_start_condition[ps_proc->i4_id],
+                              ps_dec->apv_proc_start_mutex[ps_proc->i4_id]);
         }
-        else if(CMD_FMTCONV == s_job.i4_cmd)
-        {
-            sps_t *ps_sps;
-            codec_t *ps_codec;
-            ivd_out_bufdesc_t *ps_out_buffer;
-            WORD32 num_rows;
+        ps_dec->ai4_process_start[ps_proc->i4_id] = 0;
+        ret = ithread_mutex_unlock(ps_dec->apv_proc_start_mutex[ps_proc->i4_id]);
+        if((IHEVCD_ERROR_T)IHEVCD_SUCCESS != ret)
+            break;
 
-            if(0 == ps_proc->i4_init_done)
+        DEBUG(" Got control at ihevcd_process_thread \n");
+
+        if(ps_dec->i4_break_threads == 1)
+            break;
+#endif
+        while(1)
+        {
+            proc_job_t s_job;
+
+            ret = ihevcd_jobq_dequeue((jobq_t *)ps_proc->pv_proc_jobq, &s_job,
+                                    sizeof(proc_job_t), 1);
+            if((IHEVCD_ERROR_T)IHEVCD_SUCCESS != ret)
+                break;
+
+            ps_proc->i4_ctb_cnt = s_job.i2_ctb_cnt;
+            ps_proc->i4_ctb_x = s_job.i2_ctb_x;
+            ps_proc->i4_ctb_y = s_job.i2_ctb_y;
+            ps_proc->i4_cur_slice_idx = s_job.i2_slice_idx;
+
+
+
+            if(CMD_PROCESS == s_job.i4_cmd)
             {
-                ihevcd_init_proc_ctxt(ps_proc, 0);
+                ihevcd_init_proc_ctxt(ps_proc, s_job.i4_tu_coeff_data_ofst);
+                ihevcd_process(ps_proc);
             }
-            ps_sps = ps_proc->ps_sps;
-            ps_codec = ps_proc->ps_codec;
-            ps_out_buffer = ps_proc->ps_out_buffer;
-            num_rows = 1 << ps_sps->i1_log2_ctb_size;
+            else if(CMD_FMTCONV == s_job.i4_cmd)
+            {
+                sps_t *ps_sps;
+                codec_t *ps_codec;
+                ivd_out_bufdesc_t *ps_out_buffer;
+                WORD32 num_rows;
 
-            num_rows = MIN(num_rows, (ps_codec->i4_disp_ht - (s_job.i2_ctb_y << ps_sps->i1_log2_ctb_size)));
+                if(0 == ps_proc->i4_init_done)
+                {
+                    ihevcd_init_proc_ctxt(ps_proc, 0);
+                }
+                ps_sps = ps_proc->ps_sps;
+                ps_codec = ps_proc->ps_codec;
+                ps_out_buffer = ps_proc->ps_out_buffer;
+                num_rows = 1 << ps_sps->i1_log2_ctb_size;
 
-            if(num_rows < 0)
-                num_rows = 0;
+                num_rows = MIN(num_rows,
+                               (ps_codec->i4_disp_ht - (s_job.i2_ctb_y << ps_sps->i1_log2_ctb_size))
+                              );
 
-            ihevcd_fmt_conv(ps_proc->ps_codec, ps_proc, ps_out_buffer->pu1_bufs[0], ps_out_buffer->pu1_bufs[1], ps_out_buffer->pu1_bufs[2],
-                            s_job.i2_ctb_y << ps_sps->i1_log2_ctb_size, num_rows);
+                if(num_rows < 0)
+                    num_rows = 0;
+
+                ihevcd_fmt_conv(ps_proc->ps_codec, ps_proc, ps_out_buffer->pu1_bufs[0],
+                                ps_out_buffer->pu1_bufs[1], ps_out_buffer->pu1_bufs[2],
+                                s_job.i2_ctb_y << ps_sps->i1_log2_ctb_size, num_rows);
+            }
         }
+#ifdef KEEP_THREADS_ACTIVE
+        ret = ithread_mutex_lock(ps_dec->apv_proc_done_mutex[ps_proc->i4_id]);
+        if((IHEVCD_ERROR_T)IHEVCD_SUCCESS != ret)
+            break;
+
+        ps_dec->ai4_process_done[ps_proc->i4_id] = 1;
+        ithread_cond_signal(ps_dec->apv_proc_done_condition[ps_proc->i4_id]);
+
+        ret = ithread_mutex_unlock(ps_dec->apv_proc_done_mutex[ps_proc->i4_id]);
+        if((IHEVCD_ERROR_T)IHEVCD_SUCCESS != ret)
+            break;
     }
+#endif
     //ithread_exit(0);
     return;
 }

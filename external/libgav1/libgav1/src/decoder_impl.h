@@ -18,23 +18,27 @@
 #define LIBGAV1_SRC_DECODER_IMPL_H_
 
 #include <array>
+#include <condition_variable>  // NOLINT (unapproved c++11 header)
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>  // NOLINT (unapproved c++11 header)
 
 #include "src/buffer_pool.h"
-#include "src/decoder_buffer.h"
-#include "src/decoder_settings.h"
+#include "src/decoder_state.h"
 #include "src/dsp/constants.h"
-#include "src/loop_filter_mask.h"
+#include "src/frame_scratch_buffer.h"
+#include "src/gav1/decoder_buffer.h"
+#include "src/gav1/decoder_settings.h"
+#include "src/gav1/status_code.h"
 #include "src/obu_parser.h"
+#include "src/quantizer.h"
 #include "src/residual_buffer_pool.h"
-#include "src/status_code.h"
 #include "src/symbol_decoder_context.h"
-#include "src/threading_strategy.h"
 #include "src/tile.h"
 #include "src/utils/array_2d.h"
 #include "src/utils/block_parameters_holder.h"
+#include "src/utils/compiler_attributes.h"
 #include "src/utils/constants.h"
 #include "src/utils/memory.h"
 #include "src/utils/queue.h"
@@ -43,69 +47,85 @@
 
 namespace libgav1 {
 
-struct EncodedFrame : public Allocable {
-  // The default constructor is invoked by the Queue<EncodedFrame>::Init()
+struct TemporalUnit;
+
+struct EncodedFrame {
+  EncodedFrame(ObuParser* const obu, const DecoderState& state,
+               const RefCountedBufferPtr& frame, int position_in_temporal_unit)
+      : sequence_header(obu->sequence_header()),
+        frame_header(obu->frame_header()),
+        state(state),
+        temporal_unit(nullptr),
+        frame(frame),
+        position_in_temporal_unit(position_in_temporal_unit) {
+    obu->MoveTileBuffers(&tile_buffers);
+    frame->MarkFrameAsStarted();
+  }
+
+  const ObuSequenceHeader sequence_header;
+  const ObuFrameHeader frame_header;
+  Vector<TileBuffer> tile_buffers;
+  DecoderState state;
+  TemporalUnit* temporal_unit;
+  RefCountedBufferPtr frame;
+  const int position_in_temporal_unit;
+};
+
+struct TemporalUnit : public Allocable {
+  // The default constructor is invoked by the Queue<TemporalUnit>::Init()
   // method. Queue<> does not use the default-constructed elements, so it is
   // safe for the default constructor to not initialize the members.
-  EncodedFrame() = default;
-  EncodedFrame(const uint8_t* data, size_t size, int64_t user_private_data)
-      : data(data), size(size), user_private_data(user_private_data) {}
+  TemporalUnit() = default;
+  TemporalUnit(const uint8_t* data, size_t size, int64_t user_private_data,
+               void* buffer_private_data)
+      : data(data),
+        size(size),
+        user_private_data(user_private_data),
+        buffer_private_data(buffer_private_data),
+        decoded(false),
+        status(kStatusOk),
+        has_displayable_frame(false),
+        output_frame_position(-1),
+        decoded_count(0),
+        output_layer_count(0),
+        released_input_buffer(false) {}
 
   const uint8_t* data;
   size_t size;
   int64_t user_private_data;
-};
+  void* buffer_private_data;
 
-struct DecoderState {
-  // Section 7.20. Updates frames in the reference_frame array with
-  // current_frame, based on the refresh_frame_flags bitmask.
-  void UpdateReferenceFrames(int refresh_frame_flags);
+  // The following members are used only in frame parallel mode.
+  bool decoded;
+  StatusCode status;
+  bool has_displayable_frame;
+  int output_frame_position;
 
-  // Clears all the reference frames.
-  void ClearReferenceFrames();
+  Vector<EncodedFrame> frames;
+  size_t decoded_count;
 
-  ObuSequenceHeader sequence_header = {};
-  // If true, sequence_header is valid.
-  bool has_sequence_header = false;
-  // reference_valid and reference_frame_id are used only if
-  // sequence_header_.frame_id_numbers_present is true.
-  // The reference_valid array is indexed by a reference picture slot number.
-  // A value (boolean) in the array signifies whether the corresponding
-  // reference picture slot is valid for use as a reference picture.
-  std::array<bool, kNumReferenceFrameTypes> reference_valid = {};
-  std::array<uint16_t, kNumReferenceFrameTypes> reference_frame_id = {};
-  // A valid value of current_frame_id is an unsigned integer of at most 16
-  // bits. -1 indicates current_frame_id is not initialized.
-  int current_frame_id = -1;
-  // The RefOrderHint array variable in the spec.
-  std::array<uint8_t, kNumReferenceFrameTypes> reference_order_hint = {};
-  // The OrderHint variable in the spec. Its value comes from either the
-  // order_hint syntax element in the uncompressed header (if
-  // show_existing_frame is false) or RefOrderHint[ frame_to_show_map_idx ]
-  // (if show_existing_frame is true and frame_type is KEY_FRAME). See Section
-  // 5.9.2 and Section 7.4.
-  //
-  // NOTE: When show_existing_frame is false, it is often more convenient to
-  // just use the order_hint field of the frame header as OrderHint. So this
-  // field is mainly used to update the reference_order_hint array in
-  // UpdateReferenceFrames().
-  uint8_t order_hint = 0;
-  // reference_frame_sign_bias[i] (a boolean) specifies the intended direction
-  // of the motion vector in time for each reference frame.
-  // * |false| indicates that the reference frame is a forwards reference (i.e.
-  //   the reference frame is expected to be output before the current frame);
-  // * |true| indicates that the reference frame is a backwards reference.
-  // Note: reference_frame_sign_bias[0] (for kReferenceFrameIntra) is not used.
-  std::array<bool, kNumReferenceFrameTypes> reference_frame_sign_bias = {};
-  std::array<RefCountedBufferPtr, kNumReferenceFrameTypes> reference_frame;
-  RefCountedBufferPtr current_frame;
-  // wedge_master_mask has to be initialized to zero.
-  std::array<uint8_t, 6 * kWedgeMaskMasterSize* kWedgeMaskMasterSize>
-      wedge_master_mask = {};
-  // TODO(chengchen): It is possible to reduce the buffer size. Because wedge
-  // mask sizes are 8x8, 8x16, ..., 32x32. This buffer size can fit 32x32.
-  std::array<uint8_t, kWedgeMaskSize> wedge_masks = {};
-  Array2D<TemporalMotionVector> motion_field_mv;
+  // The struct (and the counter) is used to support output of multiple layers
+  // within a single temporal unit. The decoding process will store the output
+  // frames in |output_layers| in the order they are finished decoding. At the
+  // end of the decoding process, this array will be sorted in reverse order of
+  // |position_in_temporal_unit|. DequeueFrame() will then return the frames in
+  // reverse order (so that the entire process can run with a single counter
+  // variable).
+  struct OutputLayer {
+    // Used by std::sort to sort |output_layers| in reverse order of
+    // |position_in_temporal_unit|.
+    bool operator<(const OutputLayer& rhs) const {
+      return position_in_temporal_unit > rhs.position_in_temporal_unit;
+    }
+
+    RefCountedBufferPtr frame;
+    int position_in_temporal_unit = 0;
+  } output_layers[kMaxLayers];
+  // Number of entries in |output_layers|.
+  int output_layer_count;
+  // Flag to ensure that we release the input buffer only once if there are
+  // multiple output layers.
+  bool released_input_buffer;
 };
 
 class DecoderImpl : public Allocable {
@@ -118,51 +138,132 @@ class DecoderImpl : public Allocable {
                            std::unique_ptr<DecoderImpl>* output);
   ~DecoderImpl();
   StatusCode EnqueueFrame(const uint8_t* data, size_t size,
-                          int64_t user_private_data);
+                          int64_t user_private_data, void* buffer_private_data);
   StatusCode DequeueFrame(const DecoderBuffer** out_ptr);
   static constexpr int GetMaxBitdepth() {
-#if LIBGAV1_MAX_BITDEPTH >= 10
-    return 10;
-#else
-    return 8;
-#endif
+    static_assert(LIBGAV1_MAX_BITDEPTH == 8 || LIBGAV1_MAX_BITDEPTH == 10,
+                  "LIBGAV1_MAX_BITDEPTH must be 8 or 10.");
+    return LIBGAV1_MAX_BITDEPTH;
   }
 
  private:
   explicit DecoderImpl(const DecoderSettings* settings);
   StatusCode Init();
-  bool AllocateCurrentFrame(const ObuFrameHeader& frame_header);
+  // Called when the first frame is enqueued. It does the OBU parsing for one
+  // temporal unit to retrieve the tile configuration and sets up the frame
+  // threading if frame parallel mode is allowed. It also initializes the
+  // |temporal_units_| queue based on the number of frame threads.
+  //
+  // The following are the limitations of the current implementation:
+  //  * It assumes that all frames in the video have the same tile
+  //    configuration. The frame parallel threading model will not be updated
+  //    based on tile configuration changes mid-stream.
+  //  * The above assumption holds true even when there is a new coded video
+  //    sequence (i.e.) a new sequence header.
+  StatusCode InitializeFrameThreadPoolAndTemporalUnitQueue(const uint8_t* data,
+                                                           size_t size);
+  // Used only in frame parallel mode. Signals failure and waits until the
+  // worker threads are aborted if |status| is a failure status. If |status| is
+  // equal to kStatusOk or kStatusTryAgain, this function does not do anything.
+  // Always returns the input parameter |status| as the return value.
+  //
+  // This function is called only from the application thread (from
+  // EnqueueFrame() and DequeueFrame()).
+  StatusCode SignalFailure(StatusCode status);
+
   void ReleaseOutputFrame();
-  // Populates buffer_ with values from |frame|. Adds a reference to |frame|
-  // in output_frame_.
+
+  // Decodes all the frames contained in the given temporal unit. Used only in
+  // non frame parallel mode.
+  StatusCode DecodeTemporalUnit(const TemporalUnit& temporal_unit,
+                                const DecoderBuffer** out_ptr);
+  // Used only in frame parallel mode. Does the OBU parsing for |data| and
+  // schedules the individual frames for decoding in the |frame_thread_pool_|.
+  StatusCode ParseAndSchedule(const uint8_t* data, size_t size,
+                              int64_t user_private_data,
+                              void* buffer_private_data);
+  // Decodes the |encoded_frame| and updates the
+  // |encoded_frame->temporal_unit|'s parameters if the decoded frame is a
+  // displayable frame. Used only in frame parallel mode.
+  StatusCode DecodeFrame(EncodedFrame* encoded_frame);
+
+  // Populates |buffer_| with values from |frame|. Adds a reference to |frame|
+  // in |output_frame_|.
   StatusCode CopyFrameToOutputBuffer(const RefCountedBufferPtr& frame);
-  StatusCode DecodeTiles(const ObuParser* obu);
-  // Sets the current frame's segmentation map for two cases. The third case
-  // is handled in Tile::DecodeBlock().
-  void SetCurrentFrameSegmentationMap(const ObuFrameHeader& frame_header,
-                                      const SegmentationMap* prev_segment_ids);
+  StatusCode DecodeTiles(const ObuSequenceHeader& sequence_header,
+                         const ObuFrameHeader& frame_header,
+                         const Vector<TileBuffer>& tile_buffers,
+                         const DecoderState& state,
+                         FrameScratchBuffer* frame_scratch_buffer,
+                         RefCountedBuffer* current_frame);
+  // Applies film grain synthesis to the |displayable_frame| and stores the film
+  // grain applied frame into |film_grain_frame|. Returns kStatusOk on success.
+  StatusCode ApplyFilmGrain(const ObuSequenceHeader& sequence_header,
+                            const ObuFrameHeader& frame_header,
+                            const RefCountedBufferPtr& displayable_frame,
+                            RefCountedBufferPtr* film_grain_frame,
+                            ThreadPool* thread_pool);
 
-  Queue<EncodedFrame> encoded_frames_;
+  bool IsNewSequenceHeader(const ObuParser& obu);
+
+  bool HasFailure() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return failure_status_ != kStatusOk;
+  }
+
+  // Initializes the |quantizer_matrix_| if necessary and sets
+  // |quantizer_matrix_initialized_| to true.
+  bool MaybeInitializeQuantizerMatrix(const ObuFrameHeader& frame_header);
+
+  // Allocates and generates the |wedge_masks_| if necessary and sets
+  // |wedge_masks_initialized_| to true.
+  bool MaybeInitializeWedgeMasks(FrameType frame_type);
+
+  // Elements in this queue cannot be moved with std::move since the
+  // |EncodedFrame.temporal_unit| stores a pointer to elements in this queue.
+  Queue<TemporalUnit> temporal_units_;
   DecoderState state_;
-  ThreadingStrategy threading_strategy_;
-  SymbolDecoderContext symbol_decoder_context_;
 
-  // TODO(vigneshv): Only support one buffer for now. Eventually this has to be
-  // a vector or an array.
   DecoderBuffer buffer_ = {};
-  // output_frame_ holds a reference to the output frame on behalf of buffer_.
+  // |output_frame_| holds a reference to the output frame on behalf of
+  // |buffer_|.
   RefCountedBufferPtr output_frame_;
 
-  BufferPool buffer_pool_;
-  std::unique_ptr<ResidualBufferPool> residual_buffer_pool_;
-  AlignedUniquePtr<uint8_t> threaded_window_buffer_;
-  size_t threaded_window_buffer_size_ = 0;
-  Array2D<TransformSize> inter_transform_sizes_;
-  DecoderScratchBufferPool decoder_scratch_buffer_pool_;
+  // Queue of output frames that are to be returned in the DequeueFrame() calls.
+  // If |settings_.output_all_layers| is false, this queue will never contain
+  // more than 1 element. This queue is used only when |is_frame_parallel_| is
+  // false.
+  Queue<RefCountedBufferPtr> output_frame_queue_;
 
-  LoopFilterMask loop_filter_mask_;
+  BufferPool buffer_pool_;
+  WedgeMaskArray wedge_masks_;
+  bool wedge_masks_initialized_ = false;
+  QuantizerMatrix quantizer_matrix_;
+  bool quantizer_matrix_initialized_ = false;
+  FrameScratchBufferPool frame_scratch_buffer_pool_;
+
+  // Used to synchronize the accesses into |temporal_units_| in order to update
+  // the "decoded" state of an temporal unit.
+  std::mutex mutex_;
+  std::condition_variable decoded_condvar_;
+  bool is_frame_parallel_;
+  std::unique_ptr<ThreadPool> frame_thread_pool_;
+
+  // In frame parallel mode, there are two primary points of failure:
+  //  1) ParseAndSchedule()
+  //  2) DecodeTiles()
+  // Both of these functions have to respond to the other one failing by
+  // aborting whatever they are doing. This variable is used to accomplish that.
+  // If |failure_status_| is not kStatusOk, then the two functions will try to
+  // abort as early as they can.
+  StatusCode failure_status_ = kStatusOk LIBGAV1_GUARDED_BY(mutex_);
+
+  ObuSequenceHeader sequence_header_ = {};
+  // If true, sequence_header is valid.
+  bool has_sequence_header_ = false;
 
   const DecoderSettings& settings_;
+  bool seen_first_frame_ = false;
 };
 
 }  // namespace libgav1

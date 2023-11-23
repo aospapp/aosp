@@ -28,7 +28,7 @@ import javax.net.ssl.SSLContext;
  * looking to reuse any session for a given host and port.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @Internal
 public final class ClientSessionContext extends AbstractSessionContext {
     /**
@@ -54,7 +54,7 @@ public final class ClientSessionContext extends AbstractSessionContext {
      */
     @android.compat.annotation
             .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public void setPersistentCache(SSLClientSessionCache persistentCache) {
         this.persistentCache = persistentCache;
     }

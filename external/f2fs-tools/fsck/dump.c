@@ -278,7 +278,7 @@ static void dump_node_blk(struct f2fs_sb_info *sbi, int ntype,
 
 	if (nid == 0) {
 		*ofs += skip;
-		return;
+		goto out;
 	}
 
 	for (i = 0; i < idx; i++, (*ofs)++) {
@@ -297,6 +297,7 @@ static void dump_node_blk(struct f2fs_sb_info *sbi, int ntype,
 			break;
 		}
 	}
+out:
 	free(node_blk);
 }
 
@@ -424,7 +425,8 @@ static void dump_file(struct f2fs_sb_info *sbi, struct node_info *ni,
 		return;
 	}
 
-	if (!S_ISREG(imode) || namelen == 0 || namelen > F2FS_NAME_LEN) {
+	if ((!S_ISREG(imode) && !S_ISLNK(imode)) ||
+				namelen == 0 || namelen > F2FS_NAME_LEN) {
 		MSG(force, "Not a regular file or wrong name info\n\n");
 		return;
 	}
@@ -481,8 +483,6 @@ void dump_node(struct f2fs_sb_info *sbi, nid_t nid, int force)
 	node_blk = calloc(BLOCK_SZ, 1);
 	ASSERT(node_blk);
 
-	dev_read_block(node_blk, ni.blk_addr);
-
 	DBG(1, "Node ID               [0x%x]\n", nid);
 	DBG(1, "nat_entry.block_addr  [0x%x]\n", ni.blk_addr);
 	DBG(1, "nat_entry.version     [0x%x]\n", ni.version);
@@ -492,6 +492,8 @@ void dump_node(struct f2fs_sb_info *sbi, nid_t nid, int force)
 		MSG(force, "Invalid node blkaddr: %u\n\n", ni.blk_addr);
 		goto out;
 	}
+
+	dev_read_block(node_blk, ni.blk_addr);
 
 	if (ni.blk_addr == 0x0)
 		MSG(force, "Invalid nat entry\n\n");

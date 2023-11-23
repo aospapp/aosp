@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import logging
-
+import pyshark
 from locale import *
 
 PYSHARK_LOAD_TIMEOUT = 2
@@ -172,39 +172,48 @@ def get_frames(local_pcap_path, display_filter, reject_bad_fcs=True,
     frames = []
     logging.info('Parsing frames')
 
-    for frame in capture_frames:
-        rate = _fetch_frame_field_value(frame, FRAME_FIELD_RADIOTAP_DATARATE)
-        if rate:
-            rate = atof(rate)
-        else:
-            logging.debug('Capture frame missing rate: %s', frame)
+    try:
+        for frame in capture_frames:
+            rate = _fetch_frame_field_value(frame, FRAME_FIELD_RADIOTAP_DATARATE)
+            if rate:
+                rate = atof(rate)
+            else:
+                logging.debug('Capture frame missing rate: %s', frame)
 
-        frametime = frame.sniff_time
+            frametime = frame.sniff_time
 
-        mcs_index = _fetch_frame_field_value(
-            frame, FRAME_FIELD_RADIOTAP_MCS_INDEX)
-        if mcs_index:
-            mcs_index = int(mcs_index)
+            mcs_index = _fetch_frame_field_value(
+                frame, FRAME_FIELD_RADIOTAP_MCS_INDEX)
+            if mcs_index:
+                mcs_index = int(mcs_index)
 
-        source_addr = _fetch_frame_field_value(
-            frame, FRAME_FIELD_WLAN_SOURCE_ADDR)
+            source_addr = _fetch_frame_field_value(
+                frame, FRAME_FIELD_WLAN_SOURCE_ADDR)
 
-        # Get the SSID for any probe requests
-        frame_type = _fetch_frame_field_value(
-            frame, FRAME_FIELD_WLAN_FRAME_TYPE)
-        if (frame_type in [WLAN_BEACON_FRAME_TYPE, WLAN_PROBE_REQ_FRAME_TYPE]):
-            ssid = _fetch_frame_field_value(frame, FRAME_FIELD_WLAN_MGMT_SSID)
-            # Since the SSID name is a variable length field, there seems to be
-            # a bug in the pyshark parsing, it returns 'SSID: ' instead of ''
-            # for broadcast SSID's.
-            if ssid == PYSHARK_BROADCAST_SSID:
-                ssid = BROADCAST_SSID
-        else:
-            ssid = None
+            # Get the SSID for any probe requests
+            frame_type = _fetch_frame_field_value(
+                frame, FRAME_FIELD_WLAN_FRAME_TYPE)
+            if (frame_type in [WLAN_BEACON_FRAME_TYPE, WLAN_PROBE_REQ_FRAME_TYPE]):
+                ssid = _fetch_frame_field_value(frame, FRAME_FIELD_WLAN_MGMT_SSID)
+                # Since the SSID name is a variable length field, there seems to be
+                # a bug in the pyshark parsing, it returns 'SSID: ' instead of ''
+                # for broadcast SSID's.
+                if ssid == PYSHARK_BROADCAST_SSID:
+                    ssid = BROADCAST_SSID
+            else:
+                ssid = None
 
-        frames.append(Frame(frametime, rate, mcs_index, ssid, source_addr,
-                            frame_type=frame_type))
-
+            frames.append(Frame(frametime, rate, mcs_index, ssid, source_addr,
+                                frame_type=frame_type))
+    except pyshark.capture.capture.TSharkCrashException as e:
+        # tcpdump sometimes produces captures with an incomplete packet when passed SIGINT.
+        # tshark will crash when it reads this incomplete packet and return a non-zero exit code.
+        # pyshark will throw a TSharkCrashException due to this exit code from tshark.
+        # Instead of throwing away all packets, let's ignore the malformed packet and continue to
+        # analyze packets and return the successfully analyzed ones.
+        # This is a band aid fix for b/158311775 as we would ideally fix the tcpdump issue
+        # in the first place.
+        logging.info("Frame capture issue")
     return frames
 
 

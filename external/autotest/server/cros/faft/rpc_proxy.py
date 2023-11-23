@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import httplib
+import logging
 import socket
 import time
 import xmlrpclib
@@ -32,11 +33,11 @@ class _Method(object):
     def __call__(self, *args, **dargs):
         return self.__call_method(self.__name, *args, **dargs)
 
-    def __str__(self):
+    def __repr__(self):
         """Return a description of the method object"""
         return "%s('%s')" % (self.__class__.__name__, self.__name)
 
-    def __repr__(self):
+    def __str__(self):
         """Return a description of the method object"""
         return "<%s '%s'>" % (self.__class__.__name__, self.__name)
 
@@ -52,7 +53,7 @@ class RPCProxy(object):
      @ivar _client: the ssh host object
      @type host: autotest_lib.server.hosts.abstract_ssh.AbstractSSHHost
      @ivar _faft_client: the real serverproxy to use for calls
-     @type _faft_client: xmlrpclib.ServerProxy
+     @type _faft_client: xmlrpclib.ServerProxy | None
     """
     _client_config = ClientConfig()
 
@@ -104,18 +105,47 @@ class RPCProxy(object):
                 ready_test_name=self._client_config.rpc_ready_call,
                 timeout_seconds=self._client_config.rpc_timeout,
                 logfile="%s.%s" % (self._client_config.rpc_logfile,
-                                   time.time())
+                                   time.time()),
+                server_desc=str(self)
                 )
 
     def disconnect(self):
         """Disconnect the RPC server."""
-        self._client.rpc_server_tracker.disconnect(self._client_config.rpc_port)
+        # The next start of the RPC server will terminate any leftovers,
+        # so no need to pkill upon disconnect.
+        if self._faft_client is not None:
+            logging.debug("Closing FAFT RPC server connection.")
+        self._client.rpc_server_tracker.disconnect(
+                self._client_config.rpc_port, pkill=False)
         self._faft_client = None
 
-    def __str__(self):
-        """Return a description of the proxy object"""
-        return '%s(%s)' % (self.__class__.__name__, self._client)
+    def quit(self):
+        """Tell the RPC server to quit, then disconnect from it."""
+        if self._faft_client is None:
+            return
+        logging.debug("Telling FAFT RPC server to quit.")
+        try:
+            remote_quit = getattr(
+                    self._faft_client, self._client_config.rpc_quit_call)
+            remote_quit()
+            need_pkill = False
+        except (StandardError, httplib.BadStatusLine, xmlrpclib.Error) as e:
+            logging.warn("Error while telling FAFT RPC server to quit: %s", e)
+            # If we failed to tell the RPC server to quit for some reason,
+            # fall back to SIGTERM, because it may not have exited.
+            need_pkill = True
+
+        self._client.rpc_server_tracker.disconnect(
+                self._client_config.rpc_port, pkill=need_pkill)
+        self._faft_client = None
 
     def __repr__(self):
         """Return a description of the proxy object"""
-        return "<%s '%s'>" % (self.__class__.__name__, self._client.hostname)
+        return '%s(%s)' % (self.__class__.__name__, self._client)
+
+    def __str__(self):
+        """Return a description of the proxy object"""
+        return "<%s '%s:%s'>" % (
+                self.__class__.__name__,
+                self._client.hostname,
+                self._client_config.rpc_port)

@@ -1,4 +1,8 @@
 android-core/
+android-libbase/
+android-libprocinfo/
+android-logging/
+android-unwinding/
 android_sdk/
 aosp-*/
 benchmark/
@@ -11,6 +15,7 @@ emulator/
 googletest/
 jsoncpp/
 libbacktrace/
+libbase/
 libcxx/
 libcxxabi/
 libfuzzer/
@@ -27,4 +32,5 @@ sqlite/
 sqlite_src/
 test_data/
 typefaces/
+win/
 zlib/

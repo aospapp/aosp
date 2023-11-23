@@ -16,6 +16,17 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-ICU
+    //   SPDX-license-identifier-MIT
+    //   SPDX-license-identifier-Unicode-DFS
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_icu_license"],
 }
 
 //==========================================================
@@ -26,9 +37,6 @@ package {
 //==========================================================
 filegroup {
     name: "android_icu4j_public_api_files",
-    visibility: [
-        "//frameworks/base",
-    ],
     srcs: [
         ":android_icu4j_repackaged_src_files",
     ],
@@ -42,37 +50,41 @@ filegroup {
 }
 
 // The files contains Android-specific codes to expose intra-core APIs
-// from ICU4J/ICU4C to libcore. The package is com.android.icu.* and should not
-// expose any public APIs.
+// from ICU4J/ICU4C to libcore or core platform APIs to the framework.
+// The package is com.android.icu.* and should not expose any public APIs.
 filegroup {
     name: "libcore_icu_bridge_src_files",
     srcs: ["libcore_bridge/src/java/**/*.java"],
     path: "libcore_bridge/src/java",
 }
 
-// Rule generating resource lib for android_icu4j.
-// In the downstream branch master-icu-dev, the resource files are generated.
-java_library {
-    name: "android_icu4j_resources_lib",
-    visibility: [
-        "//libcore",
+java_defaults {
+    name: "libcore_icu_bridge_defaults",
+    srcs: [
+        "libcore_bridge/src/java/**/*.java",
+        ":app-compat-annotations-source",
     ],
-    java_resource_dirs: ["resources"],
-    sdk_version: "none",
-    system_modules: "none",
+    jarjar_rules: "jarjar-rules.txt",
+    plugins: [
+        "compat-changeid-annotation-processor",
+    ],
 }
 
-// Same as android_icu4j_resources_lib but compiling against core_current sdk
-// in order to avoid using non-public API from core-libart and core-oj
-// because core-icu4j will be in a different i18n APEX module.
-
-java_library {
-    name: "android_icu4j_resources_lib_sdk_core_current",
+// A host library containing time zone related classes. Used for
+// host-side tools and tests that have to deal with Android
+// time zone data.
+java_library_host {
+    name: "timezone-host",
     visibility: [
-        "//libcore",
+        "//packages/modules/RuntimeI18n/apex",
+        "//system/timezone/distro/core",
     ],
-    java_resource_dirs: ["resources"],
-    sdk_version: "core_current",
+    srcs: [
+        "libcore_bridge/src/java/com/android/i18n/timezone/TzDataSetVersion.java",
+    ],
+    libs: [
+        "art.module.api.annotations",
+    ],
 }
 
 // core-repackaged-icu4j contains only the repackaged ICU4J that does not
@@ -92,36 +104,36 @@ java_library_static {
     system_modules: "art-module-public-api-stubs-system-modules",
 
     dxflags: ["--core-library"],
+    apex_available: [
+        "com.android.i18n",
+    ],
     errorprone: {
         javacflags: [
             "-Xep:MissingOverride:OFF", // Ignore missing @Override.
             "-Xep:ConstantOverflow:WARN", // Known constant overflow in SplittableRandom
         ],
     },
-
-    apex_available: [
-        "com.android.art.release",
-        "com.android.art.debug",
-    ],
 }
 
 // A separated core library that contains ICU4J because ICU4J will be in a different APEX module,
 // not in ART module.
 java_library {
     name: "core-icu4j",
+    defaults: ["libcore_icu_bridge_defaults"],
     visibility: [
-        "//art/build/apex",
-        "//external/robolectric-shadows",
-        "//frameworks/layoutlib",
+        "//packages/modules/RuntimeI18n/apex",
     ],
     apex_available: [
-        "com.android.art.release",
-        "com.android.art.debug",
+        "com.android.i18n",
+    ],
+    permitted_packages: [
+        "android.icu",
+        "com.android.icu",
+        "com.android.i18n.timezone",
     ],
     installable: true,
-    hostdex: true,
+    hostdex: false,
 
-    srcs: [":libcore_icu_bridge_src_files"],
     static_libs: ["core-repackaged-icu4j"],
 
     // It is important that core-icu4j is restricted to only use stable APIs from the ART module
@@ -132,52 +144,63 @@ java_library {
     dxflags: ["--core-library"],
 }
 
-//
-// Guaranteed unstripped versions of core-icu4j.
-//
-// The build system may or may not strip the core-icu4j. jar,
-// but this will not be stripped. See b/24535627.
-//
+// Java library for use on host, e.g. by robolectric.
 java_library {
-    name: "core-icu4j-testdex",
-    installable: true,
-    static_libs: ["core-icu4j"],
+    name: "core-icu4j-for-host",
+    visibility: [
+        "//art/build",
+        "//external/robolectric-shadows",
+        "//frameworks/layoutlib",
+        "//packages/modules/RuntimeI18n/apex",
+    ],
+    static_libs: [
+        "core-icu4j",
+    ],
     sdk_version: "none",
-    system_modules: "art-module-public-api-stubs-system-modules",
-    dxflags: ["--core-library"],
-    dex_preopt: {
-        enabled: false,
-    },
+    system_modules: "none",
 }
 
-// Generates stubs for the parts of the public SDK API provided by the i18n module.
-//
-// Only for use by i18n.module.public.api.stubs target below.
-droidstubs {
-    name: "i18n-module-public-api-stubs-gen",
+platform_compat_config {
+    name: "icu4j-platform-compat-config",
+    src: ":core-icu4j",
+}
+
+java_sdk_library {
+    name: "i18n.module.public.api",
+    visibility: [
+        "//frameworks/base",
+        "//frameworks/base/api",
+        "//libcore",
+        "//packages/modules/RuntimeI18n/apex",
+        // Visibility for prebuilt i18n-module-sdk from the prebuilt of
+        // this module.
+        // TODO(b/155921753): Restrict this when prebuilts are in their proper
+        // locations.
+        "//prebuilts:__subpackages__",
+    ],
     srcs: [
         ":android_icu4j_public_api_files",
     ],
-    java_version: "1.9",
-    installable: false,
-    sdk_version: "none",
-    system_modules: "art-module-public-api-stubs-system-modules",
-}
-
-// A stubs target containing the parts of the public SDK API provided by the i18n module.
-java_library {
-    name: "i18n.module.public.api.stubs",
-    visibility: [
-        "//libcore",
+    droiddoc_options: [
+        "--force-convert-to-warning-nullability-annotations +*:-android.*:+android.icu.*:-dalvik.* ",
     ],
-    srcs: [":i18n-module-public-api-stubs-gen"],
     errorprone: {
         javacflags: [
             "-Xep:MissingOverride:OFF",
         ],
     },
+    api_dir: "api/public",
+    api_only: true,
     sdk_version: "none",
     system_modules: "art-module-public-api-stubs-system-modules",
+
+    // The base name for the artifacts that are automatically published to the
+    // dist and which end up in one of the sub-directories of prebuilts/sdk.
+    // As long as this matches the name of the artifacts in prebuilts/sdk then
+    // the API will be checked for compatibility against the latest released
+    // version of the API.
+    dist_stem: "runtime-i18n",
+    dist_group: "android",
 }
 
 // Generates stub source files for the intra-core API of the I18N module.
@@ -187,55 +210,106 @@ java_library {
 // The API specification .txt files managed by this only contain the additional
 // classes/members that are in the intra-core API but which are not the public
 // API.
-droidstubs {
-    name: "i18n-module-intra-core-api-stubs-source",
-    visibility: [
-        // Needed to build core-all as using the compiled library, i.e.
-        // i18n.module.intra.core.api.stubs does not work due to limitations
-        // in javac.
-        "//libcore:__subpackages__",
-    ],
+java_sdk_library {
+    name: "i18n.module.intra.core.api",
+    defaults: ["libcore_icu_bridge_defaults"],
     srcs: [
         ":android_icu4j_repackaged_src_files",
-        ":libcore_icu_bridge_src_files",
     ],
-    sdk_version: "none",
-    system_modules: "art-module-intra-core-api-stubs-system-modules",
-
-    installable: false,
-    args: "--hide-annotation libcore.api.Hide " +
-        "--show-single-annotation libcore.api.IntraCoreApi " +
-        "--skip-annotation-instance-methods=false ",
-
-    api_filename: "api.txt",
-    removed_api_filename: "removed.txt",
-    previous_api: "previous.txt",
-    check_api: {
-        current: {
-            api_file: "api/intra/current-api.txt",
-            removed_api_file: "api/intra/current-removed.txt",
-        },
-        last_released: {
-            api_file: "api/intra/last-api.txt",
-            removed_api_file: "api/intra/last-removed.txt",
-        },
-    },
-}
-
-// A library containing the intra-core API stubs of the I18N module.
-//
-// Intra-core APIs are only intended for the use of other core library modules.
-java_library {
-    name: "i18n.module.intra.core.api.stubs",
     visibility: [
         "//libcore:__subpackages__",
+        "//packages/modules/RuntimeI18n/apex",
+        // Visibility for prebuilt i18n-module-sdk from the prebuilt of
+        // this module.
+        // TODO(b/155921753): Restrict this when prebuilts are in their proper
+        // locations.
+        "//prebuilts:__subpackages__",
     ],
-    srcs: [
-        ":i18n-module-intra-core-api-stubs-source",
-    ],
-
+    api_dir: "api/intra",
+    api_only: true,
     sdk_version: "none",
     system_modules: "art-module-intra-core-api-stubs-system-modules",
+
+    droiddoc_options: [
+        "--hide-annotation libcore.api.Hide ",
+        "--show-single-annotation libcore.api.IntraCoreApi ",
+        "--skip-annotation-instance-methods=false ",
+    ],
+
+    // Don't copy any output files to the dist.
+    no_dist: true,
+}
+
+// Referenced implicitly from i18n.module.intra.core.api.
+filegroup {
+    name: "i18n.module.intra.core.api.api.public.latest",
+    srcs: [
+        "api/intra/last-api.txt",
+    ],
+}
+
+// Referenced implicitly from i18n.module.intra.core.api.
+filegroup {
+    name: "i18n.module.intra.core.api-removed.api.public.latest",
+    srcs: [
+        "api/intra/last-removed.txt",
+    ],
+}
+
+// Referenced implicitly from i18n.module.intra.core.api.
+filegroup {
+    name: "i18n.module.intra.core.api-incompatibilities.api.public.latest",
+    srcs: [
+        "api/intra/last-incompatibilities.txt",
+    ],
+}
+
+// Referenced implicitly from legacy.i18n.module.platform.api.
+filegroup {
+    name: "legacy.i18n.module.platform.api.api.public.latest",
+    srcs: [
+        "api/legacy_platform/last-api.txt",
+    ],
+}
+
+// Referenced implicitly from legacy.i18n.module.platform.api.
+filegroup {
+    name: "legacy.i18n.module.platform.api-removed.api.public.latest",
+    srcs: [
+        "api/legacy_platform/last-removed.txt",
+    ],
+}
+
+// Referenced implicitly from legacy.i18n.module.platform.api.
+filegroup {
+    name: "legacy.i18n.module.platform.api-incompatibilities.api.public.latest",
+    srcs: [
+        "api/legacy_platform/last-incompatibilities.txt",
+    ],
+}
+
+// Referenced implicitly from stable.i18n.module.platform.api.
+filegroup {
+    name: "stable.i18n.module.platform.api.api.public.latest",
+    srcs: [
+        "api/stable_platform/last-api.txt",
+    ],
+}
+
+// Referenced implicitly from stable.i18n.module.platform.api.
+filegroup {
+    name: "stable.i18n.module.platform.api-removed.api.public.latest",
+    srcs: [
+        "api/stable_platform/last-removed.txt",
+    ],
+}
+
+// Referenced implicitly from stable.i18n.module.platform.api.
+filegroup {
+    name: "stable.i18n.module.platform.api-incompatibilities.api.public.latest",
+    srcs: [
+        "api/stable_platform/last-incompatibilities.txt",
+    ],
 }
 
 // Generates stub source files for the core platform API of the I18N module.
@@ -245,52 +319,69 @@ java_library {
 // The API specification .txt files managed by this only contain the additional
 // classes/members that are in the intra-core API but which are not in the public
 // API.
-droidstubs {
-    name: "i18n-module-platform-api-stubs-source",
+//
+// For notes on the legacy and stable versions see mmodules/core_platform_api/Android.bp.
+
+java_sdk_library {
+    name: "legacy.i18n.module.platform.api",
+    defaults: ["libcore_icu_bridge_defaults"],
     srcs: [
         ":android_icu4j_repackaged_src_files",
-        ":libcore_icu_bridge_src_files",
     ],
-    sdk_version: "none",
-    system_modules: "art-module-platform-api-stubs-system-modules",
-
-    installable: false,
-    args: "--hide-annotation libcore.api.Hide " +
-        "--show-single-annotation libcore.api.CorePlatformApi " +
-        "--skip-annotation-instance-methods=false ",
-
-    api_filename: "api.txt",
-    removed_api_filename: "removed.txt",
-    previous_api: "previous.txt",
-
-    check_api: {
-        current: {
-            api_file: "api/platform/current-api.txt",
-            removed_api_file: "api/platform/current-removed.txt",
-        },
-        last_released: {
-            api_file: "api/platform/last-api.txt",
-            removed_api_file: "api/platform/last-removed.txt",
-        },
-    },
-}
-
-// A library containing the core platform API stubs of the I18N module.
-//
-// Core platform APIs are only intended for use of other parts of the platform, not the
-// core library modules.
-java_library {
-    name: "i18n.module.platform.api.stubs",
     visibility: [
         "//libcore:__subpackages__",
-    ],
-    srcs: [
-        ":i18n-module-platform-api-stubs-source",
+        "//packages/modules/RuntimeI18n/apex",
+        // Visibility for prebuilt i18n-module-sdk from the prebuilt of
+        // this module.
+        // TODO(b/155921753): Restrict this when prebuilts are in their proper
+        // locations.
+        "//prebuilts:__subpackages__",
     ],
     hostdex: true,
-
+    api_dir: "api/legacy_platform",
+    api_only: true,
     sdk_version: "none",
-    system_modules: "art-module-platform-api-stubs-system-modules",
+    system_modules: "art-module-lib-api-stubs-system-modules",
+
+    droiddoc_options: [
+        "--hide-annotation libcore.api.Hide ",
+        "--show-single-annotation libcore.api.CorePlatformApi ",
+        "--skip-annotation-instance-methods=false ",
+    ],
+
+    // Don't copy any output files to the dist.
+    no_dist: true,
+}
+
+java_sdk_library {
+    name: "stable.i18n.module.platform.api",
+    defaults: ["libcore_icu_bridge_defaults"],
+    srcs: [
+        ":android_icu4j_repackaged_src_files",
+    ],
+    visibility: [
+        "//libcore:__subpackages__",
+        "//packages/modules/RuntimeI18n/apex",
+        // Visibility for prebuilt i18n-module-sdk from the prebuilt of
+        // this module.
+        // TODO(b/155921753): Restrict this when prebuilts are in their proper
+        // locations.
+        "//prebuilts:__subpackages__",
+    ],
+    hostdex: true,
+    api_dir: "api/stable_platform",
+    api_only: true,
+    sdk_version: "none",
+    system_modules: "art-module-lib-api-stubs-system-modules",
+
+    droiddoc_options: [
+        "--hide-annotation libcore.api.Hide ",
+        "--show-single-annotation libcore.api.CorePlatformApi\\(status=libcore.api.CorePlatformApi.Status.STABLE\\)",
+        "--skip-annotation-instance-methods=false ",
+    ],
+
+    // Don't copy any output files to the dist.
+    no_dist: true,
 }
 
 //==========================================================
@@ -320,6 +411,7 @@ java_test {
     static_libs: [
         "junit",
         "junit-params",
+        "tzdata-testing",
     ],
 
     patch_module: "java.base",

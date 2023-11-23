@@ -41,6 +41,8 @@ def get_container_info(container_path, **filters):
     output = common_utils.run(cmd).stdout
     info_collection = []
 
+    logging.info('cmd [%s] output:\n%s', cmd, output)
+
     for line in output.splitlines()[1:]:
         # Only LXC 1.x has the second line of '-' as a separator.
         if line.startswith('------'):
@@ -68,8 +70,6 @@ def download_extract(url, target, extract_dir):
     with tempfile.NamedTemporaryFile(prefix=os.path.basename(target) + '_',
                                      delete=False) as tmp_file:
         if remote_url in dev_server.ImageServerBase.servers():
-            # TODO(xixuan): Better to only ssh to devservers in lab, and
-            # continue using curl for ganeti devservers.
             _download_via_devserver(url, tmp_file.name)
         else:
             _download_via_curl(url, tmp_file.name)
@@ -79,7 +79,7 @@ def download_extract(url, target, extract_dir):
 
 # Make sure retries only happen in the non-timeout case.
 @retry.retry((error.CmdError),
-             blacklist=[error.CmdTimeoutError],
+             raiselist=[error.CmdTimeoutError],
              timeout_min=3*2,
              delay_sec=10)
 def _download_via_curl(url, target_file_path):
@@ -91,13 +91,13 @@ def _download_via_curl(url, target_file_path):
 
 # Make sure retries only happen in the non-timeout case.
 @retry.retry((error.CmdError),
-             blacklist=[error.CmdTimeoutError],
+             raiselist=[error.CmdTimeoutError],
              timeout_min=(constants.DEVSERVER_CALL_TIMEOUT *
                           constants.DEVSERVER_CALL_RETRY / 60),
              delay_sec=constants.DEVSERVER_CALL_DELAY)
 def _download_via_devserver(url, target_file_path):
     dev_server.ImageServerBase.download_file(
-            url, target_file_path, timeout=constants.DEVSERVER_CALL_TIMEOUT)
+        url, target_file_path, timeout=constants.DEVSERVER_CALL_TIMEOUT)
 
 
 def _install_package_precheck(packages):
@@ -115,11 +115,6 @@ def _install_package_precheck(packages):
              skipped.
 
     """
-    if not constants.SSP_ENABLED and not common_utils.is_in_container():
-        logging.info('Server-side packaging is not enabled. Install package %s '
-                     'is skipped.', packages)
-        return False
-
     if server_utils.is_inside_chroot():
         logging.info('Test is running inside chroot. Install package %s is '
                      'skipped.', packages)
@@ -130,7 +125,6 @@ def _install_package_precheck(packages):
                                    'when test is running inside container.')
 
     return True
-
 
 
 def _remove_banned_packages(packages, banned_packages):
@@ -194,7 +188,8 @@ def install_packages(packages=[], python_packages=[], force_latest=False):
         python_packages = [p for p in python_packages
                            if not common_utils.is_python_package_installed(p)]
         if not packages and not python_packages:
-            logging.debug('All packages are installed already, skip reinstall.')
+            logging.debug(
+                'All packages are installed already, skip reinstall.')
             return
 
     # Always run apt-get update before installing any container. The base
@@ -229,40 +224,5 @@ def install_packages(packages=[], python_packages=[], force_latest=False):
         _ensure_pip(target_setting)
         common_utils.run('python -m pip install pip --upgrade')
         common_utils.run('python -m pip install %s %s' % (target_setting,
-                                              ' '.join(python_packages)))
+                                                          ' '.join(python_packages)))
         logging.debug('Python packages are installed: %s.', python_packages)
-
-
-@retry.retry(error.CmdError, timeout_min=20)
-def install_package(package):
-    """Install the given package inside container.
-
-    This function is kept for backwards compatibility reason. New code should
-    use function install_packages for better performance.
-
-    @param package: Name of the package to install.
-
-    @raise error.ContainerError: If package is attempted to be installed outside
-                                 a container.
-    @raise error.CmdError: If the package doesn't exist or failed to install.
-
-    """
-    logging.warn('This function is obsoleted, please use install_packages '
-                 'instead.')
-    install_packages(packages=[package])
-
-
-@retry.retry(error.CmdError, timeout_min=20)
-def install_python_package(package):
-    """Install the given python package inside container using pip.
-
-    This function is kept for backwards compatibility reason. New code should
-    use function install_packages for better performance.
-
-    @param package: Name of the python package to install.
-
-    @raise error.CmdError: If the package doesn't exist or failed to install.
-    """
-    logging.warn('This function is obsoleted, please use install_packages '
-                 'instead.')
-    install_packages(python_packages=[package])

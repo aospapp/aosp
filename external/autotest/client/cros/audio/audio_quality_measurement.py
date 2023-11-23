@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,9 +6,13 @@
 """This module provides utilities to detect some artifacts and measure the
     quality of audio."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import logging
 import math
 import numpy
+from six.moves import range
 
 # Normal autotest environment.
 try:
@@ -189,7 +194,7 @@ def noised_sine_wave(frequency, rate, noise_level):
 
     """
     wave = []
-    for index in xrange(0, rate * 2):
+    for index in range(0, rate * 2):
         sample = 2.0 * math.pi * frequency * float(index) / float(rate)
         sine_wave = math.sin(sample)
         noise = noise_level * numpy.random.standard_normal()
@@ -293,12 +298,12 @@ def hilbert_analysis(signal, rate, block_size):
     # Specially, beginning and ending part may not have ignored part.
     length = len(signal)
     result = []
-    for left_border in xrange(0, length, hilbert_block):
+    for left_border in range(0, length, hilbert_block):
         right_border = min(length, left_border + hilbert_block)
         temp_left_border = max(0, left_border - half_hilbert_block)
         temp_right_border = min(length, right_border + half_hilbert_block)
         temp = hilbert(signal[temp_left_border:temp_right_border])
-        for index in xrange(left_border, right_border):
+        for index in range(left_border, right_border):
             result.append(temp[index - temp_left_border])
     result = numpy.asarray(result)
     amplitude = numpy.abs(result)
@@ -336,7 +341,7 @@ def find_block_average_value(arr, side_block_size, block_size):
     left_average_array = numpy.zeros(length)
     right_average_array = numpy.zeros(length)
     block_average_array = numpy.zeros(length)
-    for index in xrange(0, length):
+    for index in range(0, length):
         while left_border < index - side_block_size:
             left_block_sum -= arr[left_border]
             left_border += 1
@@ -354,11 +359,11 @@ def find_block_average_value(arr, side_block_size, block_size):
         right_block_sum -= arr[index]
     left_border, right_border = 0, 1
     block_sum = 0
-    for index in xrange(0, length):
-        while left_border < index - block_size / 2:
+    for index in range(0, length):
+        while left_border < index - block_size // 2:
             block_sum -= arr[left_border]
             left_border += 1
-        while right_border < min(length, index + block_size / 2):
+        while right_border < min(length, index + block_size // 2):
             block_sum += arr[right_border]
             right_border += 1
 
@@ -395,9 +400,9 @@ def find_start_end_index(dominant_frequency,
 
     # Finds the start/end time index of playing based on dominant frequency
     start_index, end_index = length - 1 , 0
-    for index in xrange(0, length):
-        left_border = max(0, index - block_size / 2)
-        right_border = min(length - 1, index + block_size / 2)
+    for index in range(0, length):
+        left_border = max(0, index - block_size // 2)
+        right_border = min(length - 1, index + block_size // 2)
         frequency_error = block_frequency_delta[index] / dominant_frequency
         if frequency_error < frequency_error_threshold:
             start_index = min(start_index, left_border)
@@ -438,7 +443,7 @@ def noise_detection(start_index, end_index,
     last_noise_end_time_point = []
     previous_noise_index = None
     times = 0
-    for index in xrange(0, length):
+    for index in range(0, length):
         # Ignore noise too close to the beginning or the end of sine wave.
         # Check the docstring of NEAR_SINE_START_OR_END_SECS.
         if ((start_index - rate * NEAR_SINE_START_OR_END_SECS) <= index and
@@ -468,7 +473,7 @@ def noise_detection(start_index, end_index,
             previous_noise_index = index
 
     noise_before_playing, noise_after_playing = [], []
-    for i in xrange(times):
+    for i in range(times):
         duration = last_noise_end_time_point[i] - noise_time_point[i]
         if noise_time_point[i] < float(start_index) / rate - APPEND_ZEROS_SECS:
             noise_before_playing.append((noise_time_point[i], duration))
@@ -527,7 +532,7 @@ def delay_detection(start_index, end_index,
     same_event_samples = rate * DEFAULT_SAME_EVENT_SECS
     start_time = float(start_index) / rate - APPEND_ZEROS_SECS
     end_time = float(end_index) / rate - APPEND_ZEROS_SECS
-    for index in xrange(start_index, end_index):
+    for index in range(start_index, end_index):
         if block_amplitude[index] > average_amplitude * delay_amplitude_threshold:
             continue
         now_time = float(index) / rate - APPEND_ZEROS_SECS
@@ -563,7 +568,7 @@ def delay_detection(start_index, end_index,
             last_delay_end_time_points[times - 1] = index_end_sec
 
     delay_list = []
-    for i in xrange(len(delay_time_points)):
+    for i in range(len(delay_time_points)):
         duration = last_delay_end_time_points[i] - delay_time_points[i]
         delay_list.append( (delay_time_points[i], duration) )
     return delay_list
@@ -612,7 +617,7 @@ def burst_detection(start_index, end_index,
     burst_time_points = []
     previous_burst_index = None
     same_event_samples = rate * DEFAULT_SAME_EVENT_SECS
-    for index in xrange(start_index, end_index):
+    for index in range(start_index, end_index):
         # If amplitude higher than its left/right side and large enough,
         # it will be considered as a burst.
         if block_amplitude[index] <= average_amplitude * DEFAULT_BURST_TOO_SMALL:
@@ -686,7 +691,7 @@ def changing_volume_detection(start_index, end_index,
     changing_events = []
     amplitude_threshold = average_amplitude * DEFAULT_VOLUME_CHANGE_TOO_SMALL
     same_event_samples = rate * DEFAULT_SAME_EVENT_SECS
-    for index in xrange(start_index, end_index):
+    for index in range(start_index, end_index):
         # Skips if amplitude is too small.
         if left_block_amplitude[index] < amplitude_threshold:
             continue
@@ -724,7 +729,7 @@ def changing_volume_detection(start_index, end_index,
 
     # Combines consecutive increasing/decreasing event.
     combined_changing_events, prev = [], 0
-    for i in xrange(len(changing_events)):
+    for i in range(len(changing_events)):
         if changing_events[i] == prev:
             continue
         combined_changing_events.append((changing_time[i], changing_events[i]))

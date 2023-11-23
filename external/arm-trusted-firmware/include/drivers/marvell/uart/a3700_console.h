@@ -48,22 +48,16 @@
 
 /* Line Status Register bits */
 #define UARTLSR_TXFIFOFULL	(1 << 11)	/* Tx Fifo Full */
+#define UARTLSR_TXEMPTY		(1 << 6)	/* Tx Empty */
+#define UARTLSR_RXRDY		(1 << 4)	/* Rx Ready */
 
 /* UART Control Register bits */
 #define UART_CTRL_RXFIFO_RESET	(1 << 14)
 #define UART_CTRL_TXFIFO_RESET	(1 << 15)
-#define UARTLSR_TXFIFOEMPTY	(1 << 6)
-
-#define CONSOLE_T_A3700_BASE	CONSOLE_T_DRVDATA
 
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
-
-typedef struct {
-	console_t console;
-	uintptr_t base;
-} console_a3700_t;
 
 /*
  * Initialize a new a3700 console instance and register it with the console
@@ -72,7 +66,7 @@ typedef struct {
  * Its contents will be reinitialized from scratch.
  */
 int console_a3700_register(uintptr_t baseaddr, uint32_t clock, uint32_t baud,
-			   console_a3700_t *console);
+			   console_t *console);
 
 #endif /*__ASSEMBLER__*/
 

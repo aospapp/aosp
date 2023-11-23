@@ -3,4 +3,9 @@ cap_names.list.h
 _caps_output.gperf
 libcap.a
 libcap.so*
+libpsx.a
+libpsx.so*
 _makenames
+cap_test
+libcap.pc
+libpsx.pc

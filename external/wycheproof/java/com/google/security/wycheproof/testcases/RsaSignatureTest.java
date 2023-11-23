@@ -16,6 +16,8 @@
 
 package com.google.security.wycheproof;
 
+import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
+import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -1074,6 +1076,9 @@ public class RsaSignatureTest extends TestCase {
         + "0000",
   };
 
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyPairGenerator.RSA is removed")
   public void testBasic() throws Exception {
     String algorithm = "SHA256WithRSA";
     String hashAlgorithm = "SHA-256";
@@ -1155,6 +1160,9 @@ public class RsaSignatureTest extends TestCase {
   }
 
   /** SunJCE threw an OutOfMemoryError with one of the signatures. */
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyFactory.RSA is removed")
   public void testVectorsAll() throws Exception {
     testVectors(RSA_KEY1, ALGORITHM_KEY1, SIGNATURES_KEY1);
   }
@@ -1187,6 +1195,9 @@ public class RsaSignatureTest extends TestCase {
    * https://groups.google.com/a/chromium.org/forum/#!topic/chromium-reviews/Jo5S7HtEABI claims that
    * 7% of the responses in the Online Certificate Status Protocol (OCSP) miss the NULL parameter
    */
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyFactory.RSA is removed")
   public void testLegacySignatures() throws Exception {
     RSAPublicKeySpec key = RSA_KEY1;
     String algorithm = ALGORITHM_KEY1;

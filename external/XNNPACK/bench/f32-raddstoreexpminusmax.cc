@@ -28,18 +28,18 @@ static void f32_raddstoreexpminusmax(
     return;
   }
 
-  const size_t n = state.range(0);
+  const size_t elements = state.range(0);
   const size_t cache_line_size_max = 128;
-  const size_t packed_n = benchmark::utils::RoundUp(n, cache_line_size_max / sizeof(float));
+  const size_t packed_elements = benchmark::utils::RoundUp(elements, cache_line_size_max / sizeof(float));
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(-1000.0f, 1000.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(-1000.0f, 1000.0f), std::ref(rng));
 
   const size_t num_buffers = 1 +
-    benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(), packed_n * sizeof(float));
-  std::vector<float, AlignedAllocator<float, 64>> x(n);
-  std::vector<float, AlignedAllocator<float, 64>> y(packed_n * num_buffers);
+    benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(), packed_elements * sizeof(float));
+  std::vector<float, AlignedAllocator<float, 64>> x(elements);
+  std::vector<float, AlignedAllocator<float, 64>> y(packed_elements * num_buffers);
 
   std::generate(x.begin(), x.end(), std::ref(f32rng));
 
@@ -49,21 +49,28 @@ static void f32_raddstoreexpminusmax(
   for (auto _ : state) {
     state.PauseTiming();
     float x_max = nanf("");
-    rmax(n * sizeof(float), x.data(), &x_max);
+    rmax(elements * sizeof(float), x.data(), &x_max);
     if (++buffer_index == num_buffers) {
       buffer_index = 0;
     }
     state.ResumeTiming();
 
     float y_sum = nanf("");
-    raddstoreexpminusmax(n * sizeof(float), x.data(), y.data() + buffer_index * packed_n, &y_sum, x_max);
+    raddstoreexpminusmax(elements * sizeof(float), x.data(), y.data() + buffer_index * packed_elements, &y_sum, x_max);
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
+
+  const size_t elements_per_iteration = elements;
   state.counters["elements"] =
-    benchmark::Counter(uint64_t(state.iterations()) * n, benchmark::Counter::kIsRate);
+    benchmark::Counter(uint64_t(state.iterations()) * elements_per_iteration, benchmark::Counter::kIsRate);
+
+  const size_t bytes_per_iteration = 2 * elements * sizeof(float);
   state.counters["bytes"] =
-    benchmark::Counter(uint64_t(state.iterations()) * 2 * sizeof(float) * n, benchmark::Counter::kIsRate);
+    benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
 
 static void CharacteristicArguments(benchmark::internal::Benchmark* b) {
@@ -414,44 +421,44 @@ static void CharacteristicArguments(benchmark::internal::Benchmark* b) {
     xnn_f32_raddstoreexpminusmax_ukernel__sse2_p5_x20_acc5)->Apply(CharacteristicArguments)->UseRealTime();
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
-#if !XNN_ARCH_WASM && !XNN_ARCH_ASMJS
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x4,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x4)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x8,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x8)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x8_acc2,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x8_acc2)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x12,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x12)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x12_acc2,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x12_acc2)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x12_acc3,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x12_acc3)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x16,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x16)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x16_acc2,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x16_acc2)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x16_acc4,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x16_acc4)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x20,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x20)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x20_acc2,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x20_acc2)->Apply(CharacteristicArguments)->UseRealTime();
-  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, psimd_p5_x20_acc5,
-    xnn_f32_rmax_ukernel__psimd,
-    xnn_f32_raddstoreexpminusmax_ukernel__psimd_p5_x20_acc5)->Apply(CharacteristicArguments)->UseRealTime();
-#endif  // !XNN_ARCH_WASM && !XNN_ARCH_ASMJS
+#if XNN_ARCH_WASMSIMD
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x4,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x4)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x8,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x8)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x8_acc2,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x8_acc2)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x12,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x12)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x12_acc2,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x12_acc2)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x12_acc3,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x12_acc3)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x16,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x16)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x16_acc2,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x16_acc2)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x16_acc4,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x16_acc4)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x20,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x20)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x20_acc2,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x20_acc2)->Apply(CharacteristicArguments)->UseRealTime();
+  BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, wasmsimd_p5_x20_acc5,
+    xnn_f32_rmax_ukernel__wasmsimd_arm,
+    xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_p5_x20_acc5)->Apply(CharacteristicArguments)->UseRealTime();
+#endif  // XNN_ARCH_WASMSIMD
 
 BENCHMARK_CAPTURE(f32_raddstoreexpminusmax, scalar_lut64_p2_x1,
   xnn_f32_rmax_ukernel__scalar,

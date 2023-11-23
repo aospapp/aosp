@@ -1,8 +1,45 @@
 
+package {
+    default_applicable_licenses: ["external_libnl_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_libnl_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-GPL-3.0",
+        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-LGPL-2.1",
+        "SPDX-license-identifier-LGPL-3.0",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "COPYING",
+    ],
+}
+
 cc_library {
     name: "libnl",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
     },
@@ -11,39 +48,28 @@ cc_library {
         darwin: {
             enabled: false,
         },
+        linux_glibc: {
+            local_include_dirs: [
+                "include/linux-private",
+            ],
+        },
     },
 
     srcs: [
-        "lib/cache.c",
-        "lib/data.c",
-        "lib/nl.c",
-        "lib/cache_mngr.c",
-        "lib/addr.c",
-        "lib/socket.c",
+        "lib/*.c",
         "lib/fib_lookup/lookup.c",
         "lib/fib_lookup/request.c",
-        "lib/msg.c",
-        "lib/object.c",
-        "lib/attr.c",
-        "lib/utils.c",
-        "lib/cache_mngt.c",
-        "lib/handlers.c",
         "lib/genl/ctrl.c",
-        "lib/genl/mngt.c",
         "lib/genl/family.c",
         "lib/genl/genl.c",
-        "lib/route/rtnl.c",
-        "lib/route/route_utils.c",
+        "lib/genl/mngt.c",
         "lib/netfilter/nfnl.c",
-        "lib/error.c",
-        "lib/version.c",
-        "lib/hash.c",
-        "lib/hashtable.c",
+        "lib/route/route_utils.c",
+        "lib/route/rtnl.c",
     ],
 
     local_include_dirs: [
         "include",
-        "include/linux-private",
     ],
     export_include_dirs: ["include"],
     cflags: [
@@ -63,5 +89,8 @@ cc_library {
     sanitize: {
         integer_overflow: true,
     },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
-

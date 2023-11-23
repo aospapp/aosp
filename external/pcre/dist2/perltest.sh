@@ -68,6 +68,9 @@ fi
 # #newline_default commands, which are needed in the relevant pcre2test files,
 # are ignored. Any other #-command is ignored, with a warning message.
 #
+# The pattern lines should use only / as the delimiter. The other characters
+# that pcre2test supports cause problems with this script.
+#
 # The data lines must not have any pcre2test modifiers. Unless
 # "subject_literal" is on the pattern, data lines are processed as
 # Perl double-quoted strings, so if they contain " $ or @ characters, these
@@ -140,7 +143,7 @@ if (@ARGV > 1)
   }
 else { $outfile = "STDOUT"; }
 
-printf($outfile "Perl $] Regular Expressions\n\n");
+printf($outfile "Perl $^V\n\n");
 
 $extra_modifiers = "";
 $default_show_mark = 0;

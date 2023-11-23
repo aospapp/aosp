@@ -27,6 +27,9 @@ The content of the json file looks like:
 }
 """
 
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import copy
 import fnmatch
@@ -35,17 +38,27 @@ import json
 import logging
 import os
 import random
+from six.moves import range
 import sys
 import time
 import traceback
 
-import dedupe_file_throttler
-import delete_file_throttler
-import result_info
-import shrink_file_throttler
-import throttler_lib
-import utils_lib
-import zip_file_throttler
+try:
+    from autotest_lib.client.bin.result_tools import dedupe_file_throttler
+    from autotest_lib.client.bin.result_tools import delete_file_throttler
+    from autotest_lib.client.bin.result_tools import result_info
+    from autotest_lib.client.bin.result_tools import shrink_file_throttler
+    from autotest_lib.client.bin.result_tools import throttler_lib
+    from autotest_lib.client.bin.result_tools import utils_lib
+    from autotest_lib.client.bin.result_tools import zip_file_throttler
+except ImportError:
+    import dedupe_file_throttler
+    import delete_file_throttler
+    import result_info
+    import shrink_file_throttler
+    import throttler_lib
+    import utils_lib
+    import zip_file_throttler
 
 
 # Do NOT import autotest_lib modules here. This module can be executed without

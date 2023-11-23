@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -118,7 +119,7 @@ static uint32_t tegra210_uart_addresses[TEGRA210_MAX_UART_PORTS + 1] = {
  ******************************************************************************/
 void plat_enable_console(int32_t id)
 {
-	static console_16550_t uart_console;
+	static console_t uart_console;
 	uint32_t console_clock;
 
 	if ((id > 0) && (id < TEGRA210_MAX_UART_PORTS)) {
@@ -135,9 +136,25 @@ void plat_enable_console(int32_t id)
 					     console_clock,
 					     TEGRA_CONSOLE_BAUDRATE,
 					     &uart_console);
-		console_set_scope(&uart_console.console, CONSOLE_FLAG_BOOT |
+		console_set_scope(&uart_console, CONSOLE_FLAG_BOOT |
 			CONSOLE_FLAG_RUNTIME | CONSOLE_FLAG_CRASH);
 	}
+}
+
+/*******************************************************************************
+ * Return pointer to the BL31 params from previous bootloader
+ ******************************************************************************/
+struct tegra_bl31_params *plat_get_bl31_params(void)
+{
+	return NULL;
+}
+
+/*******************************************************************************
+ * Return pointer to the BL31 platform params from previous bootloader
+ ******************************************************************************/
+plat_params_from_bl2_t *plat_get_bl31_plat_params(void)
+{
+	return NULL;
 }
 
 /*******************************************************************************
@@ -148,6 +165,15 @@ void plat_early_platform_setup(void)
 	const plat_params_from_bl2_t *plat_params = bl31_get_plat_params();
 	uint64_t val;
 
+	/* Verify chip id is t210 */
+	assert(tegra_chipid_is_t210());
+
+	/*
+	 * Do initial security configuration to allow DRAM/device access.
+	 */
+	tegra_memctrl_tzdram_setup(plat_params->tzdram_base,
+			(uint32_t)plat_params->tzdram_size);
+
 	/* platform parameter passed by the previous bootloader */
 	if (plat_params->l2_ecc_parity_prot_dis != 1) {
 		/* Enable ECC Parity Protection for Cortex-A57 CPUs */
@@ -157,17 +183,22 @@ void plat_early_platform_setup(void)
 	}
 
 	/* Initialize security engine driver */
-	if (tegra_chipid_is_t210_b01()) {
-		tegra_se_init();
-	}
+	tegra_se_init();
 }
 
 /* Secure IRQs for Tegra186 */
 static const interrupt_prop_t tegra210_interrupt_props[] = {
-	INTR_PROP_DESC(TEGRA210_WDT_CPU_LEGACY_FIQ, GIC_HIGHEST_SEC_PRIORITY,
+	INTR_PROP_DESC(TEGRA_SDEI_SGI_PRIVATE, PLAT_SDEI_CRITICAL_PRI,
+			GICV2_INTR_GROUP0, GIC_INTR_CFG_EDGE),
+	INTR_PROP_DESC(TEGRA210_TIMER1_IRQ, PLAT_TEGRA_WDT_PRIO,
+			GICV2_INTR_GROUP0, GIC_INTR_CFG_EDGE),
+	INTR_PROP_DESC(TEGRA210_WDT_CPU_LEGACY_FIQ, PLAT_TEGRA_WDT_PRIO,
 			GICV2_INTR_GROUP0, GIC_INTR_CFG_EDGE),
 };
 
+/*******************************************************************************
+ * Handler for late platform setup
+ ******************************************************************************/
 void plat_late_platform_setup(void)
 {
 	const plat_params_from_bl2_t *plat_params = bl31_get_plat_params();
@@ -216,6 +247,13 @@ void plat_late_platform_setup(void)
 		val |= PMC_SECURITY_EN_BIT;
 		mmio_write_32(TEGRA_MISC_BASE + APB_SLAVE_SECURITY_ENABLE, val);
 	}
+
+	if (!tegra_chipid_is_t210_b01()) {
+		/* restrict PMC access to secure world */
+		val = mmio_read_32(TEGRA_MISC_BASE + APB_SLAVE_SECURITY_ENABLE);
+		val |= PMC_SECURITY_EN_BIT;
+		mmio_write_32(TEGRA_MISC_BASE + APB_SLAVE_SECURITY_ENABLE, val);
+	}
 }
 
 /*******************************************************************************
@@ -234,4 +272,47 @@ void plat_gic_setup(void)
 	 * the GICD.
 	 */
 	tegra_fc_enable_fiq_to_ccplex_routing();
+}
+/*******************************************************************************
+ * Handler to indicate support for System Suspend
+ ******************************************************************************/
+bool plat_supports_system_suspend(void)
+{
+	const plat_params_from_bl2_t *plat_params = bl31_get_plat_params();
+
+	/*
+	 * sc7entry-fw is only supported by Tegra210 SoCs.
+	 */
+	if (!tegra_chipid_is_t210_b01() && (plat_params->sc7entry_fw_base != 0U)) {
+		return true;
+	} else if (tegra_chipid_is_t210_b01()) {
+		return true;
+	} else {
+		return false;
+	}
+}
+/*******************************************************************************
+ * Platform specific runtime setup.
+ ******************************************************************************/
+void plat_runtime_setup(void)
+{
+	/*
+	 * During cold boot, it is observed that the arbitration
+	 * bit is set in the Memory controller leading to false
+	 * error interrupts in the non-secure world. To avoid
+	 * this, clean the interrupt status register before
+	 * booting into the non-secure world
+	 */
+	tegra_memctrl_clear_pending_interrupts();
+
+	/*
+	 * During boot, USB3 and flash media (SDMMC/SATA) devices need
+	 * access to IRAM. Because these clients connect to the MC and
+	 * do not have a direct path to the IRAM, the MC implements AHB
+	 * redirection during boot to allow path to IRAM. In this mode
+	 * accesses to a programmed memory address aperture are directed
+	 * to the AHB bus, allowing access to the IRAM. This mode must be
+	 * disabled before we jump to the non-secure world.
+	 */
+	tegra_memctrl_disable_ahb_redirection();
 }

@@ -173,6 +173,7 @@ public:
                                  exec_list *out_instructions,
                                  exec_list *out_variables,
                                  bool disable_varying_packing,
+                                 bool disable_xfb_packing,
                                  bool xfb_enabled);
 
    void run(struct gl_linked_shader *shader);
@@ -240,6 +241,7 @@ private:
    exec_list *out_variables;
 
    bool disable_varying_packing;
+   bool disable_xfb_packing;
    bool xfb_enabled;
 };
 
@@ -250,7 +252,7 @@ lower_packed_varyings_visitor::lower_packed_varyings_visitor(
       ir_variable_mode mode,
       unsigned gs_input_vertices, exec_list *out_instructions,
       exec_list *out_variables, bool disable_varying_packing,
-      bool xfb_enabled)
+      bool disable_xfb_packing, bool xfb_enabled)
    : mem_ctx(mem_ctx),
      locations_used(locations_used),
      components(components),
@@ -262,6 +264,7 @@ lower_packed_varyings_visitor::lower_packed_varyings_visitor(
      out_instructions(out_instructions),
      out_variables(out_variables),
      disable_varying_packing(disable_varying_packing),
+     disable_xfb_packing(disable_xfb_packing),
      xfb_enabled(xfb_enabled)
 {
 }
@@ -577,20 +580,21 @@ lower_packed_varyings_visitor::lower_rvalue(ir_rvalue *rvalue,
          right_swizzle_values[i] = i + left_components;
          right_swizzle_name[i] = "xyzw"[i + left_components];
       }
-      ir_swizzle *left_swizzle = new(this->mem_ctx)
-         ir_swizzle(rvalue, left_swizzle_values, left_components);
+
       ir_swizzle *right_swizzle = new(this->mem_ctx)
          ir_swizzle(rvalue->clone(this->mem_ctx, NULL), right_swizzle_values,
                     right_components);
-      char *left_name
-         = ralloc_asprintf(this->mem_ctx, "%s.%s", name, left_swizzle_name);
       char *right_name
          = ralloc_asprintf(this->mem_ctx, "%s.%s", name, right_swizzle_name);
-      if (left_components)
+      if (left_components) {
+         char *left_name
+            = ralloc_asprintf(this->mem_ctx, "%s.%s", name, left_swizzle_name);
+         ir_swizzle *left_swizzle = new(this->mem_ctx)
+                                    ir_swizzle(rvalue, left_swizzle_values, left_components);
          fine_location = this->lower_rvalue(left_swizzle, fine_location,
                                             unpacked_var, left_name, false,
                                             vertex_index);
-      else
+      } else
          /* Top up the fine location to the next slot */
          fine_location++;
       return this->lower_rvalue(right_swizzle, fine_location, unpacked_var,
@@ -769,12 +773,21 @@ lower_packed_varyings_visitor::needs_lowering(ir_variable *var)
    if (var->data.explicit_location || var->data.must_be_shader_input)
       return false;
 
+   const glsl_type *type = var->type;
+
+   /* Some drivers (e.g. panfrost) don't support packing of transform
+    * feedback varyings.
+    */
+   if (disable_xfb_packing && var->data.is_xfb &&
+       !(type->is_array() || type->is_struct() || type->is_matrix()) &&
+       xfb_enabled)
+      return false;
+
    /* Override disable_varying_packing if the var is only used by transform
     * feedback. Also override it if transform feedback is enabled and the
     * variable is an array, struct or matrix as the elements of these types
     * will always have the same interpolation and therefore are safe to pack.
     */
-   const glsl_type *type = var->type;
    if (disable_varying_packing && !var->data.is_xfb_only &&
        !((type->is_array() || type->is_struct() || type->is_matrix()) &&
          xfb_enabled))
@@ -874,7 +887,7 @@ lower_packed_varyings(void *mem_ctx, unsigned locations_used,
                       const uint8_t *components,
                       ir_variable_mode mode, unsigned gs_input_vertices,
                       gl_linked_shader *shader, bool disable_varying_packing,
-                      bool xfb_enabled)
+                      bool disable_xfb_packing, bool xfb_enabled)
 {
    exec_list *instructions = shader->ir;
    ir_function *main_func = shader->symbols->get_function("main");
@@ -890,6 +903,7 @@ lower_packed_varyings(void *mem_ctx, unsigned locations_used,
                                          &new_instructions,
                                          &new_variables,
                                          disable_varying_packing,
+                                         disable_xfb_packing,
                                          xfb_enabled);
    visitor.run(shader);
    if (mode == ir_var_shader_out) {

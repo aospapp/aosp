@@ -499,6 +499,11 @@ output_interesting_cursors()
 	struct reconstructed_glyph *glyphs =
 		malloc(n * sizeof(*glyphs));
 
+	if (!glyphs) {
+		printf("reconstructed_glyph malloc failed\n");
+		abort();
+	}
+
 	for (i = 0; i < n; ++i) {
 		struct glyph *cursor, *mask;
 		find_cursor_and_mask(interesting_cursors[i].source_name,

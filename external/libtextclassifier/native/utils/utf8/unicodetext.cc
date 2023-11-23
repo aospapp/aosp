@@ -22,6 +22,7 @@
 
 #include "utils/base/logging.h"
 #include "utils/strings/utf8.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 
@@ -202,6 +203,22 @@ bool UnicodeText::is_valid() const {
   return IsValidUTF8(repr_.data_, repr_.size_);
 }
 
+std::vector<UnicodeText::const_iterator> UnicodeText::Codepoints() const {
+  std::vector<UnicodeText::const_iterator> codepoints;
+  for (auto it = begin(); it != end(); it++) {
+    codepoints.push_back(it);
+  }
+  return codepoints;
+}
+
+std::vector<char32> UnicodeText::CodepointsChar32() const {
+  std::vector<char32> codepoints;
+  for (auto it = begin(); it != end(); it++) {
+    codepoints.push_back(*it);
+  }
+  return codepoints;
+}
+
 bool UnicodeText::operator==(const UnicodeText& other) const {
   if (repr_.size_ != other.repr_.size_) {
     return false;
@@ -317,6 +334,10 @@ UnicodeText UTF8ToUnicodeText(const std::string& str, bool do_copy) {
 }
 
 UnicodeText UTF8ToUnicodeText(StringPiece str, bool do_copy) {
+  return UTF8ToUnicodeText(str.data(), str.size(), do_copy);
+}
+
+UnicodeText UTF8ToUnicodeText(absl::string_view str, bool do_copy) {
   return UTF8ToUnicodeText(str.data(), str.size(), do_copy);
 }
 

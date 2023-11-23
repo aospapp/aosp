@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (C) 2019 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ import fcntl
 import logging
 import json
 import os
-import Queue
+import queue
 import signal
 import socket
 import shutil
@@ -48,7 +48,7 @@ def read_nonblock(fd):
       buf = os.read(fd.fileno(), 1024)
       if not buf:
         break
-      res += buf
+      res += buf.decode()
     except OSError:
       break
   return res
@@ -73,7 +73,7 @@ def log_thread(job_id, queue):
 def main(argv):
   init_logging()
   if len(argv) != 2:
-    print 'Usage: %s job_id' % argv[0]
+    print('Usage: %s job_id' % argv[0])
     return 1
 
   job_id = argv[1]
@@ -85,14 +85,14 @@ def main(argv):
   # Remove stale jobs, if any.
   subprocess.call(['sudo', 'docker', 'rm', '-f', container])
 
-  q = Queue.Queue()
+  q = queue.Queue()
 
   # Conversely to real programs, signal handlers in python aren't really async
   # but are queued on the main thread. Hence We need to keep the main thread
   # responsive to react to signals. This is to handle timeouts and graceful
   # termination of the worker container, which dispatches a SIGTERM on stop.
   def sig_handler(sig, _):
-    logging.warn('Job runner got signal %s, terminating job %s', sig, job_id)
+    logging.warning('Job runner got signal %s, terminating job %s', sig, job_id)
     subprocess.call(['sudo', 'docker', 'kill', container])
     os._exit(1)  # sys.exit throws a SystemExit exception, _exit really exits.
 
@@ -104,14 +104,22 @@ def main(argv):
   # SYS_PTRACE is required for gtest death tests and LSan.
   cmd = [
       'sudo', 'docker', 'run', '--name', container, '--hostname', container,
-      '--cap-add', 'SYS_PTRACE', '--rm', '--tmpfs', '/ci/ramdisk:exec',
-      '--tmpfs', '/tmp:exec', '--env',
-      'PERFETTO_TEST_JOB=%s' % job_id
+      '--cap-add', 'SYS_PTRACE', '--rm', '--env',
+      'PERFETTO_TEST_JOB=%s' % job_id, '--tmpfs', '/tmp:exec'
   ]
 
   # Propagate environment variables coming from the job config.
   for kv in [kv for kv in os.environ.items() if kv[0].startswith('PERFETTO_')]:
     cmd += ['--env', '%s=%s' % kv]
+
+  # We use the tmpfs mount created by gce-startup-script.sh, if present. The
+  # problem is that Docker doesn't allow to both override the tmpfs-size and
+  # prevent the "-o noexec". In turn the default tmpfs-size depends on the host
+  # phisical memory size.
+  if os.getenv('SANDBOX_TMP'):
+    cmd += ['-v', '%s:/ci/ramdisk' % os.getenv('SANDBOX_TMP')]
+  else:
+    cmd += ['--tmpfs', '/ci/ramdisk:exec']
 
   # Rationale for the conditional branches below: when running in the real GCE
   # environment, the gce-startup-script.sh mounts these directories in the right

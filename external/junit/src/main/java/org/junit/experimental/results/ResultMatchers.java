@@ -14,6 +14,15 @@ import org.hamcrest.TypeSafeMatcher;
  * </pre>
  */
 public class ResultMatchers {
+
+    /**
+     * Do not instantiate.
+     * @deprecated will be private soon.
+     */
+    @Deprecated
+    public ResultMatchers() {
+    }
+
     /**
      * Matches if the tests are all successful
      */
@@ -53,13 +62,33 @@ public class ResultMatchers {
     }
 
     /**
+     * Matches if the result has exactly one failure matching the given matcher.
+     *
+     * @since 4.13
+     */
+    public static Matcher<PrintableResult> hasSingleFailureMatching(final Matcher<Throwable> matcher) {
+        return new TypeSafeMatcher<PrintableResult>() {
+            @Override
+            public boolean matchesSafely(PrintableResult item) {
+                return item.failureCount() == 1 && matcher.matches(item.failures().get(0).getException());
+            }
+
+            public void describeTo(Description description) {
+                description.appendText("has failure with exception matching ");
+                matcher.describeTo(description);
+            }
+        };
+    }
+
+    /**
      * Matches if the result has one or more failures, and at least one of them
      * contains {@code string}
      */
     public static Matcher<PrintableResult> hasFailureContaining(final String string) {
-        return new BaseMatcher<PrintableResult>() {
-            public boolean matches(Object item) {
-                return item.toString().contains(string);
+        return new TypeSafeMatcher<PrintableResult>() {
+            @Override
+            public boolean matchesSafely(PrintableResult item) {
+                return item.failureCount() > 0 && item.toString().contains(string);
             }
 
             public void describeTo(Description description) {

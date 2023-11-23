@@ -28,9 +28,10 @@
 #include "context.h"
 #include "enums.h"
 #include "hash.h"
-#include "imports.h"
+
 #include "queryobj.h"
 #include "mtypes.h"
+#include "util/u_memory.h"
 
 
 /**
@@ -120,10 +121,15 @@ _mesa_check_query(struct gl_context *ctx, struct gl_query_object *q)
 
 
 /**
- * Delete a query object.  Called via ctx->Driver.DeleteQuery().
+ * Delete a query object.  Called via ctx->Driver.DeleteQuery(), if not
+ * overwritten by driver.  In the latter case, called from the driver
+ * after all driver-specific clean-up has been done.
  * Not removed from hash table here.
+ *
+ * \param ctx GL context to wich query object belongs.
+ * \param q query object due to be deleted.
  */
-static void
+void
 _mesa_delete_query(struct gl_context *ctx, struct gl_query_object *q)
 {
    free(q->Label);
@@ -256,7 +262,6 @@ create_queries(struct gl_context *ctx, GLenum target, GLsizei n, GLuint *ids,
                bool dsa)
 {
    const char *func = dsa ? "glGenQueries" : "glCreateQueries";
-   GLuint first;
 
    if (MESA_VERBOSE & VERBOSE_API)
       _mesa_debug(ctx, "%s(%d)\n", func, n);
@@ -266,12 +271,11 @@ create_queries(struct gl_context *ctx, GLenum target, GLsizei n, GLuint *ids,
       return;
    }
 
-   first = _mesa_HashFindFreeKeyBlock(ctx->Query.QueryObjects, n);
-   if (first) {
+   if (_mesa_HashFindFreeKeys(ctx->Query.QueryObjects, ids, n)) {
       GLsizei i;
       for (i = 0; i < n; i++) {
          struct gl_query_object *q
-            = ctx->Driver.NewQueryObject(ctx, first + i);
+            = ctx->Driver.NewQueryObject(ctx, ids[i]);
          if (!q) {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
             return;
@@ -280,8 +284,7 @@ create_queries(struct gl_context *ctx, GLenum target, GLsizei n, GLuint *ids,
             q->Target = target;
             q->EverBound = GL_TRUE;
          }
-         ids[i] = first + i;
-         _mesa_HashInsertLocked(ctx->Query.QueryObjects, first + i, q);
+         _mesa_HashInsertLocked(ctx->Query.QueryObjects, ids[i], q, true);
       }
    }
 }
@@ -451,7 +454,7 @@ _mesa_BeginQueryIndexed(GLenum target, GLuint index, GLuint id)
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "glBeginQuery{Indexed}");
             return;
          }
-         _mesa_HashInsertLocked(ctx->Query.QueryObjects, id, q);
+         _mesa_HashInsertLocked(ctx->Query.QueryObjects, id, q, false);
       }
    }
    else {
@@ -593,7 +596,7 @@ _mesa_QueryCounter(GLuint id, GLenum target)
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glQueryCounter");
          return;
       }
-      _mesa_HashInsertLocked(ctx->Query.QueryObjects, id, q);
+      _mesa_HashInsertLocked(ctx->Query.QueryObjects, id, q, false);
    }
    else {
       if (q->Target && q->Target != GL_TIMESTAMP) {
@@ -658,11 +661,21 @@ _mesa_GetQueryIndexediv(GLenum target, GLuint index, GLenum pname,
     * <pname> is not CURRENT_QUERY_EXT."
     *
     * Same rule is present also in ES 3.2 spec.
+    *
+    * EXT_disjoint_timer_query extends this with GL_QUERY_COUNTER_BITS.
     */
-   if (_mesa_is_gles(ctx) && pname != GL_CURRENT_QUERY) {
-      _mesa_error(ctx, GL_INVALID_ENUM, "glGetQueryivEXT(%s)",
-                  _mesa_enum_to_string(pname));
-      return;
+   if (_mesa_is_gles(ctx)) {
+      switch (pname) {
+      case GL_CURRENT_QUERY:
+         break;
+      case GL_QUERY_COUNTER_BITS:
+         if (_mesa_has_EXT_disjoint_timer_query(ctx))
+            break;
+         /* fallthrough */
+      default:
+         _mesa_error(ctx, GL_INVALID_ENUM, "glGetQueryivEXT(%s)",
+                     _mesa_enum_to_string(pname));
+      }
    }
 
    if (target == GL_TIMESTAMP) {
@@ -810,7 +823,7 @@ get_query_object(struct gl_context *ctx, const char *func,
       return;
    }
 
-   if (buf && buf != ctx->Shared->NullBufferObj) {
+   if (buf) {
       bool is_64bit = ptype == GL_INT64_ARB ||
          ptype == GL_UNSIGNED_INT64_ARB;
       if (!_mesa_has_ARB_query_buffer_object(ctx)) {
@@ -1044,7 +1057,7 @@ _mesa_init_queryobj(struct gl_context *ctx)
  * Callback for deleting a query object.  Called by _mesa_HashDeleteAll().
  */
 static void
-delete_queryobj_cb(GLuint id, void *data, void *userData)
+delete_queryobj_cb(void *data, void *userData)
 {
    struct gl_query_object *q= (struct gl_query_object *) data;
    struct gl_context *ctx = (struct gl_context *)userData;

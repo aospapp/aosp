@@ -61,14 +61,6 @@
 #define T32_4NT 128
 #define T16_4NT 64
 
-
-
-/*****************************************************************************/
-/* Table Look-up                                                             */
-/*****************************************************************************/
-
-#define GET_BITS(y,x) ((y) & (1 << x)) && (1 << x)
-
 /*****************************************************************************/
 /* Function Definition                                                      */
 /*****************************************************************************/
@@ -338,7 +330,7 @@ void ihevc_intra_pred_luma_ref_substitution_neonintr(UWORD8 *pu1_top_left,
                 /* The Top-left flag is at the last bit location of nbr_flags*/
                 if(nbr_id_from_bl == (T16_4NT / 2))
                 {
-                    get_bits = GET_BITS(nbr_flags_temp, 8);
+                    get_bits = GET_BIT(nbr_flags_temp, 8);
 
                     /* only pel substitution for TL */
                     if(!get_bits)
@@ -346,7 +338,7 @@ void ihevc_intra_pred_luma_ref_substitution_neonintr(UWORD8 *pu1_top_left,
                 }
                 else
                 {
-                    get_bits = GET_BITS(nbr_flags_temp, frwd_nbr_flag);
+                    get_bits = GET_BIT(nbr_flags_temp, frwd_nbr_flag);
                     if(!get_bits)
                     {
                         /* 8 pel substitution (other than TL) */
@@ -398,14 +390,14 @@ void ihevc_intra_pred_luma_ref_substitution_neonintr(UWORD8 *pu1_top_left,
                 /* The Top-left flag is at the last bit location of nbr_flags*/
                 if(nbr_id_from_bl == (T32_4NT / 2))
                 {
-                    get_bits = GET_BITS(nbr_flags, 16);
+                    get_bits = GET_BIT(nbr_flags, 16);
                     /* only pel substitution for TL */
                     if(!get_bits)
                         pu1_dst[nbr_id_from_bl] = pu1_dst[nbr_id_from_bl - 1];
                 }
                 else
                 {
-                    get_bits = GET_BITS(nbr_flags, frwd_nbr_flag);
+                    get_bits = GET_BIT(nbr_flags, frwd_nbr_flag);
                     if(!get_bits)
                     {
                         /* 8 pel substitution (other than TL) */

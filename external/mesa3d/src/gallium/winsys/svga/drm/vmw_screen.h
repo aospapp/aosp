@@ -78,6 +78,9 @@ struct vmw_winsys_screen
       boolean have_drm_2_9;
       uint32_t drm_execbuf_version;
       boolean have_drm_2_15;
+      boolean have_drm_2_16;
+      boolean have_drm_2_17;
+      boolean have_drm_2_18;
    } ioctl;
 
    struct {
@@ -104,6 +107,9 @@ struct vmw_winsys_screen
 
    cnd_t cs_cond;
    mtx_t cs_mutex;
+
+   boolean force_coherent;
+   boolean cache_maps;
 };
 
 

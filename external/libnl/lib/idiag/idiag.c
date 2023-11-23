@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  *  lib/idiag/idiag.c    Inet Diag Netlink
  *
@@ -55,9 +56,11 @@ int idiagnl_connect(struct nl_sock *sk)
  * @arg flags	Message flags
  * @arg family	Address family
  * @arg states	Socket states to query
- * @arg ext	Inet Diag attribute extensions to query
+ * @arg ext	Inet Diag attribute extensions to query. Note that this only supports
+ *   8 bit arguments. Flags outside uint8_t range are silently ignored.
  *
- * @return Newly allocated netlink message or NULL.
+ * @return 0 on success or a negative error code. Due to a bug, this function
+ * returns the number of bytes sent. Treat any non-negative number as success.
  */
 int idiagnl_send_simple(struct nl_sock *sk, int flags, uint8_t family,
 		uint16_t states, uint16_t ext)
@@ -82,25 +85,22 @@ int idiagnl_send_simple(struct nl_sock *sk, int flags, uint8_t family,
  */
 
 static const struct trans_tbl idiag_states[] = {
-	__ADD(IDIAG_SS_UNKNOWN, unknown)
-	__ADD(IDIAG_SS_ESTABLISHED, established)
-	__ADD(IDIAG_SS_SYN_SENT, syn_sent)
-	__ADD(IDIAG_SS_SYN_RECV, syn_recv)
-	__ADD(IDIAG_SS_FIN_WAIT1, fin_wait)
-	__ADD(IDIAG_SS_FIN_WAIT2, fin_wait2)
-	__ADD(IDIAG_SS_TIME_WAIT, time_wait)
-	__ADD(IDIAG_SS_CLOSE, close)
-	__ADD(IDIAG_SS_CLOSE_WAIT, close_wait)
-	__ADD(IDIAG_SS_LAST_ACK, last_ack)
-	__ADD(IDIAG_SS_LISTEN, listen)
-	__ADD(IDIAG_SS_CLOSING, closing)
-	__ADD(IDIAG_SS_MAX, max)
-	{ ((1<<IDIAG_SS_MAX)-1), "all" }
+	__ADD(TCP_ESTABLISHED, established),
+	__ADD(TCP_SYN_SENT, syn_sent),
+	__ADD(TCP_SYN_RECV, syn_recv),
+	__ADD(TCP_FIN_WAIT1, fin_wait),
+	__ADD(TCP_FIN_WAIT2, fin_wait2),
+	__ADD(TCP_TIME_WAIT, time_wait),
+	__ADD(TCP_CLOSE, close),
+	__ADD(TCP_CLOSE_WAIT, close_wait),
+	__ADD(TCP_LAST_ACK, last_ack),
+	__ADD(TCP_LISTEN, listen),
+	__ADD(TCP_CLOSING, closing),
 };
 
 /**
  * Convert inet diag socket states to strings.
- * @arg state	  inetdiag socket state (e.g., IDIAG_SS_ESTABLISHED)
+ * @arg state	  inetdiag socket state (e.g., TCP_ESTABLISHED)
  * @arg buf	  output buffer which will hold string result
  * @arg len	  length in bytes of the output buffer
  *
@@ -126,17 +126,17 @@ int idiagnl_str2state(const char *name)
 }
 
 static const struct trans_tbl idiag_timers[] = {
-	__ADD(IDIAG_TIMER_OFF, off)
-	__ADD(IDIAG_TIMER_ON, on)
-	__ADD(IDIAG_TIMER_KEEPALIVE, keepalive)
-	__ADD(IDIAG_TIMER_TIMEWAIT, timewait)
-	__ADD(IDIAG_TIMER_PERSIST, persist)
-	__ADD(IDIAG_TIMER_UNKNOWN, unknown)
+	__ADD(IDIAGNL_TIMER_OFF, off),
+	__ADD(IDIAGNL_TIMER_ON, on),
+	__ADD(IDIAGNL_TIMER_KEEPALIVE, keepalive),
+	__ADD(IDIAGNL_TIMER_TIMEWAIT, timewait),
+	__ADD(IDIAGNL_TIMER_PERSIST, persist),
+	__ADD(IDIAGNL_TIMER_UNKNOWN, unknown),
 };
 
 /**
  * Convert inet diag timer types to strings.
- * @arg timer	  inetdiag timer (e.g., IDIAG_TIMER_ON)
+ * @arg timer	  inetdiag timer (e.g., IDIAGNL_TIMER_ON)
  * @arg buf	  output buffer which will hold string result
  * @arg len	  length in bytes of the output buffer
  *
@@ -160,34 +160,61 @@ int idiagnl_str2timer(const char *name)
 }
 
 static const struct trans_tbl idiag_attrs[] = {
-	__ADD(IDIAG_ATTR_NONE, none)
-	__ADD(IDIAG_ATTR_MEMINFO, meminfo)
-	__ADD(IDIAG_ATTR_INFO, info)
-	__ADD(IDIAG_ATTR_VEGASINFO, vegasinfo)
-	__ADD(IDIAG_ATTR_CONG, congestion)
-	__ADD(IDIAG_ATTR_TOS, tos)
-	__ADD(IDIAG_ATTR_TCLASS, tclass)
+	__ADD(INET_DIAG_NONE, none),
+	__ADD(INET_DIAG_MEMINFO, meminfo),
+	__ADD(INET_DIAG_INFO, info),
+	__ADD(INET_DIAG_VEGASINFO, vegasinfo),
+	__ADD(INET_DIAG_CONG, congestion),
+	__ADD(INET_DIAG_TOS, tos),
+	__ADD(INET_DIAG_TCLASS, tclass),
+	__ADD(INET_DIAG_SKMEMINFO, skmeminfo),
+	__ADD(INET_DIAG_SHUTDOWN, shutdown),
 };
 
 /**
- * Convert inetdiag extended attributes to strings.
- * @arg attrs	  inetdiag attribute (e.g., IDIAG_ATTR_MEMINFO)
+ * Convert inet diag extension type to a string.
+ * @arg attrs	  inet diag extension type (e.g. INET_DIAG_MEMINFO)
  * @arg buf	  output buffer which will hold string result
  * @arg len	  length in bytes of the output buffer
  *
- * @return string representation of attrs or an empty string.
+ * @return string representation of inet diag extension type or an empty string.
+ * @deprecated: don't use this function. It is not very useful and should
+ * never have been exposed as public API.
  */
 char *idiagnl_attrs2str(int attrs, char *buf, size_t len)
 {
 	return __type2str(attrs, buf, len, idiag_attrs, ARRAY_SIZE(idiag_attrs));
 }
 
+static const struct trans_tbl idiag_exts[] = {
+	__ADD((1 << (INET_DIAG_MEMINFO - 1)), meminfo),
+	__ADD((1 << (INET_DIAG_INFO - 1)), info),
+	__ADD((1 << (INET_DIAG_VEGASINFO - 1)), vegasinfo),
+	__ADD((1 << (INET_DIAG_CONG - 1)), congestion),
+	__ADD((1 << (INET_DIAG_TOS - 1)), tos),
+	__ADD((1 << (INET_DIAG_TCLASS - 1)), tclass),
+	__ADD((1 << (INET_DIAG_SKMEMINFO - 1)), skmeminfo),
+	__ADD((1 << (INET_DIAG_SHUTDOWN - 1)), shutdown),
+};
+
+/**
+ * Convert inet diag extension flags to a string.
+ * @arg attrs	inet diag extension flags (e.g.
+ *   ( (1<<(INET_DIAG_MEMINFO-1)) | (1<<(INET_DIAG_CONG-1)) | (1<<(INET_DIAG_TOS-1)) ) )
+ * @arg buf	Output buffer to hold string representation
+ * @arg len	length in bytes of the output buffer
+ */
+char *idiagnl_exts2str(uint8_t attrs, char *buf, size_t len)
+{
+	return __flags2str(attrs, buf, len, idiag_exts, ARRAY_SIZE(idiag_exts));
+}
+
 static const struct trans_tbl idiagnl_tcpstates[] = {
-	__ADD(TCP_CA_Open, open)
-	__ADD(TCP_CA_Disorder, disorder)
-	__ADD(TCP_CA_CWR, cwr)
-	__ADD(TCP_CA_Recovery, recovery)
-	__ADD(TCP_CA_Loss, loss)
+	__ADD(TCP_CA_Open, open),
+	__ADD(TCP_CA_Disorder, disorder),
+	__ADD(TCP_CA_CWR, cwr),
+	__ADD(TCP_CA_Recovery, recovery),
+	__ADD(TCP_CA_Loss, loss),
 };
 
 /**
@@ -203,10 +230,10 @@ char *idiagnl_tcpstate2str(uint8_t state, char *buf, size_t len)
 }
 
 static const struct trans_tbl idiagnl_tcpopt_attrs[] = {
-	__ADD(TCPI_OPT_TIMESTAMPS, timestamps)
-	__ADD(TCPI_OPT_SACK, sACK)
-	__ADD(TCPI_OPT_WSCALE, wscale)
-	__ADD(TCPI_OPT_ECN, ecn)
+	__ADD(TCPI_OPT_TIMESTAMPS, timestamps),
+	__ADD(TCPI_OPT_SACK, sACK),
+	__ADD(TCPI_OPT_WSCALE, wscale),
+	__ADD(TCPI_OPT_ECN, ecn),
 };
 
 /**
@@ -234,40 +261,18 @@ char *idiagnl_tcpopts2str(uint8_t attrs, char *buf, size_t len)
  */
 char * idiagnl_shutdown2str(uint8_t shutdown, char *buf, size_t len)
 {
-  if (shutdown == 0) {
-	  snprintf(buf, len, " ");
-	  return buf;
-  } else if (shutdown == 1) {
-	  snprintf(buf, len, "receive shutdown");
-	  return buf;
-  } else if (shutdown == 2) {
-	  snprintf(buf, len, "send shutdown");
-	  return buf;
-  }
+	if (shutdown == 0) {
+		snprintf(buf, len, " ");
+		return buf;
+	} else if (shutdown == 1) {
+		snprintf(buf, len, "receive shutdown");
+		return buf;
+	} else if (shutdown == 2) {
+		snprintf(buf, len, "send shutdown");
+		return buf;
+	}
 
-  return NULL;
-}
-
-static const struct trans_tbl idiag_exts[] = {
-	__ADD(IDIAG_ATTR_NONE, none)
-	__ADD(IDIAG_ATTR_MEMINFO, meminfo)
-	__ADD(IDIAG_ATTR_INFO, info)
-	__ADD(IDIAG_ATTR_VEGASINFO, vegasinfo)
-	__ADD(IDIAG_ATTR_CONG, congestion)
-	__ADD(IDIAG_ATTR_TOS, tos)
-	__ADD(IDIAG_ATTR_TCLASS, tclass)
-};
-
-/**
- * Convert inet diag extension flags to a string.
- * @arg attrs	inet diag extension flags (e.g., (IDIAG_ATTR_MEMINFO |
- *   IDIAG_ATTR_CONG | IDIAG_ATTR_TOS))
- * @arg buf	Output buffer to hold string representation
- * @arg len	length in bytes of the output buffer
- */
-char *idiagnl_exts2str(uint8_t attrs, char *buf, size_t len)
-{
-	return __flags2str(attrs, buf, len, idiag_exts, ARRAY_SIZE(idiag_exts));
+	return NULL;
 }
 
 /** @} */

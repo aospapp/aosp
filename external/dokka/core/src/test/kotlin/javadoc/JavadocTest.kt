@@ -16,8 +16,8 @@ class JavadocTest {
 
             val type = method.returnType()
             assertFalse(type.asClassDoc().isIncluded)
-            assertEquals("java.lang.String", type.qualifiedTypeName())
-            assertEquals("java.lang.String", type.asClassDoc().qualifiedName())
+            assertEquals("String", type.qualifiedTypeName())
+            assertEquals("String", type.asClassDoc().qualifiedName())
 
             val params = method.parameters()
             assertTrue(params[0].type().isPrimitive)
@@ -119,7 +119,7 @@ class JavadocTest {
             val methodParamType = doc.classNamed("TypealiasesKt")!!.methods()
                     .find { it.name() == "some" }!!.parameters().first()
                     .type()
-            assertEquals("kotlin.jvm.functions.Function1", methodParamType.qualifiedTypeName())
+            assertEquals("Function1", methodParamType.qualifiedTypeName())
             assertEquals("? super A, C", methodParamType.asParameterizedType().typeArguments()
                     .map(Type::qualifiedTypeName).joinToString())
         }

@@ -61,13 +61,34 @@ public class ShadowLocaleDataTest {
     assertThat(localeData.infinity).isEqualTo("∞");
     assertThat(localeData.NaN).isEqualTo("NaN");
 
-    assertThat(localeData.currencySymbol).isEqualTo("$");
-    assertThat(localeData.internationalCurrencySymbol).isEqualTo("USD");
-
     assertThat(localeData.numberPattern).isEqualTo("#,##0.###");
     assertThat(localeData.integerPattern).isEqualTo("#,##0");
     assertThat(localeData.currencyPattern).isEqualTo("¤#,##0.00;(¤#,##0.00)");
     assertThat(localeData.percentPattern).isEqualTo("#,##0%");
+  }
+
+  @Test
+  @Config(maxSdk = Build.VERSION_CODES.Q)
+  public void shouldSupportLocaleEn_US_yesterday() throws Exception {
+    LocaleData localeData = LocaleData.get(Locale.US);
+      String currencySymbolValue = ReflectionHelpers.getField(localeData, "yesterday");
+      assertThat(currencySymbolValue).isEqualTo("Yesterday");
+  }
+
+  @Test
+  @Config(maxSdk = Build.VERSION_CODES.Q)
+  public void shouldSupportLocaleEn_US_currencySymbol() throws Exception {
+    LocaleData localeData = LocaleData.get(Locale.US);
+    String currencySymbolValue = ReflectionHelpers.getField(localeData, "currencySymbol");
+    assertThat(currencySymbolValue).isEqualTo("$");
+  }
+
+  @Test
+  @Config(maxSdk = Build.VERSION_CODES.Q)
+  public void shouldSupportLocaleEn_US_internationalCurrencySymbol() throws Exception {
+      LocaleData localeData = LocaleData.get(Locale.US);
+      String internationalCurrencySymbolValue = ReflectionHelpers.getField(localeData, "internationalCurrencySymbol");
+      assertThat(internationalCurrencySymbolValue).isEqualTo("USD");
   }
 
   @Test
@@ -102,7 +123,6 @@ public class ShadowLocaleDataTest {
     assertThat(localeData.tinyWeekdayNames).isEqualTo(new String[]{"", "S", "M", "T", "W", "T", "F", "S"});
     assertThat(localeData.tinyStandAloneWeekdayNames).isEqualTo(localeData.tinyWeekdayNames);
 
-    assertThat(localeData.yesterday).isEqualTo("Yesterday");
     assertThat(localeData.today).isEqualTo("Today");
     assertThat(localeData.tomorrow).isEqualTo("Tomorrow");
   }

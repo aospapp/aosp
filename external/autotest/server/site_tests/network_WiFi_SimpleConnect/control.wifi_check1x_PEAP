@@ -6,7 +6,7 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_SimpleConnect.wifi_check1x_PEAP'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_release, subsystem:wifi')
+ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_release')
 DEPENDENCIES = 'wificell'
 
 DOC = """

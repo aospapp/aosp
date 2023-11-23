@@ -45,9 +45,11 @@ CONFIG_TOYBOX=y
 # CONFIG_ARPING is not set
 # CONFIG_ARP is not set
 # CONFIG_ASCII is not set
+# CONFIG_BASE32 is not set
 # CONFIG_BASE64 is not set
 CONFIG_BASENAME=y
 # CONFIG_BC is not set
+# CONFIG_BLKDISCARD is not set
 # CONFIG_BLKID is not set
 # CONFIG_BLOCKDEV is not set
 # CONFIG_BOOTCHARTD is not set
@@ -66,13 +68,14 @@ CONFIG_CHMOD=y
 # CONFIG_CHOWN is not set
 # CONFIG_CHROOT is not set
 # CONFIG_CHRT is not set
+# CONFIG_CHSH is not set
 # CONFIG_CHVT is not set
 # CONFIG_CKSUM is not set
 # CONFIG_CLEAR is not set
 CONFIG_CMP=y
 CONFIG_COMM=y
 # CONFIG_COUNT is not set
-# CONFIG_CPIO is not set
+CONFIG_CPIO=y
 CONFIG_CP_PRESERVE=y
 CONFIG_CP=y
 # CONFIG_CRC32 is not set
@@ -110,7 +113,7 @@ CONFIG_EXPR=y
 # CONFIG_FALLOCATE is not set
 # CONFIG_FALSE is not set
 # CONFIG_FDISK is not set
-# CONFIG_FGREP is not set
+CONFIG_FGREP=y
 # CONFIG_FILE is not set
 CONFIG_FIND=y
 # CONFIG_FLOCK is not set
@@ -217,7 +220,7 @@ CONFIG_MV=y
 # CONFIG_NETCAT_LISTEN is not set
 # CONFIG_NETSTAT is not set
 # CONFIG_NICE is not set
-# CONFIG_NL is not set
+CONFIG_NL=y
 # CONFIG_NOHUP is not set
 # CONFIG_NPROC is not set
 # CONFIG_NSENTER is not set
@@ -236,10 +239,11 @@ CONFIG_PATCH=y
 # CONFIG_PKILL is not set
 # CONFIG_PMAP is not set
 # CONFIG_PRINTENV is not set
-# CONFIG_PRINTF is not set
+CONFIG_PRINTF=y
 # CONFIG_PS is not set
 # CONFIG_PWDX is not set
 CONFIG_PWD=y
+# CONFIG_PWGEN is not set
 # CONFIG_READAHEAD is not set
 # CONFIG_READELF is not set
 CONFIG_READLINK=y
@@ -254,6 +258,7 @@ CONFIG_RMDIR=y
 # CONFIG_RMMOD is not set
 CONFIG_RM=y
 # CONFIG_ROUTE is not set
+# CONFIG_RTCWAKE is not set
 # CONFIG_RUNCON is not set
 CONFIG_SED=y
 # CONFIG_SENDEVENT is not set
@@ -264,6 +269,7 @@ CONFIG_SETSID=y
 CONFIG_SHA1SUM=y
 # CONFIG_SHA224SUM is not set
 CONFIG_SHA256SUM=y
+# CONFIG_SHA3SUM is not set
 # CONFIG_SHA384SUM is not set
 CONFIG_SHA512SUM=y
 # CONFIG_SH is not set
@@ -295,6 +301,7 @@ CONFIG_TEE=y
 # CONFIG_TELNETD is not set
 # CONFIG_TELNET is not set
 CONFIG_TEST=y
+CONFIG_TEST_GLUE=y
 # CONFIG_TFTPD is not set
 # CONFIG_TFTP is not set
 # CONFIG_TIME is not set
@@ -310,6 +317,7 @@ CONFIG_TR=y
 # CONFIG_ULIMIT is not set
 # CONFIG_UMOUNT is not set
 CONFIG_UNAME=y
+# CONFIG_UNICODE is not set
 CONFIG_UNIQ=y
 CONFIG_UNIX2DOS=y
 # CONFIG_UNLINK is not set
@@ -325,6 +333,7 @@ CONFIG_UNIX2DOS=y
 # CONFIG_VI is not set
 # CONFIG_VMSTAT is not set
 # CONFIG_WATCH is not set
+# CONFIG_WATCHDOG is not set
 CONFIG_WC=y
 # CONFIG_WGET is not set
 CONFIG_WHICH=y

@@ -24,12 +24,43 @@
 // OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 // DAMAGE.
 
+package {
+    default_applicable_licenses: ["external_ims_rcs_presencepolling_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_ims_rcs_presencepolling_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_defaults {
     name: "presence_polling_defaults",
     srcs: ["src/**/*.java"],
     static_libs: ["com.android.ims.rcsmanager"],
-    platform_apis: true,
     certificate: "platform",
+    system_ext_specific: true,
+    platform_apis: true,
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },

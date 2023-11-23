@@ -39,7 +39,7 @@
  * Lowers fixed-function blending to a load of the destination color and a
  * series of ALU operations before the store of the output.
  */
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "vc4_qir.h"
 #include "compiler/nir/nir_builder.h"
 #include "compiler/nir/nir_format_convert.h"
@@ -100,7 +100,7 @@ vc4_blend_channel_f(nir_builder *b,
                 return nir_load_system_value(b,
                                              nir_intrinsic_load_blend_const_color_r_float +
                                              channel,
-                                             0, 32);
+                                             0, 1, 32);
         case PIPE_BLENDFACTOR_CONST_ALPHA:
                 return nir_load_blend_const_color_a_float(b);
         case PIPE_BLENDFACTOR_ZERO:
@@ -118,7 +118,7 @@ vc4_blend_channel_f(nir_builder *b,
                                 nir_load_system_value(b,
                                                       nir_intrinsic_load_blend_const_color_r_float +
                                                       channel,
-                                                      0, 32));
+                                                      0, 1, 32));
         case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
                 return nir_fsub(b, nir_imm_float(b, 1.0),
                                 nir_load_blend_const_color_a_float(b));
@@ -512,17 +512,6 @@ vc4_nir_blend_pipeline(struct vc4_compile *c, nir_builder *b, nir_ssa_def *src,
                                 nir_imm_int(b, ~colormask)));
 }
 
-static int
-vc4_nir_next_output_driver_location(nir_shader *s)
-{
-        int maxloc = -1;
-
-        nir_foreach_variable(var, &s->outputs)
-                maxloc = MAX2(maxloc, (int)var->data.driver_location);
-
-        return maxloc + 1;
-}
-
 static void
 vc4_nir_store_sample_mask(struct vc4_compile *c, nir_builder *b,
                           nir_ssa_def *val)
@@ -530,8 +519,7 @@ vc4_nir_store_sample_mask(struct vc4_compile *c, nir_builder *b,
         nir_variable *sample_mask = nir_variable_create(c->s, nir_var_shader_out,
                                                         glsl_uint_type(),
                                                         "sample_mask");
-        sample_mask->data.driver_location =
-                vc4_nir_next_output_driver_location(c->s);
+        sample_mask->data.driver_location = c->s->num_outputs++;
         sample_mask->data.location = FRAG_RESULT_SAMPLE_MASK;
 
         nir_intrinsic_instr *intr =
@@ -601,7 +589,7 @@ vc4_nir_lower_blend_block(nir_block *block, struct vc4_compile *c)
                         continue;
 
                 nir_variable *output_var = NULL;
-                nir_foreach_variable(var, &c->s->outputs) {
+                nir_foreach_shader_out_variable(var, c->s) {
                         if (var->data.driver_location ==
                             nir_intrinsic_base(intr)) {
                                 output_var = var;

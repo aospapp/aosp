@@ -5,5 +5,9 @@
 @include /usr/share/policy/crosvm/common_device.policy
 
 madvise: 1
+open: return ENOENT
+openat: return ENOENT
 prlimit64: 1
 setrlimit: 1
+sched_setscheduler: 1
+prctl: arg0 == PR_SET_NAME

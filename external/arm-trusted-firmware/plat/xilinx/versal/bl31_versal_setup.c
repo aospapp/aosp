@@ -22,7 +22,7 @@
 
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
-static console_pl011_t versal_runtime_console;
+static console_t versal_runtime_console;
 
 /*
  * Return a pointer to the 'entry_point_info' structure of the next image for
@@ -34,8 +34,9 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 {
 	assert(sec_state_is_valid(type));
 
-	if (type == NON_SECURE)
+	if (type == NON_SECURE) {
 		return &bl33_image_ep_info;
+	}
 
 	return &bl32_image_ep_info;
 }
@@ -68,10 +69,11 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 					VERSAL_UART_CLOCK,
 					VERSAL_UART_BAUDRATE,
 					&versal_runtime_console);
-	if (rc == 0)
+	if (rc == 0) {
 		panic();
+	}
 
-	console_set_scope(&versal_runtime_console.console, CONSOLE_FLAG_BOOT |
+	console_set_scope(&versal_runtime_console, CONSOLE_FLAG_BOOT |
 			  CONSOLE_FLAG_RUNTIME);
 
 	/* Initialize the platform config for future decision making */
@@ -97,7 +99,7 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	enum fsbl_handoff ret = fsbl_atf_handover(&bl32_image_ep_info,
 						  &bl33_image_ep_info,
 						  atf_handoff_addr);
-	if (ret == FSBL_HANDOFF_NO_STRUCT) {
+	if (ret == FSBL_HANDOFF_NO_STRUCT || ret == FSBL_HANDOFF_INVAL_STRUCT) {
 		bl31_set_default_config();
 	} else if (ret != FSBL_HANDOFF_SUCCESS) {
 		panic();

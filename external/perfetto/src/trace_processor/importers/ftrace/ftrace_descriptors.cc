@@ -24,7 +24,7 @@ namespace perfetto {
 namespace trace_processor {
 namespace {
 
-std::array<MessageDescriptor, 338> descriptors{{
+std::array<MessageDescriptor, 359> descriptors{{
     {nullptr, 0, {}},
     {nullptr, 0, {}},
     {nullptr, 0, {}},
@@ -3601,6 +3601,244 @@ std::array<MessageDescriptor, 338> descriptors{{
             {},
             {"addr", ProtoSchemaType::kUint64},
             {"len", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "scm_call_start",
+        3,
+        {
+            {},
+            {"arginfo", ProtoSchemaType::kUint32},
+            {"x0", ProtoSchemaType::kUint64},
+            {"x5", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "scm_call_end",
+        0,
+        {
+            {},
+        },
+    },
+    {
+        "gpu_mem_total",
+        3,
+        {
+            {},
+            {"gpu_id", ProtoSchemaType::kUint32},
+            {"pid", ProtoSchemaType::kUint32},
+            {"size", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "thermal_temperature",
+        4,
+        {
+            {},
+            {"id", ProtoSchemaType::kInt32},
+            {"temp", ProtoSchemaType::kInt32},
+            {"temp_prev", ProtoSchemaType::kInt32},
+            {"thermal_zone", ProtoSchemaType::kString},
+        },
+    },
+    {
+        "cdev_update",
+        2,
+        {
+            {},
+            {"target", ProtoSchemaType::kUint64},
+            {"type", ProtoSchemaType::kString},
+        },
+    },
+    {
+        "cpuhp_exit",
+        4,
+        {
+            {},
+            {"cpu", ProtoSchemaType::kUint32},
+            {"idx", ProtoSchemaType::kInt32},
+            {"ret", ProtoSchemaType::kInt32},
+            {"state", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "cpuhp_multi_enter",
+        4,
+        {
+            {},
+            {"cpu", ProtoSchemaType::kUint32},
+            {"fun", ProtoSchemaType::kUint64},
+            {"idx", ProtoSchemaType::kInt32},
+            {"target", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "cpuhp_enter",
+        4,
+        {
+            {},
+            {"cpu", ProtoSchemaType::kUint32},
+            {"fun", ProtoSchemaType::kUint64},
+            {"idx", ProtoSchemaType::kInt32},
+            {"target", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "cpuhp_latency",
+        4,
+        {
+            {},
+            {"cpu", ProtoSchemaType::kUint32},
+            {"ret", ProtoSchemaType::kInt32},
+            {"state", ProtoSchemaType::kUint32},
+            {"time", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "fastrpc_dma_stat",
+        3,
+        {
+            {},
+            {"cid", ProtoSchemaType::kInt32},
+            {"len", ProtoSchemaType::kInt64},
+            {"total_allocated", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "dpu_tracing_mark_write",
+        6,
+        {
+            {},
+            {"pid", ProtoSchemaType::kInt32},
+            {"trace_name", ProtoSchemaType::kString},
+            {"trace_begin", ProtoSchemaType::kUint32},
+            {"name", ProtoSchemaType::kString},
+            {"type", ProtoSchemaType::kUint32},
+            {"value", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "g2d_tracing_mark_write",
+        6,
+        {
+            {},
+            {"pid", ProtoSchemaType::kInt32},
+            {},
+            {},
+            {"name", ProtoSchemaType::kString},
+            {"type", ProtoSchemaType::kUint32},
+            {"value", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "mali_tracing_mark_write",
+        4,
+        {
+            {},
+            {"name", ProtoSchemaType::kString},
+            {"pid", ProtoSchemaType::kInt32},
+            {"type", ProtoSchemaType::kUint32},
+            {"value", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "dma_heap_stat",
+        3,
+        {
+            {},
+            {"inode", ProtoSchemaType::kUint64},
+            {"len", ProtoSchemaType::kInt64},
+            {"total_allocated", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "cpuhp_pause",
+        4,
+        {
+            {},
+            {"active_cpus", ProtoSchemaType::kUint32},
+            {"cpus", ProtoSchemaType::kUint32},
+            {"pause", ProtoSchemaType::kUint32},
+            {"time", ProtoSchemaType::kUint32},
+        },
+    },
+    {
+        "sched_pi_setprio",
+        4,
+        {
+            {},
+            {"comm", ProtoSchemaType::kString},
+            {"newprio", ProtoSchemaType::kInt32},
+            {"oldprio", ProtoSchemaType::kInt32},
+            {"pid", ProtoSchemaType::kInt32},
+        },
+    },
+    {
+        "sde_sde_evtlog",
+        3,
+        {
+            {},
+            {"evtlog_tag", ProtoSchemaType::kString},
+            {"pid", ProtoSchemaType::kInt32},
+            {"tag_id", ProtoSchemaType::kUint32},
+        },
+    },
+    {
+        "sde_sde_perf_calc_crtc",
+        8,
+        {
+            {},
+            {"bw_ctl_ebi", ProtoSchemaType::kUint64},
+            {"bw_ctl_llcc", ProtoSchemaType::kUint64},
+            {"bw_ctl_mnoc", ProtoSchemaType::kUint64},
+            {"core_clk_rate", ProtoSchemaType::kUint32},
+            {"crtc", ProtoSchemaType::kUint32},
+            {"ib_ebi", ProtoSchemaType::kUint64},
+            {"ib_llcc", ProtoSchemaType::kUint64},
+            {"ib_mnoc", ProtoSchemaType::kUint64},
+        },
+    },
+    {
+        "sde_sde_perf_crtc_update",
+        12,
+        {
+            {},
+            {"bw_ctl_ebi", ProtoSchemaType::kUint64},
+            {"bw_ctl_llcc", ProtoSchemaType::kUint64},
+            {"bw_ctl_mnoc", ProtoSchemaType::kUint64},
+            {"core_clk_rate", ProtoSchemaType::kUint32},
+            {"crtc", ProtoSchemaType::kUint32},
+            {"params", ProtoSchemaType::kInt32},
+            {"per_pipe_ib_ebi", ProtoSchemaType::kUint64},
+            {"per_pipe_ib_llcc", ProtoSchemaType::kUint64},
+            {"per_pipe_ib_mnoc", ProtoSchemaType::kUint64},
+            {"stop_req", ProtoSchemaType::kUint32},
+            {"update_bus", ProtoSchemaType::kUint32},
+            {"update_clk", ProtoSchemaType::kUint32},
+        },
+    },
+    {
+        "sde_sde_perf_set_qos_luts",
+        6,
+        {
+            {},
+            {"fl", ProtoSchemaType::kUint32},
+            {"fmt", ProtoSchemaType::kUint32},
+            {"lut", ProtoSchemaType::kUint64},
+            {"lut_usage", ProtoSchemaType::kUint32},
+            {"pnum", ProtoSchemaType::kUint32},
+            {"rt", ProtoSchemaType::kUint32},
+        },
+    },
+    {
+        "sde_sde_perf_update_bus",
+        4,
+        {
+            {},
+            {"ab_quota", ProtoSchemaType::kUint64},
+            {"bus_id", ProtoSchemaType::kUint32},
+            {"client", ProtoSchemaType::kInt32},
+            {"ib_quota", ProtoSchemaType::kUint64},
         },
     },
 }};

@@ -19,10 +19,8 @@
 #ifndef LIBTEXTCLASSIFIER_UTILS_GRAMMAR_RULES_UTILS_H_
 #define LIBTEXTCLASSIFIER_UTILS_GRAMMAR_RULES_UTILS_H_
 
-#include <unordered_map>
 #include <vector>
 
-#include "utils/grammar/match.h"
 #include "utils/grammar/rules_generated.h"
 #include "utils/i18n/locale.h"
 
@@ -36,22 +34,6 @@ std::vector<const grammar::RulesSet_::Rules*> SelectLocaleMatchingShards(
     const RulesSet* rules,
     const std::vector<std::vector<Locale>>& shard_locales,
     const std::vector<Locale>& locales);
-
-// Deduplicates rule derivations by containing overlap.
-// The grammar system can output multiple candidates for optional parts.
-// For example if a rule has an optional suffix, we
-// will get two rule derivations when the suffix is present: one with and one
-// without the suffix. We therefore deduplicate by containing overlap, viz. from
-// two candidates we keep the longer one if it completely contains the shorter.
-struct Derivation {
-  const Match* match;
-  int64 rule_id;
-};
-std::vector<Derivation> DeduplicateDerivations(
-    const std::vector<Derivation>& derivations);
-
-// Checks that all assertions of a match tree are fulfilled.
-bool VerifyAssertions(const Match* match);
 
 }  // namespace libtextclassifier3::grammar
 

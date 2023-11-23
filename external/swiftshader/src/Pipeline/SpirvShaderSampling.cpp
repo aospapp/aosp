@@ -35,111 +35,93 @@ SpirvShader::ImageSampler *SpirvShader::getImageSampler(uint32_t inst, vk::Sampl
 	ImageInstruction instruction(inst);
 	const auto samplerId = sampler ? sampler->id : 0;
 	ASSERT(imageDescriptor->imageViewId != 0 && (samplerId != 0 || instruction.samplerMethod == Fetch));
+	ASSERT(imageDescriptor->device);
 
 	vk::Device::SamplingRoutineCache::Key key = { inst, imageDescriptor->imageViewId, samplerId };
 
-	ASSERT(imageDescriptor->device);
-
-	if(auto routine = imageDescriptor->device->findInConstCache(key))
-	{
-		return (ImageSampler *)(routine->getEntry());
-	}
-
-	std::unique_lock<std::mutex> lock(imageDescriptor->device->getSamplingRoutineCacheMutex());
 	vk::Device::SamplingRoutineCache *cache = imageDescriptor->device->getSamplingRoutineCache();
 
-	auto routine = cache->query(key);
-	if(routine)
-	{
-		return (ImageSampler *)(routine->getEntry());
-	}
+	auto createSamplingRoutine = [&](const vk::Device::SamplingRoutineCache::Key &key) {
+		auto type = imageDescriptor->type;
 
-	auto type = imageDescriptor->type;
+		Sampler samplerState = {};
+		samplerState.textureType = type;
+		samplerState.textureFormat = imageDescriptor->format;
 
-	Sampler samplerState = {};
-	samplerState.textureType = type;
-	samplerState.textureFormat = imageDescriptor->format;
-
-	samplerState.addressingModeU = convertAddressingMode(0, sampler, type);
-	samplerState.addressingModeV = convertAddressingMode(1, sampler, type);
-	samplerState.addressingModeW = convertAddressingMode(2, sampler, type);
-	samplerState.addressingModeY = convertAddressingMode(3, sampler, type);
-
-	samplerState.mipmapFilter = convertMipmapMode(sampler);
-	samplerState.swizzle = imageDescriptor->swizzle;
-	samplerState.gatherComponent = instruction.gatherComponent;
-	samplerState.highPrecisionFiltering = false;
-	samplerState.largeTexture = (imageDescriptor->extent.width > SHRT_MAX) ||
-	                            (imageDescriptor->extent.height > SHRT_MAX) ||
-	                            (imageDescriptor->extent.depth > SHRT_MAX);
-
-	if(sampler)
-	{
-		samplerState.textureFilter = (instruction.samplerMethod == Gather) ? FILTER_GATHER : convertFilterMode(sampler);
-		samplerState.border = sampler->borderColor;
+		samplerState.addressingModeU = convertAddressingMode(0, sampler, type);
+		samplerState.addressingModeV = convertAddressingMode(1, sampler, type);
+		samplerState.addressingModeW = convertAddressingMode(2, sampler, type);
 
 		samplerState.mipmapFilter = convertMipmapMode(sampler);
+		samplerState.swizzle = imageDescriptor->swizzle;
+		samplerState.gatherComponent = instruction.gatherComponent;
 
-		samplerState.compareEnable = (sampler->compareEnable != VK_FALSE);
-		samplerState.compareOp = sampler->compareOp;
-		samplerState.unnormalizedCoordinates = (sampler->unnormalizedCoordinates != VK_FALSE);
-
-		if(sampler->ycbcrConversion)
+		if(sampler)
 		{
-			samplerState.ycbcrModel = sampler->ycbcrConversion->ycbcrModel;
-			samplerState.studioSwing = (sampler->ycbcrConversion->ycbcrRange == VK_SAMPLER_YCBCR_RANGE_ITU_NARROW);
-			samplerState.swappedChroma = (sampler->ycbcrConversion->components.r != VK_COMPONENT_SWIZZLE_R);
+			samplerState.textureFilter = convertFilterMode(sampler, type, instruction);
+			samplerState.border = sampler->borderColor;
+
+			samplerState.mipmapFilter = convertMipmapMode(sampler);
+			samplerState.highPrecisionFiltering = (sampler->filteringPrecision == VK_SAMPLER_FILTERING_PRECISION_MODE_HIGH_GOOGLE);
+
+			samplerState.compareEnable = (sampler->compareEnable != VK_FALSE);
+			samplerState.compareOp = sampler->compareOp;
+			samplerState.unnormalizedCoordinates = (sampler->unnormalizedCoordinates != VK_FALSE);
+
+			samplerState.ycbcrModel = sampler->ycbcrModel;
+			samplerState.studioSwing = sampler->studioSwing;
+			samplerState.swappedChroma = sampler->swappedChroma;
+
+			samplerState.mipLodBias = sampler->mipLodBias;
+			samplerState.maxAnisotropy = sampler->maxAnisotropy;
+			samplerState.minLod = sampler->minLod;
+			samplerState.maxLod = sampler->maxLod;
 		}
-	}
+		else
+		{
+			// OpImageFetch does not take a sampler descriptor, but for VK_EXT_image_robustness
+			// requires replacing invalid texels with zero.
+			// TODO(b/162327166): Only perform bounds checks when VK_EXT_image_robustness is enabled.
+			samplerState.border = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+		}
 
-	routine = emitSamplerRoutine(instruction, samplerState);
+		return emitSamplerRoutine(instruction, samplerState);
+	};
 
-	cache->add(key, routine);
+	auto routine = cache->getOrCreate(key, createSamplingRoutine);
+
 	return (ImageSampler *)(routine->getEntry());
 }
 
 std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstruction instruction, const Sampler &samplerState)
 {
 	// TODO(b/129523279): Hold a separate mutex lock for the sampler being built.
-	rr::Function<Void(Pointer<Byte>, Pointer<Byte>, Pointer<SIMD::Float>, Pointer<SIMD::Float>, Pointer<Byte>)> function;
+	rr::Function<Void(Pointer<Byte>, Pointer<SIMD::Float>, Pointer<SIMD::Float>, Pointer<Byte>)> function;
 	{
 		Pointer<Byte> texture = function.Arg<0>();
-		Pointer<Byte> sampler = function.Arg<1>();
-		Pointer<SIMD::Float> in = function.Arg<2>();
-		Pointer<SIMD::Float> out = function.Arg<3>();
-		Pointer<Byte> constants = function.Arg<4>();
+		Pointer<SIMD::Float> in = function.Arg<1>();
+		Pointer<SIMD::Float> out = function.Arg<2>();
+		Pointer<Byte> constants = function.Arg<3>();
 
-		SIMD::Float uvw[4] = { 0, 0, 0, 0 };
-		SIMD::Float q = 0;
-		SIMD::Float lodOrBias = 0;  // Explicit level-of-detail, or bias added to the implicit level-of-detail (depending on samplerMethod).
-		Vector4f dsx = { 0, 0, 0, 0 };
-		Vector4f dsy = { 0, 0, 0, 0 };
-		Vector4f offset = { 0, 0, 0, 0 };
-		SIMD::Int sampleId = 0;
+		SIMD::Float uvwa[4];
+		SIMD::Float dRef;
+		SIMD::Float lodOrBias;  // Explicit level-of-detail, or bias added to the implicit level-of-detail (depending on samplerMethod).
+		Vector4f dsx;
+		Vector4f dsy;
+		Vector4i offset;
+		SIMD::Int sampleId;
 		SamplerFunction samplerFunction = instruction.getSamplerFunction();
 
 		uint32_t i = 0;
 		for(; i < instruction.coordinates; i++)
 		{
-			uvw[i] = in[i];
+			uvwa[i] = in[i];
 		}
 
 		if(instruction.isDref())
 		{
-			q = in[i];
+			dRef = in[i];
 			i++;
-		}
-
-		// TODO(b/134669567): Currently 1D textures are treated as 2D by setting the second coordinate to 0.
-		// Implement optimized 1D sampling.
-		if(samplerState.textureType == VK_IMAGE_VIEW_TYPE_1D)
-		{
-			uvw[1] = SIMD::Float(0);
-		}
-		else if(samplerState.textureType == VK_IMAGE_VIEW_TYPE_1D_ARRAY)
-		{
-			uvw[1] = SIMD::Float(0);
-			uvw[2] = in[1];  // Move 1D layer coordinate to 2D layer coordinate index.
 		}
 
 		if(instruction.samplerMethod == Lod || instruction.samplerMethod == Bias || instruction.samplerMethod == Fetch)
@@ -162,7 +144,7 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstruction in
 
 		for(uint32_t j = 0; j < instruction.offset; j++, i++)
 		{
-			offset[j] = in[i];
+			offset[j] = As<SIMD::Int>(in[i]);
 		}
 
 		if(instruction.sample)
@@ -191,14 +173,7 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstruction in
 				dPdy.y = Pointer<Float>(&dsy.y)[i];
 				dPdy.z = Pointer<Float>(&dsy.z)[i];
 
-				// 1D textures are treated as 2D texture with second coordinate 0, so we also need to zero out the second grad component. TODO(b/134669567)
-				if(samplerState.textureType == VK_IMAGE_VIEW_TYPE_1D || samplerState.textureType == VK_IMAGE_VIEW_TYPE_1D_ARRAY)
-				{
-					dPdx.y = Float(0.0f);
-					dPdy.y = Float(0.0f);
-				}
-
-				Vector4f sample = s.sampleTexture(texture, sampler, uvw, q, lod[i], dPdx, dPdy, offset, sampleId, samplerFunction);
+				Vector4f sample = s.sampleTexture(texture, uvwa, dRef, lod[i], dPdx, dPdy, offset, sampleId, samplerFunction);
 
 				Pointer<Float> rgba = out;
 				rgba[0 * SIMD::Width + i] = Pointer<Float>(&sample.x)[i];
@@ -209,7 +184,7 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstruction in
 		}
 		else
 		{
-			Vector4f sample = s.sampleTexture(texture, sampler, uvw, q, lodOrBias.x, (dsx.x), (dsy.x), offset, sampleId, samplerFunction);
+			Vector4f sample = s.sampleTexture(texture, uvwa, dRef, lodOrBias.x, (dsx.x), (dsy.x), offset, sampleId, samplerFunction);
 
 			Pointer<SIMD::Float> rgba = out;
 			rgba[0] = sample.x;
@@ -222,11 +197,27 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstruction in
 	return function("sampler");
 }
 
-sw::FilterType SpirvShader::convertFilterMode(const vk::Sampler *sampler)
+sw::FilterType SpirvShader::convertFilterMode(const vk::Sampler *sampler, VkImageViewType imageViewType, ImageInstruction instruction)
 {
+	if(instruction.samplerMethod == Gather)
+	{
+		return FILTER_GATHER;
+	}
+
+	if(instruction.samplerMethod == Fetch)
+	{
+		return FILTER_POINT;
+	}
+
 	if(sampler->anisotropyEnable != VK_FALSE)
 	{
-		return FILTER_ANISOTROPIC;
+		if(imageViewType == VK_IMAGE_VIEW_TYPE_2D || imageViewType == VK_IMAGE_VIEW_TYPE_2D_ARRAY)
+		{
+			if(instruction.samplerMethod != Lod)  // TODO(b/162926129): Support anisotropic filtering with explicit LOD.
+			{
+				return FILTER_ANISOTROPIC;
+			}
+		}
 	}
 
 	switch(sampler->magFilter)
@@ -266,9 +257,10 @@ sw::MipmapType SpirvShader::convertMipmapMode(const vk::Sampler *sampler)
 		return MIPMAP_POINT;  // Samplerless operations (OpImageFetch) can take an integer Lod operand.
 	}
 
-	if(sampler->ycbcrConversion)
+	if(sampler->ycbcrModel != VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY)
 	{
-		return MIPMAP_NONE;  // YCbCr images can only have one mipmap level.
+		// TODO(b/151263485): Check image view level count instead.
+		return MIPMAP_NONE;
 	}
 
 	switch(sampler->mipmapMode)
@@ -285,13 +277,26 @@ sw::AddressingMode SpirvShader::convertAddressingMode(int coordinateIndex, const
 {
 	switch(imageViewType)
 	{
-		case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
-			if(coordinateIndex == 3)
+		case VK_IMAGE_VIEW_TYPE_1D:
+		case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+			if(coordinateIndex >= 1)
 			{
-				return ADDRESSING_LAYER;
+				return ADDRESSING_UNUSED;
 			}
-			// Fall through to CUBE case:
+			break;
+		case VK_IMAGE_VIEW_TYPE_2D:
+		case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+			if(coordinateIndex == 2)
+			{
+				return ADDRESSING_UNUSED;
+			}
+			break;
+
+		case VK_IMAGE_VIEW_TYPE_3D:
+			break;
+
 		case VK_IMAGE_VIEW_TYPE_CUBE:
+		case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
 			if(coordinateIndex <= 1)  // Cube faces themselves are addressed as 2D images.
 			{
 				// Vulkan 1.1 spec:
@@ -301,55 +306,10 @@ sw::AddressingMode SpirvShader::convertAddressingMode(int coordinateIndex, const
 				// This corresponds with our 'SEAMLESS' addressing mode.
 				return ADDRESSING_SEAMLESS;
 			}
-			else if(coordinateIndex == 2)
+			else  // coordinateIndex == 2
 			{
-				// The cube face is an index into array layers.
+				// The cube face is an index into 2D array layers.
 				return ADDRESSING_CUBEFACE;
-			}
-			else
-			{
-				return ADDRESSING_UNUSED;
-			}
-			break;
-
-		case VK_IMAGE_VIEW_TYPE_1D:  // Treated as 2D texture with second coordinate 0. TODO(b/134669567)
-			if(coordinateIndex == 1)
-			{
-				return ADDRESSING_WRAP;
-			}
-			else if(coordinateIndex >= 2)
-			{
-				return ADDRESSING_UNUSED;
-			}
-			break;
-
-		case VK_IMAGE_VIEW_TYPE_3D:
-			if(coordinateIndex >= 3)
-			{
-				return ADDRESSING_UNUSED;
-			}
-			break;
-
-		case VK_IMAGE_VIEW_TYPE_1D_ARRAY:  // Treated as 2D texture with second coordinate 0. TODO(b/134669567)
-			if(coordinateIndex == 1)
-			{
-				return ADDRESSING_WRAP;
-			}
-			// Fall through to 2D_ARRAY case:
-		case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
-			if(coordinateIndex == 2)
-			{
-				return ADDRESSING_LAYER;
-			}
-			else if(coordinateIndex >= 3)
-			{
-				return ADDRESSING_UNUSED;
-			}
-			// Fall through to 2D case:
-		case VK_IMAGE_VIEW_TYPE_2D:
-			if(coordinateIndex >= 2)
-			{
-				return ADDRESSING_UNUSED;
 			}
 			break;
 
@@ -360,14 +320,17 @@ sw::AddressingMode SpirvShader::convertAddressingMode(int coordinateIndex, const
 
 	if(!sampler)
 	{
-		// OpImageFetch does not take a sampler descriptor, but still needs a valid,
-		// arbitrary addressing mode that prevents out-of-bounds accesses:
+		// OpImageFetch does not take a sampler descriptor, but still needs a valid
+		// addressing mode that prevents out-of-bounds accesses:
 		// "The value returned by a read of an invalid texel is undefined, unless that
 		//  read operation is from a buffer resource and the robustBufferAccess feature
 		//  is enabled. In that case, an invalid texel is replaced as described by the
 		//  robustBufferAccess feature." - Vulkan 1.1
 
-		return ADDRESSING_WRAP;
+		// VK_EXT_image_robustness requires nullifying out-of-bounds accesses.
+		// ADDRESSING_BORDER causes texel replacement to be performed.
+		// TODO(b/162327166): Only perform bounds checks when VK_EXT_image_robustness is enabled.
+		return ADDRESSING_BORDER;
 	}
 
 	VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;

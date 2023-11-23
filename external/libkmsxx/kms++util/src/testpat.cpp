@@ -15,7 +15,6 @@ using namespace std;
 
 namespace kms
 {
-
 static RGB get_test_pattern_pixel(IFramebuffer& fb, unsigned x, unsigned y)
 {
 	const unsigned w = fb.width();
@@ -106,6 +105,7 @@ static void draw_test_pattern_part(IFramebuffer& fb, unsigned start_y, unsigned 
 	unsigned w = fb.width();
 
 	const PixelFormatInfo& format_info = get_pixel_format_info(fb.format());
+	const PixelFormatPlaneInfo& plane_info = format_info.planes[format_info.num_planes - 1];
 
 	switch (format_info.type) {
 	case PixelColorType::RGB:
@@ -118,8 +118,17 @@ static void draw_test_pattern_part(IFramebuffer& fb, unsigned start_y, unsigned 
 		break;
 
 	case PixelColorType::YUV:
-		switch (format_info.num_planes) {
-		case 1:
+		switch (plane_info.xsub + plane_info.ysub) {
+		case 2:
+			for (y = start_y; y < end_y; y++) {
+				for (x = 0; x < w; x++) {
+					RGB pixel = get_test_pattern_pixel(fb, x, y);
+					draw_yuv444_pixel(fb, x, y, pixel.yuv(yuvt));
+				}
+			}
+			break;
+
+		case 3:
 			for (y = start_y; y < end_y; y++) {
 				for (x = 0; x < w; x += 2) {
 					RGB pixel1 = get_test_pattern_pixel(fb, x, y);
@@ -129,7 +138,7 @@ static void draw_test_pattern_part(IFramebuffer& fb, unsigned start_y, unsigned 
 			}
 			break;
 
-		case 2:
+		case 4:
 			for (y = start_y; y < end_y; y += 2) {
 				for (x = 0; x < w; x += 2) {
 					RGB pixel00 = get_test_pattern_pixel(fb, x, y);
@@ -188,7 +197,7 @@ static void draw_test_pattern_impl(IFramebuffer& fb, YUVType yuvt)
 #endif
 }
 
-void draw_test_pattern(IFramebuffer &fb, YUVType yuvt)
+void draw_test_pattern(IFramebuffer& fb, YUVType yuvt)
 {
 #ifdef DRAW_PERF_PRINT
 	Stopwatch sw;
@@ -203,4 +212,4 @@ void draw_test_pattern(IFramebuffer &fb, YUVType yuvt)
 #endif
 }
 
-}
+} // namespace kms

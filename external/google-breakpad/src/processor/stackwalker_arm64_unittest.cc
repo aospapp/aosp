@@ -64,6 +64,7 @@ using google_breakpad::test_assembler::Section;
 using std::vector;
 using testing::_;
 using testing::AnyNumber;
+using testing::DoAll;
 using testing::Return;
 using testing::SetArgumentPointee;
 using testing::Test;
@@ -349,7 +350,7 @@ TEST_F(GetCallerFrame, ScanFirstFrame) {
     .D64(0xF0000000)                    // more junk
     .D64(0x0000000D)
 
-    .Append(256, 0)                     // more space
+    .Append(336, 0)                     // more space
 
     .D64(return_address2)               // actual return address
                                         // (won't be found)

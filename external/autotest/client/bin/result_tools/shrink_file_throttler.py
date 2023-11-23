@@ -5,33 +5,27 @@
 import os
 import re
 
-import throttler_lib
-import utils_lib
+try:
+    from autotest_lib.client.bin.result_tools import throttler_lib
+    from autotest_lib.client.bin.result_tools import utils_lib
+except ImportError:
+    import throttler_lib
+    import utils_lib
 
 
-# File extensions that can not be shrunk., as partial content will corrupt the
-# file.
-UNSHRINKABLE_EXTENSIONS = set([
-        '.bin',
-        '.data',
-        '.devcore',
-        '.dmp',
-        '.gz',
-        '.htm',
-        '.html',
-        '.img',
-        '.journal',
-        '.jpg',
-        '.json',
-        '.pcap',
-        '.png',
-        '.tar',
-        '.tgz',
-        '.trc', # TODO: unify with .pcap?
-        '.xml',
-        '.xz',
-        '.zip',
-        ])
+# File extensions that can be safely shrunk.
+# Extension matching is case-insensitive but the items in this set must be
+# lowercase to match.
+# Files without an extension and with no alphabetic characters in the extension
+# (e.g. file.20201110) are always shrinkable.
+SHRINKABLE_EXTENSIONS = frozenset([
+        '.log',
+        '.txt',
+        '.debug',
+        '.error',
+        '.info',
+        '.warning',
+])
 
 # Regex for paths that should not be shrunk.
 UNSHRINKABLE_PATH_PATTERNS = [
@@ -39,7 +33,7 @@ UNSHRINKABLE_PATH_PATTERNS = [
         # and trimming them further would be detrimental to debugging. If
         # they're too large, let other throttlers (e.g., zip_file_ or
         # delete_file_) deal with them.
-        # Only blacklist a few known-useful log_diff's.
+        # Only blocklist a few known-useful log_diff's.
         '/log_diff/messages$',
         '/log_diff/net\.log$',
         # Ramoops files are small but relatively important.
@@ -132,7 +126,11 @@ def _get_shrinkable_files(file_infos, file_size_limit_byte):
     """
     for info in file_infos:
         ext = os.path.splitext(info.name)[1].lower()
-        if ext in UNSHRINKABLE_EXTENSIONS:
+        # if ext contains alphabetic characters and is not in the allowlist,
+        # skip the file.
+        # islower() returns false if the string does not contain any alphabetic
+        # characters, e.g. '.20201110'.islower() is False.
+        if ext.islower() and ext not in SHRINKABLE_EXTENSIONS:
             continue
 
         match_found = False

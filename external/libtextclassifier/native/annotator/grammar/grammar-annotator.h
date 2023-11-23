@@ -21,8 +21,10 @@
 
 #include "annotator/model_generated.h"
 #include "annotator/types.h"
-#include "utils/flatbuffers.h"
-#include "utils/grammar/lexer.h"
+#include "utils/flatbuffers/mutable.h"
+#include "utils/grammar/analyzer.h"
+#include "utils/grammar/evaluated-derivation.h"
+#include "utils/grammar/text-context.h"
 #include "utils/i18n/locale.h"
 #include "utils/tokenizer.h"
 #include "utils/utf8/unicodetext.h"
@@ -33,13 +35,9 @@ namespace libtextclassifier3 {
 // Grammar backed annotator.
 class GrammarAnnotator {
  public:
-  enum class Callback : grammar::CallbackId {
-    kRuleMatch = 1,
-  };
-
   explicit GrammarAnnotator(
       const UniLib* unilib, const GrammarModel* model,
-      const ReflectiveFlatbufferBuilder* entity_data_builder);
+      const MutableFlatbufferBuilder* entity_data_builder);
 
   // Annotates a given text.
   // Returns true if the text was successfully annotated.
@@ -59,14 +57,31 @@ class GrammarAnnotator {
                         AnnotatedSpan* result) const;
 
  private:
+  // Filters out derivations that do not overlap with a reference span.
+  std::vector<grammar::Derivation> OverlappingDerivations(
+      const CodepointSpan& selection,
+      const std::vector<grammar::Derivation>& derivations,
+      const bool only_exact_overlap) const;
+
+  // Fills out an annotated span from a grammar match result.
+  bool InstantiateAnnotatedSpanFromDerivation(
+      const grammar::TextContext& input_context,
+      const grammar::ParseTree* parse_tree,
+      const GrammarModel_::RuleClassificationResult* interpretation,
+      AnnotatedSpan* result) const;
+
+  // Instantiates a classification result from a rule match.
+  bool InstantiateClassificationFromDerivation(
+      const grammar::TextContext& input_context,
+      const grammar::ParseTree* parse_tree,
+      const GrammarModel_::RuleClassificationResult* interpretation,
+      ClassificationResult* classification) const;
+
   const UniLib& unilib_;
   const GrammarModel* model_;
-  const grammar::Lexer lexer_;
   const Tokenizer tokenizer_;
-  const ReflectiveFlatbufferBuilder* entity_data_builder_;
-
-  // Pre-parsed locales of the rules.
-  const std::vector<std::vector<Locale>> rules_locales_;
+  const MutableFlatbufferBuilder* entity_data_builder_;
+  const grammar::Analyzer analyzer_;
 };
 
 }  // namespace libtextclassifier3

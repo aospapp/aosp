@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 #
 # Copyright 2007 Google Inc. Released under the GPL v2
 
@@ -10,6 +11,10 @@ You should import the "hosts" package instead of importing each type of host.
         SSHHost: a remote machine with a ssh access
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import inspect
 import logging
 import re
@@ -20,6 +25,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import pxssh
 from autotest_lib.server import utils
 from autotest_lib.server.hosts import abstract_ssh
+import six
 
 # In case cros_host is being ran via SSP on an older Moblab version with an
 # older chromite version.
@@ -27,6 +33,12 @@ try:
     from chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
+
+
+def THIS_IS_SLOW(func):
+    """Mark the given function as slow, when looking at calls to it"""
+    func.__name__ = '%s__SLOW__' % func.__name__
+    return func
 
 
 class SSHHost(abstract_ssh.AbstractSSHHost):
@@ -50,6 +62,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
     This is a leaf class in an abstract class hierarchy, it must
     implement the unimplemented methods in parent classes.
     """
+    RUN_TIMEOUT = 3600
 
     def _initialize(self, hostname, *args, **dargs):
         """
@@ -59,6 +72,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 hostname: network hostname or address of remote machine
         """
         super(SSHHost, self)._initialize(hostname=hostname, *args, **dargs)
+        self._default_run_timeout = self.RUN_TIMEOUT
         self.setup_ssh()
 
 
@@ -108,8 +122,8 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         stack = self._get_server_stack_state(lowest_frames=3, highest_frames=6)
         # If logger executable exists on the DUT, use it to report the command.
         # Then regardless of logger, run the command as usual.
-        command = ('test -x /usr/bin/logger && /usr/bin/logger --id=$$ '
-                   '--tag=autotest "from [%s] ssh_run: %s"; %s'
+        command = ('test -x /usr/bin/logger && /usr/bin/logger'
+                   ' -t autotest "from [%s] ssh_run: %s"; %s'
                    % (stack, utils.sh_escape(command), command))
         return command
 
@@ -119,7 +133,9 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
              ignore_timeout, ssh_failure_retry_ok):
         """Helper function for run()."""
         if connect_timeout > timeout:
-            connect_timeout = int(timeout)
+            # timeout passed from run() may be smaller than 1, because we
+            # subtract the elapsed time from the original timeout supplied.
+            connect_timeout = max(int(timeout), 1)
         original_cmd = command
 
         ssh_cmd = self.ssh_command(connect_timeout, options)
@@ -258,7 +274,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                          r'Connection timed out\r$', result.stderr):
                 counters_inc('run', 'final_timeout')
                 raise error.AutoservSSHTimeout(
-                        "ssh timed out: %s" % original_cmd.strip(), result)
+                        "ssh timed out: %r" % original_cmd.strip(), result)
             if "Permission denied." in result.stderr:
                 msg = "ssh permission denied"
                 counters_inc('run', 'final_eperm')
@@ -271,14 +287,20 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 msg = result.stdout.strip()
                 if msg:
                     msg = msg.splitlines()[-1]
-            raise error.AutoservRunError("command execution error (%d): %s" %
+            raise error.AutoservRunError("command execution error (%d): %r" %
                                          (result.exit_status, msg), result)
 
         counters_inc('run', failure_name)
         return result
 
+    def set_default_run_timeout(self, timeout):
+        """Set the default timeout for run."""
+        if timeout < 0:
+            raise error.TestError('Invalid timeout %d', timeout)
+        self._default_run_timeout = timeout
 
-    def run_very_slowly(self, command, timeout=None, ignore_status=False,
+    @THIS_IS_SLOW
+    def run(self, command, timeout=None, ignore_status=False,
             stdout_tee=utils.TEE_TO_LOGS, stderr_tee=utils.TEE_TO_LOGS,
             connect_timeout=30, options='', stdin=None, verbose=True, args=(),
             ignore_timeout=False, ssh_failure_retry_ok=False):
@@ -289,7 +311,8 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                every job, a server core dies in the lab.
         @see: common_lib.hosts.host.run()
 
-        @param timeout: command execution timeout in seconds. Default is 1 hour.
+        @param timeout: command execution timeout in seconds. Default is
+                        _default_run_timeout (1 hour).
         @param connect_timeout: ssh connection timeout (in seconds)
         @param options: string with additional ssh command options
         @param verbose: log the commands
@@ -306,8 +329,13 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         @raises AutoservRunError: if the command failed
         @raises AutoservSSHTimeout: ssh connection has timed out
         """
+        # For example if the command is a list, we need to convert it to a
+        # string first.
+        if not isinstance(command, six.string_types):
+            command = ' '.join(command)
+
         if timeout is None:
-            timeout = 3600
+            timeout = self._default_run_timeout
         start_time = time.time()
         with metrics.SecondsTimer('chromeos/autotest/ssh/master_ssh_time',
                                   scale=0.001):
@@ -322,23 +350,20 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                     self.DEFAULT_START_MASTER_SSH_TIMEOUT_S,
             ))
 
-            env = " ".join("=".join(pair) for pair in self.env.iteritems())
+            env = " ".join("=".join(pair) for pair in six.iteritems(self.env))
             elapsed = time.time() - start_time
             try:
                 return self._run(command, timeout - elapsed, ignore_status,
                                  stdout_tee, stderr_tee, connect_timeout, env,
                                  options, stdin, args, ignore_timeout,
                                  ssh_failure_retry_ok)
-            except error.CmdError, cmderr:
+            except error.CmdError as cmderr:
                 # We get a CmdError here only if there is timeout of that
                 # command. Catch that and stuff it into AutoservRunError and
                 # raise it.
                 timeout_message = str('Timeout encountered: %s' %
                                       cmderr.args[0])
                 raise error.AutoservRunError(timeout_message, cmderr.args[1])
-
-
-    run = run_very_slowly
 
 
     def run_background(self, command, verbose=True):
@@ -435,7 +460,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 err_re = re.compile (regexp)
                 if err_re.search(stream):
                     raise error.AutoservRunError(
-                        '%s failed, found error pattern: "%s"' % (command,
+                        '%r failed, found error pattern: %r' % (command,
                                                                 regexp), result)
 
         for (regexp, stream) in ((stderr_ok_regexp, result.stderr),
@@ -452,7 +477,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 msg = result.stdout.strip()
                 if msg:
                     msg = msg.splitlines()[-1]
-            raise error.AutoservRunError("command execution error (%d): %s" %
+            raise error.AutoservRunError("command execution error (%d): %r" %
                                          (result.exit_status, msg), result)
 
 

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/dsp/dsp.h"
-#include "src/dsp/intrapred.h"
+#include "src/dsp/intrapred_smooth.h"
+#include "src/utils/cpu.h"
 
 #if LIBGAV1_ENABLE_NEON
 
@@ -25,6 +25,8 @@
 
 #include "src/dsp/arm/common_neon.h"
 #include "src/dsp/constants.h"
+#include "src/dsp/dsp.h"
+#include "src/utils/constants.h"
 
 namespace libgav1 {
 namespace dsp {
@@ -51,6 +53,9 @@ constexpr uint8_t kSmoothWeights[] = {
     69, 65, 61, 57, 54, 50, 47, 44, 41, 38, 35, 32, 29, 27, 25, 22, 20, 18, 16,
     15, 13, 12, 10, 9, 8, 7, 6, 6, 5, 5, 4, 4, 4};
 
+// TODO(b/150459137): Keeping the intermediate values in uint16_t would allow
+// processing more values at once. At the high end, it could do 4x4 or 8x2 at a
+// time.
 inline uint16x4_t CalculatePred(const uint16x4_t weighted_top,
                                 const uint16x4_t weighted_left,
                                 const uint16x4_t weighted_bl,
@@ -73,10 +78,8 @@ inline void Smooth4Or8xN_NEON(void* const dest, ptrdiff_t stride,
   uint8_t* dst = static_cast<uint8_t*>(dest);
 
   uint8x8_t top_v;
-  // TODO(johannkoenig): Process 16 values (4x4 / 8x2) at a time.
   if (width == 4) {
-    top_v = vdup_n_u8(0);
-    top_v = LoadLo4(top, top_v);
+    top_v = Load4(top);
   } else {  // width == 8
     top_v = vld1_u8(top);
   }
@@ -237,8 +240,7 @@ inline void SmoothVertical4Or8xN_NEON(void* const dest, ptrdiff_t stride,
 
   uint8x8_t top_v;
   if (width == 4) {
-    top_v = vdup_n_u8(0);
-    top_v = LoadLo4(top, top_v);
+    top_v = Load4(top);
   } else {  // width == 8
     top_v = vld1_u8(top);
   }
@@ -441,7 +443,7 @@ inline void SmoothHorizontal16PlusxN_NEON(void* const dest, ptrdiff_t stride,
 }
 
 void Init8bpp() {
-  Dsp* const dsp = dsp_internal::GetWritableDspTable(8);
+  Dsp* const dsp = dsp_internal::GetWritableDspTable(kBitdepth8);
   assert(dsp != nullptr);
   // 4x4
   dsp->intra_predictors[kTransformSize4x4][kIntraPredictorSmooth] =

@@ -6,7 +6,8 @@
 
 set -e
 
-. $(dirname "$(readlink -f "${0}")")/common.sh
+# shellcheck source=./common.sh
+. "$(dirname "$(readlink -f "${0}")")/common.sh"
 
 echo "Running test to validate system_is_locked()"
 
@@ -27,6 +28,8 @@ check_is_rollback_set_to_initial_val
 echo "Checking that firmware is functional"
 check_firmware_is_functional
 
+echo "Checking that system is locked"
+check_system_is_locked
+
 echo "Checking that we cannot access raw frame"
 check_raw_fpframe_fails
-

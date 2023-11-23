@@ -65,5 +65,33 @@ ADVERTISEMENT6 = {
     'IncludeTxPower': True}
 
 
+NEARBY_BROADCAST_ADV = {
+        'Path': '/org/bluez/test/advertisement7',
+        'Type': 'broadcast',
+        'ManufacturerData': {
+                '0xFE2C': [0x6a, 0x6b, 0x6c, 0x6d, 0x6e]
+        },
+        'ServiceUUIDs': ['FE2C'],
+        'SolicitUUIDs': [],
+        'ServiceData': {
+                'FE2C': [0x61, 0x62, 0x63, 0x64, 0x65]
+        },
+        'IncludeTxPower': True
+}
+
+
+#
+# Nearby Mediums Fast Advertisement requirement is to put Service UUIDs and
+# flags in advertising payload, and 20 bytes of Service data in Scan response
+#
+NEARBY_MEDIUMS_FAST_ADV = {
+        'Path': '/org/bluez/test/advertisement8',
+        'Type': 'peripheral',
+        'ServiceUUIDs': ['FEF3'],
+        'ScanResponseData': {
+                '0x16': [0xf3, 0xfe] + range(1, 21)
+        },
+}
+
 ADVERTISEMENTS = [ADVERTISEMENT1, ADVERTISEMENT2, ADVERTISEMENT3,
                   ADVERTISEMENT4, ADVERTISEMENT5, ADVERTISEMENT6]

@@ -1,16 +1,37 @@
-# Require trusty for now as it has a more recent version of autoconf
-sudo: required
-dist: trusty
 language: c
 
-compiler:
-    - gcc
-    - clang
+git:
+    depth: 1
 
-os:
-    - linux
-    - osx
-
+matrix:
+    include:
+        - os: linux
+          dist: focal
+          compiler: clang
+        - os: linux
+          dist: focal
+          compiler: gcc
+        - os: linux
+          dist: bionic
+          compiler: clang
+        - os: linux
+          dist: bionic
+          compiler: gcc
+        - os: linux
+          dist: xenial
+          compiler: clang
+        - os: linux
+          dist: xenial
+          compiler: gcc
+        - os: osx
+          osx_image: xcode12.2
+          compiler: clang
+        - os: osx
+          osx_image: xcode11.3
+          compiler: clang
+        - os: osx
+          osx_image: xcode9.4
+          compiler: clang
 
 addons:
     apt:
@@ -18,12 +39,21 @@ addons:
             - autoconf
             - automake
             - libtool
-            - m4
             - libudev-dev
-        sources:
-            - ubuntu-toolchain-r-test
+            - m4
+    homebrew:
+        packages:
+            - autoconf
+            - automake
+            - libtool
+            - m4
+        update: true
+
+before_script:
+    - ./bootstrap.sh
 
 script:
-    - ./autogen.sh && make -j4
-    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./travis-autogen.sh --disable-udev && make -j4; fi
-    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cd Xcode && xcodebuild -project libusb.xcodeproj ; fi
+    - if [ "$TRAVIS_OS_NAME" = "linux" ]; then .private/ci-build.sh --build-dir build-netlink -- --disable-udev; fi
+    - if [ "$TRAVIS_OS_NAME" = "linux" ]; then .private/ci-build.sh --build-dir build-udev -- --enable-udev; fi
+    - if [ "$TRAVIS_OS_NAME" = "osx" ]; then .private/ci-build.sh --build-dir build; fi
+    - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cd Xcode && xcodebuild -project libusb.xcodeproj; fi

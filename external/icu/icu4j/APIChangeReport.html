@@ -3,74 +3,217 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <!-- © 2020 and later: Unicode, Inc. and others. -->
-<!-- License & terms of use: http://www.unicode.org/copyright.html#License -->
-<title>ICU4J API Comparison: ICU4J 65.1 with ICU4J 66.1</title>
+<!-- License & terms of use: http://www.unicode.org/copyright.html -->
+<title>ICU4J API Comparison: ICU4J 67.1 with ICU4J 68.1</title>
 </head>
 <body>
-<h1>ICU4J API Comparison: ICU4J 65.1 with ICU4J 66.1</h1>
+<h1>ICU4J API Comparison: ICU4J 67.1 with ICU4J 68.1</h1>
 
 <hr/>
-<h2>Removed from ICU4J 65.1</h2>
+<h2>Removed from ICU4J 67.1</h2>
 <p>(no API removed)</p>
 
 <hr/>
-<h2>Deprecated or Obsoleted in ICU4J 66.1</h2>
+<h2>Deprecated or Obsoleted in ICU4J 68.1</h2>
 <p>(no API obsoleted)</p>
 
 <hr/>
-<h2>Changed in ICU4J 66.1 (old, new)</h2>
-<p>(no API changed)</p>
+<h2>Changed in ICU4J 68.1 (old, new)</h2>
+
+<h3>Package com.ibm.icu.util</h3>
+<ul>
+<li>    <span style='color:orange'>(draft)</span> public class <i>NoUnit</i> extends com.ibm.icu.util.MeasureUnit</br>
+<span style='color:orange'>(draft)</span> public final class <i>NoUnit</i> extends java.lang.Object</li>
+NoUnit
+<ul>
+<li>    <span style='color:orange'>(draft)</span> public static final com.ibm.icu.util.NoUnit BASE</br>
+<span style='color:orange'>(draft)</span> public static final com.ibm.icu.util.MeasureUnit BASE</li>
+<li>    <span style='color:orange'>(draft)</span> public static final com.ibm.icu.util.NoUnit PERCENT</br>
+<span style='color:orange'>(draft)</span> public static final com.ibm.icu.util.MeasureUnit PERCENT</li>
+<li>    <span style='color:orange'>(draft)</span> public static final com.ibm.icu.util.NoUnit PERMILLE</br>
+<span style='color:orange'>(draft)</span> public static final com.ibm.icu.util.MeasureUnit PERMILLE</li>
+</ul>
+</ul>
+
 
 <hr/>
-<h2>Promoted to stable in ICU4J 66.1</h2>
-<p>(no API promoted to stable)</p>
+<h2>Promoted to stable in ICU4J 68.1</h2>
 
-<hr/>
-<h2>Added in ICU4J 66.1</h2>
-
-<h3>Package com.ibm.icu.lang</h3>
+<h3>Package com.ibm.icu.text</h3>
 <ul>
-UCharacter.IndicPositionalCategory
+RelativeDateTimeFormatter.AbsoluteUnit
 <ul>
-<li><span style='color:green'>(stable)</span> public static final int TOP_AND_BOTTOM_AND_LEFT</li>
-</ul>
-UCharacter.UnicodeBlock
-<ul>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock CHORASMIAN</li>
-<li><span style='color:green'>(stable)</span> public static final int CHORASMIAN_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G</li>
-<li><span style='color:green'>(stable)</span> public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock DIVES_AKURU</li>
-<li><span style='color:green'>(stable)</span> public static final int DIVES_AKURU_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock KHITAN_SMALL_SCRIPT</li>
-<li><span style='color:green'>(stable)</span> public static final int KHITAN_SMALL_SCRIPT_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock LISU_SUPPLEMENT</li>
-<li><span style='color:green'>(stable)</span> public static final int LISU_SUPPLEMENT_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock SYMBOLS_FOR_LEGACY_COMPUTING</li>
-<li><span style='color:green'>(stable)</span> public static final int SYMBOLS_FOR_LEGACY_COMPUTING_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock TANGUT_SUPPLEMENT</li>
-<li><span style='color:green'>(stable)</span> public static final int TANGUT_SUPPLEMENT_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock YEZIDI</li>
-<li><span style='color:green'>(stable)</span> public static final int YEZIDI_ID</li>
-</ul>
-UScript
-<ul>
-<li><span style='color:green'>(stable)</span> public static final int CHORASMIAN</li>
-<li><span style='color:green'>(stable)</span> public static final int DIVES_AKURU</li>
-<li><span style='color:green'>(stable)</span> public static final int KHITAN_SMALL_SCRIPT</li>
-<li><span style='color:green'>(stable)</span> public static final int YEZIDI</li>
+<li><span style='color:green'>(stable)</span> public static final RelativeDateTimeFormatter.AbsoluteUnit HOUR</li>
+<li><span style='color:green'>(stable)</span> public static final RelativeDateTimeFormatter.AbsoluteUnit MINUTE</li>
 </ul>
 </ul>
 
 <h3>Package com.ibm.icu.util</h3>
 <ul>
-VersionInfo
+<li><span style='color:green'>(stable)</span> public static final class <i>LocaleMatcher.Builder</i></li>
+<li><span style='color:green'>(stable)</span> public static final class <i>LocaleMatcher.Result</i></li>
+<li><span style='color:green'>(stable)</span> public static enum <i>LocaleMatcher.Demotion</i></li>
+<li><span style='color:green'>(stable)</span> public static enum <i>LocaleMatcher.FavorSubtag</i></li>
+<li><span style='color:green'>(stable)</span> public static enum <i>ULocale.AvailableType</i></li>
+LocaleMatcher
 <ul>
-<li><span style='color:green'>(stable)</span> public static final VersionInfo UNICODE_13_0</li>
+<li><span style='color:green'>(stable)</span> public static LocaleMatcher.Builder <i>builder</i>()</li>
+<li><span style='color:green'>(stable)</span> public java.util.Locale <i>getBestLocale</i>(java.lang.Iterable&lt;java.util.Locale&gt;)</li>
+<li><span style='color:green'>(stable)</span> public java.util.Locale <i>getBestLocale</i>(java.util.Locale)</li>
+<li><span style='color:green'>(stable)</span> public LocaleMatcher.Result <i>getBestLocaleResult</i>(java.lang.Iterable&lt;java.util.Locale&gt;)</li>
+<li><span style='color:green'>(stable)</span> public LocaleMatcher.Result <i>getBestLocaleResult</i>(java.util.Locale)</li>
+<li><span style='color:green'>(stable)</span> public LocaleMatcher.Result <i>getBestMatchResult</i>(ULocale)</li>
+<li><span style='color:green'>(stable)</span> public LocaleMatcher.Result <i>getBestMatchResult</i>(java.lang.Iterable&lt;ULocale&gt;)</li>
+</ul>
+LocaleMatcher.Demotion
+<ul>
+<li><span style='color:green'>(stable)</span> public static final LocaleMatcher.Demotion NONE</li>
+<li><span style='color:green'>(stable)</span> public static final LocaleMatcher.Demotion REGION</li>
+</ul>
+LocaleMatcher.FavorSubtag
+<ul>
+<li><span style='color:green'>(stable)</span> public static final LocaleMatcher.FavorSubtag LANGUAGE</li>
+<li><span style='color:green'>(stable)</span> public static final LocaleMatcher.FavorSubtag SCRIPT</li>
+</ul>
+LocalePriorityList
+<ul>
+<li><span style='color:green'>(stable)</span> public java.util.Set&lt;ULocale&gt; <i>getULocales</i>()</li>
+</ul>
+MeasureUnit
+<ul>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit BAR</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit DECADE</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit DOT_PER_CENTIMETER</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit DOT_PER_INCH</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit EM</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit MEGAPIXEL</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit PASCAL</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit PIXEL</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit PIXEL_PER_CENTIMETER</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit PIXEL_PER_INCH</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit THERM_US</li>
+</ul>
+ULocale
+<ul>
+<li><span style='color:green'>(stable)</span> public static java.util.Collection&lt;ULocale&gt; <i>getAvailableLocalesByType</i>(ULocale.AvailableType)</li>
+</ul>
+ULocale.AvailableType
+<ul>
+<li><span style='color:green'>(stable)</span> public static final ULocale.AvailableType DEFAULT</li>
+<li><span style='color:green'>(stable)</span> public static final ULocale.AvailableType ONLY_LEGACY_ALIASES</li>
+<li><span style='color:green'>(stable)</span> public static final ULocale.AvailableType WITH_LEGACY_ALIASES</li>
+</ul>
+</ul>
+
+
+<hr/>
+<h2>Added in ICU4J 68.1</h2>
+
+<h3>Package com.ibm.icu.number</h3>
+<ul>
+FormattedNumber
+<ul>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit <i>getOutputUnit</i>()</li>
+</ul>
+NumberFormatterSettings
+<ul>
+<li><span style='color:orange'>(draft)</span> public T extends NumberFormatterSettings&lt;?&gt; <i>usage</i>(java.lang.String)</li>
+</ul>
+</ul>
+
+<h3>Package com.ibm.icu.text</h3>
+<ul>
+DateIntervalFormat
+<ul>
+<li><span style='color:orange'>(draft)</span> public DisplayContext <i>getContext</i>(DisplayContext.Type)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setContext</i>(DisplayContext)</li>
+</ul>
+DecimalFormat
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final int MINIMUM_GROUPING_DIGITS_AUTO</li>
+<li><span style='color:orange'>(draft)</span> public static final int MINIMUM_GROUPING_DIGITS_MIN2</li>
+</ul>
+PluralRules
+<ul>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>select</i>(FormattedNumberRange)</li>
+</ul>
+</ul>
+
+<h3>Package com.ibm.icu.util</h3>
+<ul>
+<li><span style='color:orange'>(draft)</span> public class <i>ICUInputTooLongException</i></li>
+<li><span style='color:orange'>(draft)</span> public static enum <i>MeasureUnit.Complexity</i></li>
+<li><span style='color:orange'>(draft)</span> public static enum <i>MeasureUnit.SIPrefix</i></li>
+LocaleMatcher
+<ul>
+<li><span style='color:orange'>(draft)</span> public boolean <i>isMatch</i>(ULocale, ULocale)</li>
+<li><span style='color:orange'>(draft)</span> public boolean <i>isMatch</i>(java.util.Locale, java.util.Locale)</li>
+</ul>
+LocaleMatcher.Builder
+<ul>
+<li><span style='color:orange'>(draft)</span> public LocaleMatcher.Builder <i>setMaxDistance</i>(ULocale, ULocale)</li>
+<li><span style='color:orange'>(draft)</span> public LocaleMatcher.Builder <i>setMaxDistance</i>(java.util.Locale, java.util.Locale)</li>
+<li><span style='color:orange'>(draft)</span> public LocaleMatcher.Builder <i>setNoDefaultLocale</i>()</li>
+</ul>
+MeasureUnit
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit CANDELA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit DESSERT_SPOON</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit DESSERT_SPOON_IMPERIAL</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit DOT</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit DRAM</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit DROP</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit EARTH_RADIUS</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit GRAIN</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit JIGGER</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit LUMEN</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit PINCH</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit QUART_IMPERIAL</li>
+<li><span style='color:orange'>(draft)</span> public static MeasureUnit <i>forIdentifier</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit.Complexity <i>getComplexity</i>()</li>
+<li><span style='color:orange'>(draft)</span> public int <i>getDimensionality</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getIdentifier</i>()</li>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit.SIPrefix <i>getSIPrefix</i>()</li>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit <i>product</i>(MeasureUnit)</li>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit <i>reciprocal</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.util.List&lt;MeasureUnit&gt; <i>splitToSingleUnits</i>()</li>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit <i>withDimensionality</i>(int)</li>
+<li><span style='color:orange'>(draft)</span> public MeasureUnit <i>withSIPrefix</i>(MeasureUnit.SIPrefix)</li>
+</ul>
+MeasureUnit.Complexity
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.Complexity COMPOUND</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.Complexity MIXED</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.Complexity SINGLE</li>
+</ul>
+MeasureUnit.SIPrefix
+<ul>
+<li><span style='color:orange'>(draft)</span> public int <i>getPower</i>()</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix ATTO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix CENTI</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix DECI</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix DEKA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix EXA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix FEMTO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix GIGA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix HECTO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix KILO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix MEGA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix MICRO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix MILLI</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix NANO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix ONE</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix PETA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix PICO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix TERA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix YOCTO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix YOTTA</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix ZEPTO</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit.SIPrefix ZETTA</li>
 </ul>
 </ul>
 
 <hr/>
-<p><i><font size="-1">Contents generated by ReportAPI tool on Mon Feb 24 21:44:48 EST 2020<br/>© 2020 and later: Unicode, Inc. and others. License & terms of use: <a href="http://www.unicode.org/copyright.html#License">http://www.unicode.org/copyright.html#License</a></font></i></p>
+<p><i><font size="-1">Contents generated by ReportAPI tool on Fri Oct 23 11:19:04 PDT 2020<br/>© 2020 and later: Unicode, Inc. and others. License & terms of use: <a href="http://www.unicode.org/copyright.html">http://www.unicode.org/copyright.html</a></font></i></p>
 </body>
 </html>

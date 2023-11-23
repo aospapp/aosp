@@ -1,8 +1,45 @@
 // Set up common variables for usage across the libjpeg-turbo modules
 
+package {
+    default_applicable_licenses: ["external_libjpeg-turbo_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_libjpeg-turbo_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-Beerware",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-Zlib",
+        "legacy_notice",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE.md",
+    ],
+}
+
 cc_defaults {
     name: "libjpeg-defaults",
     cflags: [
+        "-DWITH_SIMD",
+        "-DNO_GETENV",
+
         "-O3",
         "-fstrict-aliasing",
 
@@ -19,6 +56,7 @@ cc_defaults {
         "jccolor.c",
         "jcdctmgr.c",
         "jchuff.c",
+        "jcicc.c",
         "jcinit.c",
         "jcmainct.c",
         "jcmarker.c",
@@ -38,6 +76,7 @@ cc_defaults {
         "jdcolor.c",
         "jddctmgr.c",
         "jdhuff.c",
+        "jdicc.c",
         "jdinput.c",
         "jdmainct.c",
         "jdmarker.c",
@@ -57,6 +96,7 @@ cc_defaults {
         "jidctred.c",
         "jmemmgr.c",
         "jmemnobs.c",
+        "jpeg_nbits_table.c",
         "jquant1.c",
         "jquant2.c",
         "jutils.c",
@@ -72,16 +112,46 @@ cc_defaults {
             instruction_set: "arm",
             // ARM v7 NEON
             srcs: [
-                "simd/arm/jsimd.c",
-                "simd/arm/jsimd_neon.S",
+                "simd/arm/aarch32/jchuff-neon.c",
+                "simd/arm/aarch32/jsimd.c",
+                "simd/arm/jccolor-neon.c",
+                "simd/arm/jcgray-neon.c",
+                "simd/arm/jcphuff-neon.c",
+                "simd/arm/jcsample-neon.c",
+                "simd/arm/jdcolor-neon.c",
+                "simd/arm/jdmerge-neon.c",
+                "simd/arm/jdsample-neon.c",
+                "simd/arm/jfdctfst-neon.c",
+                "simd/arm/jfdctint-neon.c",
+                "simd/arm/jidctfst-neon.c",
+                "simd/arm/jidctint-neon.c",
+                "simd/arm/jidctred-neon.c",
+                "simd/arm/jquanti-neon.c",
             ],
+            cflags: ["-DNEON_INTRINSICS"],
+            local_include_dirs: ["simd/arm"],
         },
         arm64: {
             // ARM v8 64-bit NEON
             srcs: [
-                "simd/arm64/jsimd.c",
-                "simd/arm64/jsimd_neon.S",
+                "simd/arm/aarch64/jchuff-neon.c",
+                "simd/arm/aarch64/jsimd.c",
+                "simd/arm/jccolor-neon.c",
+                "simd/arm/jcgray-neon.c",
+                "simd/arm/jcphuff-neon.c",
+                "simd/arm/jcsample-neon.c",
+                "simd/arm/jdcolor-neon.c",
+                "simd/arm/jdmerge-neon.c",
+                "simd/arm/jdsample-neon.c",
+                "simd/arm/jfdctfst-neon.c",
+                "simd/arm/jfdctint-neon.c",
+                "simd/arm/jidctfst-neon.c",
+                "simd/arm/jidctint-neon.c",
+                "simd/arm/jidctred-neon.c",
+                "simd/arm/jquanti-neon.c",
             ],
+            cflags: ["-DNEON_INTRINSICS"],
+            local_include_dirs: ["simd/arm"],
         },
         x86: {
             // x86 MMX and SSE2
@@ -134,11 +204,9 @@ cc_defaults {
             ],
             asflags: [
                 "-DPIC",
+                "-D__x86__",
             ],
-            local_include_dirs: [
-                "simd",
-                "simd/nasm",
-            ],
+            local_include_dirs: ["simd/nasm"],
         },
         x86_64: {
             // x86-64 SSE2
@@ -176,16 +244,7 @@ cc_defaults {
                 "-DPIC",
                 "-D__x86_64__",
             ],
-            local_include_dirs: [
-                "simd",
-                "simd/nasm",
-            ],
-        },
-        mips: {
-            srcs: ["jsimd_none.c"],
-        },
-        mips64: {
-            srcs: ["jsimd_none.c"],
+            local_include_dirs: ["simd/nasm"],
         },
     },
 
@@ -213,11 +272,12 @@ cc_defaults {
     },
 }
 
-// Also build as a shared library.
+// Build as a shared library.
 cc_library {
     name: "libjpeg",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
     },

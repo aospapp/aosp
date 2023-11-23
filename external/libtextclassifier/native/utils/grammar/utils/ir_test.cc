@@ -24,13 +24,16 @@
 namespace libtextclassifier3::grammar {
 namespace {
 
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Ne;
 using ::testing::SizeIs;
 
 TEST(IrTest, HandlesSharingWithTerminalRules) {
-  Ir ir;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Ir ir(locale_shard_map);
 
   // <t1> ::= the
   const Nonterm t1 = ir.Add(kUnassignedNonterm, "the");
@@ -71,7 +74,9 @@ TEST(IrTest, HandlesSharingWithTerminalRules) {
 }
 
 TEST(IrTest, HandlesSharingWithNonterminalRules) {
-  Ir ir;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Ir ir(locale_shard_map);
 
   // Setup a few terminal rules.
   const std::vector<Nonterm> rhs = {
@@ -96,52 +101,31 @@ TEST(IrTest, HandlesSharingWithCallbacksWithSameParameters) {
   // Test sharing in the presence of callbacks.
   constexpr CallbackId kOutput1 = 1;
   constexpr CallbackId kOutput2 = 2;
-  constexpr CallbackId kFilter1 = 3;
-  constexpr CallbackId kFilter2 = 4;
-  Ir ir(/*filters=*/{kFilter1, kFilter2});
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Ir ir(locale_shard_map);
 
   const Nonterm x1 = ir.Add(kUnassignedNonterm, "hello");
   const Nonterm x2 =
       ir.Add(Ir::Lhs{kUnassignedNonterm, {kOutput1, 0}}, "hello");
   const Nonterm x3 =
-      ir.Add(Ir::Lhs{kUnassignedNonterm, {kFilter1, 0}}, "hello");
-  const Nonterm x4 =
       ir.Add(Ir::Lhs{kUnassignedNonterm, {kOutput2, 0}}, "hello");
-  const Nonterm x5 =
-      ir.Add(Ir::Lhs{kUnassignedNonterm, {kFilter2, 0}}, "hello");
 
   // Duplicate entry.
-  const Nonterm x6 =
+  const Nonterm x4 =
       ir.Add(Ir::Lhs{kUnassignedNonterm, {kOutput2, 0}}, "hello");
 
   EXPECT_THAT(x2, Eq(x1));
-  EXPECT_THAT(x3, Ne(x1));
+  EXPECT_THAT(x3, Eq(x1));
   EXPECT_THAT(x4, Eq(x1));
-  EXPECT_THAT(x5, Ne(x1));
-  EXPECT_THAT(x5, Ne(x3));
-  EXPECT_THAT(x6, Ne(x3));
-}
-
-TEST(IrTest, HandlesSharingWithCallbacksWithDifferentParameters) {
-  // Test sharing in the presence of callbacks.
-  constexpr CallbackId kOutput = 1;
-  constexpr CallbackId kFilter = 2;
-  Ir ir(/*filters=*/{kFilter});
-
-  const Nonterm x1 = ir.Add(Ir::Lhs{kUnassignedNonterm, {kOutput, 0}}, "world");
-  const Nonterm x2 = ir.Add(Ir::Lhs{kUnassignedNonterm, {kOutput, 1}}, "world");
-  const Nonterm x3 = ir.Add(Ir::Lhs{kUnassignedNonterm, {kFilter, 0}}, "world");
-  const Nonterm x4 = ir.Add(Ir::Lhs{kUnassignedNonterm, {kFilter, 1}}, "world");
-
-  EXPECT_THAT(x2, Eq(x1));
-  EXPECT_THAT(x3, Ne(x1));
-  EXPECT_THAT(x4, Ne(x1));
-  EXPECT_THAT(x4, Ne(x3));
 }
 
 TEST(IrTest, SerializesRulesToFlatbufferFormat) {
   constexpr CallbackId kOutput = 1;
-  Ir ir;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Ir ir(locale_shard_map);
+
   const Nonterm verb = ir.AddUnshareableNonterminal();
   ir.Add(verb, "buy");
   ir.Add(Ir::Lhs{verb, {kOutput}}, "bring");
@@ -180,7 +164,9 @@ TEST(IrTest, SerializesRulesToFlatbufferFormat) {
 }
 
 TEST(IrTest, HandlesRulesSharding) {
-  Ir ir(/*filters=*/{}, /*num_shards=*/2);
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({"", "de"});
+  Ir ir(locale_shard_map);
   const Nonterm verb = ir.AddUnshareableNonterminal();
   const Nonterm set_reminder = ir.AddUnshareableNonterminal();
 
@@ -232,6 +218,24 @@ TEST(IrTest, HandlesRulesSharding) {
 
   EXPECT_THAT(rules.rules[0]->binary_rules, SizeIs(3));
   EXPECT_THAT(rules.rules[1]->binary_rules, SizeIs(3));
+}
+
+TEST(IrTest, DeduplicatesLhsSets) {
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Ir ir(locale_shard_map);
+
+  const Nonterm test = ir.AddUnshareableNonterminal();
+  ir.Add(test, "test");
+
+  // Add a second rule for the same nonterminal.
+  ir.Add(test, "again");
+
+  RulesSetT rules;
+  ir.Serialize(/*include_debug_information=*/false, &rules);
+
+  EXPECT_THAT(rules.lhs_set, SizeIs(1));
+  EXPECT_THAT(rules.lhs_set.front()->lhs, ElementsAre(test));
 }
 
 }  // namespace

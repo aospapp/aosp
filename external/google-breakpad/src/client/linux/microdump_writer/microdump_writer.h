@@ -37,6 +37,8 @@
 
 namespace google_breakpad {
 
+struct MicrodumpExtraInfo;
+
 // Writes a microdump (a reduced dump containing only the state of the crashing
 // thread) on the console (logcat on Android). These functions do not malloc nor
 // use libc functions which may. Thus, it can be used in contexts where the
@@ -46,12 +48,20 @@ namespace google_breakpad {
 //   blob: a blob of data from the crashing process. See exception_handler.h
 //   blob_size: the length of |blob| in bytes.
 //   mappings: a list of additional mappings provided by the application.
+//   build_fingerprint: a (optional) C string which determines the OS
+//     build fingerprint (e.g., aosp/occam/mako:5.1.1/LMY47W/1234:eng/dev-keys).
+//   product_info: a (optional) C string which determines the product name and
+//     version (e.g., WebView:42.0.2311.136).
 //
 // Returns true iff successful.
 bool WriteMicrodump(pid_t crashing_process,
                     const void* blob,
                     size_t blob_size,
-                    const MappingList& mappings);
+                    const MappingList& mappings,
+                    bool skip_dump_if_main_module_not_referenced,
+                    uintptr_t address_within_main_module,
+                    bool sanitize_stack,
+                    const MicrodumpExtraInfo& microdump_extra_info);
 
 }  // namespace google_breakpad
 

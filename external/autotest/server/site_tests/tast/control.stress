@@ -7,7 +7,7 @@ NAME = 'tast.stress'
 TIME = 'LONG'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:stress'
-MAX_RESULT_SIZE_KB = 50 * 1024
+MAX_RESULT_SIZE_KB = 1024 * 1024
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -28,7 +28,7 @@ See http://go/tast-failures for information about investigating failures.
 def run(machine):
     job.run_test('tast',
                  host=hosts.create_host(machine),
-                 test_exprs=['(!disabled && "group:stress")'],
+                 test_exprs=['("group:stress")'],
                  ignore_test_failures=False, max_run_sec=3600,
                  command_args=args)
 

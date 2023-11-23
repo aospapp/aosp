@@ -47,6 +47,8 @@ class power_ThermalLoad(power_test.power_Test):
                     seconds_period=self._seconds_period,
                     checkpoint_logger=self._checkpoint_logger)
             self._meas_logs.append(self._flog)
+            power_dashboard.get_dashboard_factory().registerDataType(
+                FishTankFpsLogger, power_dashboard.VideoFpsLoggerDashboard)
 
             self.start_measurements()
             while time.time() - self._start_time < duration:
@@ -57,15 +59,6 @@ class power_ThermalLoad(power_test.power_Test):
                         'Low battery, stop test early after %.0f minutes',
                         (time.time() - self._start_time) / 60)
                     return
-
-    def publish_dashboard(self):
-        """Report results power dashboard."""
-        super(power_ThermalLoad, self).publish_dashboard()
-
-        vdash = power_dashboard.VideoFpsLoggerDashboard(
-            self._flog, self.tagged_testname, self.resultsdir,
-            note=self._pdash_note)
-        vdash.upload()
 
 
 class FishTankFpsLogger(power_status.MeasurementLogger):

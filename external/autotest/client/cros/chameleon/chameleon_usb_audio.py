@@ -1,8 +1,15 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """This module provides the utilities for USB audio using chameleon."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from six.moves import range
+
 
 
 def set_usb_playback_configs_on_chameleon(widget_link, playback_configs):
@@ -68,4 +75,4 @@ def _convert_channel_number_to_channel_map(channel_number):
     @return: A list representing the corresponding channel map.
 
     """
-    return range(channel_number)
+    return list(range(channel_number))

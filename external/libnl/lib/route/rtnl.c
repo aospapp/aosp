@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/route/rtnl.c		Routing Netlink
  *
@@ -34,9 +35,9 @@
  * Fills out a routing netlink request message and sends it out
  * using nl_send_simple().
  *
- * @return 0 on success or a negative error code. Due to a bug in
- * older versions, this returned the number of bytes sent. So for
- * compatibility, treat positive return values as success too.
+ * @return 0 on success or a negative error code. Due to a bug in older
+ * version of the library, this function returned the number of bytes sent.
+ * Treat any non-negative number as success.
  */
 int nl_rtgen_request(struct nl_sock *sk, int type, int family, int flags)
 {
@@ -58,18 +59,18 @@ int nl_rtgen_request(struct nl_sock *sk, int type, int family, int flags)
  */
 
 static const struct trans_tbl rtntypes[] = {
-	__ADD(RTN_UNSPEC,unspec)
-	__ADD(RTN_UNICAST,unicast)
-	__ADD(RTN_LOCAL,local)
-	__ADD(RTN_BROADCAST,broadcast)
-	__ADD(RTN_ANYCAST,anycast)
-	__ADD(RTN_MULTICAST,multicast)
-	__ADD(RTN_BLACKHOLE,blackhole)
-	__ADD(RTN_UNREACHABLE,unreachable)
-	__ADD(RTN_PROHIBIT,prohibit)
-	__ADD(RTN_THROW,throw)
-	__ADD(RTN_NAT,nat)
-	__ADD(RTN_XRESOLVE,xresolve)
+	__ADD(RTN_UNSPEC,unspec),
+	__ADD(RTN_UNICAST,unicast),
+	__ADD(RTN_LOCAL,local),
+	__ADD(RTN_BROADCAST,broadcast),
+	__ADD(RTN_ANYCAST,anycast),
+	__ADD(RTN_MULTICAST,multicast),
+	__ADD(RTN_BLACKHOLE,blackhole),
+	__ADD(RTN_UNREACHABLE,unreachable),
+	__ADD(RTN_PROHIBIT,prohibit),
+	__ADD(RTN_THROW,throw),
+	__ADD(RTN_NAT,nat),
+	__ADD(RTN_XRESOLVE,xresolve),
 };
 
 char *nl_rtntype2str(int type, char *buf, size_t size)
@@ -90,11 +91,11 @@ int nl_str2rtntype(const char *name)
  */
 
 static const struct trans_tbl scopes[] = {
-	__ADD(255,nowhere)
-	__ADD(254,host)
-	__ADD(253,link)
-	__ADD(200,site)
-	__ADD(0,global)
+	__ADD(255,nowhere),
+	__ADD(254,host),
+	__ADD(253,link),
+	__ADD(200,site),
+	__ADD(0,global),
 };
 
 char *rtnl_scope2str(int scope, char *buf, size_t size)

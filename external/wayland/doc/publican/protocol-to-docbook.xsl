@@ -146,7 +146,7 @@
   </varlistentry>
 </xsl:template>
 
-<!-- enum and bitfield arguemnts -->
+<!-- enum and bitfield arguments -->
 <xsl:template match="arg[@enum]">
   <varlistentry>
     <term><xsl:value-of select="@name"/></term>

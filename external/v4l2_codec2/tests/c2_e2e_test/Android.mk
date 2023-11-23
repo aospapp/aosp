@@ -16,6 +16,9 @@ LOCAL_RESOURCE_DIR := \
 
 LOCAL_MULTILIB := both
 LOCAL_PACKAGE_NAME := C2E2ETest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := notice unencumbered
+LOCAL_NOTICE_FILE  := $(LOCAL_PATH)/../../NOTICE
 LOCAL_JNI_SHARED_LIBRARIES := libcodectest
 LOCAL_MODULE_TAGS := tests
 

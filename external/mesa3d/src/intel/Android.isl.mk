@@ -25,7 +25,8 @@
 # ---------------------------------------
 
 LIBISL_GENX_COMMON_INCLUDES := \
-	$(MESA_TOP)/src/
+	$(MESA_TOP)/src/ \
+	$(MESA_TOP)/src/gallium/include/
 
 # ---------------------------------------
 # Build libmesa_isl_gen4
@@ -34,6 +35,9 @@ LIBISL_GENX_COMMON_INCLUDES := \
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen4
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN4_FILES)
 
@@ -41,7 +45,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=40
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -53,6 +57,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen5
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN5_FILES)
 
@@ -60,7 +67,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=50
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -72,6 +79,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen6
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN6_FILES)
 
@@ -79,7 +89,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=60
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -91,6 +101,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen7
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN7_FILES)
 
@@ -98,7 +111,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=70
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -110,6 +123,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen75
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN75_FILES)
 
@@ -117,7 +133,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=75
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -129,6 +145,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen8
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN8_FILES)
 
@@ -136,7 +155,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=80
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -148,6 +167,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen9
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN9_FILES)
 
@@ -155,26 +177,7 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=90
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
-
-include $(MESA_COMMON_MK)
-include $(BUILD_STATIC_LIBRARY)
-
-# ---------------------------------------
-# Build libmesa_isl_gen10
-# ---------------------------------------
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := libmesa_isl_gen10
-
-LOCAL_SRC_FILES := $(ISL_GEN10_FILES)
-
-LOCAL_CFLAGS := -DGEN_VERSIONx10=100
-
-LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
-
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -186,6 +189,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_gen11
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_GEN11_FILES)
 
@@ -193,7 +199,29 @@ LOCAL_CFLAGS := -DGEN_VERSIONx10=110
 
 LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
+
+include $(MESA_COMMON_MK)
+include $(BUILD_STATIC_LIBRARY)
+
+# ---------------------------------------
+# Build libmesa_isl_gen12
+# ---------------------------------------
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libmesa_isl_gen12
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
+
+LOCAL_SRC_FILES := $(ISL_GEN12_FILES)
+
+LOCAL_CFLAGS := -DGEN_VERSIONx10=120
+
+LOCAL_C_INCLUDES := $(LIBISL_GENX_COMMON_INCLUDES)
+
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -205,6 +233,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_tiled_memcpy
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/gallium/include \
@@ -224,6 +255,9 @@ ifeq ($(ARCH_X86_HAVE_SSE4_1),true)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl_tiled_memcpy_sse41
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/gallium/include \
@@ -246,6 +280,9 @@ endif
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_isl
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ISL_FILES)
 
@@ -258,9 +295,6 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(MESA_TOP)/src/intel
 
-LOCAL_HEADER_LIBRARIES := \
-	libmesa_genxml
-
 LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_isl_gen4 \
 	libmesa_isl_gen5 \
@@ -269,8 +303,9 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_isl_gen75 \
 	libmesa_isl_gen8 \
 	libmesa_isl_gen9 \
-	libmesa_isl_gen10 \
 	libmesa_isl_gen11 \
+	libmesa_isl_gen12 \
+	libmesa_genxml \
 	libmesa_isl_tiled_memcpy
 
 ifeq ($(ARCH_X86_HAVE_SSE4_1),true)

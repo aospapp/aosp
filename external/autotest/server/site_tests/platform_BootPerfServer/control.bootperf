@@ -24,6 +24,9 @@ desktop.
 def run_bootperf(machine):
     host = hosts.create_host(machine)
     job.run_test("platform_BootPerfServer", host=host,
-                 iterations=int(args[0]))
+                 iterations=int(args[0]),
+                 # Pop args[0] and add 'skip_rootfs_check=True' to args to make
+                 # it bypass the rootfs verification check.
+                 cmdline_args=args[1:] + ['skip_rootfs_check=True'])
 
 parallel_simple(run_bootperf, machines)

@@ -17,6 +17,7 @@ import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.Pair;
+import org.unicode.cldr.util.PathUtilities;
 import org.unicode.cldr.util.PatternCache;
 import org.unicode.cldr.util.SimpleFactory;
 import org.unicode.cldr.util.StandardCodes;
@@ -45,7 +46,7 @@ class ExtractMessages {
         double startTime = System.currentTimeMillis();
         output = FileUtilities.openUTF8Writer(DIR, "additions.txt");
         int totalCount = 0;
-        Set<String> skipped = new TreeSet<String>();
+        Set<String> skipped = new TreeSet<>();
 
         try {
             String sourceDirectory = getProperty("SOURCE", null);
@@ -70,7 +71,7 @@ class ExtractMessages {
                     continue;
                 if (file.length() == 0)
                     continue;
-                String canonicalFile = file.getCanonicalPath();
+                String canonicalFile = PathUtilities.getNormalizedPathString(file);
                 if (!canonicalFile.endsWith(".xtb")) {
                     continue;
                 }
@@ -159,13 +160,14 @@ class ExtractMessages {
         return fileRegex;
     }
 
-    private static Map<String, Pair<String, DataHandler>> numericId_Id = new TreeMap<String, Pair<String, DataHandler>>();
+    private static Map<String, Pair<String, DataHandler>> numericId_Id = new TreeMap<>();
     private static Matcher numericIdMatcher = PatternCache.get("\\[@id=\"([^\"]+)\"\\]").matcher("");
     private static Factory cldrFactory = Factory.make(CLDRPaths.MAIN_DIRECTORY, ".*");
     private static CLDRFile english = cldrFactory.make("en", true);
 
     private static class EnglishHandler extends XMLFileReader.SimpleHandler {
 
+        @Override
         public void handlePathValue(String path, String value) {
             for (DataHandler handler : dataHandlers) {
                 if (handler.matches(path)) {
@@ -180,7 +182,7 @@ class ExtractMessages {
                         handler.missing.add(value);
                         return;
                     }
-                    numericId_Id.put(id, new Pair<String, DataHandler>(realID, handler));
+                    numericId_Id.put(id, new Pair<>(realID, handler));
                     // System.out.println(id + "\t" + path + "\t" + value);
                 }
             }
@@ -200,6 +202,7 @@ class ExtractMessages {
         CLDRFile cldrFile;
         boolean usesLatin;
 
+        @Override
         public void handlePathValue(String path, String value) {
             // //messagebundle/msg[@id="1907015897505457162"][@seq="71982"][@desc="Andorra is a display name for a timezone"][@xml:space="default"]
             value = value.trim();
@@ -305,7 +308,7 @@ class ExtractMessages {
 
     enum Type {
         LANGUAGE, REGION, CURRENCY, MONTH, MONTHSHORT, DAY, DAYSHORT, TIMEZONE
-    };
+    }
 
     static StandardCodes sc = StandardCodes.make();
     static DateFormatSymbols dfs = new DateFormatSymbols(ULocale.ENGLISH);
@@ -329,13 +332,13 @@ class ExtractMessages {
         // mostly stable
         private Matcher matcher;
         private Type type;
-        private Map<String, String> name_code = new TreeMap<String, String>();
+        private Map<String, String> name_code = new TreeMap<>();
         // private Map<String,String> code_name = new TreeMap();
-        private Set<String> missing = new TreeSet<String>();
+        private Set<String> missing = new TreeSet<>();
 
         // changes with each locale, must call reset
         private Relation<String, String> id_to_value = Relation.of(new TreeMap<String, Set<String>>(), TreeSet.class);
-        private Map<String, String> id_to_cldrValue = new TreeMap<String, String>();
+        private Map<String, String> id_to_cldrValue = new TreeMap<>();
         private CasingAction forceCasing = CasingAction.NONE;
 
         public void reset(CLDRFile cldrFile) {
@@ -651,6 +654,7 @@ class ExtractMessages {
             return name_code.get(value);
         }
 
+        @Override
         public int compareTo(DataHandler o) {
             throw new IllegalArgumentException();
         }

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -104,10 +104,10 @@ static Image *ReadXCImage(const ImageInfo *image_info,ExceptionInfo *exception)
   PixelInfo
     pixel;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
   ssize_t
@@ -167,7 +167,8 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
   ExceptionInfo *exception)
 {
   char
-    colorname[MagickPathExtent+4];
+    start_color[MagickPathExtent],
+    stop_color[MagickPathExtent];
 
   Image
     *image;
@@ -176,14 +177,13 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
     *read_info;
 
   MagickBooleanType
-    icc_color,
     status;
 
   StopInfo
     *stops;
 
   /*
-    Initialize Image structure.
+    Identify start and stop gradient colors.
   */
   assert(image_info != (const ImageInfo *) NULL);
   assert(image_info->signature == MagickCoreSignature);
@@ -192,32 +192,49 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
+  (void) CopyMagickString(start_color,"white",MagickPathExtent);
+  (void) CopyMagickString(stop_color,"black",MagickPathExtent);
+  if (*image_info->filename != '\0')
+    {
+      char
+        *p;
+
+      (void) CopyMagickString(start_color,image_info->filename,
+        MagickPathExtent);
+      for (p=start_color; (*p != '-') && (*p != '\0'); p++)
+        if (*p == '(')
+          {
+            for (p++; (*p != ')') && (*p != '\0'); p++);
+            if (*p == '\0')
+              break;
+          }
+      if (*p == '-')
+        (void) CopyMagickString(stop_color,p+1,MagickPathExtent);
+      *p='\0';
+    }
+  /*
+    Create base gradient image from start color.
+  */
   read_info=CloneImageInfo(image_info);
   SetImageInfoBlob(read_info,(void *) NULL,0);
-  (void) CopyMagickString(colorname,image_info->filename,MagickPathExtent);
-  (void) sscanf(image_info->filename,"%[^-]",colorname);
-  (void) CopyMagickString(read_info->filename,colorname,MagickPathExtent);
+  (void) CopyMagickString(read_info->filename,start_color,MagickPathExtent);
   image=ReadXCImage(read_info,exception);
   read_info=DestroyImageInfo(read_info);
   if (image == (Image *) NULL)
     return((Image *) NULL);
-  (void) SetImageAlpha(image,(Quantum) TransparentAlpha,exception);
-  (void) CopyMagickString(image->filename,image_info->filename,
-    MagickPathExtent);
-  icc_color=MagickFalse;
-  if (LocaleCompare(colorname,"icc") == 0)
-    {
-      (void) ConcatenateMagickString(colorname,"-",MagickPathExtent);
-      (void) sscanf(image_info->filename,"%*[^-]-%[^-]",colorname+4);
-      icc_color=MagickTrue;
-    }
+  /*
+    Create gradient stops.
+  */
   stops=(StopInfo *) AcquireQuantumMemory(2,sizeof(*stops));
   if (stops == (StopInfo *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   stops[0].offset=0.0;
   stops[1].offset=1.0;
-  status=QueryColorCompliance(colorname,AllCompliance,&stops[0].color,
+  status=QueryColorCompliance(start_color,AllCompliance,&stops[0].color,
     exception);
+  if (status != MagickFalse)
+    status=QueryColorCompliance(stop_color,AllCompliance,&stops[1].color,
+      exception);
   if (status == MagickFalse)
     {
       stops=(StopInfo *) RelinquishMagickMemory(stops);
@@ -225,24 +242,12 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
       return((Image *) NULL);
     }
   (void) SetImageColorspace(image,stops[0].color.colorspace,exception);
-  (void) CopyMagickString(colorname,"white",MagickPathExtent);
-  if (GetPixelInfoIntensity(image,&stops[0].color) > (QuantumRange/2.0))
-    (void) CopyMagickString(colorname,"black",MagickPathExtent);
-  if (icc_color == MagickFalse)
-    (void) sscanf(image_info->filename,"%*[^-]-%[^-]",colorname);
-  else
-    (void) sscanf(image_info->filename,"%*[^-]-%*[^-]-%[^-]",colorname);
-  status=QueryColorCompliance(colorname,AllCompliance,&stops[1].color,
-    exception);
-  if (status == MagickFalse)
-    {
-      stops=(StopInfo *) RelinquishMagickMemory(stops);
-      image=DestroyImage(image);
-      return((Image *) NULL);
-    }
-  image->alpha_trait=stops[0].color.alpha_trait;
-  if (stops[1].color.alpha_trait != UndefinedPixelTrait)
-    image->alpha_trait=stops[1].color.alpha_trait;
+  if ((stops[0].color.alpha_trait != UndefinedPixelTrait) ||
+      (stops[1].color.alpha_trait != UndefinedPixelTrait))
+    SetImageAlpha(image,TransparentAlpha,exception);
+  /*
+    Paint gradient.
+  */
   status=GradientImage(image,LocaleCompare(image_info->magick,"GRADIENT") == 0 ?
     LinearGradient : RadialGradient,PadSpread,stops,2,exception);
   stops=(StopInfo *) RelinquishMagickMemory(stops);

@@ -70,6 +70,39 @@ func TestDoubleBuildWithWNoErrorFlag(t *testing.T) {
 	})
 }
 
+func TestKnownConfigureFileParsing(t *testing.T) {
+	withTestContext(t, func(ctx *testContext) {
+		for _, f := range []string{"conftest.c", "conftest.cpp", "/dev/null"} {
+			if !isLikelyAConfTest(ctx.cfg, ctx.newCommand(clangX86_64, f)) {
+				t.Errorf("%q isn't considered a conf test file", f)
+			}
+		}
+	})
+}
+
+func TestDoubleBuildWithKnownConfigureFile(t *testing.T) {
+	withForceDisableWErrorTestContext(t, func(ctx *testContext) {
+		ctx.cmdMock = func(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
+			switch ctx.cmdCount {
+			case 1:
+				if err := verifyArgCount(cmd, 0, "-Wno-error"); err != nil {
+					return err
+				}
+				fmt.Fprint(stderr, "-Werror originalerror")
+				return newExitCodeError(1)
+			default:
+				t.Fatalf("unexpected command: %#v", cmd)
+				return nil
+			}
+		}
+
+		ctx.mustFail(callCompiler(ctx, ctx.cfg, ctx.newCommand(clangX86_64, "conftest.c")))
+		if ctx.cmdCount != 1 {
+			t.Errorf("expected 1 call. Got: %d", ctx.cmdCount)
+		}
+	})
+}
+
 func TestDoubleBuildWithWNoErrorAndCCache(t *testing.T) {
 	withForceDisableWErrorTestContext(t, func(ctx *testContext) {
 		ctx.cfg.useCCache = true
@@ -145,7 +178,7 @@ func TestForwardStdoutAndStderrWhenDoubleBuildFails(t *testing.T) {
 			}
 		}
 		exitCode := callCompiler(ctx, ctx.cfg, ctx.newCommand(clangX86_64, mainCc))
-		if exitCode != 5 {
+		if exitCode != 3 {
 			t.Errorf("unexpected exitcode. Got: %d", exitCode)
 		}
 		if err := verifyNonInternalError(ctx.stderrString(), "-Werror originalerror"); err != nil {
@@ -277,8 +310,8 @@ func TestLogWarningsWhenDoubleBuildFails(t *testing.T) {
 		}
 		ctx.mustFail(callCompiler(ctx, ctx.cfg, ctx.newCommand(clangX86_64, mainCc)))
 		loggedWarnings := readLoggedWarnings(ctx)
-		if loggedWarnings == nil {
-			t.Fatal("expected logged warnings")
+		if loggedWarnings != nil {
+			t.Fatal("expected no warnings to be logged")
 		}
 	})
 }
@@ -371,4 +404,164 @@ func TestDoubleBuildWerrorChmodsThingsAppropriately(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestAndroidDisableWerror(t *testing.T) {
+	withTestContext(t, func(ctx *testContext) {
+		ctx.cfg.isAndroidWrapper = true
+
+		// Disable werror ON
+		ctx.cfg.useLlvmNext = true
+		if !shouldForceDisableWerror(ctx, ctx.cfg) {
+			t.Errorf("disable Werror not enabled for Android with useLlvmNext")
+		}
+
+		// Disable werror OFF
+		ctx.cfg.useLlvmNext = false
+		if shouldForceDisableWerror(ctx, ctx.cfg) {
+			t.Errorf("disable-Werror enabled for Android without useLlvmNext")
+		}
+	})
+}
+
+func TestChromeOSNoForceDisableWerror(t *testing.T) {
+	withTestContext(t, func(ctx *testContext) {
+		if shouldForceDisableWerror(ctx, ctx.cfg) {
+			t.Errorf("disable Werror enabled for ChromeOS without FORCE_DISABLE_WERROR set")
+		}
+	})
+}
+
+func TestClangTidyNoDoubleBuild(t *testing.T) {
+	withTestContext(t, func(ctx *testContext) {
+		ctx.cfg.isAndroidWrapper = true
+		ctx.cfg.useLlvmNext = true
+		ctx.must(callCompiler(ctx, ctx.cfg, ctx.newCommand(clangTidyAndroid, "--", mainCc)))
+		if ctx.cmdCount != 1 {
+			t.Errorf("expected 1 call. Got: %d", ctx.cmdCount)
+		}
+	})
+}
+
+func withAndroidClangTidyTestContext(t *testing.T, work func(ctx *testContext)) {
+	withTestContext(t, func(ctx *testContext) {
+		ctx.cfg.isAndroidWrapper = true
+		ctx.cfg.useLlvmNext = true
+		ctx.env = []string{"OUT_DIR=/tmp"}
+
+		ctx.cmdMock = func(cmd *command, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
+			hasArg := func(s string) bool {
+				for _, e := range cmd.Args {
+					if strings.Contains(e, s) {
+						return true
+					}
+				}
+				return false
+			}
+			switch ctx.cmdCount {
+			case 1:
+				if hasArg("-Werror") {
+					fmt.Fprint(stdout, "clang-diagnostic-")
+					return newExitCodeError(1)
+				}
+				if hasArg("-warnings-as-errors") {
+					fmt.Fprint(stdout, "warnings-as-errors")
+					return newExitCodeError(1)
+				}
+				return nil
+			case 2:
+				if hasArg("warnings-as-errors") {
+					return fmt.Errorf("Unexpected arg warnings-as-errors found.  All args: %s", cmd.Args)
+				}
+				return nil
+			default:
+				t.Fatalf("unexpected command: %#v", cmd)
+				return nil
+			}
+		}
+		work(ctx)
+	})
+}
+
+func TestClangTidyDoubleBuildClangTidyError(t *testing.T) {
+	withAndroidClangTidyTestContext(t, func(ctx *testContext) {
+		ctx.must(callCompiler(ctx, ctx.cfg, ctx.newCommand(clangTidyAndroid, "-warnings-as-errors=*", "--", mainCc)))
+		if ctx.cmdCount != 2 {
+			t.Errorf("expected 2 calls. Got: %d", ctx.cmdCount)
+		}
+	})
+}
+
+func TestClangTidyDoubleBuildClangError(t *testing.T) {
+	withAndroidClangTidyTestContext(t, func(ctx *testContext) {
+		ctx.must(callCompiler(ctx, ctx.cfg, ctx.newCommand(clangTidyAndroid, "-Werrors=*", "--", mainCc)))
+		if ctx.cmdCount != 2 {
+			t.Errorf("expected 2 calls. Got: %d", ctx.cmdCount)
+		}
+	})
+}
+
+func TestProcPidStatParsingWorksAsIntended(t *testing.T) {
+	t.Parallel()
+
+	type expected struct {
+		parent int
+		ok     bool
+	}
+
+	testCases := []struct {
+		input    string
+		expected expected
+	}{
+		{
+			input: "2556041 (cat) R 2519408 2556041 2519408 34818 2556041 4194304",
+			expected: expected{
+				parent: 2519408,
+				ok:     true,
+			},
+		},
+		{
+			input: "2556041 (c a t) R 2519408 2556041 2519408 34818 2556041 4194304",
+			expected: expected{
+				parent: 2519408,
+				ok:     true,
+			},
+		},
+		{
+			input: "",
+			expected: expected{
+				ok: false,
+			},
+		},
+		{
+			input: "foo (bar)",
+			expected: expected{
+				ok: false,
+			},
+		},
+		{
+			input: "foo (bar) baz",
+			expected: expected{
+				ok: false,
+			},
+		},
+		{
+			input: "foo (bar) baz 1qux2",
+			expected: expected{
+				ok: false,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		parent, ok := parseParentPidFromPidStat(tc.input)
+		if tc.expected.ok != ok {
+			t.Errorf("Got ok=%v when parsing %q; expected %v", ok, tc.input, tc.expected.ok)
+			continue
+		}
+
+		if tc.expected.parent != parent {
+			t.Errorf("Got parent=%v when parsing %q; expected %v", parent, tc.input, tc.expected.parent)
+		}
+	}
 }

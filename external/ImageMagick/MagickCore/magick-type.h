@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -111,7 +111,7 @@ typedef MagickDoubleType Quantum;
 #else
 #error "MAGICKCORE_QUANTUM_DEPTH must be one of 8, 16, 32, or 64"
 #endif
-#define MagickEpsilon  (1.0e-12)
+#define MagickEpsilon  1.0e-12
 #define MagickMaximumValue  1.79769313486231570E+308
 #define MagickMinimumValue   2.22507385850720140E-308
 #define MagickStringify(macro_or_string)  MagickStringifyArg(macro_or_string)

@@ -99,14 +99,14 @@ class global_config_test(mox.MoxTestBase):
     def test_float(self):
         """Test converting float value."""
         val = self.conf.get_config_value("SECTION_A", "value_1", float)
-        self.assertEquals(type(val), types.FloatType)
+        self.assertEquals(type(val), float)
         self.assertEquals(val, 6.0)
 
 
     def test_int(self):
         """Test converting int value."""
         val = self.conf.get_config_value("SECTION_B", "value_1", int)
-        self.assertEquals(type(val), types.IntType)
+        self.assertEquals(type(val), int)
         self.assertTrue(val < 0)
         val = self.conf.get_config_value("SECTION_B", "value_3", int)
         self.assertEquals(val, 0)
@@ -117,7 +117,7 @@ class global_config_test(mox.MoxTestBase):
     def test_string(self):
         """Test converting string value."""
         val = self.conf.get_config_value("SECTION_A", "value_2")
-        self.assertEquals(type(val),types.StringType)
+        self.assertEquals(type(val),bytes)
         self.assertEquals(val, "hello")
 
 

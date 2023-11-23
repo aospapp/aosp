@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import collections
 import logging
 import os
@@ -313,7 +315,7 @@ def collect_command(host, command, dest_path):
     try:
         result = host.run(command, stdout_tee=None).stdout
         utils.open_write_close(dest_path, result)
-    except Exception, e:
+    except Exception as e:
         logging.warning("Collection of '%s' failed:\n%s", command, e)
 
 
@@ -330,7 +332,7 @@ def collect_uncollected_logs(host):
                     logging.info('Retrieving logs from %s:%s into %s',
                                  hostname, remote_path, local_path)
                     collect_log_file(host, remote_path + '/', local_path + '/')
-        except Exception, e:
+        except Exception as e:
             logging.warning('Error while trying to collect stranded '
                             'Autotest client logs: %s', e)
 
@@ -382,5 +384,5 @@ def collect_messages(host):
         os.remove(messages_raw)
         if os.path.exists(messages_at_start):
             os.remove(messages_at_start)
-    except Exception, e:
+    except Exception as e:
         logging.warning("Error while collecting /var/log/messages: %s", e)

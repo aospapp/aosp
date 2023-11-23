@@ -22,6 +22,9 @@ files_vulkan_util = files(
   'vk_alloc.h',
   'vk_debug_report.c',
   'vk_debug_report.h',
+  'vk_format.c',
+  'vk_object.c',
+  'vk_object.h',
   'vk_util.c',
   'vk_util.h',
 )
@@ -39,9 +42,10 @@ vk_enum_to_str = custom_target(
 libvulkan_util = static_library(
   'vulkan_util',
   [files_vulkan_util, vk_enum_to_str],
-  include_directories : inc_common,
+  include_directories : [inc_include, inc_src, inc_gallium],
   dependencies : vulkan_wsi_deps,
-  c_args : [c_vis_args, vulkan_wsi_args],
+  c_args : [vulkan_wsi_args],
+  gnu_symbol_visibility : 'hidden',
   build_by_default : false,
 )
 
@@ -51,8 +55,6 @@ idep_vulkan_util_headers = declare_dependency(
 )
 
 idep_vulkan_util = declare_dependency(
-  sources : vk_enum_to_str[1],
   link_with : libvulkan_util,
-  include_directories : include_directories('.'),
   dependencies : idep_vulkan_util_headers
 )

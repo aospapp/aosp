@@ -64,6 +64,7 @@ using google_breakpad::test_assembler::Section;
 using std::vector;
 using testing::_;
 using testing::AnyNumber;
+using testing::DoAll;
 using testing::Return;
 using testing::SetArgumentPointee;
 using testing::Test;
@@ -370,7 +371,7 @@ TEST_F(GetCallerFrame, ScanFirstFrame) {
     .D32(0xF0000000)                    // more junk
     .D32(0x0000000D)
 
-    .Append(96, 0)                      // more space
+    .Append(136, 0)                     // more space
 
     .D32(return_address2)               // actual return address
                                         // (won't be found)
@@ -782,8 +783,12 @@ TEST_F(CFI, RejectBadExpressions) {
 class StackwalkerARMFixtureIOS : public StackwalkerARMFixture {
  public:
   StackwalkerARMFixtureIOS() {
-    system_info.os = "iOS";
-    system_info.os_short = "ios";
+    // iOS_test is used instead of iOS because the stackwalker has a check to
+    // avoid using CFI for iOS dumps. This is a workaround for bad CFI being
+    // produced by dump_syms for iOS.
+    // https://bugs.chromium.org/p/google-breakpad/issues/detail?id=764
+    system_info.os = "iOS_test";
+    system_info.os_short = "ios_test";
   }
 };
 

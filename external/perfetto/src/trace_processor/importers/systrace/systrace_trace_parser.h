@@ -20,7 +20,7 @@
 #include <deque>
 #include <regex>
 
-#include "src/trace_processor/chunked_trace_reader.h"
+#include "src/trace_processor/importers/common/chunked_trace_reader.h"
 #include "src/trace_processor/importers/systrace/systrace_line_parser.h"
 #include "src/trace_processor/importers/systrace/systrace_line_tokenizer.h"
 #include "src/trace_processor/storage/trace_storage.h"
@@ -46,6 +46,7 @@ class SystraceTraceParser : public ChunkedTraceReader {
     kSystrace,
     kProcessDumpLong,
     kProcessDumpShort,
+    kCgroupDump,
     kEndOfSystrace,
   };
 

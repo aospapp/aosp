@@ -38,7 +38,7 @@ class ServerTestDashboard(power_dashboard.BaseDashboard):
         """
 
         board = self._host.get_board().replace('board:', '')
-        platform = self._host.get_platform_from_mosys()
+        platform = self._host.get_model_from_cros_config()
 
         if platform and not platform.startswith(board):
             board += '_' + platform

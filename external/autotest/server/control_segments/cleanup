@@ -26,11 +26,11 @@ def cleanup(machine):
         host = hosts.create_host(machine, try_lab_servo=True)
         with metrics.SecondsTimer(DURATION_METRIC,
                                   fields={'dut_host_name': hostname}):
-            # Try to save /var/log files. If the dut is not sshable, try to restart
-            # with servo. This is a temp fix to collect log for test failed with dut
+            # Try to save /var/log files. If the dut is not sshable, try to
+            # restart with servo, to collect logs for test failed with dut
             # not returning from reboot.
-            # TODO(dshi): This temp fix should be removed after crash collect work
-            # is completed, crbug.com/336985
+            # TODO: This is a temp fix and should no longer be necessary
+            # Depended on crbug.com/336985, fixed in 2015
             try:
                 host.ssh_ping()
             except error.AutoservSshPingHostError:

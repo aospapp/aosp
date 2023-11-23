@@ -71,6 +71,21 @@ PERFETTO_TP_TABLE(PERFETTO_TP_INSTANT_TABLE_DEF);
 PERFETTO_TP_TABLE(PERFETTO_TP_SCHED_SLICE_TABLE_DEF);
 
 // @tablegroup Events
+// @param utid {@joinable thread.utid}
+#define PERFETTO_TP_THREAD_STATE_TABLE_DEF(NAME, PARENT, C) \
+  NAME(ThreadStateTable, "thread_state")                    \
+  PERFETTO_TP_ROOT_TABLE(PARENT, C)                         \
+  C(int64_t, ts)                                            \
+  C(int64_t, dur)                                           \
+  C(base::Optional<uint32_t>, cpu)                          \
+  C(uint32_t, utid)                                         \
+  C(StringPool::Id, state)                                  \
+  C(base::Optional<uint32_t>, io_wait)                      \
+  C(base::Optional<StringPool::Id>, blocked_function)
+
+PERFETTO_TP_TABLE(PERFETTO_TP_THREAD_STATE_TABLE_DEF);
+
+// @tablegroup Events
 #define PERFETTO_TP_GPU_SLICES_DEF(NAME, PARENT, C) \
   NAME(GpuSliceTable, "gpu_slice")                  \
   PARENT(PERFETTO_TP_SLICE_TABLE_DEF, C)            \
@@ -83,7 +98,8 @@ PERFETTO_TP_TABLE(PERFETTO_TP_SCHED_SLICE_TABLE_DEF);
   C(StringPool::Id, command_buffer_name)            \
   C(base::Optional<uint32_t>, frame_id)             \
   C(base::Optional<uint32_t>, submission_id)        \
-  C(base::Optional<uint32_t>, hw_queue_id)
+  C(base::Optional<int64_t>, hw_queue_id)           \
+  C(StringPool::Id, render_subpasses)
 
 PERFETTO_TP_TABLE(PERFETTO_TP_GPU_SLICES_DEF);
 
@@ -107,6 +123,46 @@ PERFETTO_TP_TABLE(PERFETTO_TP_GRAPHICS_FRAME_SLICES_DEF);
   C(StringPool::Id, doc_link)
 
 PERFETTO_TP_TABLE(PERFETTO_TP_DESCRIBE_SLICE_TABLE);
+
+#define PERFETTO_TP_EXPECTED_FRAME_TIMELINE_SLICES_DEF(NAME, PARENT, C)  \
+  NAME(ExpectedFrameTimelineSliceTable, "expected_frame_timeline_slice") \
+  PARENT(PERFETTO_TP_SLICE_TABLE_DEF, C)                                 \
+  C(int64_t, display_frame_token)                                        \
+  C(int64_t, surface_frame_token)                                        \
+  C(uint32_t, upid)                                                      \
+  C(StringPool::Id, layer_name)
+
+PERFETTO_TP_TABLE(PERFETTO_TP_EXPECTED_FRAME_TIMELINE_SLICES_DEF);
+
+#define PERFETTO_TP_ACTUAL_FRAME_TIMELINE_SLICES_DEF(NAME, PARENT, C) \
+  NAME(ActualFrameTimelineSliceTable, "actual_frame_timeline_slice")  \
+  PARENT(PERFETTO_TP_SLICE_TABLE_DEF, C)                              \
+  C(int64_t, display_frame_token)                                     \
+  C(int64_t, surface_frame_token)                                     \
+  C(uint32_t, upid)                                                   \
+  C(StringPool::Id, layer_name)                                       \
+  C(StringPool::Id, present_type)                                     \
+  C(int32_t, on_time_finish)                                          \
+  C(int32_t, gpu_composition)                                         \
+  C(StringPool::Id, jank_type)                                        \
+  C(StringPool::Id, prediction_type)                                  \
+  C(StringPool::Id, jank_tag)
+
+PERFETTO_TP_TABLE(PERFETTO_TP_ACTUAL_FRAME_TIMELINE_SLICES_DEF);
+
+// @param thread_instruction_count The value of the CPU instruction counter at
+// the start of the slice.
+// @param thread_instruction_delta The change in value from
+// @param thread_instruction_count to the end of the slice.
+#define PERFETTO_TP_THREAD_SLICE_DEF(NAME, PARENT, C)  \
+  NAME(ThreadSliceTable, "thread_slice")               \
+  PARENT(PERFETTO_TP_SLICE_TABLE_DEF, C)               \
+  C(base::Optional<int64_t>, thread_ts)                \
+  C(base::Optional<int64_t>, thread_dur)               \
+  C(base::Optional<int64_t>, thread_instruction_count) \
+  C(base::Optional<int64_t>, thread_instruction_delta)
+
+PERFETTO_TP_TABLE(PERFETTO_TP_THREAD_SLICE_DEF);
 
 }  // namespace tables
 }  // namespace trace_processor

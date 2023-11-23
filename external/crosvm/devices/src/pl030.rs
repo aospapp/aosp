@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use base::{warn, Event};
+use std::convert::TryFrom;
 use std::time::{SystemTime, UNIX_EPOCH};
-use sys_util::{warn, EventFd};
 
-use crate::BusDevice;
+use crate::{BusAccessInfo, BusDevice};
 
 // Register offsets
 // Data register
@@ -34,8 +35,8 @@ pub const PL030_AMBA_MASK: u32 = 0x000FFFFF;
 
 /// An emulated ARM pl030 RTC
 pub struct Pl030 {
-    // EventFD to be used to interrupt the guest for an alarm event
-    alarm_evt: EventFd,
+    // Event to be used to interrupt the guest for an alarm event
+    alarm_evt: Event,
 
     // This is the delta we subtract from current time to get the
     // counter value
@@ -59,7 +60,7 @@ fn get_epoch_time() -> u32 {
 
 impl Pl030 {
     /// Constructs a Pl030 device
-    pub fn new(evt: EventFd) -> Pl030 {
+    pub fn new(evt: Event) -> Pl030 {
         Pl030 {
             alarm_evt: evt,
             counter_delta_time: get_epoch_time(),
@@ -74,17 +75,17 @@ impl BusDevice for Pl030 {
         "Pl030".to_owned()
     }
 
-    fn write(&mut self, offset: u64, data: &[u8]) {
-        if data.len() != 4 {
-            warn!("bad write size: {} for pl030", data.len());
-            return;
-        }
+    fn write(&mut self, info: BusAccessInfo, data: &[u8]) {
+        let data_array = match <&[u8; 4]>::try_from(data) {
+            Ok(array) => array,
+            _ => {
+                warn!("bad write size: {} for pl030", data.len());
+                return;
+            }
+        };
 
-        let reg_val: u32 = (data[0] as u32) << 24
-            | (data[1] as u32) << 16
-            | (data[2] as u32) << 8
-            | (data[3] as u32);
-        match offset {
+        let reg_val = u32::from_ne_bytes(*data_array);
+        match info.offset {
             RTCDR => {
                 warn!("invalid write to read-only RTCDR register");
             }
@@ -113,17 +114,20 @@ impl BusDevice for Pl030 {
             RTCCR => {
                 self.counter_delta_time = get_epoch_time();
             }
-            o => panic!("pl030: bad write offset {}", o),
+            o => panic!("pl030: bad write {}", o),
         }
     }
 
-    fn read(&mut self, offset: u64, data: &mut [u8]) {
-        if data.len() != 4 {
-            warn!("bad read size: {} for pl030", data.len());
-            return;
-        }
+    fn read(&mut self, info: BusAccessInfo, data: &mut [u8]) {
+        let data_array = match <&mut [u8; 4]>::try_from(data) {
+            Ok(array) => array,
+            _ => {
+                warn!("bad write size for pl030");
+                return;
+            }
+        };
 
-        let reg_content: u32 = match offset {
+        let reg_content: u32 = match info.offset {
             RTCDR => get_epoch_time(),
             RTCMR => self.match_value,
             RTCSTAT => self.interrupt_active as u32,
@@ -135,11 +139,51 @@ impl BusDevice for Pl030 {
             AMBA_ID_OFFSET => PL030_AMBA_ID,
             AMBA_MASK_OFFSET => PL030_AMBA_MASK,
 
-            o => panic!("pl030: bad read offset {}", o),
+            o => panic!("pl030: bad read {}", o),
         };
-        data[0] = reg_content as u8;
-        data[1] = (reg_content >> 8) as u8;
-        data[2] = (reg_content >> 16) as u8;
-        data[3] = (reg_content >> 24) as u8;
+        *data_array = reg_content.to_ne_bytes();
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The RTC device is placed at page 2 in the mmio bus
+    const AARCH64_RTC_ADDR: u64 = 0x2000;
+
+    fn pl030_bus_address(offset: u64) -> BusAccessInfo {
+        BusAccessInfo {
+            address: AARCH64_RTC_ADDR + offset,
+            offset,
+            id: 0,
+        }
+    }
+
+    #[test]
+    fn test_interrupt_status_register() {
+        let event = Event::new().unwrap();
+        let mut device = Pl030::new(event.try_clone().unwrap());
+        let mut register = [0, 0, 0, 0];
+
+        // set interrupt
+        device.write(pl030_bus_address(RTCEOI), &[1, 0, 0, 0]);
+        device.read(pl030_bus_address(RTCSTAT), &mut register);
+        assert_eq!(register, [1, 0, 0, 0]);
+        assert_eq!(event.read().unwrap(), 1);
+
+        // clear interrupt
+        device.write(pl030_bus_address(RTCEOI), &[0, 0, 0, 0]);
+        device.read(pl030_bus_address(RTCSTAT), &mut register);
+        assert_eq!(register, [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_match_register() {
+        let mut device = Pl030::new(Event::new().unwrap());
+        let mut register = [0, 0, 0, 0];
+
+        device.write(pl030_bus_address(RTCMR), &[1, 2, 3, 4]);
+        device.read(pl030_bus_address(RTCMR), &mut register);
+        assert_eq!(register, [1, 2, 3, 4]);
     }
 }

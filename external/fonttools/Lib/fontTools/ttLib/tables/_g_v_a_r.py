@@ -1,9 +1,6 @@
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
-from fontTools import ttLib
+from fontTools.misc.py23 import bytesjoin
 from fontTools.misc import sstruct
 from fontTools.misc.textTools import safeEval
-from fontTools.ttLib import TTLibError
 from . import DefaultTable
 import array
 import itertools
@@ -127,7 +124,7 @@ class table__g_v_a_r(DefaultTable.DefaultTable):
 			# Long format: array of UInt32
 			offsets = array.array("I")
 			offsetsSize = (glyphCount + 1) * 4
-		offsets.fromstring(data[0 : offsetsSize])
+		offsets.frombytes(data[0 : offsetsSize])
 		if sys.byteorder != "big": offsets.byteswap()
 
 		# In the short format, offsets need to be multiplied by 2.
@@ -159,7 +156,7 @@ class table__g_v_a_r(DefaultTable.DefaultTable):
 			packed = array.array("I", offsets)
 			tableFormat = 1
 		if sys.byteorder != "big": packed.byteswap()
-		return (packed.tostring(), tableFormat)
+		return (packed.tobytes(), tableFormat)
 
 	def toXML(self, writer, ttFont):
 		writer.simpletag("version", value=self.version)
@@ -167,7 +164,7 @@ class table__g_v_a_r(DefaultTable.DefaultTable):
 		writer.simpletag("reserved", value=self.reserved)
 		writer.newline()
 		axisTags = [axis.axisTag for axis in ttFont["fvar"].axes]
-		for glyphName in ttFont.getGlyphOrder():
+		for glyphName in ttFont.getGlyphNames():
 			variations = self.variations.get(glyphName)
 			if not variations:
 				continue

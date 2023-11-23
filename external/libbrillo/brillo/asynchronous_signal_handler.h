@@ -5,18 +5,16 @@
 #ifndef LIBBRILLO_BRILLO_ASYNCHRONOUS_SIGNAL_HANDLER_H_
 #define LIBBRILLO_BRILLO_ASYNCHRONOUS_SIGNAL_HANDLER_H_
 
-#include <signal.h>
 #include <sys/signalfd.h>
 
 #include <map>
+#include <memory>
 
 #include <base/callback.h>
-#include <base/compiler_specific.h>
-#include <base/macros.h>
-#include <base/message_loop/message_loop.h>
+#include <base/files/file_descriptor_watcher_posix.h>
+#include <base/files/scoped_file.h>
 #include <brillo/asynchronous_signal_handler_interface.h>
 #include <brillo/brillo_export.h>
-#include <brillo/message_loops/message_loop.h>
 
 namespace brillo {
 // Sets up signal handlers for registered signals, and converts signal receipt
@@ -25,10 +23,14 @@ namespace brillo {
 class BRILLO_EXPORT AsynchronousSignalHandler final :
     public AsynchronousSignalHandlerInterface {
  public:
+  using AsynchronousSignalHandlerInterface::SignalHandler;
+
   AsynchronousSignalHandler();
   ~AsynchronousSignalHandler() override;
 
-  using AsynchronousSignalHandlerInterface::SignalHandler;
+  AsynchronousSignalHandler(const AsynchronousSignalHandler&) = delete;
+  AsynchronousSignalHandler&
+  operator=(const AsynchronousSignalHandler&) = delete;
 
   // Initialize the handler.
   void Init();
@@ -40,17 +42,20 @@ class BRILLO_EXPORT AsynchronousSignalHandler final :
  private:
   // Called from the main loop when we can read from |descriptor_|, indicated
   // that a signal was processed.
-  void OnFileCanReadWithoutBlocking();
+  void OnReadable();
 
-  // Controller used to manage watching of signalling pipe.
-  MessageLoop::TaskId fd_watcher_task_{MessageLoop::kTaskIdNull};
+  // Updates the set of signals that this handler listens to.
+  BRILLO_PRIVATE void UpdateSignals();
 
-  // The registered callbacks.
-  typedef std::map<int, SignalHandler> Callbacks;
+  // Map from signal to its registered callback.
+  using Callbacks = std::map<int, SignalHandler>;
   Callbacks registered_callbacks_;
 
   // File descriptor for accepting signals indicated by |signal_mask_|.
-  int descriptor_;
+  base::ScopedFD descriptor_;
+
+  // Controller used to manage watching of signalling pipe.
+  std::unique_ptr<base::FileDescriptorWatcher::Controller> fd_watcher_;
 
   // A set of signals to be handled after the dispatcher is running.
   sigset_t signal_mask_;
@@ -58,15 +63,6 @@ class BRILLO_EXPORT AsynchronousSignalHandler final :
   // A copy of the signal mask before the dispatcher starts, which will be
   // used to restore to the original state when the dispatcher stops.
   sigset_t saved_signal_mask_;
-
-  // Resets the given signal to its default behavior. Doesn't touch
-  // |registered_callbacks_|.
-  BRILLO_PRIVATE void ResetSignal(int signal);
-
-  // Updates the set of signals that this handler listens to.
-  BRILLO_PRIVATE void UpdateSignals();
-
-  DISALLOW_COPY_AND_ASSIGN(AsynchronousSignalHandler);
 };
 
 }  // namespace brillo

@@ -42,8 +42,6 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
       'swap_glsimple',
   ])
 
-  blacklist = ''
-
   unit_higher_is_better = {
       'mbytes_sec': True,
       'mpixels_sec': True,
@@ -93,7 +91,6 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
     @param hasty: Run the test more quickly by running fewer iterations,
         lower resolution, and without waiting for the dut to cool down.
     """
-    options += self.blacklist
     # Run the test, saving is optional and helps with debugging
     # and reference image management. If unknown images are
     # encountered one can take them from the outdir and copy

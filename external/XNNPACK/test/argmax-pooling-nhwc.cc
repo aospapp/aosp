@@ -64,6 +64,25 @@ TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_1xM_pool_with_padding) {
   }
 }
 
+TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_1xM_pool_with_tf_same_padding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+  for (size_t channels = 1; channels <= 100; channels += 15) {
+    for (size_t pool_size = 3; pool_size <= FindMaxSinglePassPoolingSize(xnn_params.f32.argmaxpool); pool_size++) {
+      for (size_t input_width = pool_size + 1; input_width <= pool_size; input_width++) {
+        ArgmaxPoolingOperatorTester()
+          .batch_size(1)
+          .input_height(2)
+          .input_width(input_width)
+          .padding_tf_same(true)
+          .pooling_height(1)
+          .pooling_width(pool_size)
+          .channels(channels)
+          .TestF32();
+      }
+    }
+  }
+}
+
 TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_Mx1_pool) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   for (size_t channels = 1; channels <= 100; channels += 15) {
@@ -97,6 +116,25 @@ TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_Mx1_pool_with_padding) {
             .channels(channels)
             .TestF32();
         }
+      }
+    }
+  }
+}
+
+TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_Mx1_pool_with_tf_same_padding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+  for (size_t channels = 1; channels <= 100; channels += 15) {
+    for (size_t pool_size = 2; pool_size <= FindMaxSinglePassPoolingSize(xnn_params.f32.argmaxpool); pool_size++) {
+      for (size_t input_height = pool_size + 1; input_height <= pool_size * 2; input_height++) {
+        ArgmaxPoolingOperatorTester()
+          .batch_size(1)
+          .input_height(input_height)
+          .input_width(3)
+          .padding_tf_same(true)
+          .pooling_height(pool_size)
+          .pooling_width(1)
+          .channels(channels)
+          .TestF32();
       }
     }
   }
@@ -154,58 +192,6 @@ TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_pool_with_output_stride) {
   }
 }
 
-TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_pool_with_qmin) {
-  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
-  for (size_t channels = 1; channels <= 100; channels += 15) {
-    for (size_t pool_size = 2; pool_size <= FindMaxSinglePassPoolingSize(xnn_params.f32.argmaxpool); pool_size++) {
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(pool_size + 1)
-        .input_width(3)
-        .pooling_height(pool_size)
-        .pooling_width(1)
-        .channels(channels)
-        .qmin(192)
-        .TestF32();
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(2)
-        .input_width(pool_size + 2)
-        .pooling_height(1)
-        .pooling_width(pool_size)
-        .channels(channels)
-        .qmin(192)
-        .TestF32();
-    }
-  }
-}
-
-TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_small_pool_with_qmax) {
-  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
-  for (size_t channels = 1; channels <= 100; channels += 15) {
-    for (size_t pool_size = 2; pool_size <= FindMaxSinglePassPoolingSize(xnn_params.f32.argmaxpool); pool_size++) {
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(pool_size + 1)
-        .input_width(3)
-        .pooling_height(pool_size)
-        .pooling_width(1)
-        .channels(channels)
-        .qmax(192)
-        .TestF32();
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(2)
-        .input_width(pool_size + 2)
-        .pooling_height(1)
-        .pooling_width(pool_size)
-        .channels(channels)
-        .qmax(192)
-        .TestF32();
-    }
-  }
-}
-
 TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_1xM_pool) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   const auto multipass = FindMultiPassMicroKernel(xnn_params.f32.argmaxpool);
@@ -246,6 +232,26 @@ TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_1xM_pool_with_padding) {
   }
 }
 
+TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_1xM_pool_with_tf_same_padding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+  const auto multipass = FindMultiPassMicroKernel(xnn_params.f32.argmaxpool);
+  for (size_t channels = 1; channels <= 100; channels += 15) {
+    for (size_t pool_size = multipass.mr + 1; pool_size <= multipass.mr + multipass.qr; pool_size++) {
+      for (size_t input_width = pool_size + 1; input_width <= pool_size * 2; input_width++) {
+        ArgmaxPoolingOperatorTester()
+          .batch_size(1)
+          .input_height(2)
+          .input_width(input_width)
+          .padding_tf_same(true)
+          .pooling_height(1)
+          .pooling_width(pool_size)
+          .channels(channels)
+          .TestF32();
+      }
+    }
+  }
+}
+
 TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_Mx1_pool) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   const auto multipass = FindMultiPassMicroKernel(xnn_params.f32.argmaxpool);
@@ -281,6 +287,26 @@ TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_Mx1_pool_with_padding) {
             .channels(channels)
             .TestF32();
         }
+      }
+    }
+  }
+}
+
+TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_Mx1_pool_with_tf_same_padding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+  const auto multipass = FindMultiPassMicroKernel(xnn_params.f32.argmaxpool);
+  for (size_t channels = 1; channels <= 100; channels += 15) {
+    for (size_t pool_size = multipass.mr + 1; pool_size <= multipass.mr + multipass.qr; pool_size++) {
+      for (size_t input_height = pool_size + 2; input_height <= pool_size * 2; input_height++) {
+        ArgmaxPoolingOperatorTester()
+          .batch_size(1)
+          .input_height(input_height)
+          .input_width(3)
+          .padding_tf_same(true)
+          .pooling_height(pool_size)
+          .pooling_width(1)
+          .channels(channels)
+          .TestF32();
       }
     }
   }
@@ -335,60 +361,6 @@ TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_pool_with_output_stride) {
         .pooling_width(pool_size)
         .channels(channels)
         .output_pixel_stride(5 * channels)
-        .TestF32();
-    }
-  }
-}
-
-TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_pool_with_qmin) {
-  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
-  const auto multipass = FindMultiPassMicroKernel(xnn_params.f32.argmaxpool);
-  for (size_t channels = 1; channels <= 100; channels += 15) {
-    for (size_t pool_size = multipass.mr + 1; pool_size <= multipass.mr + multipass.qr; pool_size++) {
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(pool_size + 1)
-        .input_width(3)
-        .pooling_height(pool_size)
-        .pooling_width(1)
-        .channels(channels)
-        .qmin(192)
-        .TestF32();
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(2)
-        .input_width(pool_size + 2)
-        .pooling_height(1)
-        .pooling_width(pool_size)
-        .channels(channels)
-        .qmin(192)
-        .TestF32();
-    }
-  }
-}
-
-TEST(ARGMAX_POOLING_NHWC_F32, unit_batch_large_pool_with_qmax) {
-  ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
-  const auto multipass = FindMultiPassMicroKernel(xnn_params.f32.argmaxpool);
-  for (size_t channels = 1; channels <= 100; channels += 15) {
-    for (size_t pool_size = multipass.mr + 1; pool_size <= multipass.mr + multipass.qr; pool_size++) {
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(pool_size + 1)
-        .input_width(3)
-        .pooling_height(pool_size)
-        .pooling_width(1)
-        .channels(channels)
-        .qmax(192)
-        .TestF32();
-      ArgmaxPoolingOperatorTester()
-        .batch_size(1)
-        .input_height(2)
-        .input_width(pool_size + 2)
-        .pooling_height(1)
-        .pooling_width(pool_size)
-        .channels(channels)
-        .qmax(192)
         .TestF32();
     }
   }

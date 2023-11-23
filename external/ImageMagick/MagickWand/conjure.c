@@ -17,7 +17,7 @@
 %                               December 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -113,7 +113,7 @@ static MagickBooleanType ConjureUsage(void)
   (void) printf("\nIn addition, define any key value pairs required by "
     "your script.  For\nexample,\n\n");
   (void) printf("    conjure -size 100x100 -color blue -foo bar script.msl\n");
-  return(MagickFalse);
+  return(MagickTrue);
 }
 
 WandExport MagickBooleanType ConjureImageCommand(ImageInfo *image_info,
@@ -151,7 +151,7 @@ WandExport MagickBooleanType ConjureImageCommand(ImageInfo *image_info,
   MagickStatusType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -219,7 +219,10 @@ WandExport MagickBooleanType ConjureImageCommand(ImageInfo *image_info,
             (LocaleCompare("-help",option+1) == 0))
           {
             if (*option == '-')
-              return(ConjureUsage());
+              {
+                DestroyConjure();
+                return(ConjureUsage());
+              }
             continue;
           }
         if (LocaleCompare("log",option+1) == 0)

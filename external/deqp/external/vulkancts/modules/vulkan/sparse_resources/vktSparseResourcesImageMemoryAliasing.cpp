@@ -146,6 +146,21 @@ void ImageSparseMemoryAliasingCase::checkSupport (Context& context) const
 	// Check if device supports sparse operations for image type
 	if (!checkSparseSupportForImageType(instance, physicalDevice, m_imageType))
 		TCU_THROW(NotSupportedError, "Sparse residency for image type is not supported");
+
+	if (formatIsR64(m_format))
+	{
+		context.requireDeviceFunctionality("VK_EXT_shader_image_atomic_int64");
+
+		if (context.getShaderImageAtomicInt64FeaturesEXT().shaderImageInt64Atomics == VK_FALSE)
+		{
+			TCU_THROW(NotSupportedError, "shaderImageInt64Atomics is not supported");
+		}
+
+		if (context.getShaderImageAtomicInt64FeaturesEXT().sparseImageInt64Atomics == VK_FALSE)
+		{
+			TCU_THROW(NotSupportedError, "sparseImageInt64Atomics is not supported for device");
+		}
+	}
 }
 
 class ImageSparseMemoryAliasingInstance : public SparseResourcesBaseInstance
@@ -724,8 +739,7 @@ tcu::TestStatus ImageSparseMemoryAliasingInstance::iterate (void)
 			if (aspectIndex == NO_MATCH_FOUND)
 				TCU_THROW(NotSupportedError, "Not supported image aspect");
 
-			VkSparseImageMemoryRequirements		aspectRequirements	= sparseMemoryRequirements[aspectIndex];
-			float								fixedPointError		= tcu::TexVerifierUtil::computeFixedPointError(formatDescription.channels[channelNdx].sizeBits);;
+			VkSparseImageMemoryRequirements aspectRequirements	= sparseMemoryRequirements[aspectIndex];
 
 			for (deUint32 mipmapNdx = 0; mipmapNdx < aspectRequirements.imageMipTailFirstLod; ++mipmapNdx)
 			{
@@ -772,6 +786,7 @@ tcu::TestStatus ImageSparseMemoryAliasingInstance::iterate (void)
 						case tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT:
 						case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
 						{
+							float fixedPointError = tcu::TexVerifierUtil::computeFixedPointError(formatDescription.channels[channelNdx].sizeBits);
 							acceptableError += fixedPointError;
 							const tcu::Vec4 outputValue = pixelBuffer.getPixel(offsetX * pixelDivider.x(), offsetY * pixelDivider.y(), offsetZ * pixelDivider.z());
 
@@ -848,8 +863,13 @@ void ImageSparseMemoryAliasingCase::initPrograms(SourceCollections&	sourceCollec
 
 		std::ostringstream src;
 
-		src << versionDecl << "\n"
-			<< "layout (local_size_x = " << xWorkGroupSize << ", local_size_y = " << yWorkGroupSize << ", local_size_z = " << zWorkGroupSize << ") in; \n"
+		src << versionDecl << "\n";
+		if (formatIsR64(m_format))
+		{
+			src << "#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require\n"
+				<< "#extension GL_EXT_shader_image_int64 : require\n";
+		}
+		src << "layout (local_size_x = " << xWorkGroupSize << ", local_size_y = " << yWorkGroupSize << ", local_size_z = " << zWorkGroupSize << ") in; \n"
 			<< "layout (binding = 0, " << formatQualifierStr << ") writeonly uniform highp " << imageTypeStr << " u_image;\n"
 			<< "void main (void)\n"
 			<< "{\n"

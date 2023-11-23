@@ -136,12 +136,16 @@ class ResourceUseList final : angle::NonCopyable
 {
   public:
     ResourceUseList();
+    ResourceUseList(ResourceUseList &&other);
     virtual ~ResourceUseList();
+    ResourceUseList &operator=(ResourceUseList &&rhs);
 
     void add(const SharedResourceUse &resourceUse);
 
     void releaseResourceUses();
     void releaseResourceUsesAndUpdateSerials(Serial serial);
+
+    bool empty() { return mResourceUses.empty(); }
 
   private:
     std::vector<SharedResourceUse> mResourceUses;
@@ -180,23 +184,25 @@ class Resource : angle::NonCopyable
     angle::Result finishRunningCommands(ContextVk *contextVk);
 
     // Complete all recorded and in-flight commands involving this resource
-    angle::Result waitForIdle(ContextVk *contextVk);
+    angle::Result waitForIdle(ContextVk *contextVk, const char *debugMessage);
 
     // Adds the resource to a resource use list.
-    void retain(ResourceUseList *resourceUseList);
+    void retain(ResourceUseList *resourceUseList) const;
 
   protected:
     Resource();
+    Resource(Resource &&other);
 
     // Current resource lifetime.
     SharedResourceUse mUse;
 };
 
-ANGLE_INLINE void Resource::retain(ResourceUseList *resourceUseList)
+ANGLE_INLINE void Resource::retain(ResourceUseList *resourceUseList) const
 {
     // Store reference in resource list.
     resourceUseList->add(mUse);
 }
+
 }  // namespace vk
 }  // namespace rx
 

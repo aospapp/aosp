@@ -10,7 +10,7 @@ PURPOSE = "Verify cr50 open"
 ATTRIBUTES = "suite:faft_cr50_prepvt"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify the console can be opened by pressing the power button after the device

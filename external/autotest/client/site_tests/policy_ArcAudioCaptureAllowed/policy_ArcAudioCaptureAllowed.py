@@ -47,6 +47,6 @@ class policy_ArcAudioCaptureAllowed(
 
         self.setup_case(user_policies=policies,
                         arc_mode='enabled',
-                        use_clouddpc_test=True)
+                        use_clouddpc_test=False)
 
         self._test_microphone_status(case)

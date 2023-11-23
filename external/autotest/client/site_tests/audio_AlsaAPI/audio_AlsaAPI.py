@@ -17,9 +17,7 @@ class audio_AlsaAPI(test.test):
     _PLAYBACK_DEVICE_NAME = '^pcmC(\d+)D(\d+)p$'
     # A list of boards that do not correctly implement snd_pcm_drop, see
     # crosbug.com/p/51882
-    _BOARDS_WITHOUT_DROP_SUPPORT  = [
-            'banon', 'elm', 'samus', 'samus-kernelnext', 'squawks'
-    ]
+    _BOARDS_WITHOUT_DROP_SUPPORT = ['banon', 'elm', 'samus', 'squawks']
     # A dict of list of (card name, device) to be skipped on some boards.
     _DEVICES_TO_BE_SKIPPED = {
         # On the following boards, devices 4,5,6 are HDMI devices.
@@ -47,7 +45,9 @@ class audio_AlsaAPI(test.test):
         # Skip test_drop on boards that do not implement snd_pcm_drop
         # correctly, as it cannot pass.
         board = utils.get_board().lower()
-        if to_test == 'drop' and board in self._BOARDS_WITHOUT_DROP_SUPPORT:
+        if to_test == 'drop' and \
+            board.replace('-kernelnext', '') in \
+            self._BOARDS_WITHOUT_DROP_SUPPORT:
             logging.info('Skipping test_drop for unsupported board: %s', board)
             return
 

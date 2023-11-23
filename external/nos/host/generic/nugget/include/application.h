@@ -73,6 +73,7 @@ typedef const void * const __private;
 #define APP_ID_WEAVER            0x03
 #define APP_ID_PROTOBUF          0x04
 #define APP_ID_IDENTITY          0x05
+#define APP_ID_GSC_FACEAUTH      0x06
 
 /* Fake apps used only for testing */
 #define APP_ID_AVB_TEST          0x11
@@ -314,6 +315,7 @@ enum app_status {
   APP_ERROR_CHECKSUM,   /* checksum failed, only used within protocol */
   APP_ERROR_BUSY,       /* the app is already working on a commnad */
   APP_ERROR_TIMEOUT,    /* the app took too long to respond */
+  APP_ERROR_NOT_READY,  /* some required condition is not satisfied */
   /* more? */
 
   /*

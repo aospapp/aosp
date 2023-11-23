@@ -350,10 +350,10 @@ int main(int argc, char** argv) {
 
     if (!(daemon->options & OPT_DEBUG) && getuid() == 0) {
         int bad_capabilities = 0;
-        gid_t dummy;
+        gid_t unused;
 
         /* remove all supplimentary groups */
-        if (gp && (setgroups(0, &dummy) == -1 || setgid(gp->gr_gid) == -1)) {
+        if (gp && (setgroups(0, &unused) == -1 || setgid(gp->gr_gid) == -1)) {
             send_event(err_pipe[1], EVENT_GROUP_ERR, errno);
             _exit(0);
         }
@@ -571,7 +571,7 @@ static void sig_handler(int sig) {
         /* alarm is used to kill TCP children after a fixed time. */
         if (sig == SIGALRM) _exit(0);
     } else {
-        /* master process */
+        /* main process */
         const int errsave = errno;
         int event;
 

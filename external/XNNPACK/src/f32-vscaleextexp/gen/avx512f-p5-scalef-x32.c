@@ -57,7 +57,7 @@ void xnn_f32_vscaleextexp_ukernel__avx512f_p5_scalef_x32(
     vt0 = _mm512_fmadd_ps(vn0, vminus_ln2_lo, vt0);
     vt1 = _mm512_fmadd_ps(vn1, vminus_ln2_lo, vt1);
 
-    // Compute degree-5 polynomial approxiatmion for exp(t) on [-log(2)/2, log(2)/2].
+    // Compute degree-5 polynomial approximation for exp(t) on [-log(2)/2, log(2)/2].
     __m512 vp0 = _mm512_fmadd_ps(vc5, vt0, vc4);
     __m512 vp1 = _mm512_fmadd_ps(vc5, vt1, vc4);
 
@@ -76,8 +76,8 @@ void xnn_f32_vscaleextexp_ukernel__avx512f_p5_scalef_x32(
     // Multiply "extended" floating-point numbers in ("mantissa", "exponent") representation where
     //  - vnX is "exponent"
     //  - vpX is "mantissa"
-    //   
-    // exp2(ae) * av * exp2(be) * bv = 
+    //
+    // exp2(ae) * av * exp2(be) * bv =
     //   = exp2(ae + be) * (av * bv)
     __m512 vf0 = _mm512_mul_ps(vp0, vscalev);
     __m512 vf1 = _mm512_mul_ps(vp1, vscalev);
@@ -109,7 +109,7 @@ void xnn_f32_vscaleextexp_ukernel__avx512f_p5_scalef_x32(
     __m512 vt = _mm512_fmadd_ps(vn, vminus_ln2_hi, vx);
     vt = _mm512_fmadd_ps(vn, vminus_ln2_lo, vt);
 
-    // Compute degree-5 polynomial approxiatmion for exp(t) on [-log(2)/2, log(2)/2].
+    // Compute degree-5 polynomial approximation for exp(t) on [-log(2)/2, log(2)/2].
     __m512 vp = _mm512_fmadd_ps(vc5, vt, vc4);
     vp = _mm512_fmadd_ps(vp, vt, vc3);
     vp = _mm512_fmadd_ps(vp, vt, vc2);
@@ -143,7 +143,7 @@ void xnn_f32_vscaleextexp_ukernel__avx512f_p5_scalef_x32(
     __m512 vt = _mm512_fmadd_ps(vn, vminus_ln2_hi, vx);
     vt = _mm512_fmadd_ps(vn, vminus_ln2_lo, vt);
 
-    // Compute degree-5 polynomial approxiatmion for exp(t) on [-log(2)/2, log(2)/2].
+    // Compute degree-5 polynomial approximation for exp(t) on [-log(2)/2, log(2)/2].
     __m512 vp = _mm512_fmadd_ps(vc5, vt, vc4);
     vp = _mm512_fmadd_ps(vp, vt, vc3);
     vp = _mm512_fmadd_ps(vp, vt, vc2);

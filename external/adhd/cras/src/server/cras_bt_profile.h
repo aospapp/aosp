@@ -41,6 +41,13 @@ struct cras_bt_profile {
  */
 int cras_bt_add_profile(DBusConnection *conn, struct cras_bt_profile *profile);
 
+/* Removes |profile| from the list of profiles registered with bluez.
+ * Args:
+ *    conn - The dbus connection.
+ *    profile - Pointer to the profile structure to be removed.
+ */
+int cras_bt_rm_profile(DBusConnection *conn, struct cras_bt_profile *profile);
+
 /* Gets the profile by object path.
  * Args:
  *    path - The object path of the desired profile.
@@ -56,6 +63,22 @@ void cras_bt_profile_reset();
 
 /* Notifies all profiles when a device is disconnected. */
 void cras_bt_profile_on_device_disconnected(struct cras_bt_device *device);
+
+/* Registeres |profile| with bluez.
+ * Args:
+ *    conn - The dbus connection.
+ *    profile - Pointer to the profile structure to be registered.
+ */
+int cras_bt_register_profile(DBusConnection *conn,
+			     struct cras_bt_profile *profile);
+
+/* Unregisteres |profile| with bluez.
+ * Args:
+ *    conn - The dbus connection.
+ *    profile - Pointer to the profile structure to be unregistered.
+ */
+int cras_bt_unregister_profile(DBusConnection *conn,
+			       struct cras_bt_profile *profile);
 
 /* Registers all added profiles.
  * Args:

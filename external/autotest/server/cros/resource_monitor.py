@@ -1,10 +1,15 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import csv
-import cStringIO
+import six
 import random
 import re
 import collections
@@ -153,7 +158,7 @@ class ResourceMonitorParsedResult(object):
 
 
     def __repr__(self):
-        output_stringfile = cStringIO.StringIO()
+        output_stringfile = six.StringIO()
         self.save_to_file(output_stringfile)
         return output_stringfile.getvalue()
 

@@ -4,7 +4,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Download profdata from different arches, merge them and upload to gs
+"""Download profdata from different arches, merge them and upload to gs.
 
 The script is used for updating the PGO profiles for LLVM. The workflow
 is that the script will download profdata from different PGO builds, merge
@@ -22,16 +22,17 @@ Note that hash checking will fail if the llvm hash you provided is not the
 same as those in artifacts, or llvm hash in different artifacts are not the
 same.
 
-To only use profiles from PGO generate tryjob, run it with:
-    ./merge_profdata_and_upload.py --nolatest -t TRYJOB1 -t TRYJOB2 ...
-Using of --nolatest will tell the script not to use any results from builders,
-and merge only the profdata from the tryjobs you specified.
+To only use profiles from buildbucket tasks for PGO generate, run it with:
+    ./merge_profdata_and_upload.py -b amd64/bb_id1 -b arm/bb_id2 ...
+The buildbucket id can be found using `bb ls` command after manually launched
+builder finishes.
 
 There is a chance that builders only succeeded partially, in this case, you
-can run this script to merge both profdata from builder and tryjob:
-    ./merge_profdata_and_upload.py -l arm -l amd64 -t TRYJOB_FOR_ARM64
+can run this script to merge both profdata from builder scheduled and manually
+launched:
+    ./merge_profdata_and_upload.py -l arm -l amd64 -b arm64/bb_id
 In this example, the script will merge profdata from arm and amd64 builder, and
-profdata from an arm64 tryjob.
+profdata from an arm64 buildbucket task.
 """
 
 from __future__ import print_function
@@ -53,52 +54,55 @@ _GS_PREFIX = 'gs://'
 _LLVMMetadata = collections.namedtuple('_LLVMMetadata', ['head_sha'])
 
 
-def _get_gs_latest(remote_lastest):
-  assert remote_lastest.startswith(_GS_PREFIX)
-  try:
-    return subprocess.check_output(['gsutil', 'cat', remote_lastest],
-                                   encoding='utf-8')
-  except subprocess.CalledProcessError:
-    raise RuntimeError('Lastest artifacts not found: %s' % remote_lastest)
-
-
 def _fetch_gs_artifact(remote_name, local_name):
-  assert remote_name.startswith(_GS_PREFIX)
+  """Fetch single file from remote gs location to local.
 
-  print('Fetching %r to %r' % (remote_name, local_name))
+  Args:
+    remote_name: full gs location to the file.
+    local_name: the name of local file to be copied to.
+  """
+  assert remote_name.startswith(_GS_PREFIX)
   subprocess.check_call(['gsutil', 'cp', remote_name, local_name])
 
 
-def _find_latest_artifacts(arch):
-  remote_latest = (
-      '%schromeos-image-archive/'
-      '%s-pgo-generate-llvm-next-toolchain/LATEST-master' % (_GS_PREFIX, arch))
-  version = _get_gs_latest(remote_latest)
-  return '%s-pgo-generate-llvm-next-toolchain/%s' % (arch, version)
+def _get_gs_profdata(remote_profdata, arch):
+  """Fetch and extract profdata from remote gs location.
 
+  Args:
+    remote_profdata: remote gs location of the profdata tarball.
+    arch: directory named with arch to saperate each profdata.
 
-def _get_gs_profdata(remote_base, base_dir):
-  remote_profdata_basename = 'llvm_profdata.tar.xz'
-
-  remote_profdata = os.path.join(remote_base, remote_profdata_basename)
+  Returns:
+    Local location of the extracted profdata.
+  """
   tar = 'llvm_profdata.tar.xz'
   _fetch_gs_artifact(remote_profdata, tar)
-  extract_cmd = ['tar', '-xf', tar]
+  extract_cmd = ['tar', '-xvf', tar]
 
-  print('Extracting profdata tarball.\nCMD: %s\n' % extract_cmd)
-  subprocess.check_call(extract_cmd)
-  # Return directory to the llvm.profdata extracted.
-  if '-tryjob/' in base_dir:
-    prefix = 'b/s/w/ir/cache/cbuild/repository/trybot_archive/'
-  else:
-    prefix = 'b/s/w/ir/cache/cbuild/repository/buildbot_archive/'
-  return os.path.join(prefix, base_dir, 'llvm.profdata')
+  profdata_name = subprocess.check_output(extract_cmd).strip()
+  # The output of the `tar` command should only contain one line of the
+  # extracted profdata name.
+  if b'.llvm.profdata' not in profdata_name:
+    raise RuntimeError('No profdata in the tarball: %s' % remote_profdata)
+
+  os.mkdir(arch)
+  profdata_loc = os.path.join(arch, 'llvm.profdata')
+  os.rename(profdata_name, profdata_loc)
+  print('Profdata extracted to: %s' % profdata_loc)
+  return profdata_loc
 
 
-def _get_gs_metadata(remote_base):
+def _get_gs_metadata(remote_metadata):
+  """Fetch metadata from remote gs location and read the LLVM head_sha.
+
+  Args:
+    remote_metadata: remote gs location of the metadata json file.
+
+  Returns:
+    LLVM head_sha metadata
+  """
   metadata_basename = 'llvm_metadata.json'
-  _fetch_gs_artifact(
-      os.path.join(remote_base, metadata_basename), metadata_basename)
+  _fetch_gs_artifact(remote_metadata, metadata_basename)
 
   with open(metadata_basename) as f:
     result = json.load(f)
@@ -106,20 +110,111 @@ def _get_gs_metadata(remote_base):
   return _LLVMMetadata(head_sha=result['head_sha'])
 
 
-def _get_gs_artifacts(base_dir):
-  remote_base = '%schromeos-image-archive/%s' % (_GS_PREFIX, base_dir)
-  profile_path = _get_gs_profdata(remote_base, base_dir)
-  metadata = _get_gs_metadata(remote_base)
+def _find_latest_artifacts(gs_url, arch):
+  """Fetch the latest profdata and metadata from a give gs location.
+
+  Args:
+    gs_url: a gs location containing one or more artifacts to fetch.
+    arch: the arch profdata collected from.
+
+  Returns:
+    A tuple of local profdata location and metadata
+  """
+  assert gs_url.startswith(_GS_PREFIX)
+  try:
+    # List all artifacts in the gs location and sort by time.
+    output = subprocess.check_output(['gsutil', 'ls', '-l', gs_url],
+                                     encoding='utf-8').strip().split('\n')
+    lines = sorted(output, key=lambda x: x.split()[1], reverse=True)
+  except subprocess.CalledProcessError:
+    raise RuntimeError('Artifacts not found: %s' % gs_url)
+
+  # Use a loop to go through all artifacts to find the latest profdata.
+  # An example of the output of latest builder bucket:
+  # pylint: disable=line-too-long
+  #   5006528  2020-05-31T10:08:48Z  gs://chromeos-toolchain-artifacts/llvm-pgo/arm/llvm-11.0_pre387436_p20200403-r7-a8e5dcb072b1f794883ae8125fb08c06db678d56.llvm.profdata.tar.xz
+  #   56  2020-05-31T10:08:48Z  gs://chromeos-toolchain-artifacts/llvm-pgo/arm/llvm-11.0_pre387436_p20200403-r7-a8e5dcb072b1f794883ae8125fb08c06db678d56.llvm_metadata.json
+  #   5005952  2020-05-24T10:53:34Z  gs://chromeos-toolchain-artifacts/llvm-pgo/arm/llvm-11.0_pre387436_p20200403-r5-a8e5dcb072b1f794883ae8125fb08c06db678d56.llvm.profdata.tar.xz
+  #   56  2020-05-24T10:53:34Z  gs://chromeos-toolchain-artifacts/llvm-pgo/arm/llvm-11.0_pre387436_p20200403-r5-a8e5dcb072b1f794883ae8125fb08c06db678d56.llvm_metadata.json
+  # An example for the lines of buildbucket location:
+  #   5004260  2020-05-29T09:48:04Z  gs://chromeos-image-archive/arm-pgo-generate-llvm-next-toolchain/R85-13254.0.0-1-8879010326583123168/llvm-11.0_pre387436_p20200403-r7-a8e5dcb072b1f794883ae8125fb08c06db678d56.llvm.profdata.tar.xz
+  #   56  2020-05-29T09:48:04Z  gs://chromeos-image-archive/arm-pgo-generate-llvm-next-toolchain/R85-13254.0.0-1-8879010326583123168/llvm-11.0_pre387436_p20200403-r7-a8e5dcb072b1f794883ae8125fb08c06db678d56.llvm_metadata.json
+  # pylint: enable=line-too-long
+  profdata_url = ''
+  for line in lines:
+    url = line.split()[-1]
+    if '.llvm.profdata.tar.xz' in url:
+      profile_path = _get_gs_profdata(url, arch)
+      profdata_url = url
+      break
+  if not profile_path or not profdata_url:
+    raise RuntimeError('No profdata found from %s' % gs_url)
+
+  metadata_url = profdata_url.replace('.llvm.profdata.tar.xz',
+                                      '.llvm_metadata.json')
+  metadata = _get_gs_metadata(metadata_url)
+  if not metadata:
+    raise RuntimeError('No metadata found from %s' % gs_url)
   return metadata, profile_path
 
 
+def _fetch_from_latest(arch):
+  """Fetch artifacts from latest builders.
+
+  Args:
+    arch: the arch profdata collected from.
+
+  Returns:
+    A tuple of local profdata location and metadata
+  """
+  print('\nFETCHING LATEST PROFDATA ON %s...' % arch.upper())
+  remote_latest = (
+      '%schromeos-toolchain-artifacts/llvm-pgo/%s' % (_GS_PREFIX, arch))
+  return _find_latest_artifacts(remote_latest, arch)
+
+
+def _fetch_from_buildbucket(arch, bb):
+  """Fetch artifacts from buildbucket task.
+
+  Args:
+    arch: the arch profdata collected from.
+    bb: buildbucket id.
+
+  Returns:
+    A tuple of local profdata location and metadata
+  """
+  print('\nFETCHING BUILDBUCKET PROFDATA ON %s...' % arch.upper())
+  remote_arch = ('%schromeos-image-archive/%s-pgo-generate-llvm-next-toolchain'
+                 % (_GS_PREFIX, arch))
+  # List all buckets under {arch}-pgo-generate-llvm-next-toolchain and
+  # grep with buildbucket id.
+  remote_bb = subprocess.check_output(['gsutil', 'ls', remote_arch],
+                                      encoding='utf-8').strip().split('\n')
+  for line in remote_bb:
+    if bb in line:
+      return _find_latest_artifacts(line, arch)
+  raise RuntimeError('No matched results found in %s with bb: %s' % (arch, bb))
+
+
 def _merge_profdata(profdata_list, output_name):
+  """Merge profdata.
+
+  Args:
+    profdata_list: list of profdata location of each arch.
+    output_name: name of merged profdata.
+  """
   merge_cmd = [_LLVM_PROFDATA, 'merge', '-output', output_name] + profdata_list
-  print('Merging PGO profiles.\nCMD: %s\n' % merge_cmd)
+  print('\nMerging PGO profiles.\nCMD: %s' % merge_cmd)
   subprocess.check_call(merge_cmd)
 
 
 def _tar_and_upload_profdata(profdata, name_suffix):
+  """Create a tarball of merged profdata and upload to certain gs location.
+
+  Args:
+    profdata: location of merged profdata.
+    name_suffix: usually the LLVM head_sha.
+  """
   tarball = 'llvm-profdata-%s.tar.xz' % name_suffix
   print('Making profdata tarball: %s' % tarball)
   subprocess.check_call(
@@ -140,12 +235,11 @@ def _tar_and_upload_profdata(profdata, name_suffix):
       tarball,
       upload_location,
   ]
-  print('Uploading tarball to gs.\nCMD: %s\n' % upload_cmd)
+  print('\nUploading tarball to gs.\nCMD: %s\n' % upload_cmd)
 
   # gsutil prints all status to stderr, oddly enough.
   gs_output = subprocess.check_output(
       upload_cmd, stderr=subprocess.STDOUT, encoding='utf-8')
-  print(gs_output)
 
   # gsutil exits successfully even if it uploaded nothing. It prints a summary
   # of what all it did, though. Successful uploads are just a progress bar,
@@ -172,13 +266,12 @@ def main():
       'architecture to download. By default, we merge profdata from arm, '
       'arm64, amd64.')
   parser.add_argument(
-      '-t',
-      '--tryjob',
+      '-b',
+      '--buildbucket',
       default=[],
       action='append',
-      help='Extra pgo-generate-llvm-next-toolchain/tryjob results to be used. '
-      'Format should be '
-      '{arch}-pgo-generate-llvm-next-toolchain(-tryjob)/{VERSION}.')
+      help='Extra pgo-generate-llvm-next-toolchain buildbucket results to be '
+      'used. Format should be: {arch}/{bb_id}.')
   parser.add_argument(
       '-o',
       '--output',
@@ -190,16 +283,27 @@ def main():
       help='The LLVM hash to select for the profiles. Generally autodetected.')
   args = parser.parse_args()
 
-  if not args.all_latest_profiles and not (args.latest or args.tryjob):
-    sys.exit('Please specify whether to use latest profiles or profiles from '
-             'tryjobs')
+  if not args.all_latest_profiles and not (args.latest or args.buildbucket):
+    parser.error('Please specify whether to use latest profiles or '
+                 'profiles from buildbucket')
 
-  if args.all_latest_profiles and (args.latest or args.tryjob):
-    sys.exit('--all_latest_profiles cannot be specified together with '
-             '--latest or --tryjob.')
+  if args.all_latest_profiles and (args.latest or args.buildbucket):
+    parser.error('--all_latest_profiles cannot be specified together '
+                 'with --latest or --buildbucket')
 
   latest = ['arm', 'arm64', 'amd64'] \
     if args.all_latest_profiles else args.latest
+
+  all_arch_list = latest.copy()
+  arch_bb_list = []
+  if args.buildbucket:
+    for arch_bb in args.buildbucket:
+      arch, bb = arch_bb.split('/')
+      arch_bb_list.append((arch, bb))
+      all_arch_list.append(arch)
+
+  if len(set(all_arch_list)) != len(all_arch_list):
+    parser.error('Each arch can be only passed once.')
 
   if not distutils.spawn.find_executable(_LLVM_PROFDATA):
     sys.exit(_LLVM_PROFDATA + ' not found; are you in the chroot?')
@@ -212,22 +316,20 @@ def main():
     profdata_list = []
     heads = set()
 
-    def fetch_and_append_artifacts(gs_url):
-      llvm_metadata, profdata_loc = _get_gs_artifacts(gs_url)
+    def append_artifacts(fetched_tuple):
+      llvm_metadata, profdata_loc = fetched_tuple
       if os.path.getsize(profdata_loc) < 512 * 1024:
-        raise RuntimeError('The PGO profile in %s (local path: %s) is '
-                           'suspiciously small. Something might have gone '
-                           'wrong.' % (gs_url, profdata_loc))
-
+        raise RuntimeError('The PGO profile in local path %s is suspiciously '
+                           'small. Something might have gone '
+                           'wrong.' % profdata_loc)
       heads.add(llvm_metadata.head_sha)
       profdata_list.append(profdata_loc)
 
     for arch in latest:
-      fetch_and_append_artifacts(_find_latest_artifacts(arch))
+      append_artifacts(_fetch_from_latest(arch))
 
-    if args.tryjob:
-      for tryjob in args.tryjob:
-        fetch_and_append_artifacts(tryjob)
+    for arch, bb in arch_bb_list:
+      append_artifacts(_fetch_from_buildbucket(arch, bb))
 
     assert heads, "Didn't fetch anything?"
 
@@ -251,12 +353,12 @@ def main():
       die_with_head_complaint(
           "HEAD %s wasn't found in any fetched artifacts." % llvm_hash)
 
-    print('Using LLVM hash: %s' % llvm_hash)
+    print('\nUsing LLVM hash: %s' % llvm_hash)
 
     _merge_profdata(profdata_list, args.output)
-    print('Merged profdata locates at %s\n' % os.path.abspath(args.output))
+    print('Merged profdata locates at %s' % os.path.abspath(args.output))
     _tar_and_upload_profdata(args.output, name_suffix=llvm_hash)
-    print('Merged profdata uploaded successfully.')
+    print('\nMerged profdata uploaded successfully.')
   except:
     success = False
     raise

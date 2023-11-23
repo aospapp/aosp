@@ -14,12 +14,13 @@
 
 #include "VkBufferView.hpp"
 #include "VkBuffer.hpp"
-#include "VkFormat.h"
+#include "VkFormat.hpp"
 
 namespace vk {
 
 BufferView::BufferView(const VkBufferViewCreateInfo *pCreateInfo, void *mem)
-    : buffer(vk::Cast(pCreateInfo->buffer))
+    : id(pCreateInfo->format)
+    , buffer(vk::Cast(pCreateInfo->buffer))
     , format(pCreateInfo->format)
     , offset(pCreateInfo->offset)
 {

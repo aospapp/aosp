@@ -1,3 +1,36 @@
+package {
+    default_applicable_licenses: ["external_oj-libjdwp_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_oj-libjdwp_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-GPL-with-classpath-exception",
+        "SPDX-license-identifier-LGPL",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_binary_host {
     name: "jdwpgen",
     srcs: ["make/src/classes/build/tools/jdwpgen/*.java"],
@@ -43,9 +76,10 @@ cc_library_headers {
     device_supported: true,
 
     apex_available: [
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
     ],
+    min_sdk_version: "S",
 }
 
 cc_library_headers {
@@ -57,9 +91,10 @@ cc_library_headers {
     defaults: ["upstream-jdwp-defaults"],
 
     apex_available: [
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
     ],
+    min_sdk_version: "S",
 }
 
 cc_library {
@@ -74,9 +109,10 @@ cc_library {
     ],
     defaults: ["upstream-jdwp-defaults"],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
+    min_sdk_version: "S",
 }
 
 cc_library_headers {
@@ -91,9 +127,10 @@ cc_library_headers {
     defaults: ["upstream-jdwp-defaults"],
 
     apex_available: [
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
     ],
+    min_sdk_version: "S",
 }
 
 cc_library {
@@ -124,9 +161,10 @@ cc_library {
     ],
     defaults: ["upstream-jdwp-defaults"],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
+    min_sdk_version: "S",
 }
 
 cc_library {
@@ -147,9 +185,10 @@ cc_library {
     required: ["libnpt"],
     defaults: ["upstream-jdwp-defaults"],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
+    min_sdk_version: "S",
 }
 
 genrule {

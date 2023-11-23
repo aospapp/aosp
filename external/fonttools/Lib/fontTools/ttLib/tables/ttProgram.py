@@ -1,9 +1,9 @@
 """ttLib.tables.ttProgram.py -- Assembler/disassembler for TrueType bytecode programs."""
 
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import strjoin
 from fontTools.misc.textTools import num2binary, binary2num, readHex
 import array
+from io import StringIO
 import re
 import logging
 
@@ -223,7 +223,7 @@ class Program(object):
 	def getBytecode(self):
 		if not hasattr(self, "bytecode"):
 			self._assemble()
-		return self.bytecode.tostring()
+		return self.bytecode.tobytes()
 
 	def getAssembly(self, preserve=True):
 		if not hasattr(self, "assembly"):

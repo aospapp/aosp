@@ -1,6 +1,12 @@
+# Lint as: python2, python3
 """This class defines the Remote host class."""
 
-import os, logging, urllib, time
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import os, logging, time
+import six
+from six.moves import urllib
 import re
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import utils
@@ -71,7 +77,7 @@ class RemoteHost(base_classes.Host):
             cmd = ('test ! -e /var/log/messages || cp -f /var/log/messages '
                    '%s') % self.VAR_LOG_MESSAGES_COPY_PATH
             self.run(cmd)
-        except Exception, e:
+        except Exception as e:
             # Non-fatal error
             logging.info('Failed to copy /var/log/messages at startup: %s', e)
 
@@ -258,9 +264,8 @@ class RemoteHost(base_classes.Host):
         on the destruction of the Host object that was used to obtain
         it.
         """
-        self.run("mkdir -p %s" % parent)
         template = os.path.join(parent, self.TMP_DIR_TEMPLATE)
-        dir_name = self.run("mktemp -d %s" % template).stdout.rstrip()
+        dir_name = self.run('mkdir -p %s && mktemp -d %s' % (parent, template)).stdout.rstrip()
         self.tmp_dirs.append(dir_name)
         return dir_name
 
@@ -290,7 +295,7 @@ class RemoteHost(base_classes.Host):
             all_labels = keyvals.get('labels', '')
             if all_labels:
                 all_labels = all_labels.split(',')
-                return [urllib.unquote(label) for label in all_labels]
+                return [urllib.parse.unquote(label) for label in all_labels]
         return []
 
 
@@ -314,20 +319,27 @@ class RemoteHost(base_classes.Host):
         cause unexpected behavior.
         """
         # follow mktemp's behavior of only expanding 3 or more consecutive Xs
-        base_template = re.sub('XXXX*', '*', self.TMP_DIR_TEMPLATE)
-        # distinguish between non-wildcard asterisks in parent directory name
-        # and wildcards inserted from the template
-        base = '*'.join(map(lambda x: '"%s"' % utils.sh_escape(x),
-                base_template.split('*')))
-        path = '"%s' % os.path.join(utils.sh_escape(parent), base[1:])
-        self.run('rm -rf %s' % path, ignore_status=True)
-        # remove deleted directories from tmp_dirs
-        regex = os.path.join(parent, re.sub('(XXXX*)',
-                        lambda match: '[a-zA-Z0-9]{%d}' % len(match.group(1)),
-                        self.TMP_DIR_TEMPLATE))
-        regex += '(/|$)' # remove if matches, or is within a dir that matches
-        self.tmp_dirs = filter(lambda x: not re.match(regex, x), self.tmp_dirs)
+        if isinstance(parent, (list, tuple)):
+            parents = parent
+        else:
+            parents = [parent]
+        rm_paths = []
+        for parent in parents:
+            base_template = re.sub('XXXX*', '*', self.TMP_DIR_TEMPLATE)
+            # distinguish between non-wildcard asterisks in parent directory name
+            # and wildcards inserted from the template
+            base = '*'.join(
+                ['"%s"' % utils.sh_escape(x) for x in base_template.split('*')])
+            path = '"%s' % os.path.join(utils.sh_escape(parent), base[1:])
+            rm_paths.append(path)
+            # remove deleted directories from tmp_dirs
+            regex = os.path.join(parent, re.sub('(XXXX*)',
+                            lambda match: '[a-zA-Z0-9]{%d}' % len(match.group(1)),
+                            self.TMP_DIR_TEMPLATE))
+            regex += '(/|$)' # remove if matches, or is within a dir that matches
+            self.tmp_dirs = [x for x in self.tmp_dirs if not re.match(regex, x)]
 
+        self.run('rm -rf {}'.format(" ".join(rm_paths)), ignore_status=True)
 
     def check_uptime(self):
         """
@@ -386,3 +398,12 @@ class RemoteHost(base_classes.Host):
                 elif type(label) is list:
                     labels.extend(label)
         return labels
+
+    def get_result_dir(self):
+        """Return the result directory path if passed or None if not.
+
+        @return string
+        """
+        if self.job and hasattr(self.job, 'resultdir'):
+            return self.job.resultdir
+        return None

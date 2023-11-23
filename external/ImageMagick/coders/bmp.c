@@ -18,7 +18,7 @@
 %                               December 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -206,11 +206,11 @@ static MagickBooleanType DecodeImage(Image *image,const size_t compression,
     byte,
     count;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *p,
     *q;
 
@@ -383,14 +383,14 @@ static size_t EncodeImage(Image *image,const size_t bytes_per_line,
   MagickBooleanType
     status;
 
-  register const unsigned char
+  const unsigned char
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *q;
 
   ssize_t
@@ -533,14 +533,14 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
   Quantum
     index;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *p;
 
   size_t
@@ -837,14 +837,14 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
       }
     if ((MagickSizeType) bmp_info.file_size != blob_size)
       {
-        ExceptionType
-          severity;
+        const char
+          *option;
 
-        severity=CorruptImageWarning;
-        if ((MagickSizeType) bmp_info.file_size > blob_size + 4)
-          severity=CorruptImageError;
-        (void) ThrowMagickException(exception,GetMagickModule(),severity,
-          "LengthAndFilesizeDoNotMatch","`%s'",image->filename);
+        option=GetImageOption(image_info,"bmp:ignore-filesize");
+        if (IsStringTrue(option) == MagickFalse)
+          (void) ThrowMagickException(exception,GetMagickModule(),
+            CorruptImageError,"LengthAndFilesizeDoNotMatch","`%s'",
+            image->filename);
       }
     if (bmp_info.width <= 0)
       ThrowReaderException(CorruptImageError,"NegativeOrZeroImageSize");
@@ -1060,7 +1060,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
     (void) memset(&quantum_bits,0,sizeof(quantum_bits));
     if ((bmp_info.bits_per_pixel == 16) || (bmp_info.bits_per_pixel == 32))
       {
-        register unsigned int
+        unsigned int
           sample;
 
         /*
@@ -1664,14 +1664,14 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
   MemoryInfo
     *pixel_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *q;
 
   size_t
@@ -1705,8 +1705,8 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
-  if (((image->columns << 3) != (int) (image->columns << 3)) ||
-      ((image->rows << 3) != (int) (image->rows << 3)))
+  if (((image->columns << 3) != (size_t) ((int) (image->columns << 3))) ||
+      ((image->rows << 3) != (size_t) ((int) (image->rows << 3))))
     ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   type=4;
   if (LocaleCompare(image_info->magick,"BMP2") == 0)
@@ -2032,7 +2032,7 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
           q=pixels+(image->rows-y-1)*bytes_per_line;
           for (x=0; x < (ssize_t) image->columns; x++)
           {
-            *q++=(unsigned char) GetPixelIndex(image,p);
+            *q++=(unsigned char) ((ssize_t) GetPixelIndex(image,p));
             p+=GetPixelChannels(image);
           }
           for ( ; x < (ssize_t) bytes_per_line; x++)
@@ -2312,33 +2312,63 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
           (void) WriteBlobLSBLong(image,0x4D424544U);  /* PROFILE_EMBEDDED */
         else
           (void) WriteBlobLSBLong(image,0x73524742U);  /* sRGB */
+        
+        // bounds check, assign .0 if invalid value
+        if (isgreater(image->chromaticity.red_primary.x, 1.0) ||
+            !isgreater(image->chromaticity.red_primary.x, 0.0))
+          image->chromaticity.red_primary.x = 0.0;
+        if (isgreater(image->chromaticity.red_primary.y, 1.0) ||
+            !isgreater(image->chromaticity.red_primary.y, 0.0))
+          image->chromaticity.red_primary.y = 0.0;
+        if (isgreater(image->chromaticity.green_primary.x, 1.0) ||
+            !isgreater(image->chromaticity.green_primary.x, 0.0))
+          image->chromaticity.green_primary.x = 0.0;
+        if (isgreater(image->chromaticity.green_primary.y, 1.0) ||
+            !isgreater(image->chromaticity.green_primary.y, 0.0))
+          image->chromaticity.green_primary.y = 0.0;
+        if (isgreater(image->chromaticity.blue_primary.x, 1.0) ||
+            !isgreater(image->chromaticity.blue_primary.x, 0.0))
+          image->chromaticity.blue_primary.x = 0.0;
+        if (isgreater(image->chromaticity.blue_primary.y, 1.0) ||
+            !isgreater(image->chromaticity.blue_primary.y, 0.0))
+          image->chromaticity.blue_primary.y = 0.0;
+        if (isgreater(bmp_info.gamma_scale.x, 1.0) ||
+            !isgreater(bmp_info.gamma_scale.x, 0.0))
+          bmp_info.gamma_scale.x = 0.0;
+        if (isgreater(bmp_info.gamma_scale.y, 1.0) ||
+            !isgreater(bmp_info.gamma_scale.y, 0.0))
+          bmp_info.gamma_scale.y = 0.0;
+        if (isgreater(bmp_info.gamma_scale.z, 1.0) ||
+            !isgreater(bmp_info.gamma_scale.z, 0.0))
+          bmp_info.gamma_scale.z = 0.0;
+
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) image->chromaticity.red_primary.x*0x40000000));
+          (image->chromaticity.red_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) image->chromaticity.red_primary.y*0x40000000));
+          (image->chromaticity.red_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) (1.000f-(image->chromaticity.red_primary.x+
+          ((1.000f-(image->chromaticity.red_primary.x+
           image->chromaticity.red_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) image->chromaticity.green_primary.x*0x40000000));
+          (image->chromaticity.green_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) image->chromaticity.green_primary.y*0x40000000));
+          (image->chromaticity.green_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) (1.000f-(image->chromaticity.green_primary.x+
+          ((1.000f-(image->chromaticity.green_primary.x+
           image->chromaticity.green_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) image->chromaticity.blue_primary.x*0x40000000));
+          (image->chromaticity.blue_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) image->chromaticity.blue_primary.y*0x40000000));
+          (image->chromaticity.blue_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) (1.000f-(image->chromaticity.blue_primary.x+
+          ((1.000f-(image->chromaticity.blue_primary.x+
           image->chromaticity.blue_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) bmp_info.gamma_scale.x*0x10000));
+          (bmp_info.gamma_scale.x*0x10000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) bmp_info.gamma_scale.y*0x10000));
+          (bmp_info.gamma_scale.y*0x10000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((ssize_t) bmp_info.gamma_scale.z*0x10000));
+          (bmp_info.gamma_scale.z*0x10000));
         if ((image->rendering_intent != UndefinedIntent) ||
             (profile != (StringInfo *) NULL))
           {

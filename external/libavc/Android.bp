@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_libavc_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_libavc_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libavcdec",
     vendor_available: true,
@@ -162,18 +179,6 @@ cc_library_static {
             ],
         },
 
-        mips: {
-            local_include_dirs: ["common/mips"],
-
-            srcs: ["decoder/mips/ih264d_function_selector.c"],
-        },
-
-        mips64: {
-            local_include_dirs: ["common/mips"],
-
-            srcs: ["decoder/mips/ih264d_function_selector.c"],
-        },
-
         x86: {
             cflags: [
                 "-DX86",
@@ -240,9 +245,11 @@ cc_library_static {
     sanitize: {
         integer_overflow: true,
         misc_undefined: ["bounds"],
-        // Enable CFI if this becomes a shared library.
-        // cfi: true,
-        blacklist: "libavc_blacklist.txt",
+        cfi: true,
+        config: {
+            cfi_assembly_support: true,
+        },
+        blocklist: "libavc_blocklist.txt",
     },
     apex_available: [
         "//apex_available:platform", // used by libstagefright_soft_avcdec
@@ -427,24 +434,6 @@ cc_library_static {
             ],
         },
 
-        mips: {
-            local_include_dirs: [
-                "common/mips",
-                "encoder/mips",
-            ],
-
-            srcs: ["encoder/mips/ih264e_function_selector.c"],
-        },
-
-        mips64: {
-            local_include_dirs: [
-                "common/mips",
-                "encoder/mips",
-            ],
-
-            srcs: ["encoder/mips/ih264e_function_selector.c"],
-        },
-
         x86: {
             cflags: [
                 "-DX86",
@@ -519,9 +508,11 @@ cc_library_static {
     sanitize: {
         integer_overflow: true,
         misc_undefined: ["bounds"],
-        // Enable CFI if this becomes a shared library.
-        // cfi: true,
-        blacklist: "libavc_blacklist.txt",
+        cfi: true,
+        config: {
+            cfi_assembly_support: true,
+        },
+        blocklist: "libavc_blocklist.txt",
     },
     apex_available: [
         "//apex_available:platform", //due to libstagefright_soft_avcenc

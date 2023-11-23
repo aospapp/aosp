@@ -16,6 +16,8 @@
 
 #include "utils/i18n/locale.h"
 
+#include <string>
+
 #include "utils/strings/split.h"
 
 namespace libtextclassifier3 {
@@ -194,6 +196,20 @@ bool Locale::IsAnyLocaleSupported(const std::vector<Locale>& locales,
     }
   }
   return false;
+}
+
+bool Locale::operator==(const Locale& locale) const {
+  return language_ == locale.language_ && region_ == locale.region_ &&
+         script_ == locale.script_;
+}
+
+bool Locale::operator<(const Locale& locale) const {
+  return std::tie(language_, region_, script_) <
+         std::tie(locale.language_, locale.region_, locale.script_);
+}
+
+bool Locale::operator!=(const Locale& locale) const {
+  return !(*this == locale);
 }
 
 logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,

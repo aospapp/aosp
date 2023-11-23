@@ -93,10 +93,9 @@ class TimingSuite : public testing::Test {
     // Set response for frames_queued.
     iodev_stub_frames_queued(dev->dev.get(), dev_level, *level_timestamp);
 
-    struct timespec dev_time, now;
+    struct timespec dev_time;
     dev_time.tv_sec = level_timestamp->tv_sec + 500;  // Far in the future.
-    clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-    dev_io_next_output_wake(&dev_list_, &dev_time, &now);
+    dev_io_next_output_wake(&dev_list_, &dev_time);
     return dev_time;
   }
 };
@@ -112,20 +111,21 @@ int clock_gettime(clockid_t clk_id, struct timespec* tp) {
 
 // Add a new input stream, make sure the initial next_cb_ts is 0.
 TEST_F(TimingSuite, NewInputStreamInit) {
-  struct open_dev* dev_list_ = NULL;
+  struct open_dev* odev_list_ = NULL;
+  struct open_dev* idev_list_ = NULL;
 
   cras_audio_format format;
   fill_audio_format(&format, 48000);
   DevicePtr dev =
       create_device(CRAS_STREAM_INPUT, 1024, &format, CRAS_NODE_TYPE_MIC);
-  DL_APPEND(dev_list_, dev->odev.get());
+  DL_APPEND(idev_list_, dev->odev.get());
   struct cras_iodev* iodev = dev->odev->dev;
 
   ShmPtr shm = create_shm(480);
   RstreamPtr rstream =
       create_rstream(1, CRAS_STREAM_INPUT, 480, &format, shm.get());
 
-  dev_io_append_stream(&dev_list_, rstream.get(), &iodev, 1);
+  dev_io_append_stream(&odev_list_, &idev_list_, rstream.get(), &iodev, 1);
 
   EXPECT_EQ(0, rstream->next_cb_ts.tv_sec);
   EXPECT_EQ(0, rstream->next_cb_ts.tv_nsec);
@@ -807,23 +807,68 @@ TEST_F(TimingSuite, HotwordStreamBulkDataIsNotPending) {
 
 // When a new output stream is added, there are two rules to determine the
 // initial next_cb_ts.
-// 1. If the device already has streams, the next_cb_ts will be the earliest
+// 1. If there is a matched input stream, use the next_cb_ts and
+//    sleep_interval_ts from that input stream as the initial values.
+// 2. If the device already has streams, the next_cb_ts will be the earliest
 // next callback time from these streams.
-// 2. If there are no other streams, the next_cb_ts will be set to the time
+// 3. If there are no other streams, the next_cb_ts will be set to the time
 // when the valid frames in device is lower than cb_threshold. (If it is
 // already lower than cb_threshold, set next_cb_ts to now.)
 
 // Test rule 1.
+// There is a matched input stream. The next_cb_ts of the newly added output
+// stream will use the next_cb_ts from the input stream.
+TEST_F(TimingSuite, NewOutputStreamInitExistMatchedStream) {
+  struct open_dev* odev_list_ = NULL;
+  struct open_dev* idev_list_ = NULL;
+
+  cras_audio_format format;
+  fill_audio_format(&format, 48000);
+  DevicePtr out_dev = create_device(CRAS_STREAM_OUTPUT, 1024, &format,
+                                    CRAS_NODE_TYPE_HEADPHONE);
+  DL_APPEND(odev_list_, out_dev->odev.get());
+  struct cras_iodev* out_iodev = out_dev->odev->dev;
+
+  DevicePtr in_dev =
+      create_device(CRAS_STREAM_INPUT, 1024, &format, CRAS_NODE_TYPE_MIC);
+  DL_APPEND(idev_list_, in_dev->odev.get());
+
+  StreamPtr in_stream = create_stream(1, 1, CRAS_STREAM_INPUT, 480, &format);
+  add_stream_to_dev(in_dev->dev, in_stream);
+  in_stream->rstream->next_cb_ts.tv_sec = 54321;
+  in_stream->rstream->next_cb_ts.tv_nsec = 12345;
+  in_stream->rstream->sleep_interval_ts.tv_sec = 321;
+  in_stream->rstream->sleep_interval_ts.tv_nsec = 123;
+
+  ShmPtr shm = create_shm(480);
+  RstreamPtr rstream =
+      create_rstream(1, CRAS_STREAM_OUTPUT, 480, &format, shm.get());
+
+  dev_io_append_stream(&odev_list_, &idev_list_, rstream.get(), &out_iodev, 1);
+
+  EXPECT_EQ(in_stream->rstream->next_cb_ts.tv_sec, rstream->next_cb_ts.tv_sec);
+  EXPECT_EQ(in_stream->rstream->next_cb_ts.tv_nsec,
+            rstream->next_cb_ts.tv_nsec);
+  EXPECT_EQ(in_stream->rstream->sleep_interval_ts.tv_sec,
+            rstream->sleep_interval_ts.tv_sec);
+  EXPECT_EQ(in_stream->rstream->sleep_interval_ts.tv_nsec,
+            rstream->sleep_interval_ts.tv_nsec);
+
+  dev_stream_destroy(out_iodev->streams);
+}
+
+// Test rule 2.
 // The device already has streams, the next_cb_ts will be the earliest
 // next_cb_ts from these streams.
 TEST_F(TimingSuite, NewOutputStreamInitStreamInDevice) {
-  struct open_dev* dev_list_ = NULL;
+  struct open_dev* odev_list_ = NULL;
+  struct open_dev* idev_list_ = NULL;
 
   cras_audio_format format;
   fill_audio_format(&format, 48000);
   DevicePtr dev = create_device(CRAS_STREAM_OUTPUT, 1024, &format,
                                 CRAS_NODE_TYPE_HEADPHONE);
-  DL_APPEND(dev_list_, dev->odev.get());
+  DL_APPEND(odev_list_, dev->odev.get());
   struct cras_iodev* iodev = dev->odev->dev;
 
   StreamPtr stream = create_stream(1, 1, CRAS_STREAM_OUTPUT, 480, &format);
@@ -835,7 +880,7 @@ TEST_F(TimingSuite, NewOutputStreamInitStreamInDevice) {
   RstreamPtr rstream =
       create_rstream(1, CRAS_STREAM_OUTPUT, 480, &format, shm.get());
 
-  dev_io_append_stream(&dev_list_, rstream.get(), &iodev, 1);
+  dev_io_append_stream(&odev_list_, &idev_list_, rstream.get(), &iodev, 1);
 
   EXPECT_EQ(stream->rstream->next_cb_ts.tv_sec, rstream->next_cb_ts.tv_sec);
   EXPECT_EQ(stream->rstream->next_cb_ts.tv_nsec, rstream->next_cb_ts.tv_nsec);
@@ -843,17 +888,18 @@ TEST_F(TimingSuite, NewOutputStreamInitStreamInDevice) {
   dev_stream_destroy(iodev->streams->next);
 }
 
-// Test rule 2.
+// Test rule 3.
 // The there are no streams and no frames in device buffer. The next_cb_ts
 // will be set to now.
 TEST_F(TimingSuite, NewOutputStreamInitNoStreamNoFramesInDevice) {
-  struct open_dev* dev_list_ = NULL;
+  struct open_dev* odev_list_ = NULL;
+  struct open_dev* idev_list_ = NULL;
 
   cras_audio_format format;
   fill_audio_format(&format, 48000);
   DevicePtr dev = create_device(CRAS_STREAM_OUTPUT, 1024, &format,
                                 CRAS_NODE_TYPE_HEADPHONE);
-  DL_APPEND(dev_list_, dev->odev.get());
+  DL_APPEND(odev_list_, dev->odev.get());
   struct cras_iodev* iodev = dev->odev->dev;
 
   struct timespec start;
@@ -863,7 +909,7 @@ TEST_F(TimingSuite, NewOutputStreamInitNoStreamNoFramesInDevice) {
   RstreamPtr rstream =
       create_rstream(1, CRAS_STREAM_OUTPUT, 480, &format, shm.get());
 
-  dev_io_append_stream(&dev_list_, rstream.get(), &iodev, 1);
+  dev_io_append_stream(&odev_list_, &idev_list_, rstream.get(), &iodev, 1);
 
   EXPECT_EQ(start.tv_sec, rstream->next_cb_ts.tv_sec);
   EXPECT_EQ(start.tv_nsec, rstream->next_cb_ts.tv_nsec);
@@ -876,13 +922,14 @@ TEST_F(TimingSuite, NewOutputStreamInitNoStreamNoFramesInDevice) {
 // next_cb_ts will be set to the time that valid frames in device is lower
 // than cb_threshold.
 TEST_F(TimingSuite, NewOutputStreamInitNoStreamSomeFramesInDevice) {
-  struct open_dev* dev_list_ = NULL;
+  struct open_dev* odev_list_ = NULL;
+  struct open_dev* idev_list_ = NULL;
 
   cras_audio_format format;
   fill_audio_format(&format, 48000);
   DevicePtr dev = create_device(CRAS_STREAM_OUTPUT, 1024, &format,
                                 CRAS_NODE_TYPE_HEADPHONE);
-  DL_APPEND(dev_list_, dev->odev.get());
+  DL_APPEND(odev_list_, dev->odev.get());
   struct cras_iodev* iodev = dev->odev->dev;
 
   struct timespec start;
@@ -894,7 +941,7 @@ TEST_F(TimingSuite, NewOutputStreamInitNoStreamSomeFramesInDevice) {
   RstreamPtr rstream =
       create_rstream(1, CRAS_STREAM_OUTPUT, 480, &format, shm.get());
 
-  dev_io_append_stream(&dev_list_, rstream.get(), &iodev, 1);
+  dev_io_append_stream(&odev_list_, &idev_list_, rstream.get(), &iodev, 1);
 
   // The next_cb_ts should be 10ms from now. At that time there are
   // only 480 valid frames in the device.
@@ -1163,6 +1210,12 @@ int input_data_put_for_stream(struct input_data* data,
   return 0;
 }
 
+float input_data_get_software_gain_scaler(struct input_data* data,
+                                          float idev_sw_gain_scaler,
+                                          struct cras_rstream* stream) {
+  return 1.0;
+}
+
 struct cras_audio_format* cras_rstream_post_processing_format(
     const struct cras_rstream* stream,
     void* dev_ptr) {
@@ -1173,6 +1226,15 @@ int cras_audio_thread_event_drop_samples() {
   return 0;
 }
 
+int cras_audio_thread_event_severe_underrun() {
+  return 0;
+}
+
+void* buffer_share_get_data(const struct buffer_share* mix, unsigned int id) {
+  return NULL;
+};
+void cras_apm_list_start_apm(struct cras_apm_list* list, void* dev_ptr){};
+void cras_apm_list_stop_apm(struct cras_apm_list* list, void* dev_ptr){};
 }  // extern "C"
 
 }  //  namespace

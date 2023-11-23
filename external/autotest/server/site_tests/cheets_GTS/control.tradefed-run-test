@@ -29,7 +29,7 @@ logging.info(
 # Define the variables that we are going to use and set sensible defaults.
 gts_module = ''
 gts_retry = 5
-gts_revision = '7_r4-6219464'  # TODO(ihf): Set this default value from generator.
+gts_revision = '8-R2-P-6955212'  # TODO(ihf): Set this default value from generator.
 gts_test = ''
 gts_timeout = 600
 
@@ -50,7 +50,7 @@ gts_test = args_dict.get('test', gts_test)
 gts_timeout = float(args_dict.get('timeout', gts_timeout))
 gts_retry = int(args_dict.get('max_retry', gts_retry))
 
-# Sanity checks.
+# Basic checks for option validity.
 logging.error('Running module %s with test %s on revision %s',
               gts_module, gts_test, gts_revision)
 if not gts_module or not gts_revision or not gts_test:
@@ -76,7 +76,7 @@ tag = 'tradefed-run-test.%s.%s' % (gts_module, simplified_test)
 # The usual testing stanza. We are suppressing some DEPENDENCIES on purpose.
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_GTS.tradefed-run-test'
-ATTRIBUTES = 'suite:arc-gts-test'
+ATTRIBUTES = ''
 DEPENDENCIES = 'arc'
 JOB_RETRIES = 0
 TEST_TYPE = 'server'

@@ -115,16 +115,11 @@ class audio_LeftRightInternalSpeaker(audio_test.AudioTest):
         self.audio_facade.set_selected_output_volume(80)
 
         if player == 'native':
-            data_format=dict(file_type='raw',
-                             sample_format='S16_LE',
-                             channel=2,
-                             rate=48000)
             if channel == 'left':
                 frequencies = [440, 0]
             else:
                 frequencies = [0, 440]
             sound_file = audio_test_data.GenerateAudioTestData(
-                    data_format=data_format,
                     path=os.path.join(self.bindir, '440_half.raw'),
                     duration_secs=10,
                     frequencies=frequencies)

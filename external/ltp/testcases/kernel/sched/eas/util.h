@@ -13,7 +13,7 @@
 
 #define USEC_PER_SEC 1000000
 
-#define TS_TO_USEC(x) (x.usec + x.sec * USEC_PER_SEC)
+#define TS_TO_USEC(x) (x.usec + (unsigned long long)x.sec * USEC_PER_SEC)
 
 #ifndef SCHED_DEADLINE
 #define SCHED_DEADLINE 6

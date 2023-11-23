@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright Martin J. Bligh, Google Inc 2008
 # Released under the GPL v2
 
@@ -15,6 +16,10 @@ For docs, see:
 
 #pylint: disable=missing-docstring
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import getpass
 import os
 import re
@@ -28,6 +33,7 @@ from autotest_lib.client.common_lib import host_states
 from autotest_lib.client.common_lib import priorities
 from autotest_lib.client.common_lib import utils
 from autotest_lib.tko import db
+from six.moves import zip
 
 try:
     from chromite.lib import metrics
@@ -92,8 +98,8 @@ class RpcClient(object):
         headers = {'AUTHORIZATION': self.user}
         rpc_server = rpc_client_lib.add_protocol(server) + path
         if debug:
-            print 'SERVER: %s' % rpc_server
-            print 'HEADERS: %s' % headers
+            print('SERVER: %s' % rpc_server)
+            print('HEADERS: %s' % headers)
         self.proxy = rpc_client_lib.get_proxy(rpc_server, headers=headers)
 
 
@@ -103,11 +109,11 @@ class RpcClient(object):
         """
         rpc_call = getattr(self.proxy, call)
         if self.debug:
-            print 'DEBUG: %s %s' % (call, dargs)
+            print('DEBUG: %s %s' % (call, dargs))
         try:
             result = utils.strip_unicode(rpc_call(**dargs))
             if self.reply_debug:
-                print result
+                print(result)
             return result
         except Exception:
             raise
@@ -115,7 +121,7 @@ class RpcClient(object):
 
     def log(self, message):
         if self.print_log:
-            print message
+            print(message)
 
 
 class TKO(RpcClient):
@@ -769,13 +775,13 @@ class Label(RpcObject):
 
     def add_hosts(self, hosts):
         # We must use the label's name instead of the id because label ids are
-        # not consistent across master-shard.
+        # not consistent across main-shard.
         return self.afe.run('label_add_hosts', id=self.name, hosts=hosts)
 
 
     def remove_hosts(self, hosts):
         # We must use the label's name instead of the id because label ids are
-        # not consistent across master-shard.
+        # not consistent across main-shard.
         return self.afe.run('label_remove_hosts', id=self.name, hosts=hosts)
 
 
@@ -867,9 +873,9 @@ class Host(RpcObject):
 
     def show(self):
         labels = list(set(self.labels) - set([self.platform]))
-        print '%-6s %-7s %-7s %-16s %s' % (self.hostname, self.status,
+        print('%-6s %-7s %-7s %-16s %s' % (self.hostname, self.status,
                                            self.locked, self.platform,
-                                           ', '.join(labels))
+                                           ', '.join(labels)))
 
 
     def delete(self):

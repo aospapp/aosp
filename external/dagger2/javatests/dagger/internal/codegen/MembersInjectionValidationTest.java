@@ -236,4 +236,177 @@ public class MembersInjectionValidationTest {
     assertThat(compilation).failed();
     assertThat(compilation).hadErrorContaining("static fields").inFile(injected).onLine(6);
   }
+
+  @Test
+  public void missingMembersInjectorForKotlinProperty() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinInjectedQualifier;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(KotlinInjectedQualifier injected);",
+            "}");
+    JavaFileObject module =
+        JavaFileObjects.forSourceLines(
+            "test.TestModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import javax.inject.Named;",
+            "",
+            "@Module",
+            "class TestModule {",
+            "  @Provides",
+            "  @Named(\"TheString\")",
+            "  String theString() { return \"\"; }",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, module);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Unable to read annotations on an injected Kotlin property.");
+  }
+
+  @Test
+  public void memberInjectionForKotlinObjectFails() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinObjectWithMemberInjection;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(KotlinObjectWithMemberInjection injected);",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, testModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into Kotlin objects");
+  }
+
+  @Test
+  public void setterMemberInjectionForKotlinObjectFails() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinObjectWithSetterMemberInjection;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(KotlinObjectWithSetterMemberInjection injected);",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, testModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into Kotlin objects");
+  }
+
+  @Test
+  public void memberInjectionForKotlinClassWithCompanionObjectFails() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinClassWithMemberInjectedCompanion;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(KotlinClassWithMemberInjectedCompanion injected);",
+            "  void injectCompanion(KotlinClassWithMemberInjectedCompanion.Companion injected);",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, testModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into static fields");
+  }
+
+  @Test
+  public void setterMemberInjectionForKotlinClassWithCompanionObjectFails() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinClassWithSetterMemberInjectedCompanion;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(KotlinClassWithSetterMemberInjectedCompanion.Companion injected);",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, testModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into Kotlin objects");
+  }
+
+  @Test
+  public void memberInjectionForKotlinClassWithNamedCompanionObjectFails() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinClassWithMemberInjectedNamedCompanion;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(KotlinClassWithMemberInjectedNamedCompanion injected);",
+            "  void injectCompanion(KotlinClassWithMemberInjectedNamedCompanion.TheCompanion"
+                + " injected);",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, testModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into static fields");
+  }
+
+  @Test
+  public void setterMemberInjectionForKotlinClassWithNamedCompanionObjectFails() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.TestComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "import dagger.internal.codegen.KotlinClassWithSetterMemberInjectedNamedCompanion;",
+            "",
+            "@Component(modules = TestModule.class)",
+            "interface TestComponent {",
+            "  void inject(",
+            "      KotlinClassWithSetterMemberInjectedNamedCompanion.TheCompanion injected);",
+            "}");
+    Compilation compilation = daggerCompiler().compile(component, testModule);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining("Dagger does not support injection into Kotlin objects");
+  }
+
+  private final JavaFileObject testModule =
+      JavaFileObjects.forSourceLines(
+          "test.TestModule",
+          "package test;",
+          "",
+          "import dagger.Module;",
+          "import dagger.Provides;",
+          "",
+          "@Module",
+          "class TestModule {",
+          "  @Provides",
+          "  String theString() { return \"\"; }",
+          "}");
 }

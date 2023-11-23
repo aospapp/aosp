@@ -1,7 +1,7 @@
-<android.support.v7.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:walt="http://schemas.android.com/apk/res/org.chromium.latency.walt">
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:walt="http://schemas.android.com/apk/res-auto">
 
-    <android.support.v7.preference.PreferenceScreen
+    <androidx.preference.PreferenceScreen
         android:key="pref_general_screen"
         android:persistent="false"
         android:title="General">
@@ -28,9 +28,9 @@
 
         </PreferenceCategory>
 
-    </android.support.v7.preference.PreferenceScreen>
+    </androidx.preference.PreferenceScreen>
 
-    <android.support.v7.preference.PreferenceScreen
+    <androidx.preference.PreferenceScreen
         android:key="pref_tap_screen"
         android:persistent="false"
         android:title="Tap latency">
@@ -40,9 +40,9 @@
             android:title="Show live histogram for tap test"
             android:defaultValue="true" />
 
-    </android.support.v7.preference.PreferenceScreen>
+    </androidx.preference.PreferenceScreen>
 
-    <android.support.v7.preference.PreferenceScreen
+    <androidx.preference.PreferenceScreen
         android:key="pref_screen_response_screen"
         android:persistent="false"
         android:title="Screen response">
@@ -71,9 +71,9 @@
             android:title="Test in fullscreen mode"
             android:defaultValue="true" />
 
-    </android.support.v7.preference.PreferenceScreen>
+    </androidx.preference.PreferenceScreen>
 
-    <android.support.v7.preference.PreferenceScreen
+    <androidx.preference.PreferenceScreen
         android:key="pref_audio_screen"
         android:persistent="false"
         android:title="Audio">
@@ -105,9 +105,9 @@
             walt:maxValue="100000"
             walt:minValue="1" />
 
-    </android.support.v7.preference.PreferenceScreen>
+    </androidx.preference.PreferenceScreen>
 
-    <android.support.v7.preference.PreferenceScreen
+    <androidx.preference.PreferenceScreen
         android:key="pref_midi_screen"
         android:persistent="false"
         android:title="MIDI">
@@ -130,6 +130,6 @@
             walt:maxValue="1000"
             walt:minValue="1" />
 
-    </android.support.v7.preference.PreferenceScreen>
+    </androidx.preference.PreferenceScreen>
 
-</android.support.v7.preference.PreferenceScreen>
+</androidx.preference.PreferenceScreen>

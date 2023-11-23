@@ -139,13 +139,13 @@ def timeout(func, args=(), kwargs={}, timeout_sec=60.0, default_result=None):
 
 
 
-def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
+def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, raiselist=None,
           exception_to_raise=None, label=None, callback=None, backoff=1):
     """Retry calling the decorated function using a delay with jitter.
 
     Will raise RPC ValidationError exceptions from the decorated
     function without retrying; a malformed RPC isn't going to
-    magically become good. Will raise exceptions in blacklist as well.
+    magically become good. Will raise exceptions in raiselist as well.
 
     If the retry is done in a child thread, timeout may not be enforced as
     signal only works in main thread. Therefore, the retry inside a child
@@ -161,7 +161,7 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
                       delays will be first calculated with exponential backoff,
                       then randomized around this new value, ranging up to 50%
                       off this midpoint.
-    @param blacklist: a list of exceptions that will be raised without retrying.
+    @param raiselist: a list of exceptions that will be raised without retrying.
     @param exception_to_raise: the exception to raise. Callers can specify the
                                exception they want to raise.
     @param label: a label added to the exception message to help debug.
@@ -194,7 +194,7 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, blacklist=None,
             """
             exc_info = None
             delayed_enabled = False
-            exception_tuple = () if blacklist is None else tuple(blacklist)
+            exception_tuple = () if raiselist is None else tuple(raiselist)
             start_time = time.time()
             remaining_time = timeout_min * 60
             delay_with_backoff_sec = delay_sec

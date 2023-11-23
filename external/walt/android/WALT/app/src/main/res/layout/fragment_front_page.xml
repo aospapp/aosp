@@ -1,4 +1,5 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
@@ -16,7 +17,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_search_black_24dp" />
+                app:srcCompat="@drawable/ic_search_black_24dp"
+                android:contentDescription="@string/diagnostics" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -26,11 +28,11 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="Diagnostics" />
+                    android:text="@string/diagnostics" />
 
                 <TextView
                     style="@style/MenuTextBottom"
-                    android:text="TBD: Connection/sync status"
+                    android:text="@string/tbd_connection_sync_status"
                     android:visibility="gone" />
 
 
@@ -47,7 +49,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_radio_button_checked_black_24dp" />
+                app:srcCompat="@drawable/ic_radio_button_checked_black_24dp"
+                android:contentDescription="@string/tap_latency" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -57,7 +60,7 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="Tap latency" />
+                    android:text="@string/tap_latency" />
 
             </LinearLayout>
         </LinearLayout>
@@ -72,7 +75,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_swap_vert_black_24dp" />
+                app:srcCompat="@drawable/ic_swap_vert_black_24dp"
+                android:contentDescription="@string/drag_latency" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -82,7 +86,7 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="Drag latency" />
+                    android:text="@string/drag_latency" />
 
             </LinearLayout>
         </LinearLayout>
@@ -97,7 +101,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_brightness_medium_black_24dp" />
+                app:srcCompat="@drawable/ic_brightness_medium_black_24dp"
+                android:contentDescription="@string/screen_response" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -107,7 +112,7 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="Screen response" />
+                    android:text="@string/screen_response" />
 
             </LinearLayout>
         </LinearLayout>
@@ -122,7 +127,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_volume_up_black_24dp" />
+                app:srcCompat="@drawable/ic_volume_up_black_24dp"
+                android:contentDescription="@string/audio_latency" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -132,7 +138,7 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="Audio latency" />
+                    android:text="@string/audio_latency" />
 
             </LinearLayout>
         </LinearLayout>
@@ -149,7 +155,8 @@
                 android:id="@+id/midi_image"
                 style="@style/MenuIconStyle"
                 android:tint="@color/ColorDisabled"
-                android:src="@drawable/ic_music_note_black_24dp" />
+                app:srcCompat="@drawable/ic_music_note_black_24dp"
+                android:contentDescription="@string/midi_latency" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -161,7 +168,7 @@
                     android:id="@+id/midi_text"
                     style="@style/MenuTextTop"
                     android:textColor="@color/ColorDisabled"
-                    android:text="MIDI latency" />
+                    android:text="@string/midi_latency" />
 
             </LinearLayout>
         </LinearLayout>
@@ -176,7 +183,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_receipt_black_24dp" />
+                app:srcCompat="@drawable/ic_receipt_black_24dp"
+                android:contentDescription="@string/view_log" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -186,11 +194,37 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="View log" />
+                    android:text="@string/view_log" />
 
             </LinearLayout>
         </LinearLayout>
         <!-- End of Log -->
+
+        <View style="@style/MenuDivider" />
+
+        <!-- Accelerometer -->
+        <LinearLayout
+            style="@style/MenuItemStyle"
+            android:onClick="onClickAccelerometer">
+
+            <ImageView
+                style="@style/MenuIconStyle"
+                app:srcCompat="@drawable/ic_swap_horiz_black_24dp"
+                android:contentDescription="@string/accelerometer_latency" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/MenuTextTop"
+                    android:text="@string/accelerometer_latency" />
+
+            </LinearLayout>
+        </LinearLayout>
+        <!-- End of Accelerometer -->
 
         <View style="@style/MenuDivider" />
 
@@ -201,7 +235,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_settings_black_24dp" />
+                app:srcCompat="@drawable/ic_settings_black_24dp"
+                android:contentDescription="@string/settings" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -211,7 +246,7 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="Settings" />
+                    android:text="@string/settings" />
 
 
             </LinearLayout>
@@ -227,7 +262,8 @@
 
             <ImageView
                 style="@style/MenuIconStyle"
-                android:src="@drawable/ic_help_outline_black_24dp" />
+                app:srcCompat="@drawable/ic_help_outline_black_24dp"
+                android:contentDescription="@string/about" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -237,7 +273,7 @@
 
                 <TextView
                     style="@style/MenuTextTop"
-                    android:text="About" />
+                    android:text="@string/about" />
 
             </LinearLayout>
         </LinearLayout>

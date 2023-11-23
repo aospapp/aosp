@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # The source code is from following Python documentation:
 # https://docs.python.org/2/howto/logging-cookbook.html#network-logging
 
@@ -10,19 +11,23 @@
 #         logging.handlers.DEFAULT_TCP_LOGGING_PORT)
 # logging.getLogger().addHandler(socketHandler)
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import ctypes
 import pickle
 import logging
 import multiprocessing
 import select
-import SocketServer
+import six.moves.socketserver
 import struct
 import time
 
 import common
 from autotest_lib.client.common_lib import utils
 
-class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
+class LogRecordStreamHandler(six.moves.socketserver.StreamRequestHandler):
     """Handler for a streaming logging request.
 
     This basically logs the record using whatever logging policy is
@@ -76,7 +81,7 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
         logger.handle(record)
 
 
-class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
+class LogRecordSocketReceiver(six.moves.socketserver.ThreadingTCPServer):
     """Simple TCP socket-based logging receiver.
     """
 
@@ -86,7 +91,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
                  handler=LogRecordStreamHandler):
         if not port:
             port = utils.get_unused_port()
-        SocketServer.ThreadingTCPServer.__init__(self, (host, port), handler)
+        six.moves.socketserver.ThreadingTCPServer.__init__(self, (host, port), handler)
         self.abort = 0
         self.timeout = 1
         self.logname = None
@@ -95,7 +100,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
 
     def serve_until_stopped(self):
         """Run the socket receiver until aborted."""
-        print 'Log Record Socket Receiver is started.'
+        print('Log Record Socket Receiver is started.')
         abort = 0
         while not abort:
             rd, wr, ex = select.select([self.socket.fileno()], [], [],
@@ -103,7 +108,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
             if rd:
                 self.handle_request()
             abort = self.abort
-        print 'Log Record Socket Receiver is stopped.'
+        print('Log Record Socket Receiver is stopped.')
 
 
 class LogSocketServer:
@@ -132,7 +137,7 @@ class LogSocketServer:
         while not server_started.value:
             time.sleep(0.1)
         LogSocketServer.port = port.value
-        print 'Log Record Socket Server is started at port %d.' % port.value
+        print('Log Record Socket Server is started at port %d.' % port.value)
 
 
     @staticmethod

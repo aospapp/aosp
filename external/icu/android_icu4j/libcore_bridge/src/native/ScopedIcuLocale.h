@@ -23,20 +23,26 @@
 
 class ScopedIcuLocale {
  public:
-  ScopedIcuLocale(JNIEnv* env, jstring javaLocaleName) : mEnv(env) {
+  ScopedIcuLocale(JNIEnv* env, jstring javaLanguageTag) : mEnv(env) {
     mLocale.setToBogus();
 
-    if (javaLocaleName == NULL) {
-      jniThrowNullPointerException(mEnv, "javaLocaleName == null");
+    if (javaLanguageTag == NULL) {
+      jniThrowNullPointerException(mEnv, "javaLanguageTag == null");
       return;
     }
 
-    const ScopedUtfChars localeName(env, javaLocaleName);
-    if (localeName.c_str() == NULL) {
+    const ScopedUtfChars languageTag(env, javaLanguageTag);
+    if (languageTag.c_str() == NULL) {
       return;
     }
 
-    mLocale = icu::Locale::createFromName(localeName.c_str());
+    UErrorCode err;
+    icu::Locale locale = icu::Locale::forLanguageTag(languageTag.c_str(), err);
+    if (U_FAILURE(err)) {
+      return;
+    }
+
+    mLocale = locale;
   }
 
   ~ScopedIcuLocale() {

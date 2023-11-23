@@ -22,10 +22,14 @@ Example invocation:
   telemetry_AFDOGenerate
 """
 
+from __future__ import print_function
+
 import bz2
 import logging
 import os
 import time
+
+from contextlib import contextmanager
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest
@@ -34,13 +38,14 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros import telemetry_runner
 from autotest_lib.site_utils import test_runner_utils
-from contextlib import contextmanager
 
 # These are arguments to the linux "perf" tool.
 # The -e value is processor specific and comes from the Intel SDM vol 3b
-PROFILER_ARGS = 'record -a -e r20c4 -c 500000 -b'
+PROFILER_ARGS = 'record -a -e r20c4 -c 50000 -b'
 
-WAIT_FOR_CMD_TIMEOUT_SECS = 60
+# In practice, it takes >2min to copy the perf.data back from the DUT, set
+# this timeout to 600 secs to be safe.
+WAIT_FOR_CMD_TIMEOUT_SECS = 600
 
 # Reuse ssh and scp settings from telemetry_Crosperf
 RSA_KEY = '-i %s' % test_runner_utils.TEST_KEY_PATH
@@ -79,18 +84,15 @@ def _wait_for_process(host, pid, timeout=-1):
 TELEMETRY_AFDO_BENCHMARKS = (
         # page_cycler tests are deprecated. Replace them with loading.desktop.
         ('loading.desktop', ('--pageset-repeat=1',
-                             '--story-tag-filter=typical',
-                             '--legacy-json-trace-format')),
+                             '--story-tag-filter=typical')),
         ('loading.desktop', ('--pageset-repeat=1',
-                             '--story-tag-filter=intl_ja_zh',
-                             '--legacy-json-trace-format')),
+                             '--story-tag-filter=intl_ja_zh')),
         ('rendering.desktop',
          ('--story-tag-filter=tough_canvas',
-          '--story-filter="bouncing\\*\\|canvas\\*\\|microsoft\\*"',
-          '--legacy-json-trace-format')),
-        ('octane', ('--legacy-json-trace-format',)),
-        ('kraken', ('--legacy-json-trace-format',)),
-        ('speedometer2', ('--legacy-json-trace-format',)),
+          '--story-filter="bouncing\\*\\|canvas\\*\\|microsoft\\*"')),
+        ('octane', ),
+        ('kraken', ),
+        ('speedometer2', ),
 )
 
 # Temporarily disable this benchmark because it is failing a
@@ -138,7 +140,8 @@ class telemetry_AFDOGenerate(test.test):
         cmd = []
         src = ('root@%s:%s/%s' % (dut.hostname, DUT_CHROME_RESULTS_DIR,
                                   'perf.data'))
-        cmd.extend(['scp', DUT_SCP_OPTIONS, RSA_KEY, '-v', src, host_dir])
+        cmd.extend(['scp', DUT_SCP_OPTIONS, RSA_KEY, '-P', str(dut.port), '-v',
+                    src, host_dir])
         command = ' '.join(cmd)
 
         logging.debug('Retrieving Perf Data: %s', command)
@@ -411,7 +414,7 @@ class telemetry_AFDOGenerate(test.test):
         @returns nothing.
         """
         GS_GCC_DEST = 'gs://chromeos-prebuilt/afdo-job/canonicals/%s'
-        GS_LLVM_DEST = 'gs://chromeos-prebuilt/afdo-job/llvm/%s'
+        GS_LLVM_DEST = 'gs://chromeos-toolchain-artifacts/afdo/unvetted/benchmark/%s'
         GS_LLVM_ASYNC_DEST = \
             'gs://chromeos-throw-away-bucket/afdo-job/llvm/benchmarks/%s'
         GS_TEST_DEST = 'gs://chromeos-throw-away-bucket/afdo-job/canonicals/%s'

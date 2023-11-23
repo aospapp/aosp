@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 Andrew G Morgan <morgan@kernel.org>
+ * Copyright (c) 1997,2020 Andrew G Morgan <morgan@kernel.org>
  *
  * This file contains internal definitions for the various functions in
  * this small capability library.
@@ -28,7 +28,7 @@
 
 #ifndef _LINUX_CAPABILITY_U32S_1
 # define _LINUX_CAPABILITY_U32S_1          1
-#endif /* ndef _LINUX_CAPABILITY_U32S */
+#endif /* ndef _LINUX_CAPABILITY_U32S_1 */
 
 /*
  * Do we match the local kernel?
@@ -118,6 +118,7 @@ struct _cap_struct {
 	struct __user_cap_data_struct set;
 	__u32 flat[NUMBER_OF_CAP_SETS];
     } u[_LIBCAP_CAPABILITY_U32S];
+    uid_t rootid;
 };
 
 /* the maximum bits supportable */
@@ -126,13 +127,19 @@ struct _cap_struct {
 /* string magic for cap_free */
 #define CAP_S_MAGIC 0xCA95D0
 
+/* iab set magic for cap_free */
+#define CAP_IAB_MAGIC 0xCA9AB
+
+/* launcher magic for cap_free */
+#define CAP_LAUNCH_MAGIC 0xCA91A
+
 /*
  * kernel API cap set abstraction
  */
 
-#define raise_cap(x,set)   u[(x)>>5].flat[set]       |=  (1<<((x)&31))
-#define lower_cap(x,set)   u[(x)>>5].flat[set]       &= ~(1<<((x)&31))
-#define isset_cap(y,x,set) ((y)->u[(x)>>5].flat[set] &   (1<<((x)&31)))
+#define raise_cap(x, set)    u[(x) >> 5].flat[set]       |=  (1u << ((x)&31))
+#define lower_cap(x, set)    u[(x) >> 5].flat[set]       &= ~(1u << ((x)&31))
+#define isset_cap(y, x, set) ((y)->u[(x) >> 5].flat[set] &   (1u << ((x)&31)))
 
 /*
  * Private definitions for internal use by the library.
@@ -141,6 +148,8 @@ struct _cap_struct {
 #define __libcap_check_magic(c,magic) ((c) && *(-1+(__u32 *)(c)) == (magic))
 #define good_cap_t(c)        __libcap_check_magic(c, CAP_T_MAGIC)
 #define good_cap_string(c)   __libcap_check_magic(c, CAP_S_MAGIC)
+#define good_cap_iab_t(c)    __libcap_check_magic(c, CAP_IAB_MAGIC)
+#define good_cap_launch_t(c) __libcap_check_magic(c, CAP_LAUNCH_MAGIC)
 
 /*
  * These match CAP_DIFFERS() expectations
@@ -185,8 +194,7 @@ extern char *_libcap_strdup(const char *text);
  * place them here too.
  */
 
-extern int capset(cap_user_header_t header, cap_user_data_t data);
-extern int capget(cap_user_header_t header, const cap_user_data_t data);
+extern int capget(cap_user_header_t header, cap_user_data_t data);
 extern int capgetp(pid_t pid, cap_t cap_d);
 extern int capsetp(pid_t pid, cap_t cap_d);
 
@@ -205,5 +213,87 @@ extern int capsetp(pid_t pid, cap_t cap_d);
  * version of sizeof().
  */
 #define ssizeof(x) ((ssize_t) sizeof(x))
+
+/*
+ * Put this here as a macro so we can unit test it.
+ */
+#define _binary_search(val, fn, low, high, fallback) do {	\
+	cap_value_t min = low, max = high;			\
+	while (min <= max) {					\
+	    cap_value_t mid = (min+max) / 2;			\
+	    if (fn(mid) < 0) {					\
+		max = mid - 1;					\
+	    } else {						\
+		min = mid + 1;					\
+	    }							\
+	}							\
+	val = min ? min : fallback;				\
+    } while(0)
+
+/*
+ * cap_iab_s holds a collection of inheritable capability bits. The i
+ * bits are inheritable (these are the same as those in cap_t), the a
+ * bits are ambient bits (which cannot be a superset of i&p), and nb
+ * are the bits that will be dropped from the bounding set when
+ * applied.
+ */
+struct cap_iab_s {
+    __u32 i[_LIBCAP_CAPABILITY_U32S];
+    __u32 a[_LIBCAP_CAPABILITY_U32S];
+    __u32 nb[_LIBCAP_CAPABILITY_U32S];
+};
+
+#define LIBCAP_IAB_I_FLAG (1U << CAP_IAB_INH)
+#define LIBCAP_IAB_A_FLAG (1U << CAP_IAB_AMB)
+#define LIBCAP_IAB_IA_FLAG (LIBCAP_IAB_I_FLAG | LIBCAP_IAB_A_FLAG)
+#define LIBCAP_IAB_NB_FLAG (1U << CAP_IAB_BOUND)
+
+/*
+ * The following support launching another process without destroying
+ * the state of the current process. This is especially useful for
+ * multithreaded applications.
+ */
+struct cap_launch_s {
+    /*
+     * Once forked but before active privilege is changed, this
+     * function (if non-NULL) is called.
+     */
+    int (*custom_setup_fn)(void *detail);
+
+    /*
+     * user and groups to be used by the forked child.
+     */
+    int change_uids;
+    uid_t uid;
+
+    int change_gids;
+    gid_t gid;
+    int ngroups;
+    const gid_t *groups;
+
+    /*
+     * mode holds the preferred capability mode. Any non-uncertain
+     * setting here will require an empty ambient set.
+     */
+    int change_mode;
+    cap_mode_t mode;
+
+    /*
+     * i,a,[n]b caps. These bitmaps hold all of the capability sets that
+     * cap_launch will affect. nb holds values to be lowered in the bounding
+     * set.
+     */
+    struct cap_iab_s *iab;
+
+    /* chroot holds a preferred chroot for the launched child. */
+    char *chroot;
+
+    /*
+     * execve style arguments
+     */
+    const char *arg0;
+    const char *const *argv;
+    const char *const *envp;
+};
 
 #endif /* LIBCAP_H */

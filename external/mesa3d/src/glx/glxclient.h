@@ -328,13 +328,6 @@ struct glx_context
    /*@} */
 
     /**
-     * Fill newImage with the unpacked form of \c oldImage getting it
-     * ready for transport to the server.
-     */
-   void (*fillImage) (struct glx_context *, GLint, GLint, GLint, GLint, GLenum,
-                      GLenum, const GLvoid *, GLubyte *, GLubyte *);
-
-    /**
      * Client side attribs.
      */
    __GLXattributeMachine attributes;
@@ -507,6 +500,8 @@ struct glx_screen_vtable {
    int (*query_renderer_string)(struct glx_screen *psc,
                                 int attribute,
                                 const char **value);
+
+   char *(*get_driver_name)(struct glx_screen *psc);
 };
 
 struct glx_screen
@@ -549,8 +544,14 @@ struct glx_screen
      * libGL.
      */
    /*@{ */
-   unsigned char direct_support[8];
+   unsigned char direct_support[__GLX_EXT_BYTES];
    GLboolean ext_list_first_time;
+
+   unsigned char glx_force_enabled[__GLX_EXT_BYTES];
+   unsigned char glx_force_disabled[__GLX_EXT_BYTES];
+
+   unsigned char gl_force_enabled[__GL_EXT_BYTES];
+   unsigned char gl_force_disabled[__GL_EXT_BYTES];
    /*@} */
 
 };
@@ -660,7 +661,7 @@ extern int __glXDebug;
 
 extern void __glXSetCurrentContext(struct glx_context * c);
 
-# if defined( GLX_USE_TLS )
+# if defined( USE_ELF_TLS )
 
 extern __thread void *__glX_tls_Context
    __attribute__ ((tls_model("initial-exec")));
@@ -671,7 +672,7 @@ extern __thread void *__glX_tls_Context
 
 extern struct glx_context *__glXGetCurrentContext(void);
 
-# endif /* defined( GLX_USE_TLS ) */
+# endif /* defined( USE_ELF_TLS ) */
 
 extern void __glXSetCurrentContextNull(void);
 
@@ -781,9 +782,6 @@ extern char *__glXGetString(Display * dpy, int opcode,
 
 extern const char __glXGLClientVersion[];
 extern const char __glXGLClientExtensions[];
-
-/* Get the unadjusted system time */
-extern int __glXGetUST(int64_t * ust);
 
 extern GLboolean __glXGetMscRateOML(Display * dpy, GLXDrawable drawable,
                                     int32_t * numerator,

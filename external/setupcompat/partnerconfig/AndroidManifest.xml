@@ -16,9 +16,16 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.google.android.setupcompat.partnerconfig">
 
-  <uses-sdk
-      android:minSdkVersion="14"
-      android:targetSdkVersion="28" />
+  <uses-sdk />
+
+  <!-- after SDK 30, package need to declare its visible packages. -->
+  <queries tools:node="merge">
+    <intent>
+      <action android:name="com.android.setupwizard.action.PARTNER_CUSTOMIZATION" />
+    </intent>
+    <provider android:authorities="com.google.android.setupwizard.partner" />
+  </queries>
 </manifest>

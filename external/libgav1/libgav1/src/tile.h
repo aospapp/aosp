@@ -28,17 +28,18 @@
 #include <vector>
 
 #include "src/buffer_pool.h"
-#include "src/decoder_scratch_buffer.h"
+#include "src/decoder_state.h"
 #include "src/dsp/common.h"
 #include "src/dsp/constants.h"
 #include "src/dsp/dsp.h"
-#include "src/loop_filter_mask.h"
+#include "src/frame_scratch_buffer.h"
 #include "src/loop_restoration_info.h"
 #include "src/obu_parser.h"
 #include "src/post_filter.h"
 #include "src/quantizer.h"
 #include "src/residual_buffer_pool.h"
 #include "src/symbol_decoder_context.h"
+#include "src/tile_scratch_buffer.h"
 #include "src/utils/array_2d.h"
 #include "src/utils/block_parameters_holder.h"
 #include "src/utils/blocking_counter.h"
@@ -47,7 +48,6 @@
 #include "src/utils/constants.h"
 #include "src/utils/entropy_decoder.h"
 #include "src/utils/memory.h"
-#include "src/utils/parameter_tree.h"
 #include "src/utils/segmentation_map.h"
 #include "src/utils/threadpool.h"
 #include "src/utils/types.h"
@@ -67,24 +67,26 @@ enum ProcessingMode {
 
 class Tile : public Allocable {
  public:
-  Tile(int tile_number, const uint8_t* data, size_t size,
-       const ObuSequenceHeader& sequence_header,
-       const ObuFrameHeader& frame_header, RefCountedBuffer* current_frame,
-       const std::array<bool, kNumReferenceFrameTypes>&
-           reference_frame_sign_bias,
-       const std::array<RefCountedBufferPtr, kNumReferenceFrameTypes>&
-           reference_frames,
-       Array2D<TemporalMotionVector>* motion_field_mv,
-       const std::array<uint8_t, kNumReferenceFrameTypes>& reference_order_hint,
-       const std::array<uint8_t, kWedgeMaskSize>& wedge_masks,
-       const SymbolDecoderContext& symbol_decoder_context,
-       SymbolDecoderContext* saved_symbol_decoder_context,
-       const SegmentationMap* prev_segment_ids, PostFilter* post_filter,
-       BlockParametersHolder* block_parameters, Array2D<int16_t>* cdef_index,
-       Array2D<TransformSize>* inter_transform_sizes, const dsp::Dsp* dsp,
-       ThreadPool* thread_pool, ResidualBufferPool* residual_buffer_pool,
-       DecoderScratchBufferPool* decoder_scratch_buffer_pool,
-       BlockingCounterWithStatus* pending_tiles);
+  static std::unique_ptr<Tile> Create(
+      int tile_number, const uint8_t* const data, size_t size,
+      const ObuSequenceHeader& sequence_header,
+      const ObuFrameHeader& frame_header, RefCountedBuffer* const current_frame,
+      const DecoderState& state, FrameScratchBuffer* const frame_scratch_buffer,
+      const WedgeMaskArray& wedge_masks,
+      const QuantizerMatrix& quantizer_matrix,
+      SymbolDecoderContext* const saved_symbol_decoder_context,
+      const SegmentationMap* prev_segment_ids, PostFilter* const post_filter,
+      const dsp::Dsp* const dsp, ThreadPool* const thread_pool,
+      BlockingCounterWithStatus* const pending_tiles, bool frame_parallel,
+      bool use_intra_prediction_buffer) {
+    std::unique_ptr<Tile> tile(new (std::nothrow) Tile(
+        tile_number, data, size, sequence_header, frame_header, current_frame,
+        state, frame_scratch_buffer, wedge_masks, quantizer_matrix,
+        saved_symbol_decoder_context, prev_segment_ids, post_filter, dsp,
+        thread_pool, pending_tiles, frame_parallel,
+        use_intra_prediction_buffer));
+    return (tile != nullptr && tile->Init()) ? std::move(tile) : nullptr;
+  }
 
   // Move only.
   Tile(Tile&& tile) noexcept;
@@ -94,11 +96,80 @@ class Tile : public Allocable {
 
   struct Block;  // Defined after this class.
 
-  bool Decode(bool is_main_thread);  // 5.11.2.
+  // Parses the entire tile.
+  bool Parse();
+  // Decodes the entire tile. |superblock_row_progress| and
+  // |superblock_row_progress_condvar| are arrays of size equal to the number of
+  // superblock rows in the frame. Increments |superblock_row_progress[i]| after
+  // each superblock row at index |i| is decoded. If the count reaches the
+  // number of tile columns, then it notifies
+  // |superblock_row_progress_condvar[i]|.
+  bool Decode(std::mutex* mutex, int* superblock_row_progress,
+              std::condition_variable* superblock_row_progress_condvar);
+  // Parses and decodes the entire tile. Depending on the configuration of this
+  // Tile, this function may do multithreaded decoding.
+  bool ParseAndDecode();  // 5.11.2.
+  // Processes all the columns of the superblock row at |row4x4| that are within
+  // this Tile. If |save_symbol_decoder_context| is true, then
+  // SaveSymbolDecoderContext() is invoked for the last superblock row.
+  template <ProcessingMode processing_mode, bool save_symbol_decoder_context>
+  bool ProcessSuperBlockRow(int row4x4, TileScratchBuffer* scratch_buffer);
+
   const ObuSequenceHeader& sequence_header() const { return sequence_header_; }
   const ObuFrameHeader& frame_header() const { return frame_header_; }
   const RefCountedBuffer& current_frame() const { return current_frame_; }
-  bool IsInside(int row4x4, int column4x4) const;  // 5.11.51.
+  const TemporalMotionField& motion_field() const { return motion_field_; }
+  const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias()
+      const {
+    return reference_frame_sign_bias_;
+  }
+
+  bool IsRow4x4Inside(int row4x4) const {
+    return row4x4 >= row4x4_start_ && row4x4 < row4x4_end_;
+  }
+
+  // 5.11.51.
+  bool IsInside(int row4x4, int column4x4) const {
+    return IsRow4x4Inside(row4x4) && column4x4 >= column4x4_start_ &&
+           column4x4 < column4x4_end_;
+  }
+
+  bool IsLeftInside(int column4x4) const {
+    // We use "larger than" as the condition. Don't pass in the left column
+    // offset column4x4 - 1.
+    assert(column4x4 <= column4x4_end_);
+    return column4x4 > column4x4_start_;
+  }
+
+  bool IsTopInside(int row4x4) const {
+    // We use "larger than" as the condition. Don't pass in the top row offset
+    // row4x4 - 1.
+    assert(row4x4 <= row4x4_end_);
+    return row4x4 > row4x4_start_;
+  }
+
+  bool IsTopLeftInside(int row4x4, int column4x4) const {
+    // We use "larger than" as the condition. Don't pass in the top row offset
+    // row4x4 - 1 or the left column offset column4x4 - 1.
+    assert(row4x4 <= row4x4_end_);
+    assert(column4x4 <= column4x4_end_);
+    return row4x4 > row4x4_start_ && column4x4 > column4x4_start_;
+  }
+
+  bool IsBottomRightInside(int row4x4, int column4x4) const {
+    assert(row4x4 >= row4x4_start_);
+    assert(column4x4 >= column4x4_start_);
+    return row4x4 < row4x4_end_ && column4x4 < column4x4_end_;
+  }
+
+  BlockParameters** BlockParametersAddress(int row4x4, int column4x4) const {
+    return block_parameters_holder_.Address(row4x4, column4x4);
+  }
+
+  int BlockParametersStride() const {
+    return block_parameters_holder_.columns4x4();
+  }
+
   // Returns true if Parameters() can be called with |row| and |column| as
   // inputs, false otherwise.
   bool HasParameters(int row, int column) const {
@@ -107,9 +178,13 @@ class Tile : public Allocable {
   const BlockParameters& Parameters(int row, int column) const {
     return *block_parameters_holder_.Find(row, column);
   }
+
   int number() const { return number_; }
   int superblock_rows() const { return superblock_rows_; }
   int superblock_columns() const { return superblock_columns_; }
+  int row4x4_start() const { return row4x4_start_; }
+  int column4x4_start() const { return column4x4_start_; }
+  int column4x4_end() const { return column4x4_end_; }
 
  private:
   // Stores the transform tree state when reading variable size transform trees
@@ -163,13 +238,30 @@ class Tile : public Allocable {
   //    every transform block.
   using ResidualPtr = uint8_t*;
 
-  // Performs member initializations that may fail. Called by Decode().
+  Tile(int tile_number, const uint8_t* data, size_t size,
+       const ObuSequenceHeader& sequence_header,
+       const ObuFrameHeader& frame_header, RefCountedBuffer* current_frame,
+       const DecoderState& state, FrameScratchBuffer* frame_scratch_buffer,
+       const WedgeMaskArray& wedge_masks,
+       const QuantizerMatrix& quantizer_matrix,
+       SymbolDecoderContext* saved_symbol_decoder_context,
+       const SegmentationMap* prev_segment_ids, PostFilter* post_filter,
+       const dsp::Dsp* dsp, ThreadPool* thread_pool,
+       BlockingCounterWithStatus* pending_tiles, bool frame_parallel,
+       bool use_intra_prediction_buffer);
+
+  // Performs member initializations that may fail. Helper function used by
+  // Create().
   LIBGAV1_MUST_USE_RESULT bool Init();
 
+  // Saves the symbol decoder context of this tile into
+  // |saved_symbol_decoder_context_| if necessary.
+  void SaveSymbolDecoderContext();
+
   // Entry point for multi-threaded decoding. This function performs the same
-  // functionality as Decode(). The current thread does the "parse" step while
-  // the worker threads do the "decode" step.
-  bool ThreadedDecode();
+  // functionality as ParseAndDecode(). The current thread does the "parse" step
+  // while the worker threads do the "decode" step.
+  bool ThreadedParseAndDecode();
 
   // Returns whether or not the prerequisites for decoding the superblock at
   // |row_index| and |column_index| are satisfied. |threading_.mutex| must be
@@ -186,6 +278,12 @@ class Tile : public Allocable {
   // the right of this superblock (if it is allowed).
   void DecodeSuperBlock(int row_index, int column_index, int block_width4x4);
 
+  // If |use_intra_prediction_buffer_| is true, then this function copies the
+  // last row of the superblockrow starting at |row4x4| into the
+  // |intra_prediction_buffer_| (which may be used by the intra prediction
+  // process for the next superblock row).
+  void PopulateIntraPredictionBuffer(int row4x4);
+
   uint16_t* GetPartitionCdf(int row4x4, int column4x4, BlockSize block_size);
   bool ReadPartition(int row4x4, int column4x4, BlockSize block_size,
                      bool has_rows, bool has_columns, Partition* partition);
@@ -193,40 +291,30 @@ class Tile : public Allocable {
   // iteratively. It performs a DFS traversal over the partition tree to process
   // the blocks in the right order.
   bool ProcessPartition(
-      int row4x4_start, int column4x4_start, ParameterTree* root,
-      DecoderScratchBuffer* scratch_buffer,
+      int row4x4_start, int column4x4_start, TileScratchBuffer* scratch_buffer,
       ResidualPtr* residual);  // Iterative implementation of 5.11.4.
   bool ProcessBlock(int row4x4, int column4x4, BlockSize block_size,
-                    ParameterTree* tree, DecoderScratchBuffer* scratch_buffer,
+                    TileScratchBuffer* scratch_buffer,
                     ResidualPtr* residual);   // 5.11.5.
   void ResetCdef(int row4x4, int column4x4);  // 5.11.55.
 
   // This function is used to decode a superblock when the parsing has already
   // been done for that superblock.
-  bool DecodeSuperBlock(ParameterTree* tree,
-                        DecoderScratchBuffer* scratch_buffer,
-                        ResidualPtr* residual);
+  bool DecodeSuperBlock(int sb_row_index, int sb_column_index,
+                        TileScratchBuffer* scratch_buffer);
   // Helper function used by DecodeSuperBlock(). Note that the decode_block()
   // function in the spec is equivalent to ProcessBlock() in the code.
-  bool DecodeBlock(ParameterTree* tree, DecoderScratchBuffer* scratch_buffer,
-                   ResidualPtr* residual);
+  bool DecodeBlock(int row4x4, int column4x4, BlockSize block_size,
+                   TileScratchBuffer* scratch_buffer, ResidualPtr* residual);
 
-  void ClearBlockDecoded(DecoderScratchBuffer* scratch_buffer, int row4x4,
+  void ClearBlockDecoded(TileScratchBuffer* scratch_buffer, int row4x4,
                          int column4x4);  // 5.11.3.
-  bool ProcessSuperBlock(int row4x4, int column4x4, int block_width4x4,
-                         DecoderScratchBuffer* scratch_buffer,
+  bool ProcessSuperBlock(int row4x4, int column4x4,
+                         TileScratchBuffer* scratch_buffer,
                          ProcessingMode mode);
   void ResetLoopRestorationParams();
   void ReadLoopRestorationCoefficients(int row4x4, int column4x4,
                                        BlockSize block_size);  // 5.11.57.
-  // Build bit masks for vertical edges followed by horizontal edges.
-  // Traverse through each transform edge in the current coding block, and
-  // determine if a 4x4 edge needs filtering. If filtering is needed, determine
-  // filter length. Set corresponding bit mask to 1.
-  void BuildBitMask(int row4x4, int column4x4, BlockSize block_size);
-  void BuildBitMaskHelper(int row4x4, int column4x4, BlockSize block_size,
-                          bool is_vertical_block_border,
-                          bool is_horizontal_block_border);
 
   // Helper functions for DecodeBlock.
   bool ReadSegmentId(const Block& block);       // 5.11.9.
@@ -261,19 +349,7 @@ class Tile : public Allocable {
   void ReadIsInter(const Block& block);                        // 5.11.20.
   bool ReadIntraBlockModeInfo(const Block& block,
                               bool intra_y_mode);  // 5.11.22.
-  int GetUseCompoundReferenceContext(const Block& block);
   CompoundReferenceType ReadCompoundReferenceType(const Block& block);
-  // Calculates count0 by calling block.CountReferences() on the frame types
-  // from type0_start to type0_end, inclusive, and summing the results.
-  // Calculates count1 by calling block.CountReferences() on the frame types
-  // from type1_start to type1_end, inclusive, and summing the results.
-  // Compares count0 with count1 and returns 0, 1 or 2.
-  //
-  // See count_refs and ref_count_ctx in 8.3.2.
-  int GetReferenceContext(const Block& block, ReferenceFrameType type0_start,
-                          ReferenceFrameType type0_end,
-                          ReferenceFrameType type1_start,
-                          ReferenceFrameType type1_end) const;
   template <bool is_single, bool is_backward, int index>
   uint16_t* GetReferenceCdf(const Block& block, CompoundReferenceType type =
                                                     kNumCompoundReferenceTypes);
@@ -282,7 +358,12 @@ class Tile : public Allocable {
                                 const MvContexts& mode_contexts);
   void ReadRefMvIndex(const Block& block);
   void ReadInterIntraMode(const Block& block, bool is_compound);  // 5.11.28.
-  bool IsScaled(ReferenceFrameType type) const;  // Part of 5.11.27.
+  bool IsScaled(ReferenceFrameType type) const {  // Part of 5.11.27.
+    const int index =
+        frame_header_.reference_frame_index[type - kReferenceFrameLast];
+    return reference_frames_[index]->upscaled_width() != frame_header_.width ||
+           reference_frames_[index]->frame_height() != frame_header_.height;
+  }
   void ReadMotionMode(const Block& block, bool is_compound);  // 5.11.27.
   uint16_t* GetIsExplicitCompoundTypeCdf(const Block& block);
   uint16_t* GetIsCompoundTypeAverageCdf(const Block& block);
@@ -293,7 +374,8 @@ class Tile : public Allocable {
   bool DecodeInterModeInfo(const Block& block);                // 5.11.18.
   bool DecodeModeInfo(const Block& block);                     // 5.11.6.
   bool IsMvValid(const Block& block, bool is_compound) const;  // 6.10.25.
-  bool AssignMv(const Block& block, bool is_compound);         // 5.11.26.
+  bool AssignInterMv(const Block& block, bool is_compound);    // 5.11.26.
+  bool AssignIntraMv(const Block& block);                      // 5.11.26.
   int GetTopTransformWidth(const Block& block, int row4x4, int column4x4,
                            bool ignore_skip);
   int GetLeftTransformHeight(const Block& block, int row4x4, int column4x4,
@@ -303,7 +385,7 @@ class Tile : public Allocable {
   void ReadVariableTransformTree(const Block& block, int row4x4, int column4x4,
                                  TransformSize tx_size);
   void DecodeTransformSize(const Block& block);  // 5.11.16.
-  void ComputePrediction(const Block& block);    // 5.11.33.
+  bool ComputePrediction(const Block& block);    // 5.11.33.
   // |x4| and |y4| are the column and row positions of the 4x4 block. |w4| and
   // |h4| are the width and height in 4x4 units of |tx_size|.
   int GetTransformAllZeroContext(const Block& block, Plane plane,
@@ -316,37 +398,45 @@ class Tile : public Allocable {
                                      int block_y);  // 5.11.40.
   void ReadTransformType(const Block& block, int x4, int y4,
                          TransformSize tx_size);  // 5.11.47.
-  int GetCoeffBaseContextEob(TransformSize tx_size, int index);
-  int GetCoeffBaseContext2D(const int32_t* quantized_buffer,
-                            TransformSize tx_size, int adjusted_tx_width_log2,
-                            uint16_t pos);
-  int GetCoeffBaseContextHorizontal(const int32_t* quantized_buffer,
-                                    TransformSize tx_size,
-                                    int adjusted_tx_width_log2, uint16_t pos);
-  int GetCoeffBaseContextVertical(const int32_t* quantized_buffer,
-                                  TransformSize tx_size,
-                                  int adjusted_tx_width_log2, uint16_t pos);
-  int GetCoeffBaseRangeContext2D(const int32_t* quantized_buffer,
-                                 int adjusted_tx_width_log2, int pos);
-  int GetCoeffBaseRangeContextHorizontal(const int32_t* quantized_buffer,
-                                         int adjusted_tx_width_log2, int pos);
-  int GetCoeffBaseRangeContextVertical(const int32_t* quantized_buffer,
-                                       int adjusted_tx_width_log2, int pos);
+  template <typename ResidualType>
+  void ReadCoeffBase2D(
+      const uint16_t* scan, TransformSize tx_size, int adjusted_tx_width_log2,
+      int eob,
+      uint16_t coeff_base_cdf[kCoeffBaseContexts][kCoeffBaseSymbolCount + 1],
+      uint16_t coeff_base_range_cdf[kCoeffBaseRangeContexts]
+                                   [kCoeffBaseRangeSymbolCount + 1],
+      ResidualType* quantized_buffer, uint8_t* level_buffer);
+  template <typename ResidualType>
+  void ReadCoeffBaseHorizontal(
+      const uint16_t* scan, TransformSize tx_size, int adjusted_tx_width_log2,
+      int eob,
+      uint16_t coeff_base_cdf[kCoeffBaseContexts][kCoeffBaseSymbolCount + 1],
+      uint16_t coeff_base_range_cdf[kCoeffBaseRangeContexts]
+                                   [kCoeffBaseRangeSymbolCount + 1],
+      ResidualType* quantized_buffer, uint8_t* level_buffer);
+  template <typename ResidualType>
+  void ReadCoeffBaseVertical(
+      const uint16_t* scan, TransformSize tx_size, int adjusted_tx_width_log2,
+      int eob,
+      uint16_t coeff_base_cdf[kCoeffBaseContexts][kCoeffBaseSymbolCount + 1],
+      uint16_t coeff_base_range_cdf[kCoeffBaseRangeContexts]
+                                   [kCoeffBaseRangeSymbolCount + 1],
+      ResidualType* quantized_buffer, uint8_t* level_buffer);
   int GetDcSignContext(int x4, int y4, int w4, int h4, Plane plane);
   void SetEntropyContexts(int x4, int y4, int w4, int h4, Plane plane,
                           uint8_t coefficient_level, int8_t dc_category);
   void InterIntraPrediction(
-      uint16_t* prediction[2], ptrdiff_t prediction_stride,
-      const uint8_t* prediction_mask, ptrdiff_t prediction_mask_stride,
+      uint16_t* prediction_0, const uint8_t* prediction_mask,
+      ptrdiff_t prediction_mask_stride,
       const PredictionParameters& prediction_parameters, int prediction_width,
       int prediction_height, int subsampling_x, int subsampling_y,
       uint8_t* dest,
       ptrdiff_t dest_stride);  // Part of section 7.11.3.1 in the spec.
   void CompoundInterPrediction(
-      const Block& block, ptrdiff_t prediction_stride,
+      const Block& block, const uint8_t* prediction_mask,
       ptrdiff_t prediction_mask_stride, int prediction_width,
-      int prediction_height, Plane plane, int subsampling_x, int subsampling_y,
-      int bitdepth, int candidate_row, int candidate_column, uint8_t* dest,
+      int prediction_height, int subsampling_x, int subsampling_y,
+      int candidate_row, int candidate_column, uint8_t* dest,
       ptrdiff_t dest_stride);  // Part of section 7.11.3.1 in the spec.
   GlobalMotion* GetWarpParams(const Block& block, Plane plane,
                               int prediction_width, int prediction_height,
@@ -356,7 +446,7 @@ class Tile : public Allocable {
                               GlobalMotion* global_motion_params,
                               GlobalMotion* local_warp_params)
       const;  // Part of section 7.11.3.1 in the spec.
-  void InterPrediction(const Block& block, Plane plane, int x, int y,
+  bool InterPrediction(const Block& block, Plane plane, int x, int y,
                        int prediction_width, int prediction_height,
                        int candidate_row, int candidate_column,
                        bool* is_local_valid,
@@ -364,48 +454,46 @@ class Tile : public Allocable {
   void ScaleMotionVector(const MotionVector& mv, Plane plane,
                          int reference_frame_index, int x, int y, int* start_x,
                          int* start_y, int* step_x, int* step_y);  // 7.11.3.3.
-  bool GetReferenceBlockPosition(int reference_frame_index, bool is_scaled,
-                                 int width, int height, int ref_start_x,
-                                 int ref_last_x, int ref_start_y,
-                                 int ref_last_y, int start_x, int start_y,
-                                 int step_x, int step_y, int left_border,
-                                 int right_border, int top_border,
-                                 int bottom_border, int* ref_block_start_x,
-                                 int* ref_block_start_y, int* ref_block_end_x,
-                                 int* ref_block_end_y);
+  // If the method returns false, the caller only uses the output parameters
+  // *ref_block_start_x and *ref_block_start_y. If the method returns true, the
+  // caller uses all three output parameters.
+  static bool GetReferenceBlockPosition(
+      int reference_frame_index, bool is_scaled, int width, int height,
+      int ref_start_x, int ref_last_x, int ref_start_y, int ref_last_y,
+      int start_x, int start_y, int step_x, int step_y, int left_border,
+      int right_border, int top_border, int bottom_border,
+      int* ref_block_start_x, int* ref_block_start_y, int* ref_block_end_x);
+
   template <typename Pixel>
   void BuildConvolveBlock(Plane plane, int reference_frame_index,
                           bool is_scaled, int height, int ref_start_x,
                           int ref_last_x, int ref_start_y, int ref_last_y,
                           int step_y, int ref_block_start_x,
                           int ref_block_end_x, int ref_block_start_y,
-                          uint8_t* block_buffer, ptrdiff_t block_stride);
-  void BlockInterPrediction(const Block& block, Plane plane,
+                          uint8_t* block_buffer,
+                          ptrdiff_t convolve_buffer_stride,
+                          ptrdiff_t block_extended_width);
+  bool BlockInterPrediction(const Block& block, Plane plane,
                             int reference_frame_index, const MotionVector& mv,
                             int x, int y, int width, int height,
                             int candidate_row, int candidate_column,
-                            uint16_t* prediction, ptrdiff_t prediction_stride,
-                            int round_bits, bool is_compound,
+                            uint16_t* prediction, bool is_compound,
                             bool is_inter_intra, uint8_t* dest,
                             ptrdiff_t dest_stride);  // 7.11.3.4.
-  void BlockWarpProcess(const Block& block, Plane plane, int index,
+  bool BlockWarpProcess(const Block& block, Plane plane, int index,
                         int block_start_x, int block_start_y, int width,
-                        int height, ptrdiff_t prediction_stride,
-                        GlobalMotion* warp_params, int round_bits,
-                        bool is_compound, bool is_inter_intra, uint8_t* dest,
+                        int height, GlobalMotion* warp_params, bool is_compound,
+                        bool is_inter_intra, uint8_t* dest,
                         ptrdiff_t dest_stride);  // 7.11.3.5.
-  void ObmcBlockPrediction(const Block& block, const MotionVector& mv,
+  bool ObmcBlockPrediction(const Block& block, const MotionVector& mv,
                            Plane plane, int reference_frame_index, int width,
                            int height, int x, int y, int candidate_row,
                            int candidate_column,
-                           ObmcDirection blending_direction, int round_bits);
-  void ObmcPrediction(const Block& block, Plane plane, int width, int height,
-                      int round_bits);  // 7.11.3.9.
-  void DistanceWeightedPrediction(uint16_t* prediction_0,
-                                  ptrdiff_t prediction_stride_0,
-                                  uint16_t* prediction_1,
-                                  ptrdiff_t prediction_stride_1, int width,
-                                  int height, int candidate_row,
+                           ObmcDirection blending_direction);
+  bool ObmcPrediction(const Block& block, Plane plane, int width,
+                      int height);  // 7.11.3.9.
+  void DistanceWeightedPrediction(void* prediction_0, void* prediction_1,
+                                  int width, int height, int candidate_row,
                                   int candidate_column, uint8_t* dest,
                                   ptrdiff_t dest_stride);  // 7.11.3.15.
   // This function specializes the parsing of DC coefficient by removing some of
@@ -414,22 +502,20 @@ class Tile : public Allocable {
   // parameter that is populated when |is_dc_coefficient| is true.
   // |coefficient_level| is an output parameter which accumulates the
   // coefficient level.
-  template <bool is_dc_coefficient>
-  bool ReadSignAndApplyDequantization(
-      const Block& block, int32_t* quantized_buffer, const uint16_t* scan,
-      int i, int adjusted_tx_width_log2, int tx_width, int q_value,
-      const uint8_t* quantizer_matrix, int shift, int min_value, int max_value,
-      uint16_t* dc_sign_cdf, int8_t* dc_category,
-      int* coefficient_level);  // Part of 5.11.39.
-  int ReadCoeffBaseRange(int clamped_tx_size_context, int cdf_context,
-                         int plane_type);  // Part of 5.11.39.
+  template <typename ResidualType, bool is_dc_coefficient>
+  LIBGAV1_ALWAYS_INLINE bool ReadSignAndApplyDequantization(
+      const uint16_t* scan, int i, int q_value, const uint8_t* quantizer_matrix,
+      int shift, int max_value, uint16_t* dc_sign_cdf, int8_t* dc_category,
+      int* coefficient_level,
+      ResidualType* residual_buffer);     // Part of 5.11.39.
+  int ReadCoeffBaseRange(uint16_t* cdf);  // Part of 5.11.39.
   // Returns the number of non-zero coefficients that were read. |tx_type| is an
   // output parameter that stores the computed transform type for the plane
   // whose coefficients were read. Returns -1 on failure.
-  int16_t ReadTransformCoefficients(const Block& block, Plane plane,
-                                    int start_x, int start_y,
-                                    TransformSize tx_size,
-                                    TransformType* tx_type);  // 5.11.39.
+  template <typename ResidualType>
+  int ReadTransformCoefficients(const Block& block, Plane plane, int start_x,
+                                int start_y, TransformSize tx_size,
+                                TransformType* tx_type);  // 5.11.39.
   bool TransformBlock(const Block& block, Plane plane, int base_x, int base_y,
                       TransformSize tx_size, int x, int y,
                       ProcessingMode mode);  // 5.11.35.
@@ -439,7 +525,7 @@ class Tile : public Allocable {
   void ReconstructBlock(const Block& block, Plane plane, int start_x,
                         int start_y, TransformSize tx_size,
                         TransformType tx_type,
-                        int16_t non_zero_coeff_count);     // Part of 7.12.3.
+                        int non_zero_coeff_count);         // Part of 7.12.3.
   bool Residual(const Block& block, ProcessingMode mode);  // 5.11.34.
   // part of 5.11.5 (reset_block_context() in the spec).
   void ResetEntropyContext(const Block& block);
@@ -460,8 +546,9 @@ class Tile : public Allocable {
                              Plane plane) const;  // 7.11.2.8.
   template <typename Pixel>
   void DirectionalPrediction(const Block& block, Plane plane, int x, int y,
-                             bool has_left, bool has_top, int prediction_angle,
-                             int width, int height, int max_x, int max_y,
+                             bool has_left, bool has_top, bool needs_left,
+                             bool needs_top, int prediction_angle, int width,
+                             int height, int max_x, int max_y,
                              TransformSize tx_size, Pixel* top_row,
                              Pixel* left_column);  // 7.11.2.4.
   template <typename Pixel>
@@ -500,8 +587,8 @@ class Tile : public Allocable {
   }
 
   const int number_;
-  int row_;
-  int column_;
+  const int row_;
+  const int column_;
   const uint8_t* const data_;
   size_t size_;
   int row4x4_start_;
@@ -513,6 +600,8 @@ class Tile : public Allocable {
   bool read_deltas_;
   const int8_t subsampling_x_[kMaxPlanes];
   const int8_t subsampling_y_[kMaxPlanes];
+  int deblock_row_limit_[kMaxPlanes];
+  int deblock_column_limit_[kMaxPlanes];
 
   // The dimensions (in order) are: segment_id, level_index (based on plane and
   // direction), reference_frame and mode_id.
@@ -553,13 +642,13 @@ class Tile : public Allocable {
   std::array<Array2D<int8_t>, 2> dc_categories_;
   const ObuSequenceHeader& sequence_header_;
   const ObuFrameHeader& frame_header_;
-  RefCountedBuffer& current_frame_;
   const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias_;
   const std::array<RefCountedBufferPtr, kNumReferenceFrameTypes>&
       reference_frames_;
-  Array2D<TemporalMotionVector>* const motion_field_mv_;
+  TemporalMotionField& motion_field_;
   const std::array<uint8_t, kNumReferenceFrameTypes>& reference_order_hint_;
-  const std::array<uint8_t, kWedgeMaskSize>& wedge_masks_;
+  const WedgeMaskArray& wedge_masks_;
+  const QuantizerMatrix& quantizer_matrix_;
   DaalaBitReader reader_;
   SymbolDecoderContext symbol_decoder_context_;
   SymbolDecoderContext* const saved_symbol_decoder_context_;
@@ -584,9 +673,11 @@ class Tile : public Allocable {
   //   2) In Reconstruct(), this buffer is used as the input to the row
   //   transform process.
   // The size of this buffer would be:
-  //    For |residual_buffer_|: 4096 * |residual_size_|. Where 4096 =
-  //        64x64 which is the maximum transform size. This memory is allocated
-  //        and owned by the Tile class.
+  //    For |residual_buffer_|: (4096 + 32 * |kResidualPaddingVertical|) *
+  //        |residual_size_|. Where 4096 = 64x64 which is the maximum transform
+  //        size, and 32 * |kResidualPaddingVertical| is the padding to avoid
+  //        bottom boundary checks when parsing quantized coefficients. This
+  //        memory is allocated and owned by the Tile class.
   //    For |residual_buffer_threaded_|: See the comment below. This memory is
   //        not allocated or owned by the Tile class.
   AlignedUniquePtr<uint8_t> residual_buffer_;
@@ -605,7 +696,22 @@ class Tile : public Allocable {
   // use_128x128_superblock ? 3 : 5. This is the allowed range of reference for
   // the top rows for intrabc.
   const int intra_block_copy_lag_;
+
+  // In the Tile class, we use the "current_frame" in two ways:
+  //   1) To write the decoded output into (using the |buffer_| view).
+  //   2) To read the pixels for intra block copy (using the |current_frame_|
+  //      reference).
+  //
+  // When intra block copy is off, |buffer_| and |current_frame_| may or may not
+  // point to the same plane pointers. But it is okay since |current_frame_| is
+  // never used in this case.
+  //
+  // When intra block copy is on, |buffer_| and |current_frame_| always point to
+  // the same plane pointers (since post filtering is disabled). So the usage in
+  // both case 1 and case 2 remain valid.
   Array2DView<uint8_t> buffer_[kMaxPlanes];
+  RefCountedBuffer& current_frame_;
+
   Array2D<int16_t>& cdef_index_;
   Array2D<TransformSize>& inter_transform_sizes_;
   std::array<RestorationUnitInfo, kMaxPlanes> reference_unit_info_;
@@ -616,7 +722,7 @@ class Tile : public Allocable {
   ThreadPool* const thread_pool_;
   ThreadingParameters threading_;
   ResidualBufferPool* const residual_buffer_pool_;
-  DecoderScratchBufferPool* const decoder_scratch_buffer_pool_;
+  TileScratchBufferPool* const tile_scratch_buffer_pool_;
   BlockingCounterWithStatus* const pending_tiles_;
   bool split_parse_and_decode_;
   // This is used only when |split_parse_and_decode_| is false.
@@ -629,86 +735,99 @@ class Tile : public Allocable {
   int8_t delta_lf_[kFrameLfCount];
   // True if all the values in |delta_lf_| are zero. False otherwise.
   bool delta_lf_all_zero_;
-  bool build_bit_mask_when_parsing_;
+  const bool frame_parallel_;
+  const bool use_intra_prediction_buffer_;
+  // Buffer used to store the unfiltered pixels that are necessary for decoding
+  // the next superblock row (for the intra prediction process). Used only if
+  // |use_intra_prediction_buffer_| is true. The |frame_scratch_buffer| contains
+  // one row buffer for each tile row. This tile will have to use the buffer
+  // corresponding to this tile's row.
+  IntraPredictionBuffer* const intra_prediction_buffer_;
+  // Stores the progress of the reference frames. This will be used to avoid
+  // unnecessary calls into RefCountedBuffer::WaitUntil().
+  std::array<int, kNumReferenceFrameTypes> reference_frame_progress_cache_;
 };
 
 struct Tile::Block {
-  Block(const Tile& tile, int row4x4, int column4x4, BlockSize size,
-        DecoderScratchBuffer* const scratch_buffer, ResidualPtr* residual,
-        BlockParameters* const parameters)
+  Block(const Tile& tile, BlockSize size, int row4x4, int column4x4,
+        TileScratchBuffer* const scratch_buffer, ResidualPtr* residual)
       : tile(tile),
+        size(size),
         row4x4(row4x4),
         column4x4(column4x4),
-        size(size),
-        left_available(tile.IsInside(row4x4, column4x4 - 1)),
-        top_available(tile.IsInside(row4x4 - 1, column4x4)),
-        residual_size{kPlaneResidualSize[size][0][0],
-                      kPlaneResidualSize[size][tile.subsampling_x_[kPlaneU]]
-                                        [tile.subsampling_y_[kPlaneU]]},
-        bp_top(top_available
-                   ? tile.block_parameters_holder_.Find(row4x4 - 1, column4x4)
-                   : nullptr),
-        bp_left(left_available
-                    ? tile.block_parameters_holder_.Find(row4x4, column4x4 - 1)
-                    : nullptr),
-        bp(parameters),
+        width(kBlockWidthPixels[size]),
+        height(kBlockHeightPixels[size]),
+        width4x4(width >> 2),
+        height4x4(height >> 2),
         scratch_buffer(scratch_buffer),
         residual(residual) {
     assert(size != kBlockInvalid);
-    assert(residual_size[kPlaneTypeY] != kBlockInvalid);
+    residual_size[kPlaneY] = kPlaneResidualSize[size][0][0];
+    residual_size[kPlaneU] = residual_size[kPlaneV] =
+        kPlaneResidualSize[size][tile.subsampling_x_[kPlaneU]]
+                          [tile.subsampling_y_[kPlaneU]];
+    assert(residual_size[kPlaneY] != kBlockInvalid);
     if (tile.PlaneCount() > 1) {
-      assert(residual_size[kPlaneTypeUV] != kBlockInvalid);
+      assert(residual_size[kPlaneU] != kBlockInvalid);
+    }
+    if ((row4x4 & 1) == 0 &&
+        (tile.sequence_header_.color_config.subsampling_y & height4x4) == 1) {
+      has_chroma = false;
+    } else if ((column4x4 & 1) == 0 &&
+               (tile.sequence_header_.color_config.subsampling_x & width4x4) ==
+                   1) {
+      has_chroma = false;
+    } else {
+      has_chroma = !tile.sequence_header_.color_config.is_monochrome;
+    }
+    top_available[kPlaneY] = tile.IsTopInside(row4x4);
+    left_available[kPlaneY] = tile.IsLeftInside(column4x4);
+    if (has_chroma) {
+      // top_available[kPlaneU] and top_available[kPlaneV] are valid only if
+      // has_chroma is true.
+      // The next 3 lines are equivalent to:
+      // top_available[kPlaneU] = top_available[kPlaneV] =
+      //     top_available[kPlaneY] &&
+      //     ((tile.sequence_header_.color_config.subsampling_y & height4x4) ==
+      //     0 || tile.IsTopInside(row4x4 - 1));
+      top_available[kPlaneU] = top_available[kPlaneV] = tile.IsTopInside(
+          row4x4 -
+          (tile.sequence_header_.color_config.subsampling_y & height4x4));
+      // left_available[kPlaneU] and left_available[kPlaneV] are valid only if
+      // has_chroma is true.
+      // The next 3 lines are equivalent to:
+      // left_available[kPlaneU] = left_available[kPlaneV] =
+      //     left_available[kPlaneY] &&
+      //     ((tile.sequence_header_.color_config.subsampling_x & width4x4) == 0
+      //      || tile.IsLeftInside(column4x4 - 1));
+      left_available[kPlaneU] = left_available[kPlaneV] = tile.IsLeftInside(
+          column4x4 -
+          (tile.sequence_header_.color_config.subsampling_x & width4x4));
+    }
+    const ptrdiff_t stride = tile.BlockParametersStride();
+    BlockParameters** const bps =
+        tile.BlockParametersAddress(row4x4, column4x4);
+    bp = *bps;
+    // bp_top is valid only if top_available[kPlaneY] is true.
+    if (top_available[kPlaneY]) {
+      bp_top = *(bps - stride);
+    }
+    // bp_left is valid only if left_available[kPlaneY] is true.
+    if (left_available[kPlaneY]) {
+      bp_left = *(bps - 1);
     }
   }
 
-  bool HasChroma() const {
-    if (kNum4x4BlocksHigh[size] == 1 &&
-        tile.sequence_header_.color_config.subsampling_y != 0 &&
-        (row4x4 & 1) == 0) {
-      return false;
-    }
-    if (kNum4x4BlocksWide[size] == 1 &&
-        tile.sequence_header_.color_config.subsampling_x != 0 &&
-        (column4x4 & 1) == 0) {
-      return false;
-    }
-    return !tile.sequence_header_.color_config.is_monochrome;
-  }
-
-  bool TopAvailableChroma() const {
-    if (!HasChroma()) return false;
-    if ((tile.sequence_header_.color_config.subsampling_y &
-         kNum4x4BlocksHigh[size]) == 1) {
-      return tile.IsInside(row4x4 - 2, column4x4);
-    }
-    return top_available;
-  }
-
-  bool LeftAvailableChroma() const {
-    if (!HasChroma()) return false;
-    if ((tile.sequence_header_.color_config.subsampling_x &
-         kNum4x4BlocksWide[size]) == 1) {
-      return tile.IsInside(row4x4, column4x4 - 2);
-    }
-    return left_available;
-  }
+  bool HasChroma() const { return has_chroma; }
 
   // These return values of these group of functions are valid only if the
   // corresponding top_available or left_available is true.
   ReferenceFrameType TopReference(int index) const {
-    const ReferenceFrameType default_type =
-        (index == 0) ? kReferenceFrameIntra : kReferenceFrameNone;
-    return top_available
-               ? tile.Parameters(row4x4 - 1, column4x4).reference_frame[index]
-               : default_type;
+    return bp_top->reference_frame[index];
   }
 
   ReferenceFrameType LeftReference(int index) const {
-    const ReferenceFrameType default_type =
-        (index == 0) ? kReferenceFrameIntra : kReferenceFrameNone;
-    return left_available
-               ? tile.Parameters(row4x4, column4x4 - 1).reference_frame[index]
-               : default_type;
+    return bp_left->reference_frame[index];
   }
 
   bool IsTopIntra() const { return TopReference(0) <= kReferenceFrameIntra; }
@@ -718,10 +837,14 @@ struct Tile::Block {
   bool IsLeftSingle() const { return LeftReference(1) <= kReferenceFrameIntra; }
 
   int CountReferences(ReferenceFrameType type) const {
-    return static_cast<int>(TopReference(0) == type) +
-           static_cast<int>(TopReference(1) == type) +
-           static_cast<int>(LeftReference(0) == type) +
-           static_cast<int>(LeftReference(1) == type);
+    return static_cast<int>(top_available[kPlaneY] &&
+                            bp_top->reference_frame[0] == type) +
+           static_cast<int>(top_available[kPlaneY] &&
+                            bp_top->reference_frame[1] == type) +
+           static_cast<int>(left_available[kPlaneY] &&
+                            bp_left->reference_frame[0] == type) +
+           static_cast<int>(left_available[kPlaneY] &&
+                            bp_left->reference_frame[1] == type);
   }
 
   // 7.10.3.
@@ -729,44 +852,60 @@ struct Tile::Block {
   // returns true indicating that the block has neighbors that are suitable for
   // use by overlapped motion compensation.
   bool HasOverlappableCandidates() const {
-    if (top_available) {
-      for (int x = column4x4; x < std::min(tile.frame_header_.columns4x4,
-                                           column4x4 + kNum4x4BlocksWide[size]);
-           x += 2) {
-        if (tile.Parameters(row4x4 - 1, x | 1).reference_frame[0] >
-            kReferenceFrameIntra) {
+    const ptrdiff_t stride = tile.BlockParametersStride();
+    BlockParameters** const bps = tile.BlockParametersAddress(0, 0);
+    if (top_available[kPlaneY]) {
+      BlockParameters** bps_top = bps + (row4x4 - 1) * stride + (column4x4 | 1);
+      const int columns = std::min(tile.frame_header_.columns4x4 - column4x4,
+                                   static_cast<int>(width4x4));
+      BlockParameters** const bps_top_end = bps_top + columns;
+      do {
+        if ((*bps_top)->reference_frame[0] > kReferenceFrameIntra) {
           return true;
         }
-      }
+        bps_top += 2;
+      } while (bps_top < bps_top_end);
     }
-    if (left_available) {
-      for (int y = row4x4; y < std::min(tile.frame_header_.rows4x4,
-                                        row4x4 + kNum4x4BlocksHigh[size]);
-           y += 2) {
-        if (tile.Parameters(y | 1, column4x4 - 1).reference_frame[0] >
-            kReferenceFrameIntra) {
+    if (left_available[kPlaneY]) {
+      BlockParameters** bps_left = bps + (row4x4 | 1) * stride + column4x4 - 1;
+      const int rows = std::min(tile.frame_header_.rows4x4 - row4x4,
+                                static_cast<int>(height4x4));
+      BlockParameters** const bps_left_end = bps_left + rows * stride;
+      do {
+        if ((*bps_left)->reference_frame[0] > kReferenceFrameIntra) {
           return true;
         }
-      }
+        bps_left += 2 * stride;
+      } while (bps_left < bps_left_end);
     }
     return false;
   }
 
-  const BlockParameters& parameters() const { return *bp; }
-
   const Tile& tile;
+  bool has_chroma;
+  const BlockSize size;
+  bool top_available[kMaxPlanes];
+  bool left_available[kMaxPlanes];
+  BlockSize residual_size[kMaxPlanes];
   const int row4x4;
   const int column4x4;
-  const BlockSize size;
-  const bool left_available;
-  const bool top_available;
-  const BlockSize residual_size[kNumPlaneTypes];
-  BlockParameters* const bp_top;
-  BlockParameters* const bp_left;
-  BlockParameters* const bp;
-  DecoderScratchBuffer* const scratch_buffer;
+  const int width;
+  const int height;
+  const int width4x4;
+  const int height4x4;
+  const BlockParameters* bp_top;
+  const BlockParameters* bp_left;
+  BlockParameters* bp;
+  TileScratchBuffer* const scratch_buffer;
   ResidualPtr* const residual;
 };
+
+extern template bool
+Tile::ProcessSuperBlockRow<kProcessingModeDecodeOnly, false>(
+    int row4x4, TileScratchBuffer* scratch_buffer);
+extern template bool
+Tile::ProcessSuperBlockRow<kProcessingModeParseAndDecode, true>(
+    int row4x4, TileScratchBuffer* scratch_buffer);
 
 }  // namespace libgav1
 

@@ -1,5 +1,597 @@
 # News
 
+## 4.0.1
+
+This is a production release that only adds one thing: flushing output when it
+is printed with a print statement.
+
+## 4.0.0
+
+This is a production release with many fixes, a new command-line option, and a
+big surprise:
+
+* A bug was fixed in `dc`'s `P` command where the item on the stack was *not*
+  popped.
+* Various bugs in the manuals have been fixed.
+* A known bug was fixed where history did not interact well with prompts printed
+  by user code without newlines.
+* A new command-line option, `-R` and `--no-read-prompt` was added to disable
+  just the prompt when using `read()` (`bc`) or `?` (`dc`).
+* And finally, **official support for Windows was added**.
+
+The last item is why this is a major version bump.
+
+Currently, only one set of build options (extra math and prompt enabled, history
+and NLS/locale support disabled, both calculators enabled) is supported on
+Windows. However, both debug and release builds are supported.
+
+In addition, Windows builds are supported for the the library (`bcl`).
+
+For more details about how to build on Windows, see the [README][5] or the
+[build manual][13].
+
+## 3.3.4
+
+This is a production release that fixes a small bug.
+
+The bug was that output was not flushed before a `read()` call, so prompts
+without a newline on the end were not flushed before the `read()` call.
+
+This is such a tiny bug that users only need to upgrade if they are affected.
+
+## 3.3.3
+
+This is a production release with one tweak and fixes for manuals.
+
+The tweak is that `length(0)` returns `1` instead of `0`. In `3.3.1`, I changed
+it so `length(0.x)`, where `x` could be any number of digits, returned the
+`scale`, but `length(0)` still returned `0` because I believe that `0` has `0`
+significant digits.
+
+After request of FreeBSD and considering the arguments of a mathematician,
+compatibility with other `bc`'s, and the expectations of users, I decided to
+make the change.
+
+The fixes for manuals fixed a bug where `--` was rendered as `-`.
+
+## 3.3.2
+
+This is a production release that fixes a divide-by-zero bug in `root()` in the
+[extended math library][16]. All previous versions with `root()` have the bug.
+
+## 3.3.1
+
+This is a production release that fixes a bug.
+
+The bug was in the reporting of number length when the value was 0.
+
+## 3.3.0
+
+This is a production release that changes one behavior and fixes documentation
+bugs.
+
+The changed behavior is the treatment of `-e` and `-f` when given through
+`BC_ENV_ARGS` or `DC_ENV_ARGS`. Now `bc` and `dc` do not exit when those options
+(or their equivalents) are given through those environment variables. However,
+`bc` and `dc` still exit when they or their equivalents are given on the
+command-line.
+
+## 3.2.7
+
+This is a production release that removes a small non-portable shell operation
+in `configure.sh`. This problem was only noticed on OpenBSD, not FreeBSD or
+Linux.
+
+Non-OpenBSD users do ***NOT*** need to upgrade, although NetBSD users may also
+need to upgrade.
+
+## 3.2.6
+
+This is a production release that fixes the build on FreeBSD.
+
+There was a syntax error in `configure.sh` that the Linux shell did not catch,
+and FreeBSD depends on the existence of `tests/all.sh`.
+
+All users that already upgraded to `3.2.5` should update to this release, with
+my apologies for the poor release of `3.2.5`. Other users should skip `3.2.5` in
+favor of this version.
+
+## 3.2.5
+
+This is a production release that fixes several bugs and adds a couple small
+things.
+
+The two most important bugs were bugs that causes `dc` to access memory
+out-of-bounds (crash in debug builds). This was found by upgrading to `afl++`
+from `afl`. Both were caused by a failure to distinguish between the same two
+cases.
+
+Another bug was the failure to put all of the licenses in the `LICENSE.md` file.
+
+Third, some warnings by `scan-build` were found and eliminated. This needed one
+big change: `bc` and `dc` now bail out as fast as possible on fatal errors
+instead of unwinding the stack.
+
+Fourth, the pseudo-random number now attempts to seed itself with `/dev/random`
+if `/dev/urandom` fails.
+
+Finally, this release has a few quality-of-life changes to the build system. The
+usage should not change at all; the only thing that changed was making sure the
+`Makefile.in` was written to rebuild properly when headers changed and to not
+rebuild when not necessary.
+
+## 3.2.4
+
+This is a production release that fixes a warning on `gcc` 6 or older, which
+does not have an attribute that is used.
+
+Users do ***NOT*** need to upgrade if they don't use `gcc` 6 or older.
+
+## 3.2.3
+
+This is a production release that fixes a bug in `gen/strgen.sh`. I recently
+changed `gen/strgen.c`, but I did not change `gen/strgen.sh`.
+
+Users that do not use `gen/strgen.sh` do not need to upgrade.
+
+## 3.2.2
+
+This is a production release that fixes a portability bug in `configure.sh`. The
+bug was using the GNU `find` extension `-wholename`.
+
+## 3.2.1
+
+This is a production release that has one fix for `bcl(3)`. It is technically
+not a bug fix since the behavior is undefined, but the `BclNumber`s that
+`bcl_divmod()` returns will be set to `BCL_ERROR_INVALID_NUM` if there is an
+error. Previously, they were not set.
+
+## 3.2.0
+
+This is a production release that has one bug fix and a major addition.
+
+The bug fix was a missing `auto` variable in the bessel `j()` function in the
+math library.
+
+The major addition is a way to build a version of `bc`'s math code as a library.
+This is done with the `-a` option to `configure.sh`. The API for the library can
+be read in `./manuals/bcl.3.md` or `man bcl` once the library is installed with
+`make install`.
+
+This library was requested by developers before I even finished version 1.0, but
+I could not figure out how to do it until now.
+
+If the library has API breaking changes, the major version of `bc` will be
+incremented.
+
+## 3.1.6
+
+This is a production release that fixes a new warning from Clang 12 for FreeBSD
+and also removes some possible undefined behavior found by UBSan that compilers
+did not seem to take advantage of.
+
+Users do ***NOT*** need to upgrade, if they do not want to.
+
+## 3.1.5
+
+This is a production release that fixes the Chinese locales (which caused `bc`
+to crash) and a crash caused by `bc` executing code when it should not have been
+able to.
+
+***ALL USERS SHOULD UPGRADE.***
+
+## 3.1.4
+
+This is a production release that fixes one bug, changes two behaviors, and
+removes one environment variable.
+
+The bug is like the one in the last release except it applies if files are being
+executed. I also made the fix more general.
+
+The behavior that was changed is that `bc` now exits when given `-e`, `-f`,
+`--expression` or `--file`. However, if the last one of those is `-f-` (using
+`stdin` as the file), `bc` does not exit. If `-f-` exists and is not the last of
+the `-e` and `-f` options (and equivalents), `bc` gives a fatal error and exits.
+
+Next, I removed the `BC_EXPR_EXIT` and `DC_EXPR_EXIT` environment variables
+since their use is not needed with the behavior change.
+
+Finally, I made it so `bc` does not print the header, though the `-q` and
+`--quiet` options were kept for compatibility with GNU `bc`.
+
+## 3.1.3
+
+This is a production release that fixes one minor bug: if `bc` was invoked like
+the following, it would error:
+
+```
+echo "if (1 < 3) 1" | bc
+```
+
+Unless users run into this bug, they do not need to upgrade, but it is suggested
+that they do.
+
+## 3.1.2
+
+This is a production release that adds a way to install *all* locales. Users do
+***NOT*** need to upgrade.
+
+For package maintainers wishing to make use of the change, just pass `-l` to
+`configure.sh`.
+
+## 3.1.1
+
+This is a production release that adds two Spanish locales. Users do ***NOT***
+need to upgrade, unless they want those locales.
+
+## 3.1.0
+
+This is a production release that adjusts one behavior, fixes eight bugs, and
+improves manpages for FreeBSD. Because this release fixes bugs, **users and
+package maintainers should update to this version as soon as possible**.
+
+The behavior that was adjusted was how code from the `-e` and `-f` arguments
+(and equivalents) were executed. They used to be executed as one big chunk, but
+in this release, they are now executed line-by-line.
+
+The first bug fix in how output to `stdout` was handled in `SIGINT`. If a
+`SIGINT` came in, the `stdout` buffer was not correctly flushed. In fact, a
+clean-up function was not getting called. This release fixes that bug.
+
+The second bug is in how `dc` handled input from `stdin`. This affected `bc` as
+well since it was a mishandling of the `stdin` buffer.
+
+The third fixed bug was that `bc` and `dc` could `abort()` (in debug mode) when
+receiving a `SIGTERM`. This one was a race condition with pushing and popping
+items onto and out of vectors.
+
+The fourth bug fixed was that `bc` could leave extra items on the stack and
+thus, not properly clean up some memory. (The memory would still get
+`free()`'ed, but it would not be `free()`'ed when it could have been.)
+
+The next two bugs were bugs in `bc`'s parser that caused crashes when executing
+the resulting code.
+
+The last two bugs were crashes in `dc` that resulted from mishandling of
+strings.
+
+The manpage improvement was done by switching from [ronn][20] to [Pandoc][21] to
+generate manpages. Pandoc generates much cleaner manpages and doesn't leave
+blank lines where they shouldn't be.
+
+## 3.0.3
+
+This is a production release that adds one new feature: specific manpages.
+
+Before this release, `bc` and `dc` only used one manpage each that referred to
+various build options. This release changes it so there is one manpage set per
+relevant build type. Each manual only has information about its particular
+build, and `configure.sh` selects the correct set for install.
+
+## 3.0.2
+
+This is a production release that adds `utf8` locale symlinks and removes an
+unused `auto` variable from the `ceil()` function in the [extended math
+library][16].
+
+Users do ***NOT*** need to update unless they want the locales.
+
+## 3.0.1
+
+This is a production release with two small changes. Users do ***NOT*** need to
+upgrade to this release; however, if they haven't upgraded to `3.0.0` yet, it
+may be worthwhile to upgrade to this release.
+
+The first change is fixing a compiler warning on FreeBSD with strict warnings
+on.
+
+The second change is to make the new implementation of `ceil()` in `lib2.bc`
+much more efficient.
+
+## 3.0.0
+
+*Notes for package maintainers:*
+
+*First, the `2.7.0` release series saw a change in the option parsing. This made
+me change one error message and add a few others. The error message that was
+changed removed one format specifier. This means that `printf()` will seqfault
+on old locale files. Unfortunately, `bc` cannot use any locale files except the
+global ones that are already installed, so it will use the previous ones while
+running tests during install. **If `bc` segfaults while running arg tests when
+updating, it is because the global locale files have not been replaced. Make
+sure to either prevent the test suite from running on update or remove the old
+locale files before updating.** (Removing the locale files can be done with
+`make uninstall` or by running the `locale_uninstall.sh` script.) Once this is
+done, `bc` should install without problems.*
+
+*Second, **the option to build without signal support has been removed**. See
+below for the reasons why.*
+
+This is a production release with some small bug fixes, a few improvements,
+three major bug fixes, and a complete redesign of `bc`'s error and signal
+handling. **Users and package maintainers should update to this version as soon
+as possible.**
+
+The first major bug fix was in how `bc` executed files. Previously, a whole file
+was parsed before it was executed, but if a function is defined *after* code,
+especially if the function definition was actually a redefinition, and the code
+before the definition referred to the previous function, this `bc` would replace
+the function before executing any code. The fix was to make sure that all code
+that existed before a function definition was executed.
+
+The second major bug fix was in `bc`'s `lib2.bc`. The `ceil()` function had a
+bug where a `0` in the decimal place after the truncation position, caused it to
+output the wrong numbers if there was any non-zero digit after.
+
+The third major bug is that when passing parameters to functions, if an
+expression included an array (not an array element) as a parameter, it was
+accepted, when it should have been rejected. It is now correctly rejected.
+
+Beyond that, this `bc` got several improvements that both sped it up, improved
+the handling of signals, and improved the error handling.
+
+First, the requirements for `bc` were pushed back to POSIX 2008. `bc` uses one
+function, `strdup()`, which is not in POSIX 2001, and it is in the X/Open System
+Interfaces group 2001. It is, however, in POSIX 2008, and since POSIX 2008 is
+old enough to be supported anywhere that I care, that should be the requirement.
+
+Second, the BcVm global variable was put into `bss`. This actually slightly
+reduces the size of the executable from a massive code shrink, and it will stop
+`bc` from allocating a large set of memory when `bc` starts.
+
+Third, the default Karatsuba length was updated from 64 to 32 after making the
+optimization changes below, since 32 is going to be better than 64 after the
+changes.
+
+Fourth, Spanish translations were added.
+
+Fifth, the interpreter received a speedup to make performance on non-math-heavy
+scripts more competitive with GNU `bc`. While improvements did, in fact, get it
+much closer (see the [benchmarks][19]), it isn't quite there.
+
+There were several things done to speed up the interpreter:
+
+First, several small inefficiencies were removed. These inefficiencies included
+calling the function `bc_vec_pop(v)` twice instead of calling
+`bc_vec_npop(v, 2)`. They also included an extra function call for checking the
+size of the stack and checking the size of the stack more than once on several
+operations.
+
+Second, since the current `bc` function is the one that stores constants and
+strings, the program caches pointers to the current function's vectors of
+constants and strings to prevent needing to grab the current function in order
+to grab a constant or a string.
+
+Third, `bc` tries to reuse `BcNum`'s (the internal representation of
+arbitary-precision numbers). If a `BcNum` has the default capacity of
+`BC_NUM_DEF_SIZE` (32 on 64-bit and 16 on 32-bit) when it is freed, it is added
+to a list of available `BcNum`'s. And then, when a `BcNum` is allocated with a
+capacity of `BC_NUM_DEF_SIZE` and any `BcNum`'s exist on the list of reusable
+ones, one of those ones is grabbed instead.
+
+In order to support these changes, the `BC_NUM_DEF_SIZE` was changed. It used to
+be 16 bytes on all systems, but it was changed to more closely align with the
+minimum allocation size on Linux, which is either 32 bytes (64-bit musl), 24
+bytes (64-bit glibc), 16 bytes (32-bit musl), or 12 bytes (32-bit glibc). Since
+these are the minimum allocation sizes, these are the sizes that would be
+allocated anyway, making it worth it to just use the whole space, so the value
+of `BC_NUM_DEF_SIZE` on 64-bit systems was changed to 32 bytes.
+
+On top of that, at least on 64-bit, `BC_NUM_DEF_SIZE` supports numbers with
+either 72 integer digits or 45 integer digits and 27 fractional digits. This
+should be more than enough for most cases since `bc`'s default `scale` values
+are 0 or 20, meaning that, by default, it has at most 20 fractional digits. And
+45 integer digits are *a lot*; it's enough to calculate the amount of mass in
+the Milky Way galaxy in kilograms. Also, 72 digits is enough to calculate the
+diameter of the universe in Planck lengths.
+
+(For 32-bit, these numbers are either 32 integer digits or 12 integer digits and
+20 fractional digits. These are also quite big, and going much bigger on a
+32-bit system seems a little pointless since 12 digits in just under a trillion
+and 20 fractional digits is still enough for about any use since `10^-20` light
+years is just under a millimeter.)
+
+All of this together means that for ordinary uses, and even uses in scientific
+work, the default number size will be all that is needed, which means that
+nearly all, if not all, numbers will be reused, relieving pressure on the system
+allocator.
+
+I did several experiments to find the changes that had the most impact,
+especially with regard to reusing `BcNum`'s. One was putting `BcNum`'s into
+buckets according to their capacity in powers of 2 up to 512. That performed
+worse than `bc` did in `2.7.2`. Another was putting any `BcNum` on the reuse
+list that had a capacity of `BC_NUM_DEF_SIZE * 2` and reusing them for `BcNum`'s
+that requested `BC_NUM_DEF_SIZE`. This did reduce the amount of time spent, but
+it also spent a lot of time in the system allocator for an unknown reason. (When
+using `strace`, a bunch more `brk` calls showed up.) Just reusing `BcNum`'s that
+had exactly `BC_NUM_DEF_SIZE` capacity spent the smallest amount of time in both
+user and system time. This makes sense, especially with the changes to make
+`BC_NUM_DEF_SIZE` bigger on 64-bit systems, since the vast majority of numbers
+will only ever use numbers with a size less than or equal to `BC_NUM_DEF_SIZE`.
+
+Last of all, `bc`'s signal handling underwent a complete redesign. (This is the
+reason that this version is `3.0.0` and not `2.8.0`.) The change was to move
+from a polling approach to signal handling to an interrupt-based approach.
+
+Previously, every single loop condition had a check for signals. I suspect that
+this could be expensive when in tight loops.
+
+Now, the signal handler just uses `longjmp()` (actually `siglongjmp()`) to start
+an unwinding of the stack until it is stopped or the stack is unwound to
+`main()`, which just returns. If `bc` is currently executing code that cannot be
+safely interrupted (according to POSIX), then signals are "locked." The signal
+handler checks if the lock is taken, and if it is, it just sets the status to
+indicate that a signal arrived. Later, when the signal lock is released, the
+status is checked to see if a signal came in. If so, the stack unwinding starts.
+
+This design eliminates polling in favor of maintaining a stack of `jmp_buf`'s.
+This has its own performance implications, but it gives better interaction. And
+the cost of pushing and popping a `jmp_buf` in a function is paid at most twice.
+Most functions do not pay that price, and most of the rest only pay it once.
+(There are only some 3 functions in `bc` that push and pop a `jmp_buf` twice.)
+
+As a side effect of this change, I had to eliminate the use of `stdio.h` in `bc`
+because `stdio` does not play nice with signals and `longjmp()`. I implemented
+custom I/O buffer code that takes a fraction of the size. This means that static
+builds will be smaller, but non-static builds will be bigger, though they will
+have less linking time.
+
+This change is also good because my history implementation was already bypassing
+`stdio` for good reasons, and unifying the architecture was a win.
+
+Another reason for this change is that my `bc` should *always* behave correctly
+in the presence of signals like `SIGINT`, `SIGTERM`, and `SIGQUIT`. With the
+addition of my own I/O buffering, I needed to also make sure that the buffers
+were correctly flushed even when such signals happened.
+
+For this reason, I **removed the option to build without signal support**.
+
+As a nice side effect of this change, the error handling code could be changed
+to take advantage of the stack unwinding that signals used. This means that
+signals and error handling use the same code paths, which means that the stack
+unwinding is well-tested. (Errors are tested heavily in the test suite.)
+
+It also means that functions do not need to return a status code that
+***every*** caller needs to check. This eliminated over 100 branches that simply
+checked return codes and then passed that return code up the stack if necessary.
+The code bloat savings from this is at least 1700 bytes on `x86_64`, *before*
+taking into account the extra code from removing `stdio.h`.
+
+## 2.7.2
+
+This is a production release with one major bug fix.
+
+The `length()` built-in function can take either a number or an array. If it
+takes an array, it returns the length of the array. Arrays can be passed by
+reference. The bug is that the `length()` function would not properly
+dereference arrays that were references. This is a bug that affects all users.
+
+**ALL USERS SHOULD UPDATE `bc`**.
+
+## 2.7.1
+
+This is a production release with fixes for new locales and fixes for compiler
+warnings on FreeBSD.
+
+## 2.7.0
+
+This is a production release with a bug fix for Linux, new translations, and new
+features.
+
+Bug fixes:
+
+* Option parsing in `BC_ENV_ARGS` was broken on Linux in 2.6.1 because `glibc`'s
+  `getopt_long()` is broken. To get around that, and to support long options on
+  every platform, an adapted version of [`optparse`][17] was added. Now, `bc`
+  does not even use `getopt()`.
+* Parsing `BC_ENV_ARGS` with quotes now works. It isn't the smartest, but it
+  does the job if there are spaces in file names.
+
+The following new languages are supported:
+
+* Dutch
+* Polish
+* Russian
+* Japanes
+* Simplified Chinese
+
+All of these translations were generated using [DeepL][18], so improvements are
+welcome.
+
+There is only one new feature: **`bc` now has a built-in pseudo-random number
+generator** (PRNG).
+
+The PRNG is seeded, making it useful for applications where
+`/dev/urandom` does not work because output needs to be reproducible. However,
+it also uses `/dev/urandom` to seed itself by default, so it will start with a
+good seed by default.
+
+It also outputs 32 bits on 32-bit platforms and 64 bits on 64-bit platforms, far
+better than the 15 bits of C's `rand()` and `bash`'s `$RANDOM`.
+
+In addition, the PRNG can take a bound, and when it gets a bound, it
+automatically adjusts to remove bias. It can also generate numbers of arbitrary
+size. (As of the time of release, the largest pseudo-random number generated by
+this `bc` was generated with a bound of `2^(2^20)`.)
+
+***IMPORTANT: read the [`bc` manual][9] and the [`dc` manual][10] to find out
+exactly what guarantees the PRNG provides. The underlying implementation is not
+guaranteed to stay the same, but the guarantees that it provides are guaranteed
+to stay the same regardless of the implementation.***
+
+On top of that, four functions were added to `bc`'s [extended math library][16]
+to make using the PRNG easier:
+
+* `frand(p)`: Generates a number between `[0,1)` to `p` decimal places.
+* `ifrand(i, p)`: Generates an integer with bound `i` and adds it to `frand(p)`.
+* `srand(x)`: Randomizes the sign of `x`. In other words, it flips the sign of
+  `x` with probability `0.5`.
+* `brand()`: Returns a random boolean value (either `0` or `1`).
+
+## 2.6.1
+
+This is a production release with a bug fix for FreeBSD.
+
+The bug was that when `bc` was built without long options, it would give a fatal
+error on every run. This was caused by a mishandling of `optind`.
+
+## 2.6.0
+
+This release is a production release ***with no bugfixes***. If you do not want
+to upgrade, you don't have to.
+
+No source code changed; the only thing that changed was `lib2.bc`.
+
+This release adds one function to the [extended math library][16]: `p(x, y)`,
+which calculates `x` to the power of `y`, whether or not `y` is an integer. (The
+`^` operator can only accept integer powers.)
+
+This release also includes a couple of small tweaks to the [extended math
+library][16], mostly to fix returning numbers with too high of `scale`.
+
+## 2.5.3
+
+This release is a production release which addresses inconsistencies in the
+Portuguese locales. No `bc` code was changed.
+
+The issues were that the ISO files used different naming, and also that the
+files that should have been symlinks were not. I did not catch that because
+GitHub rendered them the exact same way.
+
+## 2.5.2
+
+This release is a production release.
+
+No code was changed, but the build system was changed to allow `CFLAGS` to be
+given to `CC`, like this:
+
+```
+CC="gcc -O3 -march=native" ./configure.sh
+```
+
+If this happens, the flags are automatically put into `CFLAGS`, and the compiler
+is set appropriately. In the example above this means that `CC` will be "gcc"
+and `CFLAGS` will be "-O3 -march=native".
+
+This behavior was added to conform to GNU autotools practices.
+
+## 2.5.1
+
+This is a production release which addresses portability concerns discovered
+in the `bc` build system. No `bc` code was changed.
+
+* Support for Solaris SPARC and AIX were added.
+* Minor documentations edits were performed.
+* An option for `configure.sh` was added to disable long options if
+  `getopt_long()` is missing.
+
+## 2.5.0
+
+This is a production release with new translations. No code changed.
+
+The translations were contributed by [bugcrazy][15], and they are for
+Portuguese, both Portugal and Brazil locales.
+
 ## 2.4.0
 
 This is a production release primarily aimed at improving `dc`.
@@ -7,8 +599,8 @@ This is a production release primarily aimed at improving `dc`.
 * A couple of copy and paste errors in the [`dc` manual][10] were fixed.
 * `dc` startup was optimized by making sure it didn't have to set up `bc`-only
   things.
-* The `bc` `&&` and `||` were made available to `dc` through the `M` and `m`
-  commands, respectively.
+* The `bc` `&&` and `||` operators were made available to `dc` through the `M`
+  and `m` commands, respectively.
 * `dc` macros were changed to be tail call-optimized.
 
 The last item, tail call optimization, means that if the last thing in a macro
@@ -29,7 +621,10 @@ upgrade.
 
 This is a production release. It fixes a bug that caused `-1000000000 < -1` to
 return `0`. This only happened with negative numbers and only if the value on
-the left was more negative by a certain amount.
+the left was more negative by a certain amount. That said, this bug *is* a bad
+bug, and needs to be fixed.
+
+**ALL USERS SHOULD UPDATE `bc`**.
 
 ## 2.3.0
 
@@ -485,9 +1080,16 @@ not thoroughly tested.
 [6]: ./configure.sh
 [7]: https://github.com/rain-1/linenoise-mob
 [8]: https://github.com/antirez/linenoise
-[9]: ./manuals/bc.1.ronn
-[10]: ./manuals/dc.1.ronn
+[9]: ./manuals/bc/A.1.md
+[10]: ./manuals/dc/A.1.md
 [11]: https://scan.coverity.com/projects/gavinhoward-bc
 [12]: ./locale_install.sh
 [13]: ./manuals/build.md
 [14]: https://github.com/stesser
+[15]: https://github.com/bugcrazy
+[16]: ./manuals/bc/A.1.md#extended-library
+[17]: https://github.com/skeeto/optparse
+[18]: https://www.deepl.com/translator
+[19]: ./manuals/benchmarks.md
+[20]: https://github.com/apjanke/ronn-ng
+[21]: https://pandoc.org/

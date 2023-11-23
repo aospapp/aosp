@@ -9,10 +9,10 @@
 #include <string>
 
 #include <C2Config.h>
+#include <ui/Size.h>
 #include <util/C2InterfaceHelper.h>
 
-#include <size.h>
-#include <v4l2_codec2/components/VideoTypes.h>
+#include <v4l2_codec2/common/VideoTypes.h>
 
 namespace android {
 
@@ -27,8 +27,8 @@ public:
     c2_status_t status() const { return mInitStatus; }
     C2BlockPool::local_id_t getBlockPoolId() const { return mOutputBlockPoolIds->m.values[0]; }
     std::optional<VideoCodec> getVideoCodec() const { return mVideoCodec; }
-    media::Size getMaxSize() const { return mMaxSize; }
-    media::Size getMinSize() const { return mMinSize; }
+
+    static uint32_t getOutputDelay(VideoCodec codec);
 
     size_t getInputBufferSize() const;
     c2_status_t queryColorAspects(
@@ -50,6 +50,8 @@ private:
                                         const C2P<C2StreamColorAspectsTuning::output>& def,
                                         const C2P<C2StreamColorAspectsInfo::input>& coded);
 
+    // The kind of the component; should be C2Component::KIND_DECODER.
+    std::shared_ptr<C2ComponentKindSetting> mKind;
     // The input format kind; should be C2FormatCompressed.
     std::shared_ptr<C2StreamBufferTypeSetting::input> mInputFormat;
     // The memory usage flag of input buffer; should be BufferUsage::VIDEO_DECODER.
@@ -94,8 +96,6 @@ private:
 
     c2_status_t mInitStatus;
     std::optional<VideoCodec> mVideoCodec;
-    media::Size mMinSize;
-    media::Size mMaxSize;
 };
 
 }  // namespace android

@@ -1,8 +1,13 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Helper class for power measurement with telemetry devices."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import collections
 import datetime
@@ -12,6 +17,7 @@ import logging
 import numpy
 import os
 import re
+import six
 import string
 import threading
 import time
@@ -402,7 +408,7 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
             samples = len(tl)
             data = {
                 k[:-3] if k.endswith('_mw') else k: v
-                for k, v in raw_data[source].iteritems()
+                for k, v in six.iteritems(raw_data[source])
                 if k not in metadata_domains
             }
 
@@ -418,14 +424,14 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
                 # Here r stands for rail and d stands for data.
                 data = {r: utils.interpolate_missing_data(d,
                                                           **INTERPOLATION_ARGS)
-                        for r, d in data.iteritems()}
+                        for r, d in six.iteritems(data)}
             except utils.TelemetryUtilsError as e:
                 raise error.TestFail('Issue at source %s: %s' % (source,
                                                                  str(e)))
 
             ave = {
                 k[:-3] if k.endswith('_mw') else k: v['mean']
-                for k, v in summary[source].iteritems()
+                for k, v in six.iteritems(summary[source])
                 if k not in metadata_domains
             }
             if samples > 1:
@@ -546,15 +552,15 @@ class PowerlogTelemetryLogger(PowerTelemetryLogger):
             fname = os.path.join(self._logdir, sweetberry_file, 'summary.json')
             with open(fname, 'r') as f:
                 d = json.load(f)
-                for k, v in d.iteritems():
+                for k, v in six.iteritems(d):
                     data[k].append(v['mean'])
 
         logger = {
             # All data domains should have same sample count.
-            'sample_count': len(data.itervalues().next()),
+            'sample_count': len(next(six.itervalues(data))),
             'sample_duration': self._interval,
             'data': data,
-            'average': {k: numpy.average(v) for k, v in data.iteritems()},
+            'average': {k: numpy.average(v) for k, v in six.iteritems(data)},
             # TODO(mqg): hard code the units for now because we are only dealing
             # with power so far. When we start to work with voltage or current,
             # read the units from the .json files.

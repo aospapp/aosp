@@ -4,15 +4,12 @@
 
 """A Batch of Bluetooth LE tests for Better Together"""
 
-import logging
-
 from autotest_lib.server.cros.bluetooth.bluetooth_adapter_quick_tests import \
-     BluetoothAdapterQuickTests
-from autotest_lib.server.cros.bluetooth.bluetooth_adapter_pairing_tests import \
-     BluetoothAdapterPairingTests
+    BluetoothAdapterQuickTests
+from autotest_lib.server.cros.bluetooth.bluetooth_adapter_better_together \
+    import BluetoothAdapterBetterTogether
 
-class bluetooth_AdapterLEBetterTogether(BluetoothAdapterQuickTests,
-        BluetoothAdapterPairingTests):
+class bluetooth_AdapterLEBetterTogether(BluetoothAdapterBetterTogether):
     """A Batch of Bluetooth LE tests for Better Together. This test is written
        as a batch of tests in order to reduce test time, since auto-test ramp up
        time is costly. The batch is using BluetoothAdapterQuickTests wrapper
@@ -22,56 +19,17 @@ class bluetooth_AdapterLEBetterTogether(BluetoothAdapterQuickTests,
        specific test only
     """
 
-    BETTER_TOGETHER_SERVICE_UUID = 'b3b7e28e-a000-3e17-bd86-6e97b9e28c11'
-    CLIENT_RX_CHARACTERISTIC_UUID = '00000100-0004-1000-8000-001A11000102'
-    CLIENT_TX_CHARACTERISTIC_UUID = '00000100-0004-1000-8000-001A11000101'
-    CCCD_VALUE_INDICATION = 0x02
-
-    test_wrapper = BluetoothAdapterQuickTests.quick_test_test_decorator
     batch_wrapper = BluetoothAdapterQuickTests.quick_test_batch_decorator
+    test_wrapper = BluetoothAdapterQuickTests.quick_test_test_decorator
 
-    @test_wrapper('Smart Unlock', devices={'BLE_KEYBOARD':1})
+    @test_wrapper('Smart Unlock', devices={'BLE_PHONE':1})
     def smart_unlock_test(self):
-        """Simulate the Smart Unlock flow"""
+        """Run the smart unlock test"""
 
-        filter = {'Transport':'le'}
-        parameters = {'MinimumConnectionInterval':6,
-                      'MaximumConnectionInterval':6}
-        device = self.devices['BLE_KEYBOARD'][0]
+        device = self.devices['BLE_PHONE'][0]
+        device.RemoveDevice(self.bluetooth_facade.address)
+        self.test_smart_unlock(address=device.address)
 
-        if not self.bluetooth_facade.set_discovery_filter(filter):
-            logging.error("Failed to set discovery filter")
-            return False
-
-        self.test_discover_device(device.address)
-
-        self.test_stop_discovery()
-
-        if not self.bluetooth_facade.set_le_connection_parameters(
-                device.address, parameters):
-            logging.error("Failed to set LE connection parameters")
-            return False
-
-        if not self.bluetooth_facade.pause_discovery():
-            logging.error("Failed to pause discovery")
-            return False
-
-        self.test_connection_by_adapter(device.address)
-
-        if not self.bluetooth_facade.unpause_discovery():
-            logging.error("Failed to unpause discovery")
-            return False
-
-        self.test_set_trusted(device.address)
-
-        self.test_service_resolved(device.address)
-
-        self.test_start_notify(device.address,
-                               self.CLIENT_RX_CHARACTERISTIC_UUID,
-                               self.CCCD_VALUE_INDICATION)
-
-        self.test_stop_notify(device.address,
-                              self.CLIENT_RX_CHARACTERISTIC_UUID)
 
     @batch_wrapper('Better Together')
     def better_together_batch_run(self, num_iterations=1, test_name=None):
@@ -89,8 +47,13 @@ class bluetooth_AdapterLEBetterTogether(BluetoothAdapterQuickTests,
         """
         self.smart_unlock_test()
 
-    def run_once(self, host, num_iterations=1, test_name=None,
-                 flag='Quick Sanity'):
+
+    def run_once(self,
+                 host,
+                 num_iterations=1,
+                 args_dict=None,
+                 test_name=None,
+                 flag='Quick Health'):
         """Run the batch of Bluetooth LE tests for Better Together
 
         @param host: the DUT, usually a chromebook
@@ -99,6 +62,9 @@ class bluetooth_AdapterLEBetterTogether(BluetoothAdapterQuickTests,
         """
 
         # Initialize and run the test batch or the requested specific test
-        self.quick_test_init(host, use_chameleon=True, flag=flag)
+        self.quick_test_init(host,
+                             use_btpeer=True,
+                             flag=flag,
+                             args_dict=args_dict)
         self.better_together_batch_run(num_iterations, test_name)
         self.quick_test_cleanup()

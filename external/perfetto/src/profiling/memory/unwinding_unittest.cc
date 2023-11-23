@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <unwindstack/RegsGetLocal.h>
 
+#include "perfetto/ext/base/file_utils.h"
 #include "perfetto/ext/base/scoped_file.h"
 #include "src/profiling/common/unwind_support.h"
 #include "src/profiling/memory/client.h"
@@ -66,7 +67,7 @@ TEST(UnwindingTest, FDMapsParse) {
   unwindstack::MapInfo* map_info =
       maps.Find(reinterpret_cast<uint64_t>(&proc_maps));
   ASSERT_NE(map_info, nullptr);
-  ASSERT_EQ(map_info->name, "[stack]");
+  ASSERT_EQ(map_info->name(), "[stack]");
 }
 
 void __attribute__((noinline)) AssertFunctionOffset() {
@@ -105,28 +106,27 @@ RecordMemory __attribute__((noinline)) GetRecord(WireMessage* msg) {
   std::unique_ptr<AllocMetadata> metadata(new AllocMetadata);
   *metadata = {};
 
-  const char* stackbase = GetThreadStackBase();
-  const char* stacktop = reinterpret_cast<char*>(__builtin_frame_address(0));
+  const char* stackend = GetThreadStackRange().end;
+  const char* stackptr = reinterpret_cast<char*>(__builtin_frame_address(0));
   // Need to zero-initialize to make MSAN happy. MSAN does not see the writes
   // from AsmGetRegs (as it is in assembly) and complains otherwise.
   memset(metadata->register_data, 0, sizeof(metadata->register_data));
   unwindstack::AsmGetRegs(metadata->register_data);
 
-  if (stackbase < stacktop) {
-    PERFETTO_FATAL("Stacktop >= stackbase.");
+  if (stackend < stackptr) {
+    PERFETTO_FATAL("Stacktop >= stackend.");
     return {nullptr, nullptr};
   }
-  size_t stack_size = static_cast<size_t>(stackbase - stacktop);
+  size_t stack_size = static_cast<size_t>(stackend - stackptr);
 
   metadata->alloc_size = 10;
   metadata->alloc_address = 0x10;
-  metadata->stack_pointer = reinterpret_cast<uint64_t>(stacktop);
-  metadata->stack_pointer_offset = sizeof(AllocMetadata);
+  metadata->stack_pointer = reinterpret_cast<uint64_t>(stackptr);
   metadata->arch = unwindstack::Regs::CurrentArch();
   metadata->sequence_number = 1;
 
   std::unique_ptr<uint8_t[]> payload(new uint8_t[stack_size]);
-  UnsafeMemcpy(&payload[0], stacktop, stack_size);
+  UnsafeMemcpy(&payload[0], stackptr, stack_size);
 
   *msg = {};
   msg->alloc_header = metadata.get();
@@ -147,7 +147,7 @@ TEST(UnwindingTest, DoUnwind) {
   ASSERT_GT(out.frames.size(), 0u);
   int st;
   std::unique_ptr<char, base::FreeDeleter> demangled(abi::__cxa_demangle(
-      out.frames[0].frame.function_name.c_str(), nullptr, nullptr, &st));
+      out.frames[0].function_name.c_str(), nullptr, nullptr, &st));
   ASSERT_EQ(st, 0) << "mangled: " << demangled.get()
                    << ", frames: " << out.frames.size();
   ASSERT_STREQ(demangled.get(),
@@ -169,12 +169,19 @@ TEST(UnwindingTest, DoUnwindReparse) {
   ASSERT_GT(out.frames.size(), 0u);
   int st;
   std::unique_ptr<char, base::FreeDeleter> demangled(abi::__cxa_demangle(
-      out.frames[0].frame.function_name.c_str(), nullptr, nullptr, &st));
+      out.frames[0].function_name.c_str(), nullptr, nullptr, &st));
   ASSERT_EQ(st, 0) << "mangled: " << demangled.get()
                    << ", frames: " << out.frames.size();
   ASSERT_STREQ(demangled.get(),
                "perfetto::profiling::(anonymous "
                "namespace)::GetRecord(perfetto::profiling::WireMessage*)");
+}
+
+TEST(AllocRecordArenaTest, Smoke) {
+  AllocRecordArena a;
+  auto borrowed = a.BorrowAllocRecord();
+  EXPECT_NE(borrowed, nullptr);
+  a.ReturnAllocRecord(std::move(borrowed));
 }
 
 }  // namespace

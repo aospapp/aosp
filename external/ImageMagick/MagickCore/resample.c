@@ -18,7 +18,7 @@
 %                                August 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -208,7 +208,7 @@ struct _ResampleFilter
 MagickExport ResampleFilter *AcquireResampleFilter(const Image *image,
   ExceptionInfo *exception)
 {
-  register ResampleFilter
+  ResampleFilter
     *resample_filter;
 
   assert(image != (Image *) NULL);
@@ -323,8 +323,8 @@ MagickExport MagickBooleanType ResamplePixelColor(
   double u1;
   double U,V,Q,DQ,DDQ;
   double divisor_c,divisor_m;
-  register double weight;
-  register const Quantum *pixels;
+  double weight;
+  const Quantum *pixels;
   assert(resample_filter != (ResampleFilter *) NULL);
   assert(resample_filter->signature == MagickCoreSignature);
 
@@ -1197,13 +1197,13 @@ MagickExport void ScaleResampleFilter(ResampleFilter *resample_filter,
   }
 
   /* Scale ellipse formula to directly index the Filter Lookup Table */
-  { register double scale;
+  { double scale;
 #if FILTER_LUT
     /* scale so that F = WLUT_WIDTH; -- hardcoded */
-    scale = (double)WLUT_WIDTH/F;
+    scale=(double) WLUT_WIDTH*PerceptibleReciprocal(F);
 #else
     /* scale so that F = resample_filter->F (support^2) */
-    scale = resample_filter->F/F;
+    scale=resample_filter->F*PerceptibleReciprocal(F);
 #endif
     resample_filter->A = A*scale;
     resample_filter->B = B*scale;
@@ -1281,7 +1281,7 @@ MagickExport void SetResampleFilter(ResampleFilter *resample_filter,
 
 #if FILTER_LUT
   /* Fill the LUT with the weights from the selected filter function */
-  { register int
+  { int
        Q;
     double
        r_scale;
@@ -1336,7 +1336,7 @@ MagickExport void SetResampleFilter(ResampleFilter *resample_filter,
     if (IsStringTrue(GetImageArtifact(resample_filter->image,
         "resample:verbose")) != MagickFalse)
       {
-        register int
+        int
           Q;
         double
           r_scale;

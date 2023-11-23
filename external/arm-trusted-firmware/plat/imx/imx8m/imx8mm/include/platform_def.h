@@ -29,6 +29,11 @@
 #define PLAT_WAIT_RET_STATE		U(1)
 #define PLAT_STOP_OFF_STATE		U(3)
 
+#define PLAT_PRI_BITS			U(3)
+#define PLAT_SDEI_CRITICAL_PRI		0x10
+#define PLAT_SDEI_NORMAL_PRI		0x20
+#define PLAT_SDEI_SGI_PRIVATE		U(9)
+
 #define BL31_BASE			U(0x920000)
 #define BL31_LIMIT			U(0x940000)
 
@@ -47,7 +52,6 @@
 
 #define HAB_RVT_BASE			U(0x00000900) /* HAB_RVT for i.MX8MM */
 
-#define IMX_BOOT_UART_BASE		U(0x30890000)
 #define IMX_BOOT_UART_CLK_IN_HZ		24000000 /* Select 24MHz oscillator */
 
 #define PLAT_CRASH_UART_BASE		IMX_BOOT_UART_BASE

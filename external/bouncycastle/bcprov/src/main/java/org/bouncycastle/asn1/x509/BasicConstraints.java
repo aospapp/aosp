@@ -45,7 +45,7 @@ public class BasicConstraints
 
     public static BasicConstraints fromExtensions(Extensions extensions)
     {
-        return BasicConstraints.getInstance(extensions.getExtensionParsedValue(Extension.basicConstraints));
+        return getInstance(Extensions.getExtensionParsedValue(extensions, Extension.basicConstraints));
     }
 
     private BasicConstraints(
@@ -133,7 +133,7 @@ public class BasicConstraints
      */
     public ASN1Primitive toASN1Primitive()
     {
-        ASN1EncodableVector  v = new ASN1EncodableVector();
+        ASN1EncodableVector v = new ASN1EncodableVector(2);
 
         if (cA != null)
         {
@@ -152,10 +152,6 @@ public class BasicConstraints
     {
         if (pathLenConstraint == null)
         {
-            if (cA == null)
-            {
-                return "BasicConstraints: isCa(false)";
-            }
             return "BasicConstraints: isCa(" + this.isCA() + ")";
         }
         return "BasicConstraints: isCa(" + this.isCA() + "), pathLenConstraint = " + pathLenConstraint.getValue();

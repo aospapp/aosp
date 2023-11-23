@@ -42,7 +42,7 @@ def handle_widgets(path):
     for l in lines[1:]:
       l = l.rstrip()
       # The string format is (in/out) "switch" "widget".
-      edge = filter(None, re.split(r' (in|out)  "(.+)" "(.+)"', l))
+      edge = list(filter(None, re.split(r' (in|out)  "(.+)" "(.+)"', l)))
 
       if len(edge) != 3:
         continue

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2016-2021, ARM Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -18,6 +18,9 @@ AARCH32_SP			:= none
 
 # The Target build architecture. Supported values are: aarch64, aarch32.
 ARCH				:= aarch64
+
+# ARM Architecture feature modifiers: none by default
+ARM_ARCH_FEATURE		:= none
 
 # ARM Architecture major and minor versions: 8.0 by default.
 ARM_ARCH_MAJOR			:= 8
@@ -62,14 +65,26 @@ CTX_INCLUDE_FPREGS		:= 0
 # world. It is not needed to use it in the Non-secure world.
 CTX_INCLUDE_PAUTH_REGS		:= 0
 
+# Include Nested virtualization control (Armv8.4-NV) registers in cpu context.
+# This must be set to 1 if architecture implements Nested Virtualization
+# Extension and platform wants to use this feature in the Secure world
+CTX_INCLUDE_NEVE_REGS		:= 0
+
 # Debug build
 DEBUG				:= 0
+
+# By default disable authenticated decryption support.
+DECRYPTION_SUPPORT		:= none
 
 # Build platform
 DEFAULT_PLAT			:= fvp
 
 # Disable the generation of the binary image (ELF only).
 DISABLE_BIN_GENERATION		:= 0
+
+# Disable MTPMU if FEAT_MTPMU is supported. Default is 0 to keep backwards
+# compatibility.
+DISABLE_MTPMU			:= 0
 
 # Enable capability to disable authentication dynamically. Only meant for
 # development platforms.
@@ -106,6 +121,18 @@ ENABLE_BTI			:= 0
 # Use BRANCH_PROTECTION to enable PAUTH.
 ENABLE_PAUTH			:= 0
 
+# By default BL31 encryption disabled
+ENCRYPT_BL31			:= 0
+
+# By default BL32 encryption disabled
+ENCRYPT_BL32			:= 0
+
+# Default dummy firmware encryption key
+ENC_KEY	:= 1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+# Default dummy nonce for firmware encryption
+ENC_NONCE			:= 1234567890abcdef12345678
+
 # Build flag to treat usage of deprecated platform and framework APIs as error.
 ERROR_DEPRECATED		:= 0
 
@@ -121,6 +148,9 @@ FIP_NAME			:= fip.bin
 # Default FWU_FIP file name
 FWU_FIP_NAME			:= fwu_fip.bin
 
+# By default firmware encryption with SSK
+FW_ENC_STATUS			:= 0
+
 # For Chain of Trust
 GENERATE_COT			:= 0
 
@@ -132,12 +162,21 @@ GICV2_G0_FOR_EL3		:= 0
 # by lower ELs.
 HANDLE_EA_EL3_FIRST		:= 0
 
+# Secure hash algorithm flag, accepts 3 values: sha256, sha384 and sha512.
+# The default value is sha256.
+HASH_ALG			:= sha256
+
 # Whether system coherency is managed in hardware, without explicit software
 # operations.
 HW_ASSISTED_COHERENCY		:= 0
 
 # Set the default algorithm for the generation of Trusted Board Boot keys
 KEY_ALG				:= rsa
+
+# Set the default key size in case KEY_ALG is rsa
+ifeq ($(KEY_ALG),rsa)
+KEY_SIZE			:= 2048
+endif
 
 # Option to build TF with Measured Boot support
 MEASURED_BOOT			:= 0
@@ -170,6 +209,9 @@ SAVE_KEYS			:= 0
 # Software Delegated Exception support
 SDEI_SUPPORT            	:= 0
 
+# True Random Number firmware Interface
+TRNG_SUPPORT            	:= 0
+
 # Whether code and read-only data should be put on separate memory pages. The
 # platform Makefile is free to override this value.
 SEPARATE_CODE_AND_RODATA	:= 0
@@ -188,6 +230,9 @@ SPD				:= none
 # Enable the Management Mode (MM)-based Secure Partition Manager implementation
 SPM_MM				:= 0
 
+# Use SPM at S-EL2 as a default config for SPMD
+SPMD_SPM_AT_SEL2		:= 1
+
 # Flag to introduce an infinite loop in BL1 just before it exits into the next
 # image. This is meant to help debugging the post-BL2 phase.
 SPIN_ON_BL1_EXIT		:= 0
@@ -201,8 +246,24 @@ USE_COHERENT_MEM		:= 1
 # Build option to add debugfs support
 USE_DEBUGFS			:= 0
 
+# Build option to fconf based io
+ARM_IO_IN_DTB			:= 0
+
+# Build option to support SDEI through fconf
+SDEI_IN_FCONF			:= 0
+
+# Build option to support Secure Interrupt descriptors through fconf
+SEC_INT_DESC_IN_FCONF		:= 0
+
 # Build option to choose whether Trusted Firmware uses library at ROM
 USE_ROMLIB			:= 0
+
+# Build option to choose whether the xlat tables of BL images can be read-only.
+# Note that this only serves as a higher level option to PLAT_RO_XLAT_TABLES,
+# which is the per BL-image option that actually enables the read-only tables
+# API. The reason for having this additional option is to have a common high
+# level makefile where we can check for incompatible features/build options.
+ALLOW_RO_XLAT_TABLES		:= 0
 
 # Chain of trust.
 COT				:= tbbr
@@ -252,3 +313,28 @@ USE_SPINLOCK_CAS := 0
 
 # Enable Link Time Optimization
 ENABLE_LTO			:= 0
+
+# Build flag to include EL2 registers in cpu context save and restore during
+# S-EL2 firmware entry/exit. This flag is to be used with SPD=spmd option.
+# Default is 0.
+CTX_INCLUDE_EL2_REGS		:= 0
+
+# Enable Memory tag extension which is supported for architecture greater
+# than Armv8.5-A
+# By default it is set to "no"
+SUPPORT_STACK_MEMTAG		:= no
+
+# Select workaround for AT speculative behaviour.
+ERRATA_SPECULATIVE_AT           := 0
+
+# Trap RAS error record access from lower EL
+RAS_TRAP_LOWER_EL_ERR_ACCESS	:= 0
+
+# Build option to create cot descriptors using fconf
+COT_DESC_IN_DTB			:= 0
+
+# Build option to provide openssl directory path
+OPENSSL_DIR			:= /usr
+
+# Build option to use the SP804 timer instead of the generic one
+USE_SP804_TIMER			:= 0

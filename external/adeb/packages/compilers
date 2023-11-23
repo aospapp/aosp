@@ -1,9 +1,0 @@
-PACKAGES+="\
-git
-clang-6.0
-gcc
-libtool
-autoconf
-make
-cmake
-"

@@ -13,8 +13,8 @@ import com.google.common.collect.ImmutableSet;
 class LdmlConvertRules {
 
     /** File sets that will not be processed in JSON transformation. */
-    public static final ImmutableSet<String> IGNORE_FILE_SET = ImmutableSet.of("attributeValueValidity", "coverageLevels", "postalCodeData", "pluralRanges",
-        "subdivisions");
+    public static final ImmutableSet<String> IGNORE_FILE_SET = ImmutableSet.of("attributeValueValidity", "coverageLevels", "grammaticalFeatures", "postalCodeData",
+        "subdivisions", "units");
 
     /**
      * The attribute list that should become part of the name in form of
@@ -26,6 +26,7 @@ class LdmlConvertRules {
         "monthWidth:month:yeartype",
         "characters:parseLenients:scope",
         "dateFormat:pattern:numbers",
+        "characterLabelPatterns:characterLabelPattern:count", // originally under characterLabels
         "currencyFormats:unitPattern:count",
         "currency:displayName:count",
         "numbers:symbols:numberSystem",
@@ -39,6 +40,10 @@ class LdmlConvertRules {
         "decimalFormat:pattern:count",
         "currencyFormat:pattern:count",
         "unit:unitPattern:count",
+        // compound units
+        "compoundUnit:compoundUnitPattern1:count",
+        "compoundUnit:compoundUnitPattern1:gender",
+        "compoundUnit:compoundUnitPattern1:case",
         "field:relative:type",
         "field:relativeTime:type",
         "relativeTime:relativeTimePattern:count",
@@ -53,8 +58,12 @@ class LdmlConvertRules {
         "unitPreferenceDataData:unitPreferences:category",
         "measurementData:measurementSystem:category",
         "supplemental:plurals:type",
+        "pluralRanges:pluralRange:start",
+        "pluralRanges:pluralRange:end",
         "pluralRules:pluralRule:count",
-        "languageMatches:languageMatch:desired");
+        "languageMatches:languageMatch:desired",
+        "styleNames:styleName:subtype",
+        "styleNames:styleName:alt");
 
     /**
      * The set of attributes that should become part of the name in form of
@@ -171,6 +180,9 @@ class LdmlConvertRules {
         // common/collation
         "collations:default:choice",
 
+        // common/supplemental/pluralRanges.xml
+        "pluralRanges:pluralRange:result",
+
         // identity elements
         "identity:language:type",
         "identity:script:type",
@@ -255,6 +267,7 @@ class LdmlConvertRules {
      */
     public static final SplittableAttributeSpec[] SPLITTABLE_ATTRS = {
         new SplittableAttributeSpec("calendarPreference", "territories", null),
+        new SplittableAttributeSpec("pluralRanges", "locales", null),
         new SplittableAttributeSpec("pluralRules", "locales", null),
         new SplittableAttributeSpec("minDays", "territories", "count"),
         new SplittableAttributeSpec("firstDay", "territories", "day"),
@@ -293,7 +306,7 @@ class LdmlConvertRules {
      * multiple items, and items for each locale should be grouped together.
      */
     public static final String[] ELEMENT_NEED_SORT = {
-        "zone", "timezone", "zoneItem", "typeMap", "dayPeriodRule",
+        "zone", "timezone", "zoneItem", "typeMap", "dayPeriodRule", "pluralRanges",
         "pluralRules", "personList", "calendarPreferenceData", "character-fallback", "types", "timeData", "minDays",
         "firstDay", "weekendStart", "weekendEnd", "measurementData", "measurementSystem"
     };
@@ -362,7 +375,7 @@ class LdmlConvertRules {
      * done by transforming the path. Following rules covers these kind of
      * transformation.
      * Note: It is important to keep the order for these rules. Whenever a
-     * rule matches, further rule won't be applied.
+     * rule matches, further rules won't be applied.
      */
     public static final PathTransformSpec PATH_TRANSFORMATIONS[] = {
         // Add "standard" as type attribute to exemplarCharacter element if there
@@ -401,6 +414,16 @@ class LdmlConvertRules {
         new PathTransformSpec("(.*)/types/type\\[@key=\"([^\"]*)\"\\]\\[@type=\"([^\"]*)\"\\](.*)$",
             "$1/types/$2/$3$4"),
 
+        // Typographic
+        new PathTransformSpec("(.*)/(typographicNames)/(axisName|featureName)\\[@type=\"([^\"]*)\"\\](.*)$",
+            "$1/$2/$3s/$4$5"),
+        new PathTransformSpec("(.*)/(typographicNames)/(styleName)(.*)$",
+            "$1/$2/$3s/$3$4"),
+
+        // put CharacterLabelPatterns under CharacterLabelPatterns
+        new PathTransformSpec("(.*)/(characterLabels)/(characterLabelPattern)(.*)$",
+            "$1/characterLabelPatterns/$3$4"),
+
         new PathTransformSpec(
             "(.*/numbers/(decimal|scientific|percent|currency)Formats\\[@numberSystem=\"([^\"]*)\"\\])/(decimal|scientific|percent|currency)FormatLength/(decimal|scientific|percent|currency)Format\\[@type=\"standard\"]/pattern.*$",
             "$1/standard"),
@@ -423,6 +446,7 @@ class LdmlConvertRules {
         new PathTransformSpec("(.*/languageAlias)\\[@type=\"([^\"]*)\"\\](.*)", "$1/$2$3"),
         new PathTransformSpec("(.*/scriptAlias)\\[@type=\"([^\"]*)\"\\](.*)", "$1/$2$3"),
         new PathTransformSpec("(.*/territoryAlias)\\[@type=\"([^\"]*)\"\\](.*)", "$1/$2$3"),
+        new PathTransformSpec("(.*/subdivisionAlias)\\[@type=\"([^\"]*)\"\\](.*)", "$1/$2$3"),
         new PathTransformSpec("(.*/variantAlias)\\[@type=\"([^\"]*)\"\\](.*)", "$1/$2$3"),
         new PathTransformSpec("(.*/zoneAlias)\\[@type=\"([^\"]*)\"\\](.*)", "$1/$2$3"),
         new PathTransformSpec("(.*/alias)(.*)", "$1/alias$2"),
@@ -437,5 +461,12 @@ class LdmlConvertRules {
         new PathTransformSpec("(.*)/weekData/(.*)\\[@alt=\"variant\"\\](.*)", "$1/weekData/$2$3"),
         new PathTransformSpec("(.*)/unitPreferenceData/unitPreferences\\[@category=\"([^\"]*)\"\\]\\[@usage=\"([^\"]*)\"\\](.*)",
             "$1/unitPreferenceData/unitPreferences/$2/$3$4"),
+
+        // Annotations
+        // If there is a type, move that into a sibling value
+        new PathTransformSpec("(.*)/(annotations)/(annotation)\\[@cp=\"([^\"]*)\"\\]\\[@type=\"([^\"]*)\"\\](.*)$",
+                                "$1/$2/$4/$5$6"),
+        new PathTransformSpec("(.*)/(annotations)/(annotation)\\[@cp=\"([^\"]*)\"\\](.*)$",
+                                "$1/$2/$4/default$5"),
     };
 }

@@ -12,7 +12,7 @@ from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import job_status
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 from autotest_lib.server.cros.dynamic_suite import tools
-from autotest_lib.site_utils  import gmail_lib
+from autotest_lib.site_utils import gmail_lib
 
 try:
     from chromite.lib import metrics

@@ -33,16 +33,18 @@ static nir_ssa_def *
 load(nir_builder *b, unsigned ncomp, nir_intrinsic_op op)
 {
 	nir_intrinsic_instr *load_size = nir_intrinsic_instr_create(b->shader, op);
-	load_size->num_components = ncomp;
 	nir_ssa_dest_init(&load_size->instr, &load_size->dest, ncomp, 32, NULL);
 	nir_builder_instr_insert(b, &load_size->instr);
 
 	return &load_size->dest.ssa;
 }
 
-static void
-lower_load_barycentric_at_offset(nir_builder *b, nir_intrinsic_instr *intr)
+static nir_ssa_def *
+ir3_nir_lower_load_barycentric_at_offset_instr(nir_builder *b,
+	   nir_instr *instr, void *data)
 {
+	nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
 #define chan(var, c) nir_channel(b, var, c)
 
 	nir_ssa_def *off = intr->src[0].ssa;
@@ -59,6 +61,9 @@ lower_load_barycentric_at_offset(nir_builder *b, nir_intrinsic_instr *intr)
 
 	nir_ssa_def *foo = nir_fddx(b, sij);
 	nir_ssa_def *bar = nir_fddy(b, sij);
+
+	if (b->shader->info.stage == MESA_SHADER_FRAGMENT)
+		b->shader->info.fs.needs_helper_invocations = true;
 
 	nir_ssa_def *x, *y, *z, *i, *j;
 
@@ -77,48 +82,25 @@ lower_load_barycentric_at_offset(nir_builder *b, nir_intrinsic_instr *intr)
 
 	ij = nir_vec2(b, i, j);
 
-	nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_src_for_ssa(ij));
+	return ij;
+}
+
+static bool
+ir3_nir_lower_load_barycentric_at_offset_filter(const nir_instr *instr,
+		const void *data)
+{
+	return (instr->type == nir_instr_type_intrinsic &&
+			nir_instr_as_intrinsic(instr)->intrinsic ==
+			nir_intrinsic_load_barycentric_at_offset);
 }
 
 bool
 ir3_nir_lower_load_barycentric_at_offset(nir_shader *shader)
 {
-	bool progress = false;
-
 	debug_assert(shader->info.stage == MESA_SHADER_FRAGMENT);
 
-	nir_foreach_function (function, shader) {
-		if (!function->impl)
-			continue;
-
-		nir_builder b;
-		nir_builder_init(&b, function->impl);
-
-		nir_foreach_block (block, function->impl) {
-			nir_foreach_instr_safe(instr, block) {
-				if (instr->type != nir_instr_type_intrinsic)
-					continue;
-
-				nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-
-				if (intr->intrinsic != nir_intrinsic_load_barycentric_at_offset)
-					continue;
-
-				debug_assert(intr->src[0].is_ssa);
-				debug_assert(intr->dest.is_ssa);
-
-				b.cursor = nir_before_instr(instr);
-				lower_load_barycentric_at_offset(&b, intr);
-
-				progress = true;
-			}
-		}
-
-		if (progress) {
-			nir_metadata_preserve(function->impl,
-				nir_metadata_block_index | nir_metadata_dominance);
-		}
-	}
-
-	return progress;
+	return nir_shader_lower_instructions(shader,
+			ir3_nir_lower_load_barycentric_at_offset_filter,
+			ir3_nir_lower_load_barycentric_at_offset_instr,
+			NULL);
 }

@@ -14,7 +14,9 @@
 
 #include "src/vulkan/transfer_image.h"
 
+#include <cstring>
 #include <limits>
+#include <vector>
 
 #include "src/vulkan/command_buffer.h"
 #include "src/vulkan/device.h"
@@ -41,19 +43,59 @@ const VkImageCreateInfo kDefaultImageInfo = {
     VK_IMAGE_LAYOUT_UNDEFINED,           /* initialLayout */
 };
 
+VkSampleCountFlagBits GetVkSampleCount(uint32_t samples) {
+  switch (samples) {
+    case 1u:
+      return VK_SAMPLE_COUNT_1_BIT;
+    case 2u:
+      return VK_SAMPLE_COUNT_2_BIT;
+    case 4u:
+      return VK_SAMPLE_COUNT_4_BIT;
+    case 8u:
+      return VK_SAMPLE_COUNT_8_BIT;
+    case 16u:
+      return VK_SAMPLE_COUNT_16_BIT;
+    case 32u:
+      return VK_SAMPLE_COUNT_32_BIT;
+    case 64u:
+      return VK_SAMPLE_COUNT_64_BIT;
+  }
+
+  return VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
+}
+
 }  // namespace
 
 TransferImage::TransferImage(Device* device,
                              const Format& format,
                              VkImageAspectFlags aspect,
+                             VkImageType image_type,
                              uint32_t x,
                              uint32_t y,
-                             uint32_t z)
-    : Resource(device, x * y * z * format.SizeInBytes()),
+                             uint32_t z,
+                             uint32_t mip_levels,
+                             uint32_t base_mip_level,
+                             uint32_t used_mip_levels,
+                             uint32_t samples)
+    : Resource(
+          device,
+          x * y * z *
+              (format.SizeInBytes() +
+               // D24_UNORM_S8_UINT requires 32bit component for depth when
+               // performing buffer copies. Reserve extra room to handle that.
+               (format.GetFormatType() == FormatType::kD24_UNORM_S8_UINT ? 1
+                                                                         : 0))),
       image_info_(kDefaultImageInfo),
-      aspect_(aspect) {
+      aspect_(aspect),
+      mip_levels_(mip_levels),
+      base_mip_level_(base_mip_level),
+      used_mip_levels_(used_mip_levels),
+      samples_(samples) {
   image_info_.format = device_->GetVkFormat(format);
+  image_info_.imageType = image_type;
   image_info_.extent = {x, y, z};
+  image_info_.mipLevels = mip_levels;
+  image_info_.samples = GetVkSampleCount(samples);
 }
 
 TransferImage::~TransferImage() {
@@ -82,7 +124,7 @@ TransferImage::~TransferImage() {
 
 Result TransferImage::Initialize(VkImageUsageFlags usage) {
   if (image_ != VK_NULL_HANDLE)
-    return Result("Vulkan::TransferImage was already initalized");
+    return Result("Vulkan::TransferImage was already initialized");
 
   image_info_.usage = usage;
 
@@ -98,7 +140,15 @@ Result TransferImage::Initialize(VkImageUsageFlags usage) {
   if (!r.IsSuccess())
     return r;
 
-  r = CreateVkImageView();
+  if (aspect_ & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) &&
+      !(usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
+    // Combined depth/stencil image used as a descriptor. Only one aspect can be
+    // used for the image view.
+    r = CreateVkImageView(VK_IMAGE_ASPECT_DEPTH_BIT);
+  } else {
+    r = CreateVkImageView(aspect_);
+  }
+
   if (!r.IsSuccess())
     return r;
 
@@ -124,12 +174,29 @@ Result TransferImage::Initialize(VkImageUsageFlags usage) {
   return MapMemory(host_accessible_memory_);
 }
 
-Result TransferImage::CreateVkImageView() {
+VkImageViewType TransferImage::GetImageViewType() const {
+  // TODO(alan-baker): handle other view types.
+  // 1D-array, 2D-array, Cube, Cube-array.
+  switch (image_info_.imageType) {
+    case VK_IMAGE_TYPE_1D:
+      return VK_IMAGE_VIEW_TYPE_1D;
+    case VK_IMAGE_TYPE_2D:
+      return VK_IMAGE_VIEW_TYPE_2D;
+    case VK_IMAGE_TYPE_3D:
+      return VK_IMAGE_VIEW_TYPE_3D;
+    default:
+      break;
+  }
+
+  // Default to 2D image view.
+  return VK_IMAGE_VIEW_TYPE_2D;
+}
+
+Result TransferImage::CreateVkImageView(VkImageAspectFlags aspect) {
   VkImageViewCreateInfo image_view_info = VkImageViewCreateInfo();
   image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   image_view_info.image = image_;
-  // TODO(jaebaek): Set .viewType correctly
-  image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  image_view_info.viewType = GetImageViewType();
   image_view_info.format = image_info_.format;
   image_view_info.components = {
       VK_COMPONENT_SWIZZLE_R,
@@ -138,11 +205,11 @@ Result TransferImage::CreateVkImageView() {
       VK_COMPONENT_SWIZZLE_A,
   };
   image_view_info.subresourceRange = {
-      aspect_, /* aspectMask */
-      0,       /* baseMipLevel */
-      1,       /* levelCount */
-      0,       /* baseArrayLayer */
-      1,       /* layerCount */
+      aspect,           /* aspectMask */
+      base_mip_level_,  /* baseMipLevel */
+      used_mip_levels_, /* levelCount */
+      0,                /* baseArrayLayer */
+      1,                /* layerCount */
   };
 
   if (device_->GetPtrs()->vkCreateImageView(device_->GetVkDevice(),
@@ -154,42 +221,86 @@ Result TransferImage::CreateVkImageView() {
   return {};
 }
 
-VkBufferImageCopy TransferImage::CreateBufferImageCopy() {
+VkBufferImageCopy TransferImage::CreateBufferImageCopy(
+    VkImageAspectFlags aspect,
+    uint32_t mip_level) {
   VkBufferImageCopy copy_region = VkBufferImageCopy();
-  copy_region.bufferOffset = 0;
+  if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
+    // Store stencil data at the end of the buffer after depth data.
+    copy_region.bufferOffset =
+        GetSizeInBytes() - image_info_.extent.width * image_info_.extent.height;
+  } else {
+    copy_region.bufferOffset = 0;
+  }
   // Row length of 0 results in tight packing of rows, so the row stride
   // is the number of texels times the texel stride.
   copy_region.bufferRowLength = 0;
   copy_region.bufferImageHeight = 0;
   copy_region.imageSubresource = {
-      aspect_, /* aspectMask */
-      0,       /* mipLevel */
-      0,       /* baseArrayLayer */
-      1,       /* layerCount */
+      aspect,    /* aspectMask */
+      mip_level, /* mipLevel */
+      0,         /* baseArrayLayer */
+      1,         /* layerCount */
   };
   copy_region.imageOffset = {0, 0, 0};
-  copy_region.imageExtent = {image_info_.extent.width,
-                             image_info_.extent.height, 1};
+  copy_region.imageExtent = {image_info_.extent.width >> mip_level,
+                             image_info_.extent.height >> mip_level,
+                             image_info_.extent.depth};
   return copy_region;
 }
 
 void TransferImage::CopyToHost(CommandBuffer* command_buffer) {
-  auto copy_region = CreateBufferImageCopy();
+  const VkImageAspectFlagBits aspects[] = {VK_IMAGE_ASPECT_COLOR_BIT,
+                                           VK_IMAGE_ASPECT_DEPTH_BIT,
+                                           VK_IMAGE_ASPECT_STENCIL_BIT};
+  // Copy operations don't support multisample images.
+  if (samples_ > 1)
+    return;
+
+  std::vector<VkBufferImageCopy> copy_regions;
+  uint32_t last_mip_level = used_mip_levels_ == VK_REMAINING_MIP_LEVELS
+                                ? mip_levels_
+                                : base_mip_level_ + used_mip_levels_;
+  for (uint32_t i = base_mip_level_; i < last_mip_level; i++) {
+    for (auto aspect : aspects) {
+      if (aspect_ & aspect) {
+        copy_regions.push_back(CreateBufferImageCopy(aspect, i));
+      }
+    }
+  }
 
   device_->GetPtrs()->vkCmdCopyImageToBuffer(
       command_buffer->GetVkCommandBuffer(), image_,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, host_accessible_buffer_, 1,
-      &copy_region);
+      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, host_accessible_buffer_,
+      static_cast<uint32_t>(copy_regions.size()), copy_regions.data());
 
   MemoryBarrier(command_buffer);
 }
 
 void TransferImage::CopyToDevice(CommandBuffer* command_buffer) {
-  auto copy_region = CreateBufferImageCopy();
+  // Copy operations don't support multisample images.
+  if (samples_ > 1)
+    return;
+
+  const VkImageAspectFlagBits aspects[] = {VK_IMAGE_ASPECT_COLOR_BIT,
+                                           VK_IMAGE_ASPECT_DEPTH_BIT,
+                                           VK_IMAGE_ASPECT_STENCIL_BIT};
+  std::vector<VkBufferImageCopy> copy_regions;
+  uint32_t last_mip_level = used_mip_levels_ == VK_REMAINING_MIP_LEVELS
+                                ? mip_levels_
+                                : base_mip_level_ + used_mip_levels_;
+  for (uint32_t i = base_mip_level_; i < last_mip_level; i++) {
+    for (auto aspect : aspects) {
+      if (aspect_ & aspect) {
+        copy_regions.push_back(CreateBufferImageCopy(aspect, i));
+      }
+    }
+  }
 
   device_->GetPtrs()->vkCmdCopyBufferToImage(
       command_buffer->GetVkCommandBuffer(), host_accessible_buffer_, image_,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      static_cast<uint32_t>(copy_regions.size()), copy_regions.data());
 
   MemoryBarrier(command_buffer);
 }
@@ -208,11 +319,11 @@ void TransferImage::ImageBarrier(CommandBuffer* command_buffer,
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.image = image_;
   barrier.subresourceRange = {
-      aspect_, /* aspectMask */
-      0,       /* baseMipLevel */
-      1,       /* levelCount */
-      0,       /* baseArrayLayer */
-      1,       /* layerCount */
+      aspect_,                 /* aspectMask */
+      0,                       /* baseMipLevel */
+      VK_REMAINING_MIP_LEVELS, /* levelCount */
+      0,                       /* baseArrayLayer */
+      1,                       /* layerCount */
   };
 
   switch (layout_) {
@@ -238,10 +349,12 @@ void TransferImage::ImageBarrier(CommandBuffer* command_buffer,
 
   switch (to_layout) {
     case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-      barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
       break;
     case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-      barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+      barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
       break;
     case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
       barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;

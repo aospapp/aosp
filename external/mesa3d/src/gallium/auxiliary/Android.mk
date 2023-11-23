@@ -28,14 +28,17 @@ include $(LOCAL_PATH)/Makefile.sources
 
 include $(CLEAR_VARS)
 
+# filter-out tessellator/tessellator.hpp to avoid "Unused source files" error
 LOCAL_SRC_FILES := \
-	$(C_SOURCES) \
+	$(filter-out tessellator/tessellator.hpp, $(C_SOURCES)) \
 	$(NIR_SOURCES) \
 	$(RENDERONLY_SOURCES) \
 	$(VL_STUB_SOURCES)
 
 ifeq ($(USE_LIBBACKTRACE),true)
-	LOCAL_SRC_FILES += util/u_debug_stack_android.cpp
+	LOCAL_CFLAGS += -DHAVE_ANDROID_PLATFORM
+	LOCAL_SHARED_LIBRARIES += libbacktrace
+	LOCAL_SRC_FILES += ../../util/u_debug_stack_android.cpp
 endif
 
 LOCAL_C_INCLUDES := \
@@ -48,10 +51,14 @@ LOCAL_SRC_FILES += \
 $(call mesa-build-with-llvm)
 endif
 
-LOCAL_CPPFLAGS += -std=c++11
+LOCAL_CPPFLAGS += -std=c++14
 
 # We need libmesa_nir to get NIR's generated include directories.
 LOCAL_MODULE := libmesa_gallium
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-BSL-1.0 SPDX-license-identifier-MIT legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := notice unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
+LOCAL_SHARED_LIBRARIES += libsync
 LOCAL_STATIC_LIBRARIES += libmesa_nir
 
 LOCAL_WHOLE_STATIC_LIBRARIES += cpufeatures
@@ -70,10 +77,21 @@ $(intermediates)/indices/u_unfilled_gen.c \
 $(intermediates)/util/u_format_srgb.c: $(intermediates)/%.c: $(LOCAL_PATH)/%.py
 	$(transform-generated-source)
 
-$(intermediates)/util/u_format_table.c: $(intermediates)/%.c: $(LOCAL_PATH)/%.py $(LOCAL_PATH)/util/u_format.csv
-	$(transform-generated-source)
-
 LOCAL_GENERATED_SOURCES += $(MESA_GEN_NIR_H)
+
+include $(GALLIUM_COMMON_MK)
+include $(BUILD_STATIC_LIBRARY)
+
+# Build libmesa_galliumvl used by radeonsi
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := \
+	$(VL_SOURCES)
+
+LOCAL_MODULE := libmesa_galliumvl
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-BSL-1.0 SPDX-license-identifier-MIT legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := notice unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 
 include $(GALLIUM_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

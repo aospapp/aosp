@@ -15,7 +15,6 @@ incorrect state upon certain failures of a Disconnect call.
 
 """
 
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

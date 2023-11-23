@@ -38,7 +38,7 @@ class hardware_StorageFioOther(fio_test.FioTest):
                                                          filesize=filesize)
 
     def run_once(self, dev='', quicktest=False, requirements=None,
-                 integrity=False, wait=60 * 60 * 72):
+                 blkdiscard=True, integrity=False, wait=60 * 60 * 72):
         """
         Determines the non-root device to test, and then runs the
         hardware_StorageFio test, which runs several fio jobs and reports
@@ -53,5 +53,6 @@ class hardware_StorageFioOther(fio_test.FioTest):
         super(hardware_StorageFioOther,
               self).run_once(dev=self._dev, quicktest=quicktest,
                              requirements=requirements,
+                             blkdiscard=blkdiscard,
                              integrity=integrity,
                              wait=wait)

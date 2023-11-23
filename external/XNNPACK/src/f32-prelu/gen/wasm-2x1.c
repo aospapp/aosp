@@ -1,15 +1,13 @@
 // Auto-generated file. Do not edit!
-//   Template: src/f32-prelu/scalar.c.in
+//   Template: src/f32-prelu/wasm.c.in
 //   Generator: tools/xngen
 //
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
-
-#include <math.h>
 
 #include <xnnpack/math.h>
 #include <xnnpack/prelu.h>
@@ -22,8 +20,7 @@ void xnn_f32_prelu_ukernel__wasm_2x1(
     size_t input_stride,
     const float*restrict weights,
     float*restrict output,
-    size_t output_stride,
-    const union xnn_f32_output_params params[restrict static 1])
+    size_t output_stride)
 {
   assert(rows != 0);
   assert(channels != 0);
@@ -41,25 +38,23 @@ void xnn_f32_prelu_ukernel__wasm_2x1(
   const size_t input_increment = input_stride * 2 - channels;
   const size_t output_increment = output_stride * 2 - channels;
 
-  const float vmin = params->scalar.min;
-  const float vmax = params->scalar.max;
+  const float vzero = 0.0f;
   do {
     const float* w = weights;
     size_t c = channels;
     do {
       const float vw = *w++;
 
-      const float vi0 = *i0++;
-      const float vi1 = *i1++;
+      float vi0 = *i0++;
+      float vi1 = *i1++;
 
-      float vacc0 = signbit(vi0) ? vi0 * vw : vi0;
-      float vacc1 = signbit(vi1) ? vi1 * vw : vi1;
+      float vacc0 = __builtin_wasm_max_f32(vi0, vzero);
+      vi0 = __builtin_wasm_min_f32(vi0, vzero);
+      float vacc1 = __builtin_wasm_max_f32(vi1, vzero);
+      vi1 = __builtin_wasm_min_f32(vi1, vzero);
 
-      vacc0 = __builtin_wasm_max_f32(vacc0, vmin);
-      vacc1 = __builtin_wasm_max_f32(vacc1, vmin);
-
-      vacc0 = __builtin_wasm_min_f32(vacc0, vmax);
-      vacc1 = __builtin_wasm_min_f32(vacc1, vmax);
+      vacc0 += vi0 * vw;
+      vacc1 += vi1 * vw;
 
       *o0++ = vacc0;
       *o1++ = vacc1;

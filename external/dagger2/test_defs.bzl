@@ -12,24 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""This file defines constants useful across the Dagger tests."""
+
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 # Defines a set of build variants and the list of extra javacopts to build with.
 # The key will be appended to the generated test names to ensure uniqueness.
 BUILD_VARIANTS = {
     "FastInit": ["-Adagger.fastInit=enabled"],
-    "AheadOfTimeSubcomponents": ["-Adagger.experimentalAheadOfTimeSubcomponents=enabled"],
-    "FastInitAndAheadOfTimeSubcomponents": [
-        "-Adagger.fastInit=enabled",
-        "-Adagger.experimentalAheadOfTimeSubcomponents=enabled",
-    ],
-    "AheadOfTimeSubcomponents_ForceUseSerializedComponentImplementations": [
-        "-Adagger.experimentalAheadOfTimeSubcomponents=enabled",
-        "-Adagger.forceUseSerializedComponentImplementations=enabled",
-    ],
 }
 
 # TODO(ronshapiro): convert this to use bazel_common
-# TODO(user): split into two functions for functional vs non-functional tests?
+# TODO(bcorso): split into two functions for functional vs non-functional tests?
 def GenJavaTests(
         name,
         srcs,
@@ -41,8 +35,8 @@ def GenJavaTests(
         test_javacopts = None,
         functional = True):
     _GenTests(
-        native.java_library,
-        native.java_test,
+        java_library,
+        java_test,
         name,
         srcs,
         deps,
@@ -189,7 +183,6 @@ def _gen_tests(
             deps = test_deps,
             **test_kwargs
         )
-
 
 def _hjar_test(name, tags):
     pass

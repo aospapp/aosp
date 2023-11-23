@@ -7,7 +7,7 @@ NAME = 'tast.graphics-trace-weekly'
 TIME = 'LONG'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:graphics_per-week'
-MAX_RESULT_SIZE_KB = 50 * 1024
+MAX_RESULT_SIZE_KB = 1024 * 1024
 
 # tast.py uses binaries inatalled from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -25,9 +25,11 @@ See http://go/tast-failures for information about investigating failures.
 '''
 
 def run(machine):
+    host=hosts.create_host(machine)
+    host.reboot()
     job.run_test('tast',
-                 host=hosts.create_host(machine),
-                 test_exprs=['(!disabled && "group:graphics" && graphics_weekly && graphics_trace)'],
+                 host=host,
+                 test_exprs=['("group:graphics" && graphics_weekly && graphics_trace && !graphics_av_analysis)'],
                  ignore_test_failures=True, max_run_sec=10800,
                  command_args=args)
 

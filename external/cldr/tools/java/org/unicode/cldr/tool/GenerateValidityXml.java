@@ -1,7 +1,6 @@
 package org.unicode.cldr.tool;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.lang.invoke.MethodHandles;
 import java.util.Collection;
 import java.util.Date;
@@ -15,7 +14,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import org.unicode.cldr.draft.FileUtilities;
 import org.unicode.cldr.draft.ScriptMetadata;
 import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CLDRTool;
@@ -27,6 +25,7 @@ import org.unicode.cldr.util.StringRange;
 import org.unicode.cldr.util.StringRange.Adder;
 import org.unicode.cldr.util.SupplementalDataInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.CurrencyDateInfo;
+import org.unicode.cldr.util.TempPrintWriter;
 import org.unicode.cldr.util.Validity;
 import org.unicode.cldr.util.Validity.Status;
 
@@ -129,7 +128,7 @@ public class GenerateValidityXml {
             Status oldStatus = get(currency);
             if (oldStatus == null || newStatus.compareTo(oldStatus) < 0) {
                 put(currency, newStatus);
-            }            
+            }
         }
     }
 
@@ -146,10 +145,10 @@ public class GenerateValidityXml {
             String type = entry.getKey();
             final Info info = entry.getValue();
             Multimap<Status, String> subtypeMap = info.getStatusMap();
-            try (PrintWriter output = FileUtilities.openUTF8Writer(CLDRPaths.GEN_DIRECTORY, "validity/" + type + ".xml")) {
+            try (TempPrintWriter output = TempPrintWriter.openUTF8Writer(CLDRPaths.COMMON_DIRECTORY, "validity/" + type + ".xml")) {
                 adder.target = output;
                 output.append(DtdType.supplementalData.header(MethodHandles.lookup().lookupClass())
-                    + "\t<version number=\"$Revision" /*hack to stop SVN changing this*/ + "$\"/>\n"
+                    + "\t<version number=\"$Revision" + "$\"/>\n"
                     + "\t<idValidity>\n");
                 for (Entry<Status, Collection<String>> entry2 : subtypeMap.asMap().entrySet()) {
                     Validity.Status subtype = entry2.getKey();
@@ -320,8 +319,9 @@ public class GenerateValidityXml {
                     break;
                 case script:
                     switch (code) {
+                    case "Aran":
                     case "Qaag":
-                    case "Zsye": 
+                    case "Zsye":
                     case "Zanb":
                     case "Zinh":
                     case "Zyyy":
@@ -329,7 +329,7 @@ public class GenerateValidityXml {
                         break;
                     default:
                         switch (subtype) {
-                        case private_use: 
+                        case private_use:
                             if (code.compareTo("Qaaq") < 0) {
                                 subtype = Validity.Status.reserved;
                             }

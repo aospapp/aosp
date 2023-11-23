@@ -93,6 +93,9 @@ bool RegexActions::InitializeRules(
 bool RegexActions::InitializeRulesModel(
     const RulesModel* rules, ZlibDecompressor* decompressor,
     std::vector<CompiledRule>* compiled_rules) const {
+  if (rules->regex_rule() == nullptr) {
+    return true;
+  }
   for (const RulesModel_::RegexRule* rule : *rules->regex_rule()) {
     std::unique_ptr<UniLib::RegexPattern> compiled_pattern =
         UncompressMakeRegexPattern(
@@ -189,7 +192,7 @@ bool RegexActions::FilterConfidenceOutput(
 
 bool RegexActions::SuggestActions(
     const Conversation& conversation,
-    const ReflectiveFlatbufferBuilder* entity_data_builder,
+    const MutableFlatbufferBuilder* entity_data_builder,
     std::vector<ActionSuggestion>* actions) const {
   // Create actions based on rules checking the last message.
   const int message_index = conversation.messages.size() - 1;
@@ -206,7 +209,7 @@ bool RegexActions::SuggestActions(
         const ActionSuggestionSpec* action = rule_action->action();
         std::vector<ActionSuggestionAnnotation> annotations;
 
-        std::unique_ptr<ReflectiveFlatbuffer> entity_data =
+        std::unique_ptr<MutableFlatbuffer> entity_data =
             entity_data_builder != nullptr ? entity_data_builder->NewRoot()
                                            : nullptr;
 

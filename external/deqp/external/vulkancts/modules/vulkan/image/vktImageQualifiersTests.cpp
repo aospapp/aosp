@@ -410,7 +410,7 @@ tcu::TestStatus	MemoryQualifierInstanceBase::iterate (void)
 
 	// Retrieve data from buffer to host memory
 	const Allocation& allocation = m_buffer->getAllocation();
-	invalidateMappedMemoryRange(deviceInterface, device, allocation.getMemory(), allocation.getOffset(), bufferSizeInBytes);
+	invalidateAlloc(deviceInterface, device, allocation);
 
 	const tcu::UVec3 computeGridSize = getShaderGridSize(m_imageType, m_imageSize);
 	tcu::ConstPixelBufferAccess resultPixelBuffer(m_format, computeGridSize.x(), computeGridSize.y(), computeGridSize.z(), allocation.getHostPtr());
@@ -572,7 +572,7 @@ void MemoryQualifierInstanceImage::commandsBeforeCompute (const VkCommandBuffer 
 
 	const VkImageMemoryBarrier imageLayoutBarrier
 		= makeImageMemoryBarrier(0u,
-								 VK_ACCESS_SHADER_READ_BIT,
+								 VK_ACCESS_SHADER_WRITE_BIT,
 								 VK_IMAGE_LAYOUT_UNDEFINED,
 								 VK_IMAGE_LAYOUT_GENERAL,
 								 m_image->get(),

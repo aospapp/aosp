@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -15,6 +15,7 @@ ifeq (${ARM_ARCH_MAJOR},7)
 MARCH32_DIRECTIVE 	:= 	-mcpu=cortex-a15
 $(eval $(call add_define,ARMV7_SUPPORTS_LARGE_PAGE_ADDRESSING))
 $(eval $(call add_define,ARMV7_SUPPORTS_GENERIC_TIMER))
+$(eval $(call add_define,ARMV7_SUPPORTS_VFP))
 # Qemu expects a BL32 boot stage.
 NEED_BL32		:=	yes
 endif # ARMv7
@@ -58,18 +59,20 @@ ifneq (${TRUSTED_BOARD_BOOT},0)
     AUTH_SOURCES	:=	drivers/auth/auth_mod.c			\
 				drivers/auth/crypto_mod.c		\
 				drivers/auth/img_parser_mod.c		\
-				drivers/auth/tbbr/tbbr_cot.c
+				drivers/auth/tbbr/tbbr_cot_common.c
 
     BL1_SOURCES		+=	${AUTH_SOURCES}				\
 				bl1/tbbr/tbbr_img_desc.c		\
 				plat/common/tbbr/plat_tbbr.c		\
 				${PLAT_QEMU_COMMON_PATH}/qemu_trusted_boot.c	     	\
-				$(PLAT_QEMU_COMMON_PATH)/qemu_rotpk.S
+				$(PLAT_QEMU_COMMON_PATH)/qemu_rotpk.S	\
+				drivers/auth/tbbr/tbbr_cot_bl1.c
 
     BL2_SOURCES		+=	${AUTH_SOURCES}				\
 				plat/common/tbbr/plat_tbbr.c		\
 				${PLAT_QEMU_COMMON_PATH}/qemu_trusted_boot.c	     	\
-				$(PLAT_QEMU_COMMON_PATH)/qemu_rotpk.S
+				$(PLAT_QEMU_COMMON_PATH)/qemu_rotpk.S	\
+				drivers/auth/tbbr/tbbr_cot_bl2.c
 
     ROT_KEY             = $(BUILD_PLAT)/rot_key.pem
     ROTPK_HASH          = $(BUILD_PLAT)/rotpk_sha256.bin
@@ -81,7 +84,7 @@ ifneq (${TRUSTED_BOARD_BOOT},0)
 
     certificates: $(ROT_KEY)
 
-    $(ROT_KEY):
+    $(ROT_KEY): | $(BUILD_PLAT)
 	@echo "  OPENSSL $@"
 	$(Q)openssl genrsa 2048 > $@ 2>/dev/null
 
@@ -127,15 +130,21 @@ ifeq ($(add-lib-optee),yes)
 BL2_SOURCES		+=	lib/optee/optee_utils.c
 endif
 
+ifneq (${DECRYPTION_SUPPORT},none)
+BL1_SOURCES		+=	drivers/io/io_encrypted.c
+BL2_SOURCES		+=	drivers/io/io_encrypted.c
+endif
+
 QEMU_GICV2_SOURCES	:=	drivers/arm/gic/v2/gicv2_helpers.c	\
 				drivers/arm/gic/v2/gicv2_main.c		\
 				drivers/arm/gic/common/gic_common.c	\
 				plat/common/plat_gicv2.c		\
 				${PLAT_QEMU_COMMON_PATH}/qemu_gicv2.c
 
-QEMU_GICV3_SOURCES	:=	drivers/arm/gic/v3/gicv3_helpers.c	\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/common/gic_common.c	\
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+QEMU_GICV3_SOURCES	:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				${PLAT_QEMU_COMMON_PATH}/qemu_gicv3.c
 
@@ -164,10 +173,18 @@ endif
 # Add the build options to pack Trusted OS Extra1 and Trusted OS Extra2 images
 # in the FIP if the platform requires.
 ifneq ($(BL32_EXTRA1),)
+ifneq (${DECRYPTION_SUPPORT},none)
+$(eval $(call TOOL_ADD_IMG,bl32_extra1,--tos-fw-extra1,,$(ENCRYPT_BL32)))
+else
 $(eval $(call TOOL_ADD_IMG,bl32_extra1,--tos-fw-extra1))
 endif
+endif
 ifneq ($(BL32_EXTRA2),)
+ifneq (${DECRYPTION_SUPPORT},none)
+$(eval $(call TOOL_ADD_IMG,bl32_extra2,--tos-fw-extra2,,$(ENCRYPT_BL32)))
+else
 $(eval $(call TOOL_ADD_IMG,bl32_extra2,--tos-fw-extra2))
+endif
 endif
 
 SEPARATE_CODE_AND_RODATA := 1

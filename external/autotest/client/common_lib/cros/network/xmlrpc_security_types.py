@@ -1,10 +1,18 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import os
 import random
+import six
+from six.moves import map
+from six.moves import range
 import stat
 import string
 import sys
@@ -34,7 +42,6 @@ class SecurityConfig(xmlrpc_types.XmlRpcStruct):
 
     """
     SERVICE_PROPERTY_PASSPHRASE = 'Passphrase'
-    SERVICE_PROPERTY_FT_ENABLED = 'WiFi.FTEnabled'
 
     def __init__(self, security='none'):
         super(SecurityConfig, self).__init__()
@@ -56,10 +63,11 @@ class SecurityConfig(xmlrpc_types.XmlRpcStruct):
         return {'key_mgmt': 'NONE'}
 
 
-    def install_router_credentials(self, host):
+    def install_router_credentials(self, host, install_dir):
         """Install the necessary credentials on the router.
 
         @param host host object representing the router.
+        @param install_dir the directory on host to install the files.
 
         """
         pass  # Many authentication methods have no special router credentials.
@@ -78,9 +86,8 @@ class SecurityConfig(xmlrpc_types.XmlRpcStruct):
 
 
     def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__,
-                           ', '.join(['%s=%r' % item
-                                      for item in vars(self).iteritems()]))
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(
+                ['%s=%r' % item for item in six.iteritems(vars(self))]))
 
 
 class WEPConfig(SecurityConfig):
@@ -283,8 +290,6 @@ class WPAConfig(SecurityConfig):
     def get_shill_service_properties(self):
         """@return dict of shill service properties."""
         ret = {self.SERVICE_PROPERTY_PASSPHRASE: self.psk}
-        if self.ft_mode & self.FT_MODE_PURE:
-            ret[self.SERVICE_PROPERTY_FT_ENABLED] = True
         return ret
 
 
@@ -325,6 +330,11 @@ class EAPConfig(SecurityConfig):
 
     last_tpm_id = 8800
 
+    # Credential file prefixes.
+    SERVER_CA_CERT_FILE_PREFIX = 'hostapd_ca_cert_file.'
+    SERVER_CERT_FILE_PREFIX = 'hostapd_cert_file.'
+    SERVER_KEY_FILE_PREFIX = 'hostapd_key_file.'
+    SERVER_EAP_USER_FILE_PREFIX = 'hostapd_eap_user_file.'
 
     @staticmethod
     def reserve_TPM_id():
@@ -374,10 +384,11 @@ class EAPConfig(SecurityConfig):
             file_suffix = ''.join(random.choice(suffix_letters)
                                   for x in range(10))
             logging.debug('Choosing unique file_suffix %s.', file_suffix)
-        self.server_ca_cert_file = '/tmp/hostapd_ca_cert_file.' + file_suffix
-        self.server_cert_file = '/tmp/hostapd_cert_file.' + file_suffix
-        self.server_key_file = '/tmp/hostapd_key_file.' + file_suffix
-        self.server_eap_user_file = '/tmp/hostapd_eap_user_file.' + file_suffix
+        # The key paths will be determined in install_router_credentials.
+        self.server_ca_cert_file = None
+        self.server_cert_file = None
+        self.server_key_file = None
+        self.server_eap_user_file = None
         # While these paths won't make it across the network, the suffix will.
         self.file_suffix = file_suffix
         self.client_cert_id = client_cert_id or self.reserve_TPM_id()
@@ -392,12 +403,21 @@ class EAPConfig(SecurityConfig):
         self.altsubject_match = altsubject_match
 
 
-    def install_router_credentials(self, host):
+    def install_router_credentials(self, host, install_dir):
         """Install the necessary credentials on the router.
 
         @param host host object representing the router.
 
         """
+        self.server_ca_cert_file = os.path.join(
+            install_dir, self.SERVER_CA_CERT_FILE_PREFIX + self.file_suffix)
+        self.server_cert_file = os.path.join(
+            install_dir, self.SERVER_CERT_FILE_PREFIX + self.file_suffix)
+        self.server_key_file = os.path.join(
+            install_dir, self.SERVER_KEY_FILE_PREFIX + self.file_suffix)
+        self.server_eap_user_file = os.path.join(
+            install_dir, self.SERVER_EAP_USER_FILE_PREFIX + self.file_suffix)
+
         files = [(self.server_ca_cert, self.server_ca_cert_file),
                  (self.server_cert, self.server_cert_file),
                  (self.server_key, self.server_key_file),
@@ -440,7 +460,7 @@ class EAPConfig(SecurityConfig):
         """@return dict of shill service properties."""
         ret = {self.SERVICE_PROPERTY_EAP_IDENTITY: self.eap_identity}
         if self.pin:
-               ret[self.SERVICE_PROPERTY_EAP_PIN] = self.pin
+            ret[self.SERVICE_PROPERTY_EAP_PIN] = self.pin
         if self.client_ca_cert:
             # Technically, we could accept a list of certificates here, but we
             # have no such tests.
@@ -453,8 +473,6 @@ class EAPConfig(SecurityConfig):
                     '%s:%s' % (self.client_key_slot_id, self.client_key_id))
         if self.use_system_cas is not None:
             ret[self.SERVICE_PROPERTY_USE_SYSTEM_CAS] = self.use_system_cas
-        if self.ft_mode & WPAConfig.FT_MODE_PURE:
-            ret[self.SERVICE_PROPERTY_FT_ENABLED] = True
         if self.altsubject_match:
             ret[self.SERVICE_PROPERTY_ALTSUBJECT_MATCH] = self.altsubject_match
         return ret
@@ -624,9 +642,8 @@ class Tunneled1xConfig(WPAEAPConfig):
         self.inner_protocol = inner_protocol
         # hostapd wants these surrounded in double quotes.
         quote = lambda x: '"' + x + '"'
-        eap_users = map(' '.join, [('*',  outer_protocol),
-                                   (quote(eap_identity), inner_protocol,
-                                    quote(password), '[2]')])
+        eap_users = list(map(' '.join, [('*', outer_protocol),
+                (quote(eap_identity), inner_protocol, quote(password), '[2]')]))
         super(Tunneled1xConfig, self).__init__(
                 server_ca_cert=server_ca_cert,
                 server_cert=server_cert,

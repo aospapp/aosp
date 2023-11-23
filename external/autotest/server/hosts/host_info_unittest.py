@@ -1,8 +1,9 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import cStringIO
+import six
 import inspect
 import json
 import unittest
@@ -175,6 +176,24 @@ class HostInfoTest(unittest.TestCase):
         self.info.set_version_label('cros-version', 'Z')
         self.assertListEqual(self.info.labels, ['extra', 'cheets-version:Y',
                                                 'cros-version:Z'])
+
+    def test_has_level_as_prefix(self):
+        """Check if label present as prefix with some value."""
+        self.info.labels = ['lb1', 'lb2:Y']
+        self.assertTrue(self.info.has_label('lb2'))
+        self.info.labels = ['lb1', 'lb2:']
+        self.assertTrue(self.info.has_label('lb2'))
+
+    def test_has_level_as_value(self):
+        """Check if label present as value."""
+        self.info.labels = ['lb1', 'lb2:Y']
+        self.assertTrue(self.info.has_label('lb1'))
+
+    def test_has_level_is_not_present(self):
+        """Check if label present as value."""
+        self.info.labels = ['lb1', 'lb2:Y']
+        self.assertFalse(self.info.has_label('lb3'))
+        self.assertFalse(self.info.has_label('LB1'))
 
 
 class InMemoryHostInfoStoreTest(unittest.TestCase):
@@ -359,7 +378,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
     def test_serialize_empty(self):
         """Serializing empty HostInfo results in the expected json."""
         info = host_info.HostInfo()
-        file_obj = cStringIO.StringIO()
+        file_obj = six.StringIO()
         host_info.json_serialize(info, file_obj)
         file_obj.seek(0)
         expected_dict = {
@@ -376,7 +395,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
         info = host_info.HostInfo(labels=['label1'],
                                   attributes={'attrib': 'val'},
                                   stable_versions={'cros': 'xxx-cros'})
-        file_obj = cStringIO.StringIO()
+        file_obj = six.StringIO()
         host_info.json_serialize(info, file_obj)
         file_obj.seek(0)
         expected_dict = {
@@ -391,7 +410,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
     def test_round_trip_empty(self):
         """Serializing - deserializing empty HostInfo keeps it unchanged."""
         info = host_info.HostInfo()
-        serialized_fp = cStringIO.StringIO()
+        serialized_fp = six.StringIO()
         host_info.json_serialize(info, serialized_fp)
         serialized_fp.seek(0)
         got = host_info.json_deserialize(serialized_fp)
@@ -403,7 +422,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
         info = host_info.HostInfo(
                 labels=['label1'],
                 attributes = {'attrib': 'val'})
-        serialized_fp = cStringIO.StringIO()
+        serialized_fp = six.StringIO()
         host_info.json_serialize(info, serialized_fp)
         serialized_fp.seek(0)
         got = host_info.json_deserialize(serialized_fp)
@@ -413,13 +432,13 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
     def test_deserialize_malformed_json_raises(self):
         """Deserializing a malformed string raises."""
         with self.assertRaises(host_info.DeserializationError):
-            host_info.json_deserialize(cStringIO.StringIO('{labels:['))
+            host_info.json_deserialize(six.StringIO('{labels:['))
 
 
     def test_deserialize_malformed_host_info_raises(self):
         """Deserializing a malformed host_info raises."""
         info = host_info.HostInfo()
-        serialized_fp = cStringIO.StringIO()
+        serialized_fp = six.StringIO()
         host_info.json_serialize(info, serialized_fp)
         serialized_fp.seek(0)
 
@@ -429,7 +448,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
 
         with self.assertRaises(host_info.DeserializationError):
             host_info.json_deserialize(
-                    cStringIO.StringIO(serialized_no_version_str))
+                    six.StringIO(serialized_no_version_str))
 
 
     def test_enforce_compatibility_version_2(self):
@@ -449,7 +468,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
                 'labels': []
         }
         serialized_str = json.dumps(compat_dict)
-        serialized_fp = cStringIO.StringIO(serialized_str)
+        serialized_fp = six.StringIO(serialized_str)
         host_info.json_deserialize(serialized_fp)
 
 
@@ -457,7 +476,7 @@ class HostInfoJsonSerializationTestCase(unittest.TestCase):
         """Serializing a host_info dumps the json in human-friendly format"""
         info = host_info.HostInfo(labels=['label1'],
                                   attributes={'attrib': 'val'})
-        serialized_fp = cStringIO.StringIO()
+        serialized_fp = six.StringIO()
         host_info.json_serialize(info, serialized_fp)
         expected = """{
             "attributes": {

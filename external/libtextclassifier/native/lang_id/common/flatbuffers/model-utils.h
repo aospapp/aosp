@@ -66,6 +66,14 @@ bool FillParameters(const Model &model, mobile::TaskContext *context);
 // corruption.  GetVerifiedModelFromBytes performs this check.
 mobile::uint32 ComputeCrc2Checksum(const Model *model);
 
+// Returns true if we have clear evidence that |model| fails its checksum.
+//
+// E.g., if |model| has the crc32 field, and the value of that field does not
+// match the checksum, then this function returns true.  If there is no crc32
+// field, then we don't know what the original (at build time) checksum was, so
+// we don't know anything clear and this function returns false.
+bool ClearlyFailsChecksum(const Model &model);
+
 }  // namespace saft_fbs
 }  // namespace nlp_saft
 

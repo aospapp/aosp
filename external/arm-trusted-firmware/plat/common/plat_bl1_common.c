@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -27,7 +27,9 @@
 #pragma weak bl1_plat_fwu_done
 #pragma weak bl1_plat_handle_pre_image_load
 #pragma weak bl1_plat_handle_post_image_load
-
+#if MEASURED_BOOT
+#pragma weak bl1_plat_set_bl2_hash
+#endif
 
 unsigned int bl1_plat_get_next_image_id(void)
 {
@@ -58,7 +60,7 @@ struct image_desc *bl1_plat_get_image_desc(unsigned int image_id)
 
 __dead2 void bl1_plat_fwu_done(void *client_cookie, void *reserved)
 {
-	while (1)
+	while (true)
 		wfi();
 }
 
@@ -81,8 +83,8 @@ int bl1_plat_mem_check(uintptr_t mem_base, unsigned int mem_size,
  */
 int bl1_plat_handle_post_image_load(unsigned int image_id)
 {
-	meminfo_t *bl2_tzram_layout;
-	meminfo_t *bl1_tzram_layout;
+	meminfo_t *bl2_secram_layout;
+	meminfo_t *bl1_secram_layout;
 	image_desc_t *image_desc;
 	entry_point_info_t *ep_info;
 
@@ -97,7 +99,7 @@ int bl1_plat_handle_post_image_load(unsigned int image_id)
 	ep_info = &image_desc->ep_info;
 
 	/* Find out how much free trusted ram remains after BL1 load */
-	bl1_tzram_layout = bl1_plat_sec_mem_layout();
+	bl1_secram_layout = bl1_plat_sec_mem_layout();
 
 	/*
 	 * Create a new layout of memory for BL2 as seen by BL1 i.e.
@@ -106,13 +108,22 @@ int bl1_plat_handle_post_image_load(unsigned int image_id)
 	 * to BL2. BL2 will read the memory layout before using its
 	 * memory for other purposes.
 	 */
-	bl2_tzram_layout = (meminfo_t *) bl1_tzram_layout->total_base;
+	bl2_secram_layout = (meminfo_t *) bl1_secram_layout->total_base;
 
-	bl1_calc_bl2_mem_layout(bl1_tzram_layout, bl2_tzram_layout);
+	bl1_calc_bl2_mem_layout(bl1_secram_layout, bl2_secram_layout);
 
-	ep_info->args.arg1 = (uintptr_t)bl2_tzram_layout;
+	ep_info->args.arg1 = (uintptr_t)bl2_secram_layout;
 
 	VERBOSE("BL1: BL2 memory layout address = %p\n",
-		(void *) bl2_tzram_layout);
+		(void *) bl2_secram_layout);
 	return 0;
 }
+
+#if MEASURED_BOOT
+/*
+ * Calculates and writes BL2 hash data to TB_FW_CONFIG DTB.
+ */
+void bl1_plat_set_bl2_hash(const image_desc_t *image_desc)
+{
+}
+#endif

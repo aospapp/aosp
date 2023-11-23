@@ -17,6 +17,7 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
 // Android-removed: Unsupported algorithms
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
+// import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
 // import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PBKDF2Params;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -39,18 +40,21 @@ public class PBEPBKDF2
 
     static
     {
-        // Android-removed: Unsupported algorithm
-        // prfCodes.put(CryptoProObjectIdentifiers.gostR3411Hmac, Integers.valueOf(PBE.GOST3411));
+        // BEGIN Android-removed: Unsupported algorithm
+        /*
+        prfCodes.put(CryptoProObjectIdentifiers.gostR3411Hmac, Integers.valueOf(PBE.GOST3411));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA1, Integers.valueOf(PBE.SHA1));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA256, Integers.valueOf(PBE.SHA256));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA224, Integers.valueOf(PBE.SHA224));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA384, Integers.valueOf(PBE.SHA384));
         prfCodes.put(PKCSObjectIdentifiers.id_hmacWithSHA512, Integers.valueOf(PBE.SHA512));
-        // Android-remove: Unsupported algorithms
-        // prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_256, Integers.valueOf(PBE.SHA3_256));
-        // prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_224, Integers.valueOf(PBE.SHA3_224));
-        // prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_384, Integers.valueOf(PBE.SHA3_384));
-        // prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_512, Integers.valueOf(PBE.SHA3_512));
+        prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_256, Integers.valueOf(PBE.SHA3_256));
+        prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_224, Integers.valueOf(PBE.SHA3_224));
+        prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_384, Integers.valueOf(PBE.SHA3_384));
+        prfCodes.put(NISTObjectIdentifiers.id_hmacWithSHA3_512, Integers.valueOf(PBE.SHA3_512));
+        prfCodes.put(GMObjectIdentifiers.hmac_sm3, Integers.valueOf(PBE.SM3));
+        */
+        // END Android-removed: Unsupported algorithm
     }
 
     private PBEPBKDF2()
@@ -92,7 +96,7 @@ public class PBEPBKDF2
             Class paramSpec)
             throws InvalidParameterSpecException
         {
-            if (paramSpec == PBEParameterSpec.class)
+            if (paramSpec == PBEParameterSpec.class || paramSpec == AlgorithmParameterSpec.class)
             {
                 return new PBEParameterSpec(params.getSalt(),
                     params.getIterationCount().intValue());
@@ -536,6 +540,18 @@ public class PBEPBKDF2
     }
     // END Android-added: Android implementations of PBKDF2 algorithms.
 
+    // BEGIN Android-removed: Unsupported algorithms
+    /*
+    public static class PBKDF2withSM3
+        extends BasePBKDF2
+    {
+        public PBKDF2withSM3() {
+            super("PBKDF2", PKCS5S2_UTF8, SM3);
+        }
+    }
+    */
+    // END Android-removed: Unsupported algorithms
+
     public static class Mappings
         extends AlgorithmProvider
     {
@@ -574,6 +590,7 @@ public class PBEPBKDF2
             provider.addAlgorithm("SecretKeyFactory.PBKDF2WITHHMACSHA3-384", PREFIX + "$PBKDF2withSHA3_384");
             provider.addAlgorithm("SecretKeyFactory.PBKDF2WITHHMACSHA3-512", PREFIX + "$PBKDF2withSHA3_512");
             provider.addAlgorithm("SecretKeyFactory.PBKDF2WITHHMACGOST3411", PREFIX + "$PBKDF2withGOST3411");
+            provider.addAlgorithm("SecretKeyFactory.PBKDF2WITHHMACSM3", PREFIX + "$PBKDF2withSM3");
             */
             // END Android-removed: Bouncy Castle versions of algorithms.
             // BEGIN Android-added: Android versions of algorithms.

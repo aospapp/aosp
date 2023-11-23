@@ -35,7 +35,7 @@ static void *task_fn(void *arg LTP_ATTRIBUTE_UNUSED)
 	burn(BURN_SEC * USEC_PER_SEC, 0);
 
 	printf("Changing to small task...\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "trace_marker", "SMALL TASK");
+	tracefs_write("trace_marker", "SMALL TASK");
 	burn(BURN_SEC * USEC_PER_SEC, 1);
 
 	return NULL;
@@ -50,6 +50,7 @@ static int parse_results(void)
 	unsigned long long big_task_us = 0;
 	unsigned long long small_task_us = 0;
 	unsigned long long smalltask_ts_usec = 0;
+	unsigned long long smalltask_tm_usec = 0;
 	unsigned long long downmigrate_ts_usec = 0;
 	unsigned long long downmigrate_latency_usec = 0;
 	cpu_set_t cpuset;
@@ -62,10 +63,11 @@ static int parse_results(void)
 	for (i = 0; i < num_trace_records; i++) {
 		unsigned long long segment_us;
 		struct trace_sched_switch *t = trace[i].event_data;
+		unsigned long long trace_ts_usec = TS_TO_USEC(trace[i].ts);
 
 		if (trace[i].event_type == TRACE_RECORD_TRACING_MARK_WRITE &&
 			   !strcmp(trace[i].event_data, "SMALL TASK")) {
-			smalltask_ts_usec = TS_TO_USEC(trace[i].ts);
+			smalltask_tm_usec = trace_ts_usec;
 			continue;
 		}
 
@@ -73,12 +75,15 @@ static int parse_results(void)
 			continue;
 
 		if (t->next_pid == task_tid) {
+			if (!smalltask_ts_usec && smalltask_tm_usec &&
+					trace_ts_usec > smalltask_tm_usec)
+				smalltask_ts_usec = trace_ts_usec;
 			/* Start of task execution segment. */
 			if (exec_start_us) {
 				printf("Trace parse fail: double exec start\n");
 				return -1;
 			}
-			exec_start_us = TS_TO_USEC(trace[i].ts);
+			exec_start_us = trace_ts_usec;
 			if (smalltask_ts_usec && !downmigrate_ts_usec &&
 			    CPU_ISSET(trace[i].cpu, &cpuset))
 				downmigrate_ts_usec = exec_start_us;
@@ -87,7 +92,7 @@ static int parse_results(void)
 		if (t->prev_pid != task_tid)
 			continue;
 		/* End of task execution segment. */
-		segment_us = TS_TO_USEC(trace[i].ts);
+		segment_us = trace_ts_usec;
 		segment_us -= exec_start_us;
 		exec_start_us = 0;
 		if (CPU_ISSET(trace[i].cpu, &cpuset)) {
@@ -146,17 +151,17 @@ static void run(void)
 		MAX_DOWNMIGRATE_LATENCY_US);
 
 	/* configure and enable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
-	SAFE_FILE_PRINTF(TRACING_DIR "buffer_size_kb", "16384");
-	SAFE_FILE_PRINTF(TRACING_DIR "set_event", TRACE_EVENTS);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
+	tracefs_write("tracing_on", "0");
+	tracefs_write("buffer_size_kb", "16384");
+	tracefs_write("set_event", TRACE_EVENTS);
+	tracefs_write("trace", "\n");
+	tracefs_write("tracing_on", "1");
 
 	SAFE_PTHREAD_CREATE(&task_thread, NULL, task_fn, NULL);
 	SAFE_PTHREAD_JOIN(task_thread, NULL);
 
 	/* disable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
+	tracefs_write("tracing_on", "0");
 	LOAD_TRACE();
 
 	if (parse_results())
@@ -169,5 +174,6 @@ static void run(void)
 
 static struct tst_test test = {
 	.test_all = run,
+	.setup = trace_setup,
 	.cleanup = trace_cleanup,
 };

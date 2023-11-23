@@ -57,6 +57,11 @@ def EnterpriseFakeEnrollment(browser, user_id, password, gaia_id,
     """
     browser.oobe.NavigateFakeLogin(user_id, password, gaia_id,
                                    enterprise_enroll=True)
+    # Oobe context recreated after after the enrollment.
+    utils.poll_for_condition(
+        lambda: browser.oobe_exists and
+            browser.oobe.EnterpriseWebviewVisible(user_id), timeout=30)
+
     if auto_login:
         browser.oobe.NavigateFakeLogin(user_id, password, gaia_id)
         # TODO(achuith): Replace with WaitForLogin.

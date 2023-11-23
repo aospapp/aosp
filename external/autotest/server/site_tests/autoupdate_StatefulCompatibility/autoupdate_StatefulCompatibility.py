@@ -4,17 +4,37 @@
 
 import json
 import logging
+import os
 import re
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils as cutils
+from autotest_lib.client.common_lib.cros import kernel_utils
+from autotest_lib.client.cros import constants
 from autotest_lib.server import utils
-from autotest_lib.server.cros.update_engine import chromiumos_test_platform
+from autotest_lib.server.cros import provisioner
 from autotest_lib.server.cros.update_engine import update_engine_test
 
 
 class autoupdate_StatefulCompatibility(update_engine_test.UpdateEngineTest):
+    """Tests autoupdating to/from kernel-next images."""
     version = 1
+
+    _LOGIN_TEST = 'login_LoginSuccess'
+
+
+    def cleanup(self):
+        """Save the logs from stateful_partition's preserved/log dir."""
+        stateful_preserved_logs = os.path.join(self.resultsdir,
+                                               '~stateful_preserved_logs')
+        os.makedirs(stateful_preserved_logs)
+        self._host.get_file(
+                constants.AUTOUPDATE_PRESERVE_LOG,
+                stateful_preserved_logs,
+                safe_symlinks=True,
+                preserve_perm=False)
+        super(autoupdate_StatefulCompatibility, self).cleanup()
+
 
     def _get_target_uri(self, target_board, version_regex, max_image_checks):
         """Checks through all valid builds for the latest green build
@@ -56,7 +76,7 @@ class autoupdate_StatefulCompatibility(update_engine_test.UpdateEngineTest):
                                   target_board)
 
         if metadata_uri is None:
-            logging.warning('No image met quality criteria. Checked %d images' %
+            logging.warning('No image met quality criteria. Checked %d images',
                             len(candidate_uris))
             # At this point we've checked as many images as possible up to the
             # specified maximum, and none of them have qualified with our pass/
@@ -238,16 +258,8 @@ class autoupdate_StatefulCompatibility(update_engine_test.UpdateEngineTest):
         return metadata['tags']['status'] == 'pass'
 
 
-    def _stage_payloads_onto_devserver(self):
-        """Stages payloads that will be used by the test onto the devserver."""
-        logging.info('Staging images onto autotest devserver (%s)',
-                     self._autotest_devserver.url())
-
-        self._stage_payloads(self._source_payload_uri, None)
-        self._stage_payloads(self._target_payload_uri, None)
-
-
     def run_once(self, test_conf, max_image_checks):
+        """Main entry point of the test."""
         logging.debug("Using test_conf: %s", test_conf)
 
         self._source_payload_uri = test_conf['source_payload_uri']
@@ -260,24 +272,47 @@ class autoupdate_StatefulCompatibility(update_engine_test.UpdateEngineTest):
             self._target_payload_uri = self._get_target_uri(
                 target_board, target_version_regex, max_image_checks)
 
-        logging.debug('Using source image %s' % self._source_payload_uri)
-        logging.debug('Using target image %s' % self._target_payload_uri)
+        logging.debug('Using source image %s', self._source_payload_uri)
+        logging.debug('Using target image %s', self._target_payload_uri)
 
-        self._autotest_devserver = self._get_least_loaded_devserver(
+        self._autotest_devserver = self._get_devserver_for_test(
             {'target_payload_uri': self._target_payload_uri})
 
-        self._stage_payloads_onto_devserver()
-
-        # Get an object representing the CrOS DUT.
-        cros_device = chromiumos_test_platform.ChromiumOSTestPlatform(
-            self._host, self._autotest_devserver, self.job.resultdir)
+        self._stage_payloads(self._source_payload_uri, None)
+        self._stage_payloads(self._target_payload_uri, None)
 
         if self._source_payload_uri is not None:
-            logging.debug('Going to install source image on DUT.')
-            cros_device.install_source_image(self._source_payload_uri)
-            cros_device.check_login_after_source_update()
+            build_name, _ = self._get_update_parameters_from_uri(
+                    self._source_payload_uri)
+            update_url = self._autotest_devserver.get_update_url(build_name)
+            logging.info('Installing source image with update url: %s',
+                         update_url)
+
+            provisioner.ChromiumOSProvisioner(
+                    update_url, host=self._host,
+                    is_release_bucket=True).run_provision()
+
+            self._run_client_test_and_check_result(self._LOGIN_TEST,
+                                                   tag='source')
+
+        # Record the active root partition.
+        active, inactive = kernel_utils.get_kernel_state(self._host)
+        logging.info('Source active slot: %s', active)
+
+        # Get the source and target versions for verifying hostlog update events.
+        source_release = self._host.get_release_version()
+        target_release, _ = self._get_update_parameters_from_uri(
+                self._target_payload_uri)
+        target_release = target_release.split('/')[-1]
 
         logging.debug('Going to install target image on DUT.')
-        cros_device.install_target_image(self._target_payload_uri)
+        self.update_device(
+                self._target_payload_uri, tag='target', ignore_appid=True)
 
-        cros_device.check_login_after_target_update()
+        # Compare hostlog events from the update to the expected ones.
+        rootfs, reboot = self._create_hostlog_files()
+        self.verify_update_events(source_release, rootfs)
+        self.verify_update_events(source_release, reboot, target_release)
+        kernel_utils.verify_boot_expectations(inactive, host=self._host)
+
+        self._run_client_test_and_check_result(self._LOGIN_TEST, tag='target')

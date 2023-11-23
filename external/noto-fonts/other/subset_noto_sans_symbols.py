@@ -19,8 +19,13 @@
 
 __author__ = 'roozbeh@google.com (Roozbeh Pournader)'
 
+import contextlib
 import os
 import sys
+import tempfile
+
+from fontTools import ttLib
+from pathlib import PurePosixPath
 
 from nototools import subset
 from nototools import unicode_data
@@ -137,6 +142,15 @@ def get_android_emoji():
                 android_emoji.add(int(codepoint, 16))
     return android_emoji
 
+def rename_postscript_name(source_font, target_font, new_name):
+    """Rename the post script name to given one"""
+    with contextlib.closing(ttLib.TTFont(source_font)) as ttf:
+      nameTable = ttf['name']
+      for name in nameTable.names:
+        if (name.nameID == 6 and name.platformID == 3 and name.platEncID == 1
+            and name.langID == 0x0409):
+          name.string = new_name
+      ttf.save(target_font)
 
 def main(argv):
     """Subset the Noto Symbols font.
@@ -168,18 +182,27 @@ def main(argv):
 
     source_file_name = argv[1]
     target_file_name = argv[2]
+
+    tmp = tempfile.NamedTemporaryFile()
     subset.subset_font(
         source_file_name,
-        target_file_name,
+        tmp.name,
         include=target_coverage)
+
+    # Use given file name as the PostScript name.
+    postScriptName = PurePosixPath(target_file_name).stem
+    rename_postscript_name(tmp.name, target_file_name, postScriptName)
 
     second_subset_coverage = DEFAULT_EMOJI | android_emoji
     second_subset_file_name = argv[3]
     subset.subset_font(
         source_file_name,
-        second_subset_file_name,
+        tmp.name,
         include=second_subset_coverage)
 
+    # Use given file name as the PostScript name.
+    postScriptName = PurePosixPath(second_subset_file_name).stem
+    rename_postscript_name(tmp.name, second_subset_file_name, postScriptName)
 
 if __name__ == '__main__':
     main(sys.argv)

@@ -16,7 +16,7 @@ The following tools must be installed and present in the PATH variable:
 
  * Git (for checking out sources)
  * Python 3.x (for the build related scripts, some other scripts still use Python 2.7.x)
- * CMake 3.0 (3.6 for Android NDK r17+ builds) or newer
+ * CMake 3.10.2 or newer
 
 ### Win32
 
@@ -25,18 +25,21 @@ The following tools must be installed and present in the PATH variable:
 ### Linux
 
  * Standard toolchain (make, gcc/clang)
+ * If you have X11 installed, then the build assumes you also have the `GL/glx.h` header
+   file.
+    * You can get this from the `mesa-common-dev` Ubuntu package.
 
 ### Android
 
- * Android NDK r15c or later.
+ * Android NDK r17c or later.
  * Android SDK with: SDK Tools, SDK Platform-tools, SDK Build-tools, and API 28
  * Java Development Kit (JDK)
  * Windows: either NMake or Ninja in PATH
 
-If you have downloaded Android SDK tools, you can install necessary components
-by running:
+If you have downloaded the Android SDK command line tools package (25.2.3 or higher) then
+you can install the necessary components by running:
 
-	tools/android update sdk --no-ui --all --filter tools,platform-tools,build-tools-25.0.2,android-28
+	tools/bin/sdkmanager tools platform-tools 'build-tools;25.0.2' 'platforms;android-28'
 
 
 Building CTS
@@ -96,12 +99,12 @@ The package can be installed by either running:
 	python scripts/android/install_apk.py
 
 By default the CTS package will contain libdeqp.so built for armeabi-v7a, arm64-v8a,
-x86, and x86_64 ABIs, but that can be changed using --abis command line option.
+x86, and x86_64 ABIs, but that can be changed at build time by passing the --abis command line
+option to `scripts/android/build_apk.py`.
 
-To pick which ABI to use at install time, following commands must be used
-instead:
+To pick which ABI to use at _install time_, use the following command instead:
 
-	adb install --abi <ABI name> <build-root>/package/dEQP.apk /data/local/tmp/dEQP-debug.apk
+	adb install -g --abi <ABI name> <build-root>/package/dEQP.apk
 
 
 Building Mustpass
@@ -165,6 +168,17 @@ and a list of mandatory information tests for each fraction must be supplied:
 
 	--deqp-fraction-mandatory-caselist-file=<vulkancts>external/vulkancts/mustpass/master/vk-fraction-mandatory-tests.txt
 
+To specify file containing waived tests that are omitted only by specified vendor and renderer/device
+the following command line option may be used:
+
+	--deqp-waiver-file=<path>
+
+Some CTS tests use third-party runners. By default all tests are executed
+regardless of runner type (`any`). To exclude all tests using any of the
+external runners (`none`) or to only include tests using a certain runner:
+
+	--deqp-runner-type=(any|none|amber)
+
 No other command line options are allowed.
 
 ### Win32
@@ -177,7 +191,7 @@ Test log will be written into TestResults.qpa
 ### Linux
 
 	cd <builddir>/external/vulkancts/modules/vulkan
-	./deqp-vk --deqp-vk-caselist-file=...
+	./deqp-vk --deqp-caselist-file=...
 
 ### Android
 
@@ -231,10 +245,15 @@ as part of the submission package (3). This can be done by running:
 
 	git format-patch -o <submission pkg dir> <release tag>..HEAD
 
-In general, bugfixes and changes to platform-specific code (mostly under
-`framework/platform`) are allowed. The commit message for each change must
-include a clear description of the change and why it is necessary. Non-porting
-related changes must be accompanied by a waiver (see below).
+Changes to platform-specific code (mostly under `framework/platform`)
+are allowed. The commit message for each change must include a clear
+description of the change and why it is necessary.
+
+Bugfixes to the tests are allowed. Before being used for a submission,
+bugfixes must be accepted and merged into the CTS repository.
+`git cherry-pick` is strongly recommended as a method of applying bug fixes.
+
+Other changes must be accompanied by a waiver (see below).
 
 NOTE: When cherry-picking patches on top of release tag, please use `git cherry-pick -x`
 to include original commit hash in the commit message.
@@ -253,7 +272,7 @@ if `vk::Platform::describePlatform()` is implemented.
 If the submission package covers multiple products, you can list them by appending
 additional `PRODUCT:` lines to the conformance statement. For example:
 
-	CONFORM_VERSION:         vulkan-cts-1.2.1.0
+	CONFORM_VERSION:         vulkan-cts-1.2.6.0
 	PRODUCT:                 Product A
 	PRODUCT:                 Product B
 	...
@@ -315,16 +334,10 @@ codes are allowed:
 	NotSupported
 	QualityWarning
 	CompatibilityWarning
+	Waiver
 
-Submission package can be verified using `external/vulkancts/scripts/verify_submission.py`
-script. The script takes two arguments: path to extracted submission package
-and path to current mustpass list. For example:
-
-	python external/vulkancts/scripts/verify_submission.py VK_11_Khronos_1/ external/vulkancts/mustpass/master/vk-default.txt
-
-Please note that the script reports a warning even for a correctly generated git-log.txt
-If your git-log.txt contains only head commit of the release tag then
-the warning can be ignored.
+Submission package can be verified using `verify_submission.py`
+script located in [VK-GL-CTS-Tools](https://github.com/KhronosGroup/VK-GL-CTS-Tools).
 
 Vulkan platform port
 --------------------
@@ -362,11 +375,15 @@ validation layers enabled and debug callback is registered to record any
 messages. Debug messages collected during test execution will be included at
 the end of the test case log.
 
+In addition, when the `--deqp-print-validation-errors` command line option is
+used, validation errors are additionally printed to standard error in the
+moment they are generated.
+
 If any validation errors are found, test result will be set to `InternalError`.
 
 By default `VK_DEBUG_REPORT_INFORMATION_BIT_EXT` and `_DEBUG_BIT_EXT` messages
 are excluded from the log, but that can be customized by modifying
-`vkt::TestCaseExecutor::deinit()` in `vktTestPackage.cpp`.
+`vk::DebugReportMessage::shouldBeLogged()` in `vkDebugReportUtil.hpp`.
 
 On the Android target, layers can be added to the APK during the build process
 by setting the `--layers-path` command line option to point into the NDK or to

@@ -15,13 +15,14 @@
 # Description:
 #   Test utilities for the Dagger model
 
-package(default_visibility = ["//:src"])
-
+load("@rules_java//java:defs.bzl", "java_library")
 load(
     "//:build_defs.bzl",
     "DOCLINT_HTML_AND_SYNTAX",
     "DOCLINT_REFERENCES",
 )
+
+package(default_visibility = ["//:src"])
 
 java_library(
     name = "testing",
@@ -29,11 +30,12 @@ java_library(
     srcs = glob(["*.java"]),
     javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
     deps = [
-        "//java/dagger/internal/codegen:jdk-and-guava-extras",
-        "//java/dagger/model",
+        "//java/dagger/internal/codegen/extension",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
+        "//java/dagger/spi",
         "@google_bazel_common//third_party/java/auto:value",
         "@google_bazel_common//third_party/java/checker_framework_annotations",
-        "@google_bazel_common//third_party/java/guava",
         "@google_bazel_common//third_party/java/truth",
     ],
 )

@@ -30,12 +30,10 @@
 // Converts a minidump file to a core file which gdb can read.
 // Large parts lifted from the userspace core dumper:
 //   http://code.google.com/p/google-coredumper/
-//
-// Usage: minidump-2-core [-v] 1234.dmp > core
 
 #include <elf.h>
 #include <errno.h>
-#include <inttypes.h>
+#include <limits.h>
 #include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,12 +47,15 @@
 
 #include "common/linux/memory_mapped_file.h"
 #include "common/minidump_type_helper.h"
+#include "common/path_helper.h"
 #include "common/scoped_ptr.h"
+#include "common/using_std_string.h"
+#include "google_breakpad/common/breakpad_types.h"
 #include "google_breakpad/common/minidump_format.h"
 #include "third_party/lss/linux_syscall_support.h"
 #include "tools/linux/md2core/minidump_memory_range.h"
 
-#if __WORDSIZE == 64
+#if ULONG_MAX == 0xffffffffffffffff
   #define ELF_CLASS ELFCLASS64
 #else
   #define ELF_CLASS ELFCLASS32
@@ -74,6 +75,8 @@
   #define ELF_ARCH  EM_ARM
 #elif defined(__mips__)
   #define ELF_ARCH  EM_MIPS
+#elif defined(__aarch64__)
+  #define ELF_ARCH  EM_AARCH64
 #endif
 
 #if defined(__arm__)
@@ -81,6 +84,9 @@
 // containing core registers, while they use 'user_regs_struct' on other
 // architectures. This file-local typedef simplifies the source code.
 typedef user_regs user_regs_struct;
+#elif defined (__mips__)
+// This file-local typedef simplifies the source code.
+typedef gregset_t user_regs_struct;
 #endif
 
 using google_breakpad::MDTypeHelper;
@@ -91,12 +97,105 @@ typedef MDTypeHelper<sizeof(ElfW(Addr))>::MDRawDebug MDRawDebug;
 typedef MDTypeHelper<sizeof(ElfW(Addr))>::MDRawLinkMap MDRawLinkMap;
 
 static const MDRVA kInvalidMDRVA = static_cast<MDRVA>(-1);
-static bool verbose;
-static std::string g_custom_so_basedir;
 
-static int usage(const char* argv0) {
-  fprintf(stderr, "Usage: %s [-v] <minidump file>\n", argv0);
-  return 1;
+struct Options {
+  string minidump_path;
+  bool verbose;
+  int out_fd;
+  bool use_filename;
+  bool inc_guid;
+  string so_basedir;
+};
+
+static void
+Usage(int argc, const char* argv[]) {
+  fprintf(stderr,
+          "Usage: %s [options] <minidump file>\n"
+          "\n"
+          "Convert a minidump file into a core file (often for use by gdb).\n"
+          "\n"
+          "The shared library list will by default have filenames as the runtime expects.\n"
+          "There are many flags to control the output names though to make it easier to\n"
+          "integrate with your debug environment (e.g. gdb).\n"
+          " Default:    /lib64/libpthread.so.0\n"
+          " -f:         /lib64/libpthread-2.19.so\n"
+          " -i:         /lib64/<module id>-libpthread.so.0\n"
+          " -f -i:      /lib64/<module id>-libpthread-2.19.so\n"
+          " -S /foo/:   /foo/libpthread.so.0\n"
+          "\n"
+          "Options:\n"
+          "  -v         Enable verbose output\n"
+          "  -o <file>  Write coredump to specified file (otherwise use stdout).\n"
+          "  -f         Use the filename rather than the soname in the sharedlib list.\n"
+          "             The soname is what the runtime system uses, but the filename is\n"
+          "             how it's stored on disk.\n"
+          "  -i         Prefix sharedlib names with ID (when available).  This makes it\n"
+          "             easier to have a single directory full of symbols.\n"
+          "  -S <dir>   Set soname base directory.  This will force all debug/symbol\n"
+          "             lookups to be done in this directory rather than the filesystem\n"
+          "             layout as it exists in the crashing image.  This path should end\n"
+          "             with a slash if it's a directory.  e.g. /var/lib/breakpad/\n"
+          "", google_breakpad::BaseName(argv[0]).c_str());
+}
+
+static void
+SetupOptions(int argc, const char* argv[], Options* options) {
+  extern int optind;
+  int ch;
+  const char* output_file = NULL;
+
+  // Initialize the options struct as needed.
+  options->verbose = false;
+  options->use_filename = false;
+  options->inc_guid = false;
+
+  while ((ch = getopt(argc, (char * const *)argv, "fhio:S:v")) != -1) {
+    switch (ch) {
+      case 'h':
+        Usage(argc, argv);
+        exit(0);
+        break;
+      case '?':
+        Usage(argc, argv);
+        exit(1);
+        break;
+
+      case 'f':
+        options->use_filename = true;
+        break;
+      case 'i':
+        options->inc_guid = true;
+        break;
+      case 'o':
+        output_file = optarg;
+        break;
+      case 'S':
+        options->so_basedir = optarg;
+        break;
+      case 'v':
+        options->verbose = true;
+        break;
+    }
+  }
+
+  if ((argc - optind) != 1) {
+    fprintf(stderr, "%s: Missing minidump file\n", argv[0]);
+    Usage(argc, argv);
+    exit(1);
+  }
+
+  if (output_file == NULL || !strcmp(output_file, "-")) {
+    options->out_fd = STDOUT_FILENO;
+  } else {
+    options->out_fd = open(output_file, O_WRONLY|O_CREAT|O_TRUNC, 0664);
+    if (options->out_fd == -1) {
+      fprintf(stderr, "%s: could not open output %s: %s\n", argv[0],
+              output_file, strerror(errno));
+      exit(1);
+    }
+  }
+
+  options->minidump_path = argv[optind];
 }
 
 // Write all of the given buffer, handling short writes and EINTR. Return true
@@ -133,14 +232,14 @@ typedef struct elf_timeval {    /* Time value with microsecond resolution    */
   long tv_usec;                 /* Microseconds                              */
 } elf_timeval;
 
-typedef struct elf_siginfo {    /* Information about signal (unused)         */
+typedef struct _elf_siginfo {   /* Information about signal (unused)         */
   int32_t si_signo;             /* Signal number                             */
   int32_t si_code;              /* Extra code                                */
   int32_t si_errno;             /* Errno                                     */
-} elf_siginfo;
+} _elf_siginfo;
 
 typedef struct prstatus {       /* Information about thread; includes CPU reg*/
-  elf_siginfo    pr_info;       /* Info associated with signal               */
+  _elf_siginfo   pr_info;       /* Info associated with signal               */
   uint16_t       pr_cursig;     /* Current signal                            */
   unsigned long  pr_sigpend;    /* Set of pending signals                    */
   unsigned long  pr_sighold;    /* Set of held signals                       */
@@ -198,8 +297,9 @@ struct CrashedProcess {
 
     uint32_t permissions;
     uint64_t start_address, end_address, offset;
-    std::string filename;
-    std::string data;
+    // The name we write out to the core.
+    string filename;
+    string data;
   };
   std::map<uint64_t, Mapping> mappings;
 
@@ -208,12 +308,19 @@ struct CrashedProcess {
 
   struct Thread {
     pid_t tid;
+#if defined(__mips__)
+    mcontext_t mcontext;
+#else
     user_regs_struct regs;
-#if defined(__i386__) || defined(__x86_64__) || defined(__mips__)
+#endif
+#if defined(__i386__) || defined(__x86_64__)
     user_fpregs_struct fpregs;
 #endif
 #if defined(__i386__)
     user_fpxregs_struct fpxregs;
+#endif
+#if defined(__aarch64__)
+    user_fpsimd_struct fpregs;
 #endif
     uintptr_t stack_addr;
     const uint8_t* stack;
@@ -226,9 +333,15 @@ struct CrashedProcess {
 
   prpsinfo prps;
 
-  std::map<uintptr_t, std::string> signatures;
+  // The GUID/filename from MD_MODULE_LIST_STREAM entries.
+  // We gather them for merging later on into the list of maps.
+  struct Signature {
+    char guid[40];
+    string filename;
+  };
+  std::map<uintptr_t, Signature> signatures;
 
-  std::string dynamic_data;
+  string dynamic_data;
   MDRawDebug debug;
   std::vector<MDRawLinkMap> link_map;
 };
@@ -364,6 +477,33 @@ ParseThreadRegisters(CrashedProcess::Thread* thread,
   thread->regs.uregs[16] = rawregs->cpsr;
   thread->regs.uregs[17] = 0;  // what is ORIG_r0 exactly?
 }
+#elif defined(__aarch64__)
+static void
+ParseThreadRegisters(CrashedProcess::Thread* thread,
+                     const MinidumpMemoryRange& range) {
+#define COPY_REGS(rawregs)                                          \
+  do {                                                              \
+    for (int i = 0; i < 31; ++i)                                    \
+      thread->regs.regs[i] = rawregs->iregs[i];                     \
+    thread->regs.sp = rawregs->iregs[MD_CONTEXT_ARM64_REG_SP];      \
+    thread->regs.pc = rawregs->iregs[MD_CONTEXT_ARM64_REG_PC];      \
+    thread->regs.pstate = rawregs->cpsr;                            \
+                                                                    \
+    memcpy(thread->fpregs.vregs, rawregs->float_save.regs, 8 * 32); \
+    thread->fpregs.fpsr = rawregs->float_save.fpsr;                 \
+    thread->fpregs.fpcr = rawregs->float_save.fpcr;                 \
+  } while (false)
+
+  if (range.length() == sizeof(MDRawContextARM64_Old)) {
+    const MDRawContextARM64_Old* rawregs =
+        range.GetData<MDRawContextARM64_Old>(0);
+    COPY_REGS(rawregs);
+  } else {
+    const MDRawContextARM64* rawregs = range.GetData<MDRawContextARM64>(0);
+    COPY_REGS(rawregs);
+  }
+#undef COPY_REGS
+}
 #elif defined(__mips__)
 static void
 ParseThreadRegisters(CrashedProcess::Thread* thread,
@@ -371,21 +511,28 @@ ParseThreadRegisters(CrashedProcess::Thread* thread,
   const MDRawContextMIPS* rawregs = range.GetData<MDRawContextMIPS>(0);
 
   for (int i = 0; i < MD_CONTEXT_MIPS_GPR_COUNT; ++i)
-    thread->regs.regs[i] = rawregs->iregs[i];
+    thread->mcontext.gregs[i] = rawregs->iregs[i];
 
-  thread->regs.lo = rawregs->mdlo;
-  thread->regs.hi = rawregs->mdhi;
-  thread->regs.epc = rawregs->epc;
-  thread->regs.badvaddr = rawregs->badvaddr;
-  thread->regs.status = rawregs->status;
-  thread->regs.cause = rawregs->cause;
+  thread->mcontext.pc = rawregs->epc;
 
-  for (int i = 0; i < MD_FLOATINGSAVEAREA_MIPS_FPR_COUNT; ++i)
-    thread->fpregs.regs[i] = rawregs->float_save.regs[i];
+  thread->mcontext.mdlo = rawregs->mdlo;
+  thread->mcontext.mdhi = rawregs->mdhi;
 
-  thread->fpregs.fpcsr = rawregs->float_save.fpcsr;
+  thread->mcontext.hi1 = rawregs->hi[0];
+  thread->mcontext.lo1 = rawregs->lo[0];
+  thread->mcontext.hi2 = rawregs->hi[1];
+  thread->mcontext.lo2 = rawregs->lo[1];
+  thread->mcontext.hi3 = rawregs->hi[2];
+  thread->mcontext.lo3 = rawregs->lo[2];
+
+  for (int i = 0; i < MD_FLOATINGSAVEAREA_MIPS_FPR_COUNT; ++i) {
+    thread->mcontext.fpregs.fp_r.fp_fregs[i]._fp_fregs =
+        rawregs->float_save.regs[i];
+  }
+
+  thread->mcontext.fpc_csr = rawregs->float_save.fpcsr;
 #if _MIPS_SIM == _ABIO32
-  thread->fpregs.fir = rawregs->float_save.fir;
+  thread->mcontext.fpc_eir = rawregs->float_save.fir;
 #endif
 }
 #else
@@ -393,10 +540,11 @@ ParseThreadRegisters(CrashedProcess::Thread* thread,
 #endif
 
 static void
-ParseThreadList(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
+ParseThreadList(const Options& options, CrashedProcess* crashinfo,
+                const MinidumpMemoryRange& range,
                 const MinidumpMemoryRange& full_file) {
   const uint32_t num_threads = *range.GetData<uint32_t>(0);
-  if (verbose) {
+  if (options.verbose) {
     fprintf(stderr,
             "MD_THREAD_LIST_STREAM:\n"
             "Found %d threads\n"
@@ -423,12 +571,13 @@ ParseThreadList(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
 }
 
 static void
-ParseSystemInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
+ParseSystemInfo(const Options& options, CrashedProcess* crashinfo,
+                const MinidumpMemoryRange& range,
                 const MinidumpMemoryRange& full_file) {
   const MDRawSystemInfo* sysinfo = range.GetData<MDRawSystemInfo>(0);
   if (!sysinfo) {
     fprintf(stderr, "Failed to access MD_SYSTEM_INFO_STREAM\n");
-    _exit(1);
+    exit(1);
   }
 #if defined(__i386__)
   if (sysinfo->processor_architecture != MD_CPU_ARCHITECTURE_X86) {
@@ -436,7 +585,7 @@ ParseSystemInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
             "This version of minidump-2-core only supports x86 (32bit)%s.\n",
             sysinfo->processor_architecture == MD_CPU_ARCHITECTURE_AMD64 ?
             ",\nbut the minidump file is from a 64bit machine" : "");
-    _exit(1);
+    exit(1);
   }
 #elif defined(__x86_64__)
   if (sysinfo->processor_architecture != MD_CPU_ARCHITECTURE_AMD64) {
@@ -444,20 +593,36 @@ ParseSystemInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
             "This version of minidump-2-core only supports x86 (64bit)%s.\n",
             sysinfo->processor_architecture == MD_CPU_ARCHITECTURE_X86 ?
             ",\nbut the minidump file is from a 32bit machine" : "");
-    _exit(1);
+    exit(1);
   }
 #elif defined(__arm__)
   if (sysinfo->processor_architecture != MD_CPU_ARCHITECTURE_ARM) {
     fprintf(stderr,
             "This version of minidump-2-core only supports ARM (32bit).\n");
-    _exit(1);
+    exit(1);
+  }
+#elif defined(__aarch64__)
+  if (sysinfo->processor_architecture != MD_CPU_ARCHITECTURE_ARM64_OLD) {
+    fprintf(stderr,
+            "This version of minidump-2-core only supports ARM (64bit).\n");
+    exit(1);
   }
 #elif defined(__mips__)
+# if _MIPS_SIM == _ABIO32
   if (sysinfo->processor_architecture != MD_CPU_ARCHITECTURE_MIPS) {
     fprintf(stderr,
-            "This version of minidump-2-core only supports mips (32bit).\n");
-    _exit(1);
+            "This version of minidump-2-core only supports mips o32 (32bit).\n");
+    exit(1);
   }
+# elif _MIPS_SIM == _ABI64
+  if (sysinfo->processor_architecture != MD_CPU_ARCHITECTURE_MIPS64) {
+    fprintf(stderr,
+            "This version of minidump-2-core only supports mips n64 (64bit).\n");
+    exit(1);
+  }
+# else
+#  error "This mips ABI is currently not supported (n32)"
+# endif
 #else
 #error "This code has not been ported to your platform yet"
 #endif
@@ -465,10 +630,10 @@ ParseSystemInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
               "Linux") &&
       sysinfo->platform_id != MD_OS_NACL) {
     fprintf(stderr, "This minidump was not generated by Linux or NaCl.\n");
-    _exit(1);
+    exit(1);
   }
 
-  if (verbose) {
+  if (options.verbose) {
     fprintf(stderr,
             "MD_SYSTEM_INFO_STREAM:\n"
             "Architecture: %s\n"
@@ -484,6 +649,8 @@ ParseSystemInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
             ? "ARM"
             : sysinfo->processor_architecture == MD_CPU_ARCHITECTURE_MIPS
             ? "MIPS"
+            : sysinfo->processor_architecture == MD_CPU_ARCHITECTURE_MIPS64
+            ? "MIPS64"
             : "???",
             sysinfo->number_of_processors,
             sysinfo->processor_level,
@@ -507,8 +674,9 @@ ParseSystemInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
 }
 
 static void
-ParseCPUInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
-  if (verbose) {
+ParseCPUInfo(const Options& options, CrashedProcess* crashinfo,
+             const MinidumpMemoryRange& range) {
+  if (options.verbose) {
     fputs("MD_LINUX_CPU_INFO:\n", stderr);
     fwrite(range.data(), range.length(), 1, stderr);
     fputs("\n\n\n", stderr);
@@ -516,9 +684,9 @@ ParseCPUInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
 }
 
 static void
-ParseProcessStatus(CrashedProcess* crashinfo,
+ParseProcessStatus(const Options& options, CrashedProcess* crashinfo,
                    const MinidumpMemoryRange& range) {
-  if (verbose) {
+  if (options.verbose) {
     fputs("MD_LINUX_PROC_STATUS:\n", stderr);
     fwrite(range.data(), range.length(), 1, stderr);
     fputs("\n\n", stderr);
@@ -526,8 +694,9 @@ ParseProcessStatus(CrashedProcess* crashinfo,
 }
 
 static void
-ParseLSBRelease(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
-  if (verbose) {
+ParseLSBRelease(const Options& options, CrashedProcess* crashinfo,
+                const MinidumpMemoryRange& range) {
+  if (options.verbose) {
     fputs("MD_LINUX_LSB_RELEASE:\n", stderr);
     fwrite(range.data(), range.length(), 1, stderr);
     fputs("\n\n", stderr);
@@ -535,8 +704,9 @@ ParseLSBRelease(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
 }
 
 static void
-ParseMaps(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
-  if (verbose) {
+ParseMaps(const Options& options, CrashedProcess* crashinfo,
+          const MinidumpMemoryRange& range) {
+  if (options.verbose) {
     fputs("MD_LINUX_MAPS:\n", stderr);
     fwrite(range.data(), range.length(), 1, stderr);
   }
@@ -544,8 +714,8 @@ ParseMaps(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
        ptr < range.data() + range.length();) {
     const uint8_t* eol = (uint8_t*)memchr(ptr, '\n',
                                        range.data() + range.length() - ptr);
-    std::string line((const char*)ptr,
-                     eol ? eol - ptr : range.data() + range.length() - ptr);
+    string line((const char*)ptr,
+                eol ? eol - ptr : range.data() + range.length() - ptr);
     ptr = eol ? eol + 1 : range.data() + range.length();
     unsigned long long start, stop, offset;
     char* permissions = NULL;
@@ -575,14 +745,15 @@ ParseMaps(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
     free(permissions);
     free(filename);
   }
-  if (verbose) {
+  if (options.verbose) {
     fputs("\n\n\n", stderr);
   }
 }
 
 static void
-ParseEnvironment(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
-  if (verbose) {
+ParseEnvironment(const Options& options, CrashedProcess* crashinfo,
+                 const MinidumpMemoryRange& range) {
+  if (options.verbose) {
     fputs("MD_LINUX_ENVIRON:\n", stderr);
     char* env = new char[range.length()];
     memcpy(env, range.data(), range.length());
@@ -619,7 +790,8 @@ ParseEnvironment(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
 }
 
 static void
-ParseAuxVector(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
+ParseAuxVector(const Options& options, CrashedProcess* crashinfo,
+               const MinidumpMemoryRange& range) {
   // Some versions of Chrome erroneously used the MD_LINUX_AUXV stream value
   // when dumping /proc/$x/maps
   if (range.length() > 17) {
@@ -630,7 +802,7 @@ ParseAuxVector(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
     memcpy(addresses, range.data(), 17);
     addresses[17] = '\000';
     if (strspn(addresses, "0123456789abcdef-") == 17) {
-      ParseMaps(crashinfo, range);
+      ParseMaps(options, crashinfo, range);
       return;
     }
   }
@@ -640,12 +812,13 @@ ParseAuxVector(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
 }
 
 static void
-ParseCmdLine(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
+ParseCmdLine(const Options& options, CrashedProcess* crashinfo,
+             const MinidumpMemoryRange& range) {
   // The command line is supposed to use NUL bytes to separate arguments.
   // As Chrome rewrites its own command line and (incorrectly) substitutes
   // spaces, this is often not the case in our minidump files.
   const char* cmdline = (const char*) range.data();
-  if (verbose) {
+  if (options.verbose) {
     fputs("MD_LINUX_CMD_LINE:\n", stderr);
     unsigned i = 0;
     for (; i < range.length() && cmdline[i] && cmdline[i] != ' '; ++i) { }
@@ -688,13 +861,14 @@ ParseCmdLine(CrashedProcess* crashinfo, const MinidumpMemoryRange& range) {
 }
 
 static void
-ParseDSODebugInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
+ParseDSODebugInfo(const Options& options, CrashedProcess* crashinfo,
+                  const MinidumpMemoryRange& range,
                   const MinidumpMemoryRange& full_file) {
   const MDRawDebug* debug = range.GetData<MDRawDebug>(0);
   if (!debug) {
     return;
   }
-  if (verbose) {
+  if (options.verbose) {
     fprintf(stderr,
             "MD_LINUX_DSO_DEBUG:\n"
             "Version: %d\n"
@@ -719,7 +893,7 @@ ParseDSODebugInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
       const MDRawLinkMap* link_map =
           full_file.GetArrayElement<MDRawLinkMap>(debug->map, i);
       if (link_map) {
-        if (verbose) {
+        if (options.verbose) {
           fprintf(stderr,
                   "#%03d: %" PRIx64 ", %" PRIx64 ", \"%s\"\n",
                   i, static_cast<uint64_t>(link_map->addr),
@@ -730,13 +904,13 @@ ParseDSODebugInfo(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
       }
     }
   }
-  if (verbose) {
+  if (options.verbose) {
     fputs("\n\n", stderr);
   }
 }
 
 static void
-ParseExceptionStream(CrashedProcess* crashinfo,
+ParseExceptionStream(const Options& options, CrashedProcess* crashinfo,
                      const MinidumpMemoryRange& range) {
   const MDRawExceptionStream* exp = range.GetData<MDRawExceptionStream>(0);
   crashinfo->crashing_tid = exp->thread_id;
@@ -744,32 +918,37 @@ ParseExceptionStream(CrashedProcess* crashinfo,
 }
 
 static bool
-WriteThread(const CrashedProcess::Thread& thread, int fatal_signal) {
+WriteThread(const Options& options, const CrashedProcess::Thread& thread,
+            int fatal_signal) {
   struct prstatus pr;
   memset(&pr, 0, sizeof(pr));
 
   pr.pr_info.si_signo = fatal_signal;
   pr.pr_cursig = fatal_signal;
   pr.pr_pid = thread.tid;
+#if defined(__mips__)
+  memcpy(&pr.pr_reg, &thread.mcontext.gregs, sizeof(user_regs_struct));
+#else
   memcpy(&pr.pr_reg, &thread.regs, sizeof(user_regs_struct));
+#endif
 
   Nhdr nhdr;
   memset(&nhdr, 0, sizeof(nhdr));
   nhdr.n_namesz = 5;
   nhdr.n_descsz = sizeof(struct prstatus);
   nhdr.n_type = NT_PRSTATUS;
-  if (!writea(1, &nhdr, sizeof(nhdr)) ||
-      !writea(1, "CORE\0\0\0\0", 8) ||
-      !writea(1, &pr, sizeof(struct prstatus))) {
+  if (!writea(options.out_fd, &nhdr, sizeof(nhdr)) ||
+      !writea(options.out_fd, "CORE\0\0\0\0", 8) ||
+      !writea(options.out_fd, &pr, sizeof(struct prstatus))) {
     return false;
   }
 
 #if defined(__i386__) || defined(__x86_64__)
   nhdr.n_descsz = sizeof(user_fpregs_struct);
   nhdr.n_type = NT_FPREGSET;
-  if (!writea(1, &nhdr, sizeof(nhdr)) ||
-      !writea(1, "CORE\0\0\0\0", 8) ||
-      !writea(1, &thread.fpregs, sizeof(user_fpregs_struct))) {
+  if (!writea(options.out_fd, &nhdr, sizeof(nhdr)) ||
+      !writea(options.out_fd, "CORE\0\0\0\0", 8) ||
+      !writea(options.out_fd, &thread.fpregs, sizeof(user_fpregs_struct))) {
     return false;
   }
 #endif
@@ -777,9 +956,9 @@ WriteThread(const CrashedProcess::Thread& thread, int fatal_signal) {
 #if defined(__i386__)
   nhdr.n_descsz = sizeof(user_fpxregs_struct);
   nhdr.n_type = NT_PRXFPREG;
-  if (!writea(1, &nhdr, sizeof(nhdr)) ||
-      !writea(1, "LINUX\0\0\0", 8) ||
-      !writea(1, &thread.fpxregs, sizeof(user_fpxregs_struct))) {
+  if (!writea(options.out_fd, &nhdr, sizeof(nhdr)) ||
+      !writea(options.out_fd, "LINUX\0\0\0", 8) ||
+      !writea(options.out_fd, &thread.fpxregs, sizeof(user_fpxregs_struct))) {
     return false;
   }
 #endif
@@ -788,9 +967,10 @@ WriteThread(const CrashedProcess::Thread& thread, int fatal_signal) {
 }
 
 static void
-ParseModuleStream(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
+ParseModuleStream(const Options& options, CrashedProcess* crashinfo,
+                  const MinidumpMemoryRange& range,
                   const MinidumpMemoryRange& full_file) {
-  if (verbose) {
+  if (options.verbose) {
     fputs("MD_MODULE_LIST_STREAM:\n", stderr);
   }
   const uint32_t num_mappings = *range.GetData<uint32_t>(0);
@@ -818,36 +998,29 @@ ParseModuleStream(CrashedProcess* crashinfo, const MinidumpMemoryRange& range,
             record->signature.data4[2], record->signature.data4[3],
             record->signature.data4[4], record->signature.data4[5],
             record->signature.data4[6], record->signature.data4[7]);
-    std::string filename =
-        full_file.GetAsciiMDString(rawmodule->module_name_rva);
-    size_t slash = filename.find_last_of('/');
-    std::string basename = slash == std::string::npos ?
-      filename : filename.substr(slash + 1);
-    if (strcmp(guid, "00000000-0000-0000-0000-000000000000")) {
-      std::string prefix;
-      if (!g_custom_so_basedir.empty())
-        prefix = g_custom_so_basedir;
-      else
-        prefix = std::string("/var/lib/breakpad/") + guid + "-" + basename;
 
-      crashinfo->signatures[rawmodule->base_of_image] = prefix + basename;
-    }
+    string filename = full_file.GetAsciiMDString(rawmodule->module_name_rva);
 
-    if (verbose) {
-      fprintf(stderr, "0x%08llX-0x%08llX, ChkSum: 0x%08X, GUID: %s, \"%s\"\n",
-              (unsigned long long)rawmodule->base_of_image,
-              (unsigned long long)rawmodule->base_of_image +
-              rawmodule->size_of_image,
+    CrashedProcess::Signature signature;
+    strcpy(signature.guid, guid);
+    signature.filename = filename;
+    crashinfo->signatures[rawmodule->base_of_image] = signature;
+
+    if (options.verbose) {
+      fprintf(stderr, "0x%" PRIx64 "-0x%" PRIx64 ", ChkSum: 0x%08X, GUID: %s, "
+              " \"%s\"\n",
+              rawmodule->base_of_image,
+              rawmodule->base_of_image + rawmodule->size_of_image,
               rawmodule->checksum, guid, filename.c_str());
     }
   }
-  if (verbose) {
+  if (options.verbose) {
     fputs("\n\n", stderr);
   }
 }
 
 static void
-AddDataToMapping(CrashedProcess* crashinfo, const std::string& data,
+AddDataToMapping(CrashedProcess* crashinfo, const string& data,
                  uintptr_t addr) {
   for (std::map<uint64_t, CrashedProcess::Mapping>::iterator
          iter = crashinfo->mappings.begin();
@@ -896,14 +1069,14 @@ AddDataToMapping(CrashedProcess* crashinfo, const std::string& data,
 }
 
 static void
-AugmentMappings(CrashedProcess* crashinfo,
+AugmentMappings(const Options& options, CrashedProcess* crashinfo,
                 const MinidumpMemoryRange& full_file) {
   // For each thread, find the memory mapping that matches the thread's stack.
   // Then adjust the mapping to include the stack dump.
   for (unsigned i = 0; i < crashinfo->threads.size(); ++i) {
     const CrashedProcess::Thread& thread = crashinfo->threads[i];
     AddDataToMapping(crashinfo,
-                     std::string((char *)thread.stack, thread.stack_length),
+                     string((char *)thread.stack, thread.stack_length),
                      thread.stack_addr);
   }
 
@@ -911,7 +1084,7 @@ AugmentMappings(CrashedProcess* crashinfo,
   // the beginning of the address space, as this area should always be
   // available.
   static const uintptr_t start_addr = 4096;
-  std::string data;
+  string data;
   struct r_debug debug = { 0 };
   debug.r_version = crashinfo->debug.version;
   debug.r_brk = (ElfW(Addr))crashinfo->debug.brk;
@@ -931,14 +1104,58 @@ AugmentMappings(CrashedProcess* crashinfo,
     link_map.l_ld = (ElfW(Dyn)*)iter->ld;
     link_map.l_prev = prev;
     prev = (struct link_map*)(start_addr + data.size());
-    std::string filename = full_file.GetAsciiMDString(iter->name);
+    string filename = full_file.GetAsciiMDString(iter->name);
 
     // Look up signature for this filename. If available, change filename
     // to point to GUID, instead.
-    std::map<uintptr_t, std::string>::const_iterator guid =
+    std::map<uintptr_t, CrashedProcess::Signature>::const_iterator sig =
       crashinfo->signatures.find((uintptr_t)iter->addr);
-    if (guid != crashinfo->signatures.end()) {
-      filename = guid->second;
+    if (sig != crashinfo->signatures.end()) {
+      // At this point, we have:
+      // old_filename: The path as found via SONAME (e.g. /lib/libpthread.so.0).
+      // sig_filename: The path on disk (e.g. /lib/libpthread-2.19.so).
+      const char* guid = sig->second.guid;
+      string sig_filename = sig->second.filename;
+      string old_filename = filename.empty() ? sig_filename : filename;
+      string new_filename;
+
+      // First set up the leading path.  We assume dirname always ends with a
+      // trailing slash (as needed), so we won't be appending one manually.
+      if (options.so_basedir.empty()) {
+        string dirname;
+        if (options.use_filename) {
+          dirname = sig_filename;
+        } else {
+          dirname = old_filename;
+        }
+        size_t slash = dirname.find_last_of('/');
+        if (slash != string::npos) {
+          new_filename = dirname.substr(0, slash + 1);
+        }
+      } else {
+        new_filename = options.so_basedir;
+      }
+
+      // Insert the module ID if requested.
+      if (options.inc_guid &&
+          strcmp(guid, "00000000-0000-0000-0000-000000000000") != 0) {
+        new_filename += guid;
+        new_filename += "-";
+      }
+
+      // Decide whether we use the filename or the SONAME (where the SONAME tends
+      // to be a symlink to the actual file).
+      new_filename += google_breakpad::BaseName(
+          options.use_filename ? sig_filename : old_filename);
+
+      if (filename != new_filename) {
+        if (options.verbose) {
+          fprintf(stderr, "0x%" PRIx64": rewriting mapping \"%s\" to \"%s\"\n",
+                  static_cast<uint64_t>(link_map.l_addr),
+                  filename.c_str(), new_filename.c_str());
+        }
+        filename = new_filename;
+      }
     }
 
     if (std::distance(iter, crashinfo->link_map.end()) == 1) {
@@ -961,7 +1178,7 @@ AugmentMappings(CrashedProcess* crashinfo,
       ElfW(Dyn) dyn;
       if ((i+1)*sizeof(dyn) > crashinfo->dynamic_data.length()) {
       no_dt_debug:
-        if (verbose) {
+        if (options.verbose) {
           fprintf(stderr, "No DT_DEBUG entry found\n");
         }
         return;
@@ -984,31 +1201,14 @@ AugmentMappings(CrashedProcess* crashinfo,
 }
 
 int
-main(int argc, char** argv) {
-  int argi = 1;
-  while (argi < argc && argv[argi][0] == '-') {
-    if (!strcmp(argv[argi], "-v")) {
-      verbose = true;
-    } else if (!strcmp(argv[argi], "--sobasedir")) {
-      argi++;
-      if (argi >= argc) {
-        fprintf(stderr, "--sobasedir expects an argument.");
-        return usage(argv[0]);
-      }
+main(int argc, const char* argv[]) {
+  Options options;
+  SetupOptions(argc, argv, &options);
 
-      g_custom_so_basedir = argv[argi];
-    } else {
-      return usage(argv[0]);
-    }
-    argi++;
-  }
-
-  if (argc != argi + 1)
-    return usage(argv[0]);
-
-  MemoryMappedFile mapped_file(argv[argi], 0);
+  MemoryMappedFile mapped_file(options.minidump_path.c_str(), 0);
   if (!mapped_file.data()) {
-    fprintf(stderr, "Failed to mmap dump file\n");
+    fprintf(stderr, "Failed to mmap dump file: %s: %s\n",
+            options.minidump_path.c_str(), strerror(errno));
     return 1;
   }
 
@@ -1026,7 +1226,8 @@ main(int argc, char** argv) {
         dump.GetArrayElement<MDRawDirectory>(header->stream_directory_rva, i);
     switch (dirent->stream_type) {
       case MD_SYSTEM_INFO_STREAM:
-        ParseSystemInfo(&crashinfo, dump.Subrange(dirent->location), dump);
+        ParseSystemInfo(options, &crashinfo, dump.Subrange(dirent->location),
+                        dump);
         ok = true;
         break;
       default:
@@ -1035,7 +1236,7 @@ main(int argc, char** argv) {
   }
   if (!ok) {
     fprintf(stderr, "Cannot determine input file format.\n");
-    _exit(1);
+    exit(1);
   }
 
   for (unsigned i = 0; i < header->stream_count; ++i) {
@@ -1043,45 +1244,50 @@ main(int argc, char** argv) {
         dump.GetArrayElement<MDRawDirectory>(header->stream_directory_rva, i);
     switch (dirent->stream_type) {
       case MD_THREAD_LIST_STREAM:
-        ParseThreadList(&crashinfo, dump.Subrange(dirent->location), dump);
+        ParseThreadList(options, &crashinfo, dump.Subrange(dirent->location),
+                        dump);
         break;
       case MD_LINUX_CPU_INFO:
-        ParseCPUInfo(&crashinfo, dump.Subrange(dirent->location));
+        ParseCPUInfo(options, &crashinfo, dump.Subrange(dirent->location));
         break;
       case MD_LINUX_PROC_STATUS:
-        ParseProcessStatus(&crashinfo, dump.Subrange(dirent->location));
+        ParseProcessStatus(options, &crashinfo,
+                           dump.Subrange(dirent->location));
         break;
       case MD_LINUX_LSB_RELEASE:
-        ParseLSBRelease(&crashinfo, dump.Subrange(dirent->location));
+        ParseLSBRelease(options, &crashinfo, dump.Subrange(dirent->location));
         break;
       case MD_LINUX_ENVIRON:
-        ParseEnvironment(&crashinfo, dump.Subrange(dirent->location));
+        ParseEnvironment(options, &crashinfo, dump.Subrange(dirent->location));
         break;
       case MD_LINUX_MAPS:
-        ParseMaps(&crashinfo, dump.Subrange(dirent->location));
+        ParseMaps(options, &crashinfo, dump.Subrange(dirent->location));
         break;
       case MD_LINUX_AUXV:
-        ParseAuxVector(&crashinfo, dump.Subrange(dirent->location));
+        ParseAuxVector(options, &crashinfo, dump.Subrange(dirent->location));
         break;
       case MD_LINUX_CMD_LINE:
-        ParseCmdLine(&crashinfo, dump.Subrange(dirent->location));
+        ParseCmdLine(options, &crashinfo, dump.Subrange(dirent->location));
         break;
       case MD_LINUX_DSO_DEBUG:
-        ParseDSODebugInfo(&crashinfo, dump.Subrange(dirent->location), dump);
+        ParseDSODebugInfo(options, &crashinfo, dump.Subrange(dirent->location),
+                          dump);
         break;
       case MD_EXCEPTION_STREAM:
-        ParseExceptionStream(&crashinfo, dump.Subrange(dirent->location));
+        ParseExceptionStream(options, &crashinfo,
+                             dump.Subrange(dirent->location));
         break;
       case MD_MODULE_LIST_STREAM:
-        ParseModuleStream(&crashinfo, dump.Subrange(dirent->location), dump);
+        ParseModuleStream(options, &crashinfo, dump.Subrange(dirent->location),
+                          dump);
         break;
       default:
-        if (verbose)
+        if (options.verbose)
           fprintf(stderr, "Skipping %x\n", dirent->stream_type);
     }
   }
 
-  AugmentMappings(&crashinfo, dump);
+  AugmentMappings(options, &crashinfo, dump);
 
   // Write the ELF header. The file will look like:
   //   ELF header
@@ -1107,7 +1313,7 @@ main(int argc, char** argv) {
   ehdr.e_phnum    = 1 +                         // PT_NOTE
                     crashinfo.mappings.size();  // memory mappings
   ehdr.e_shentsize= sizeof(Shdr);
-  if (!writea(1, &ehdr, sizeof(Ehdr)))
+  if (!writea(options.out_fd, &ehdr, sizeof(Ehdr)))
     return 1;
 
   size_t offset = sizeof(Ehdr) + ehdr.e_phnum * sizeof(Phdr);
@@ -1129,7 +1335,7 @@ main(int argc, char** argv) {
   phdr.p_type = PT_NOTE;
   phdr.p_offset = offset;
   phdr.p_filesz = filesz;
-  if (!writea(1, &phdr, sizeof(phdr)))
+  if (!writea(options.out_fd, &phdr, sizeof(phdr)))
     return 1;
 
   phdr.p_type = PT_LOAD;
@@ -1162,7 +1368,7 @@ main(int argc, char** argv) {
       phdr.p_filesz = 0;
       phdr.p_offset = 0;
     }
-    if (!writea(1, &phdr, sizeof(phdr)))
+    if (!writea(options.out_fd, &phdr, sizeof(phdr)))
       return 1;
   }
 
@@ -1171,36 +1377,36 @@ main(int argc, char** argv) {
   nhdr.n_namesz = 5;
   nhdr.n_descsz = sizeof(prpsinfo);
   nhdr.n_type = NT_PRPSINFO;
-  if (!writea(1, &nhdr, sizeof(nhdr)) ||
-      !writea(1, "CORE\0\0\0\0", 8) ||
-      !writea(1, &crashinfo.prps, sizeof(prpsinfo))) {
+  if (!writea(options.out_fd, &nhdr, sizeof(nhdr)) ||
+      !writea(options.out_fd, "CORE\0\0\0\0", 8) ||
+      !writea(options.out_fd, &crashinfo.prps, sizeof(prpsinfo))) {
     return 1;
   }
 
   nhdr.n_descsz = crashinfo.auxv_length;
   nhdr.n_type = NT_AUXV;
-  if (!writea(1, &nhdr, sizeof(nhdr)) ||
-      !writea(1, "CORE\0\0\0\0", 8) ||
-      !writea(1, crashinfo.auxv, crashinfo.auxv_length)) {
+  if (!writea(options.out_fd, &nhdr, sizeof(nhdr)) ||
+      !writea(options.out_fd, "CORE\0\0\0\0", 8) ||
+      !writea(options.out_fd, crashinfo.auxv, crashinfo.auxv_length)) {
     return 1;
   }
 
   for (unsigned i = 0; i < crashinfo.threads.size(); ++i) {
     if (crashinfo.threads[i].tid == crashinfo.crashing_tid) {
-      WriteThread(crashinfo.threads[i], crashinfo.fatal_signal);
+      WriteThread(options, crashinfo.threads[i], crashinfo.fatal_signal);
       break;
     }
   }
 
   for (unsigned i = 0; i < crashinfo.threads.size(); ++i) {
     if (crashinfo.threads[i].tid != crashinfo.crashing_tid)
-      WriteThread(crashinfo.threads[i], 0);
+      WriteThread(options, crashinfo.threads[i], 0);
   }
 
   if (note_align) {
     google_breakpad::scoped_array<char> scratch(new char[note_align]);
     memset(scratch.get(), 0, note_align);
-    if (!writea(1, scratch.get(), note_align))
+    if (!writea(options.out_fd, scratch.get(), note_align))
       return 1;
   }
 
@@ -1209,9 +1415,13 @@ main(int argc, char** argv) {
        iter != crashinfo.mappings.end(); ++iter) {
     const CrashedProcess::Mapping& mapping = iter->second;
     if (mapping.data.size()) {
-      if (!writea(1, mapping.data.c_str(), mapping.data.size()))
+      if (!writea(options.out_fd, mapping.data.c_str(), mapping.data.size()))
         return 1;
     }
+  }
+
+  if (options.out_fd != STDOUT_FILENO) {
+    close(options.out_fd);
   }
 
   return 0;

@@ -125,6 +125,15 @@ class AudioFacadeNative(object):
         self._extension_handler.set_active_volume(volume)
 
 
+    def set_chrome_active_input_gain(self, gain):
+        """Sets the active audio input gain using chrome.audio API.
+
+        @param volume: Gain to set (0~100).
+
+        """
+        self._extension_handler.set_active_input_gain(gain)
+
+
     def set_chrome_mute(self, mute):
         """Mutes the active audio output using chrome.audio API.
 

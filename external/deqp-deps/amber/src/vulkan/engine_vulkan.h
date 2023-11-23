@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "amber/vulkan_header.h"
@@ -53,12 +54,15 @@ class EngineVulkan : public Engine {
   Result DoClearDepth(const ClearDepthCommand* cmd) override;
   Result DoClear(const ClearCommand* cmd) override;
   Result DoDrawRect(const DrawRectCommand* cmd) override;
+  Result DoDrawGrid(const DrawGridCommand* cmd) override;
   Result DoDrawArrays(const DrawArraysCommand* cmd) override;
   Result DoCompute(const ComputeCommand* cmd) override;
   Result DoEntryPoint(const EntryPointCommand* cmd) override;
   Result DoPatchParameterVertices(
       const PatchParameterVerticesCommand* cmd) override;
   Result DoBuffer(const BufferCommand* cmd) override;
+
+  std::pair<Debugger*, Result> GetDebugger(VirtualFileStore*) override;
 
  private:
   struct PipelineInfo {
@@ -70,6 +74,8 @@ class EngineVulkan : public Engine {
           specialization_entries;
       std::unique_ptr<std::vector<uint32_t>> specialization_data;
       std::unique_ptr<VkSpecializationInfo> specialization_info;
+      uint32_t required_subgroup_size;
+      VkPipelineShaderStageCreateFlags create_flags;
     };
     std::unordered_map<ShaderType, ShaderInfo, CastHash<ShaderType>>
         shader_info;
@@ -78,20 +84,17 @@ class EngineVulkan : public Engine {
   Result GetVkShaderStageInfo(
       amber::Pipeline* pipeline,
       std::vector<VkPipelineShaderStageCreateInfo>* out);
-  bool IsFormatSupportedByPhysicalDevice(BufferType type,
-                                         VkPhysicalDevice physical_device,
-                                         VkFormat format);
-  bool IsDescriptorSetInBounds(VkPhysicalDevice physical_device,
-                               uint32_t descriptor_set);
 
   Result SetShader(amber::Pipeline* pipeline,
-                   ShaderType type,
-                   const std::vector<uint32_t>& data);
+                   const amber::Pipeline::ShaderInfo& shader);
 
   std::unique_ptr<Device> device_;
   std::unique_ptr<CommandPool> pool_;
 
   std::map<amber::Pipeline*, PipelineInfo> pipeline_map_;
+
+  std::unique_ptr<Debugger> debugger_;
+  std::map<std::string, VkShaderModule> shaders_;
 };
 
 }  // namespace vulkan

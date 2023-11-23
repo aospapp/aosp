@@ -5,6 +5,7 @@ import static android.os.Build.VERSION_CODES.N_MR1;
 import static android.os.Build.VERSION_CODES.O;
 import static android.os.Build.VERSION_CODES.O_MR1;
 import static android.os.Build.VERSION_CODES.P;
+import static android.os.Build.VERSION_CODES.S;
 import static org.robolectric.RuntimeEnvironment.getApiLevel;
 
 import android.annotation.SuppressLint;
@@ -129,6 +130,13 @@ public class ShadowTypeface {
       ArrayMap<String, Typeface> fontMap, ArrayMap<String, FontFamily[]> fallbackMap) {
     fontMap.put("sans-serif", createUnderlyingTypeface("sans-serif", 0));
   }
+
+  // BEGIN-INTERNAL
+  @Implementation(minSdk = S)
+  public static Typeface defaultFromStyle(int style) {
+    return createUnderlyingTypeface(/* familyName= */ null, style);
+  }
+  // END-INTERNAL
 
   // BEGIN-INTERNAL
   @HiddenApi

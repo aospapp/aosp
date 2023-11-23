@@ -5,9 +5,11 @@ import java.util.Comparator;
 import org.junit.internal.builders.AllDefaultPossibilitiesBuilder;
 import org.junit.internal.requests.ClassRequest;
 import org.junit.internal.requests.FilterRequest;
+import org.junit.internal.requests.OrderingRequest;
 import org.junit.internal.requests.SortingRequest;
 import org.junit.internal.runners.ErrorReportingRunner;
 import org.junit.runner.manipulation.Filter;
+import org.junit.runner.manipulation.Ordering;
 import org.junit.runners.model.InitializationError;
 
 /**
@@ -71,12 +73,11 @@ public abstract class Request {
      */
     public static Request classes(Computer computer, Class<?>... classes) {
         try {
-            AllDefaultPossibilitiesBuilder builder = new AllDefaultPossibilitiesBuilder(true);
+            AllDefaultPossibilitiesBuilder builder = new AllDefaultPossibilitiesBuilder();
             Runner suite = computer.getSuite(builder, classes);
             return runner(suite);
         } catch (InitializationError e) {
-            throw new RuntimeException(
-                    "Bug in saff's brain: Suite constructor, called as above, should always complete");
+            return runner(new ErrorReportingRunner(e, classes));
         }
     }
 
@@ -132,13 +133,16 @@ public abstract class Request {
     }
 
     /**
-     * Returns a Request that only runs contains tests whose {@link Description}
-     * equals <code>desiredDescription</code>
+     * Returns a Request that only runs tests whose {@link Description}
+     * matches the given description.
      *
-     * @param desiredDescription {@link Description} of those tests that should be run
+     * <p>Returns an empty {@code Request} if {@code desiredDescription} is not a single test and filters all but the single
+     * test if {@code desiredDescription} is a single test.</p>
+     *
+     * @param desiredDescription {@code Description} of those tests that should be run
      * @return the filtered Request
      */
-    public Request filterWith(final Description desiredDescription) {
+    public Request filterWith(Description desiredDescription) {
         return filterWith(Filter.matchMethodDescription(desiredDescription));
     }
 
@@ -149,15 +153,15 @@ public abstract class Request {
      * For example, here is code to run a test suite in alphabetical order:
      * <pre>
      * private static Comparator&lt;Description&gt; forward() {
-     * return new Comparator&lt;Description&gt;() {
-     * public int compare(Description o1, Description o2) {
-     * return o1.getDisplayName().compareTo(o2.getDisplayName());
-     * }
-     * };
+     *   return new Comparator&lt;Description&gt;() {
+     *     public int compare(Description o1, Description o2) {
+     *       return o1.getDisplayName().compareTo(o2.getDisplayName());
+     *     }
+     *   };
      * }
      *
      * public static main() {
-     * new JUnitCore().run(Request.aClass(AllTests.class).sortWith(forward()));
+     *   new JUnitCore().run(Request.aClass(AllTests.class).sortWith(forward()));
      * }
      * </pre>
      *
@@ -166,5 +170,33 @@ public abstract class Request {
      */
     public Request sortWith(Comparator<Description> comparator) {
         return new SortingRequest(this, comparator);
+    }
+
+    /**
+     * Returns a Request whose Tests can be run in a certain order, defined by
+     * <code>ordering</code>
+     * <p>
+     * For example, here is code to run a test suite in reverse order:
+     * <pre>
+     * private static Ordering reverse() {
+     *   return new Ordering() {
+     *     public List&lt;Description&gt; orderItems(Collection&lt;Description&gt; descriptions) {
+     *       List&lt;Description&gt; ordered = new ArrayList&lt;&gt;(descriptions);
+     *       Collections.reverse(ordered);
+     *       return ordered;
+     *     }
+     *   }
+     * }
+     *     
+     * public static main() {
+     *   new JUnitCore().run(Request.aClass(AllTests.class).orderWith(reverse()));
+     * }
+     * </pre>
+     *
+     * @return a Request with ordered Tests
+     * @since 4.13
+     */
+    public Request orderWith(Ordering ordering) {
+        return new OrderingRequest(this, ordering);
     }
 }

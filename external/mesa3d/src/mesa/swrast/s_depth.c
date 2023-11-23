@@ -29,7 +29,7 @@
 #include "main/format_unpack.h"
 #include "main/format_pack.h"
 #include "main/macros.h"
-#include "main/imports.h"
+
 
 #include "s_context.h"
 #include "s_depth.h"
@@ -182,7 +182,7 @@ _swrast_depth_clamp_span( struct gl_context *ctx, SWspan *span )
    /* Convert floating point values in [0,1] to device Z coordinates in
     * [0, DepthMax].
     * ex: If the Z buffer has 24 bits, DepthMax = 0xffffff.
-    * 
+    *
     * XXX this all falls apart if we have 31 or more bits of Z because
     * the triangle rasterization code produces unsigned Z values.  Negative
     * vertex Z values come out as large fragment Z uints.
@@ -262,7 +262,7 @@ put_z32_values(struct gl_context *ctx, struct gl_renderbuffer *rb,
       }
    }
    else {
-      gl_pack_uint_z_func packZ = _mesa_get_pack_uint_z_func(rb->Format);
+      mesa_pack_uint_z_func packZ = _mesa_get_pack_uint_z_func(rb->Format);
       const GLint bpp = _mesa_get_format_bytes(rb->Format);
       const GLint rowStride = srb->RowStride;
       for (i = 0; i < count; i++) {
@@ -379,7 +379,7 @@ _swrast_depth_test_span(struct gl_context *ctx, SWspan *span)
       }
       else {
          /* horizontal row */
-         gl_pack_uint_z_func packZ = _mesa_get_pack_uint_z_func(rb->Format);
+         mesa_pack_uint_z_func packZ = _mesa_get_pack_uint_z_func(rb->Format);
          GLubyte *dst = zStart;
          GLuint i;
          for (i = 0; i < count; i++) {

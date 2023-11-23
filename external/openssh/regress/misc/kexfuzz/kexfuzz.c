@@ -1,4 +1,4 @@
-/* 	$OpenBSD: kexfuzz.c,v 1.3 2016/10/11 21:49:54 djm Exp $ */
+/* 	$OpenBSD: kexfuzz.c,v 1.6 2020/01/26 00:09:50 djm Exp $ */
 /*
  * Fuzz harness for KEX code
  *
@@ -28,8 +28,6 @@
 #include "myproposal.h"
 #include "authfile.h"
 #include "log.h"
-
-struct ssh *active_state = NULL; /* XXX - needed for linking */
 
 void kex_tests(void);
 static int do_debug = 0;
@@ -275,18 +273,18 @@ do_kex_with_key(const char *kex, struct sshkey *prvkey, int *c2s, int *s2c,
 	ASSERT_PTR_NE(server2->kex, NULL);
 	/* XXX we need to set the callbacks */
 #ifdef WITH_OPENSSL
-	server2->kex->kex[KEX_DH_GRP1_SHA1] = kexdh_server;
-	server2->kex->kex[KEX_DH_GRP14_SHA1] = kexdh_server;
-	server2->kex->kex[KEX_DH_GRP14_SHA256] = kexdh_server;
-	server2->kex->kex[KEX_DH_GRP16_SHA512] = kexdh_server;
-	server2->kex->kex[KEX_DH_GRP18_SHA512] = kexdh_server;
+	server2->kex->kex[KEX_DH_GRP1_SHA1] = kex_gen_server;
+	server2->kex->kex[KEX_DH_GRP14_SHA1] = kex_gen_server;
+	server2->kex->kex[KEX_DH_GRP14_SHA256] = kex_gen_server;
+	server2->kex->kex[KEX_DH_GRP16_SHA512] = kex_gen_server;
+	server2->kex->kex[KEX_DH_GRP18_SHA512] = kex_gen_server;
 	server2->kex->kex[KEX_DH_GEX_SHA1] = kexgex_server;
 	server2->kex->kex[KEX_DH_GEX_SHA256] = kexgex_server;
 # ifdef OPENSSL_HAS_ECC
-	server2->kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
+	server2->kex->kex[KEX_ECDH_SHA2] = kex_gen_server;
 # endif
 #endif
-	server2->kex->kex[KEX_C25519_SHA256] = kexc25519_server;
+	server2->kex->kex[KEX_C25519_SHA256] = kex_gen_server;
 	server2->kex->load_host_public_key = server->kex->load_host_public_key;
 	server2->kex->load_host_private_key = server->kex->load_host_private_key;
 	server2->kex->sign = server->kex->sign;
@@ -418,7 +416,7 @@ main(int argc, char **argv)
 	close(fd);
 	/* XXX check that it is a private key */
 	/* XXX support certificates */
-	if (key == NULL || key->type == KEY_UNSPEC || key->type == KEY_RSA1)
+	if (key == NULL || key->type == KEY_UNSPEC)
 		badusage("Invalid key file (-k flag)");
 
 	/* Replace (fuzz) mode */
@@ -426,12 +424,8 @@ main(int argc, char **argv)
 		if (packet_index == -1 || direction == -1 || data_path == NULL)
 			badusage("Replace (-r) mode must specify direction "
 			    "(-D) packet index (-i) and data path (-f)");
-		if ((fd = open(data_path, O_RDONLY)) == -1)
-			err(1, "open %s", data_path);
-		replace_data = sshbuf_new();
-		if ((r = sshkey_load_file(fd, replace_data)) != 0)
+		if ((r = sshbuf_load_file(data_path, &replace_data)) != 0)
 			errx(1, "read %s: %s", data_path, ssh_err(r));
-		close(fd);
 	}
 
 	/* Dump mode */

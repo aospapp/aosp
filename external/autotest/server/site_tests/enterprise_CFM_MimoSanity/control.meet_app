@@ -10,8 +10,8 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:hotrod"
-DEPENDENCIES = "mimo, meet_app, atrus, huddly"
+ATTRIBUTES = "suite:hotrod-remora"
+DEPENDENCIES = "mimo, atrus, huddly"
 JOB_RETRIES = 3
 
 DOC = """

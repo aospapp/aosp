@@ -89,11 +89,11 @@ ExportedObjectManager::HandleGetManagedObjects() {
   //                   DICT<STRING,VARIANT>>> )
   bus_->AssertOnOriginThread();
   ExportedObjectManager::ObjectMap objects;
-  for (const auto path_pair : registered_objects_) {
+  for (const auto& path_pair : registered_objects_) {
     std::map<std::string, VariantDictionary>& interfaces =
         objects[path_pair.first];
     const InterfaceProperties& interface2properties = path_pair.second;
-    for (const auto interface : interface2properties) {
+    for (const auto& interface : interface2properties) {
       interface.second.Run(&interfaces[interface.first]);
     }
   }

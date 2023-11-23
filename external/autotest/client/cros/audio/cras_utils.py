@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,7 +7,9 @@
 
 import logging
 import re
+import subprocess
 
+from autotest_lib.client.bin import utils
 from autotest_lib.client.cros.audio import cmd_utils
 
 _CRAS_TEST_CLIENT = '/usr/bin/cras_test_client'
@@ -73,15 +76,20 @@ def playback_cmd(playback_file, block_size=None, duration=None,
 
 
 def capture_cmd(capture_file, block_size=None, duration=10,
+                sample_format='S16_LE',
                 pin_device=None, channels=1, rate=48000):
     """Gets a command to capture the audio into the file with given settings.
 
     @param capture_file: the name of file the audio to be stored in.
-    @param pin_device: the device id to record from.
     @param block_size: the number of frames per callback(dictates latency).
     @param duration: seconds to record. If it is None, duration is not set,
                      and command will keep capturing audio until it is
                      terminated.
+    @param sample_format: the sample format;
+                          possible choices: 'S16_LE', 'S24_LE', and 'S32_LE'
+                          default to S16_LE: signed 16 bits/sample,
+                                             little endian
+    @param pin_device: the device id to record from.
     @param channels: number of channels.
     @param rate: the sampling rate.
 
@@ -98,6 +106,7 @@ def capture_cmd(capture_file, block_size=None, duration=10,
         args += ['--duration', str(duration)]
     args += ['--num_channels', str(channels)]
     args += ['--rate', str(rate)]
+    args += ['--format', str(sample_format)]
     return args
 
 
@@ -201,7 +210,7 @@ def get_cras_control_interface(private=False):
     """
     try:
         import dbus
-    except ImportError, e:
+    except ImportError as e:
         logging.exception(
                 'Can not import dbus: %s. This method should only be '
                 'called on Cros device.', e)
@@ -309,7 +318,7 @@ def node_type_is_plugged(node_type, nodes_info):
 
 # Cras node types reported from Cras DBus control API.
 CRAS_OUTPUT_NODE_TYPES = ['HEADPHONE', 'INTERNAL_SPEAKER', 'HDMI', 'USB',
-                          'BLUETOOTH', 'LINEOUT', 'UNKNOWN']
+                          'BLUETOOTH', 'LINEOUT', 'UNKNOWN', 'ALSA_LOOPBACK']
 CRAS_INPUT_NODE_TYPES = ['MIC', 'INTERNAL_MIC', 'USB', 'BLUETOOTH',
                          'POST_DSP_LOOPBACK', 'POST_MIX_LOOPBACK', 'UNKNOWN',
                          'KEYBOARD_MIC', 'HOTWORD', 'FRONT_MIC', 'REAR_MIC',
@@ -461,6 +470,7 @@ def set_single_selected_output_node(node_type):
 
     @param node_type: A node type.
 
+    @returns: True if the output node type is found and set active.
     """
     nodes = get_cras_nodes()
     for node in nodes:
@@ -468,6 +478,8 @@ def set_single_selected_output_node(node_type):
             continue
         if node['Type'] == node_type:
             set_active_output_node(node['Id'])
+            return True
+    return False
 
 
 def set_single_selected_input_node(node_type):
@@ -478,6 +490,7 @@ def set_single_selected_input_node(node_type):
 
     @param node_type: A node type.
 
+    @returns: True if the input node type is found and set active.
     """
     nodes = get_cras_nodes()
     for node in nodes:
@@ -485,6 +498,8 @@ def set_single_selected_input_node(node_type):
             continue
         if node['Type'] == node_type:
             set_active_input_node(node['Id'])
+            return True
+    return False
 
 
 def set_selected_output_nodes(types):
@@ -615,7 +630,7 @@ def get_device_id_of(node_id):
 
     @raise: CrasUtilsError: if device id is invalid.
     """
-    device_id = str(long(node_id) >> 32)
+    device_id = str(int(node_id) >> 32)
     if device_id == "0":
         raise CrasUtilsError('Got invalid device_id: 0')
     return device_id
@@ -646,3 +661,312 @@ def get_active_node_volume():
         if node['Active'] == 1 and node['IsInput'] == 0:
             return int(node['NodeVolume'])
     raise CrasUtilsError('Cannot find active node volume from nodes.')
+
+
+def get_active_output_node_max_supported_channels():
+    """Returns max supported channels from active output node.
+
+    @returns: int for max supported channels.
+
+    @raises: CrasUtilsError: if node cannot be found.
+    """
+    nodes = get_cras_nodes()
+    for node in nodes:
+        if node['Active'] == 1 and node['IsInput'] == 0:
+            return int(node['MaxSupportedChannels'])
+    raise CrasUtilsError('Cannot find active output node.')
+
+
+class CrasTestClient(object):
+    """An object to perform cras_test_client functions."""
+
+    BLOCK_SIZE = None
+    PIN_DEVICE = None
+    SAMPLE_FORMAT = 'S16_LE'
+    DURATION = 10
+    CHANNELS = 2
+    RATE = 48000
+
+
+    def __init__(self):
+        self._proc = None
+        self._capturing_proc = None
+        self._playing_proc = None
+        self._capturing_msg = 'capturing audio file'
+        self._playing_msg = 'playing audio file'
+        self._wbs_cmd = '%s --set_wbs_enabled ' % _CRAS_TEST_CLIENT
+        self._enable_wbs_cmd = ('%s 1' % self._wbs_cmd).split()
+        self._disable_wbs_cmd = ('%s 0' % self._wbs_cmd).split()
+        self._info_cmd = [_CRAS_TEST_CLIENT,]
+        self._select_input_cmd = '%s --select_input ' % _CRAS_TEST_CLIENT
+
+
+    def start_subprocess(self, proc, proc_cmd, filename, proc_msg):
+        """Start a capture or play subprocess
+
+        @param proc: the process
+        @param proc_cmd: the process command and its arguments
+        @param filename: the file name to capture or play
+        @param proc_msg: the message to display in logging
+
+        @returns: True if the process is started successfully
+        """
+        if proc is None:
+            try:
+                self._proc = subprocess.Popen(proc_cmd)
+                logging.debug('Start %s %s on the DUT', proc_msg, filename)
+            except Exception as e:
+                logging.error('Failed to popen: %s (%s)', proc_msg, e)
+                return False
+        else:
+            logging.error('cannot run the command twice: %s', proc_msg)
+            return False
+        return True
+
+
+    def stop_subprocess(self, proc, proc_msg):
+        """Stop a subprocess
+
+        @param proc: the process to stop
+        @param proc_msg: the message to display in logging
+
+        @returns: True if the process is stopped successfully
+        """
+        if proc is None:
+            logging.error('cannot run stop %s before starting it.', proc_msg)
+            return False
+
+        proc.terminate()
+        try:
+            utils.poll_for_condition(
+                    condition=lambda: proc.poll() is not None,
+                    exception=CrasUtilsError,
+                    timeout=10,
+                    sleep_interval=0.5,
+                    desc='Waiting for subprocess to terminate')
+        except Exception:
+            logging.warn('Killing subprocess due to timeout')
+            proc.kill()
+            proc.wait()
+
+        logging.debug('stop %s on the DUT', proc_msg)
+        return True
+
+
+    def start_capturing_subprocess(self, capture_file, block_size=BLOCK_SIZE,
+                                   duration=DURATION, pin_device=PIN_DEVICE,
+                                   sample_format=SAMPLE_FORMAT,
+                                   channels=CHANNELS, rate=RATE):
+        """Start capturing in a subprocess.
+
+        @param capture_file: the name of file the audio to be stored in
+        @param block_size: the number of frames per callback(dictates latency)
+        @param duration: seconds to record. If it is None, duration is not set,
+                         and will keep capturing audio until terminated
+        @param sample_format: the sample format
+        @param pin_device: the device id to record from
+        @param channels: number of channels
+        @param rate: the sampling rate
+
+        @returns: True if the process is started successfully
+        """
+        proc_cmd = capture_cmd(capture_file, block_size=block_size,
+                               duration=duration, sample_format=sample_format,
+                               pin_device=pin_device, channels=channels,
+                               rate=rate)
+        result = self.start_subprocess(self._capturing_proc, proc_cmd,
+                                       capture_file, self._capturing_msg)
+        if result:
+            self._capturing_proc = self._proc
+        return result
+
+
+    def stop_capturing_subprocess(self):
+        """Stop the capturing subprocess."""
+        result = self.stop_subprocess(self._capturing_proc, self._capturing_msg)
+        if result:
+            self._capturing_proc = None
+        return result
+
+
+    def start_playing_subprocess(self, audio_file, block_size=BLOCK_SIZE,
+                                 duration=DURATION, pin_device=PIN_DEVICE,
+                                 channels=CHANNELS, rate=RATE):
+        """Start playing the audio file in a subprocess.
+
+        @param audio_file: the name of audio file to play
+        @param block_size: the number of frames per callback(dictates latency)
+        @param duration: seconds to play. If it is None, duration is not set,
+                         and will keep playing audio until terminated
+        @param pin_device: the device id to play to
+        @param channels: number of channels
+        @param rate: the sampling rate
+
+        @returns: True if the process is started successfully
+        """
+        proc_cmd = playback_cmd(audio_file, block_size, duration, pin_device,
+                                channels, rate)
+        result = self.start_subprocess(self._playing_proc, proc_cmd,
+                                       audio_file, self._playing_msg)
+        if result:
+            self._playing_proc = self._proc
+        return result
+
+
+    def stop_playing_subprocess(self):
+        """Stop the playing subprocess."""
+        result = self.stop_subprocess(self._playing_proc, self._playing_msg)
+        if result:
+            self._playing_proc = None
+        return result
+
+
+    def play(self, audio_file, block_size=BLOCK_SIZE, duration=DURATION,
+             pin_device=PIN_DEVICE, channels=CHANNELS, rate=RATE):
+        """Play the audio file.
+
+        This method will get blocked until it has completed playing back.
+        If you do not want to get blocked, use start_playing_subprocess()
+        above instead.
+
+        @param audio_file: the name of audio file to play
+        @param block_size: the number of frames per callback(dictates latency)
+        @param duration: seconds to play. If it is None, duration is not set,
+                         and will keep playing audio until terminated
+        @param pin_device: the device id to play to
+        @param channels: number of channels
+        @param rate: the sampling rate
+
+        @returns: True if the process is started successfully
+        """
+        proc_cmd = playback_cmd(audio_file, block_size, duration, pin_device,
+                                channels, rate)
+        try:
+            self._proc = subprocess.call(proc_cmd)
+            logging.debug('call "%s" on the DUT', proc_cmd)
+        except Exception as e:
+            logging.error('Failed to call: %s (%s)', proc_cmd, e)
+            return False
+        return True
+
+
+    def enable_wbs(self, value):
+        """Enable or disable wideband speech (wbs) per the value.
+
+        @param value: True to enable wbs.
+
+        @returns: True if the operation succeeds.
+        """
+        cmd = self._enable_wbs_cmd if value else self._disable_wbs_cmd
+        logging.debug('call "%s" on the DUT', cmd)
+        if subprocess.call(cmd):
+            logging.error('Failed to call: %s (%s)', cmd)
+            return False
+        return True
+
+
+    def select_input_device(self, device_name):
+        """Select the audio input device.
+
+        @param device_name: the name of the Bluetooth peer device
+
+        @returns: True if the operation succeeds.
+        """
+        logging.debug('to select input device for device_name: %s', device_name)
+        try:
+            info = subprocess.check_output(self._info_cmd)
+            logging.debug('info: %s', info)
+        except Exception as e:
+            logging.error('Failed to call: %s (%s)', self._info_cmd, e)
+            return False
+
+        flag_input_nodes = False
+        audio_input_node = None
+        for line in info.decode().splitlines():
+            if 'Input Nodes' in line:
+                flag_input_nodes = True
+            elif 'Attached clients' in line:
+                flag_input_nodes = False
+
+            if flag_input_nodes:
+                if device_name in line:
+                    audio_input_node = line.split()[1]
+                    logging.debug('%s', audio_input_node)
+                    break
+
+        if audio_input_node is None:
+            logging.error('Failed to find audio input node: %s', device_name)
+            return False
+
+        select_input_cmd = (self._select_input_cmd + audio_input_node).split()
+        if subprocess.call(select_input_cmd):
+            logging.error('Failed to call: %s (%s)', select_input_cmd, e)
+            return False
+
+        logging.debug('call "%s" on the DUT', select_input_cmd)
+        return True
+
+
+    def set_player_playback_status(self, status):
+        """Set playback status for the registered media player.
+
+        @param status: playback status in string.
+
+        """
+        try:
+            get_cras_control_interface().SetPlayerPlaybackStatus(status)
+        except Exception as e:
+            logging.error('Failed to set player playback status: %s', e)
+            return False
+
+        return True
+
+
+    def set_player_position(self, position):
+        """Set media position for the registered media player.
+
+        @param position: position in micro seconds.
+
+        """
+        try:
+            get_cras_control_interface().SetPlayerPosition(position)
+        except Exception as e:
+            logging.error('Failed to set player position: %s', e)
+            return False
+
+        return True
+
+
+    def set_player_metadata(self, metadata):
+        """Set title, artist, and album for the registered media player.
+
+        @param metadata: dictionary of media metadata.
+
+        """
+        try:
+            get_cras_control_interface().SetPlayerMetadata(metadata)
+        except Exception as e:
+            logging.error('Failed to set player metadata: %s', e)
+            return False
+
+        return True
+
+
+    def set_player_length(self, length):
+        """Set metadata length for the registered media player.
+
+        Media length is a part of metadata information. However, without
+        specify its type to int64. dbus-python will guess the variant type to
+        be int32 by default. Separate it from the metadata function to help
+        prepare the data differently.
+
+        @param metadata: DBUS dictionary that contains a variant of int64.
+
+        """
+        try:
+            get_cras_control_interface().SetPlayerMetadata(length)
+        except Exception as e:
+            logging.error('Failed to set player length: %s', e)
+            return False
+
+        return True

@@ -20,13 +20,12 @@ from autotest_lib.client.common_lib import error
 
 # Run power tests that don't take a long time
 TESTS = [
-  'power_Backlight',
+  'power_Display',
   'power_CPUFreq',
   'power_CPUIdle',
   'power_Draw',
   'power_Idle',
   'power_StatsCPUFreq',
-  'power_StatsCPUIdle',
   'power_StatsUSB',
 ]
 

@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2019, ARM Limited and Contributors. All rights reserved.
- * Copyright (c) 2019, Intel Corporation. All rights reserved.
+ * Copyright (c) 2019-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2019-2020, Intel Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -15,11 +15,13 @@
 #include <drivers/ti/uart/uart_16550.h>
 #include <lib/xlat_tables/xlat_tables.h>
 
+#include "agilex_mmc.h"
 #include "agilex_clock_manager.h"
 #include "agilex_memory_controller.h"
 #include "agilex_pinmux.h"
 #include "ccu/ncore_ccu.h"
 #include "qspi/cadence_qspi.h"
+#include "socfpga_emac.h"
 #include "socfpga_handoff.h"
 #include "socfpga_mailbox.h"
 #include "socfpga_private.h"
@@ -46,12 +48,12 @@ const mmap_region_t agilex_plat_mmap[] = {
 	{0},
 };
 
-boot_source_type boot_source;
+boot_source_type boot_source = BOOT_SOURCE;
 
 void bl2_el3_early_platform_setup(u_register_t x0, u_register_t x1,
 				u_register_t x2, u_register_t x4)
 {
-	static console_16550_t console;
+	static console_t console;
 	handoff reverse_handoff_ptr;
 
 	generic_delay_timer_init();
@@ -59,7 +61,6 @@ void bl2_el3_early_platform_setup(u_register_t x0, u_register_t x1,
 	if (socfpga_get_handoff(&reverse_handoff_ptr))
 		return;
 	config_pinmux(&reverse_handoff_ptr);
-	boot_source = reverse_handoff_ptr.boot_source;
 	config_clkmgr_handoff(&reverse_handoff_ptr);
 
 	enable_nonsecure_access();
@@ -73,8 +74,10 @@ void bl2_el3_early_platform_setup(u_register_t x0, u_register_t x1,
 
 	socfpga_delay_timer_init();
 	init_ncore_ccu();
+	socfpga_emac_init();
 	init_hard_memory_controller();
 	mailbox_init();
+	agx_mmc_init();
 
 	if (!intel_mailbox_is_fpga_not_ready())
 		socfpga_bridges_enable();

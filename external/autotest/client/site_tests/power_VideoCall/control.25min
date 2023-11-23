@@ -6,6 +6,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+ATTRIBUTES = "suite:power_monitoring"
 
 DOC = """
 This test simulates video call multitasking and record power related statistic.

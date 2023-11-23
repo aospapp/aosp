@@ -1,4 +1,4 @@
-#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -19,12 +19,13 @@ M4_EXTRA_DIST =  \
   ax_append_flag.m4  \
   ax_c___attribute__.m4  \
   ax_cflags_warn_all.m4  \
+  ax_check_framework.m4  \
   ax_compare_version.m4  \
   ax_cxx_bool.m4  \
   ax_cxx_namespaces.m4  \
   ax_cxx_namespace_std.m4  \
   ax_lang_compiler_ms.m4  \
-  ax_opencl.m4  \
+  ax_have_opencl.m4  \
   ax_prefix_config_h.m4  \
   ax_prog_perl_version.m4  \
   ax_pthread.m4  \
@@ -38,4 +39,5 @@ M4_EXTRA_DIST =  \
   ltsugar.m4  \
   ltversion.m4  \
   magick_check_pthread_lib.m4  \
-  pkg.m4
+  pkg.m4 \
+  version.m4

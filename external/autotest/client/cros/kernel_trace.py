@@ -167,7 +167,7 @@ class KernelTrace(object):
 
         fname = os.path.join(self._TRACE_ROOT, 'buffer_size_kb')
         result = utils.read_one_line(fname).strip()
-        if result is '0':
+        if result == '0':
             return True
         return False
 

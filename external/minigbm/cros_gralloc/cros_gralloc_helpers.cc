@@ -90,3 +90,10 @@ int32_t cros_gralloc_sync_wait(int32_t fence, bool close_fence)
 
 	return 0;
 }
+
+std::string get_drm_format_string(uint32_t drm_format)
+{
+	char *sequence = (char *)&drm_format;
+	std::string s(sequence, 4);
+	return "DRM_FOURCC_" + s;
+}

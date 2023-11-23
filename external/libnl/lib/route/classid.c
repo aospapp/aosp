@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/route/classid.c       ClassID Management
  *
@@ -328,7 +329,7 @@ int rtnl_tc_read_classid_file(void)
 		}
 	}
 
-	if (!(fd = fopen(path, "r"))) {
+	if (!(fd = fopen(path, "re"))) {
 		err = -nl_syserr2nlerr(errno);
 		goto errout;
 	}
@@ -402,7 +403,7 @@ int rtnl_classid_generate(const char *name, uint32_t *result, uint32_t parent)
 	if (build_sysconf_path(&path, "classid") < 0)
 		return -NLE_NOMEM;
 
-	if (!(fd = fopen(path, "a"))) {
+	if (!(fd = fopen(path, "ae"))) {
 		err = -nl_syserr2nlerr(errno);
 		goto errout;
 	}
@@ -444,10 +445,11 @@ static void __init classid_init(void)
 		NL_DBG(1, "Failed to read classid file: %s\n", nl_geterror(err));
 }
 
-static void free_map(void *map) {
+static void free_map(void *map)
+{
 	free(((struct classid_map *)map)->name);
 	free(map);
-};
+}
 
 static void __exit classid_exit(void)
 {

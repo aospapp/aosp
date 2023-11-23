@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 #
 # Copyright 2007 Google Inc. All Rights Reserved.
 
@@ -7,11 +8,16 @@ This is used to profile a task when the task is running on a machine that is not
 running through autotest.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 __author__ = 'cranger@google.com (Colby Ranger)'
 
 import platform
 import common
 from autotest_lib.client.common_lib import barrier
+import six
 
 # Client control file snippet used to synchronize profiler start & stop.
 _RUNTEST_PATTERN = ("job.run_test('profiler_sync', timeout_sync=%r,\n"
@@ -24,7 +30,7 @@ _PORT = 11920
 def _encode_args(profiler, args, dargs):
     parts = [repr(profiler)]
     parts += [repr(arg) for arg in args]
-    parts += ["%s=%r" % darg for darg in dargs.iteritems()]
+    parts += ["%s=%r" % darg for darg in six.iteritems(dargs)]
     return ", ".join(parts)
 
 

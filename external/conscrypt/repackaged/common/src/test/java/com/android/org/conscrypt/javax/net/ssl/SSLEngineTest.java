@@ -18,6 +18,7 @@
 package com.android.org.conscrypt.javax.net.ssl;
 
 import static com.android.org.conscrypt.TestUtils.UTF_8;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -25,14 +26,20 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.org.conscrypt.TestUtils;
+import com.android.org.conscrypt.TestUtils.BufferType;
+import com.android.org.conscrypt.java.security.StandardNames;
+import com.android.org.conscrypt.java.security.TestKeyStore;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.ReadOnlyBufferException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.KeyManager;
@@ -47,9 +54,6 @@ import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
-import com.android.org.conscrypt.TestUtils;
-import com.android.org.conscrypt.java.security.StandardNames;
-import com.android.org.conscrypt.java.security.TestKeyStore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -360,18 +364,15 @@ public class SSLEngineTest {
                 sourceOutRes.getHandshakeStatus());
         SSLSession destSession = dest.getSession();
         ByteBuffer destIn = ByteBuffer.allocate(destSession.getApplicationBufferSize());
-        int numUnwrapCalls = 0;
         while (destIn.position() != sourceBytes.length) {
             SSLEngineResult destRes = dest.unwrap(sourceToDest, destIn);
             assertEquals(sourceCipherSuite, HandshakeStatus.NOT_HANDSHAKING,
                     destRes.getHandshakeStatus());
-            numUnwrapCalls++;
         }
         destIn.flip();
         byte[] actual = new byte[destIn.remaining()];
         destIn.get(actual);
         assertEquals(sourceCipherSuite, Arrays.toString(sourceBytes), Arrays.toString(actual));
-        assertEquals(sourceCipherSuite, 3, numUnwrapCalls);
     }
 
     @Test
@@ -558,7 +559,7 @@ public class SSLEngineTest {
         final TestSSLContext referenceContext = TestSSLContext.create();
         final SSLEngine referenceEngine = referenceContext.clientContext.createSSLEngine();
 
-        final boolean[] wasCalled = new boolean[1];
+        final AtomicInteger checkServerTrustedWasCalled = new AtomicInteger(0);
         TestSSLContext c = TestSSLContext.newBuilder()
             .clientTrustManager(new X509ExtendedTrustManager() {
                 @Override
@@ -593,10 +594,9 @@ public class SSLEngineTest {
                                 Arrays.asList(referenceEngine.getEnabledCipherSuites());
                         String message = "Handshake session has invalid cipher suite: "
                                 + (sessionSuite == null ? "(null)" : sessionSuite);
-                        assertTrue("Expected enabled suites to contain " + sessionSuite
-                                        + ", got: " + enabledSuites,
-                                enabledSuites.contains(sessionSuite));
-                        wasCalled[0] = true;
+                        assertTrue(message, enabledSuites.contains(sessionSuite));
+
+                        checkServerTrustedWasCalled.incrementAndGet();
                     } catch (Exception e) {
                         throw new CertificateException("Something broke", e);
                     }
@@ -621,7 +621,7 @@ public class SSLEngineTest {
             }).build();
         TestSSLEnginePair pair = TestSSLEnginePair.create(c);
         pair.close();
-        assertTrue(wasCalled[0]);
+        assertEquals(1, checkServerTrustedWasCalled.get());
     }
 
     @Test
@@ -632,7 +632,7 @@ public class SSLEngineTest {
         final TestSSLContext referenceContext = TestSSLContext.create();
         final SSLEngine referenceEngine = referenceContext.clientContext.createSSLEngine();
 
-        final boolean[] wasCalled = new boolean[1];
+        final AtomicInteger checkClientTrustedWasCalled = new AtomicInteger(0);
         TestSSLContext c = TestSSLContext.newBuilder()
             .client(TestKeyStore.getClientCertificate())
             .serverTrustManager(new X509ExtendedTrustManager() {
@@ -657,8 +657,17 @@ public class SSLEngineTest {
                         // By the point of the handshake where we're validating client certificates,
                         // the cipher suite should be agreed and the server's own certificates
                         // should have been delivered
-                        assertEquals(referenceEngine.getEnabledCipherSuites()[0],
-                            session.getCipherSuite());
+
+                        // The negotiated cipher suite should be one of the enabled ones, but
+                        // BoringSSL may have reordered them based on things like hardware support,
+                        // so we don't know which one may have been negotiated.
+                        String sessionSuite = session.getCipherSuite();
+                        List<String> enabledSuites =
+                                Arrays.asList(referenceEngine.getEnabledCipherSuites());
+                        String message = "Handshake session has invalid cipher suite: "
+                                + (sessionSuite == null ? "(null)" : sessionSuite);
+                        assertTrue(message, enabledSuites.contains(sessionSuite));
+
                         assertNotNull(session.getLocalCertificates());
                         assertEquals("CN=localhost",
                             ((X509Certificate) session.getLocalCertificates()[0])
@@ -666,7 +675,7 @@ public class SSLEngineTest {
                         assertEquals("CN=Test Intermediate Certificate Authority",
                             ((X509Certificate) session.getLocalCertificates()[0])
                                 .getIssuerDN().getName());
-                        wasCalled[0] = true;
+                        checkClientTrustedWasCalled.incrementAndGet();
                     } catch (Exception e) {
                         throw new CertificateException("Something broke", e);
                     }
@@ -702,7 +711,7 @@ public class SSLEngineTest {
             }
         });
         pair.close();
-        assertTrue(wasCalled[0]);
+        assertEquals(1, checkClientTrustedWasCalled.get());
     }
 
     @Test
@@ -780,7 +789,8 @@ public class SSLEngineTest {
             final boolean serverClientMode, final boolean[] finished) throws Exception {
         TestSSLContext c;
         if (!clientClientMode && serverClientMode) {
-            c = TestSSLContext.create(TestKeyStore.getServer(), TestKeyStore.getClient());
+            c = TestSSLContext.create(/* client= */ TestKeyStore.getServer(),
+                    /* server= */ TestKeyStore.getClient());
         } else {
             c = TestSSLContext.create();
         }
@@ -914,6 +924,187 @@ public class SSLEngineTest {
             assertFalse(e.getWantClientAuth());
         }
         c.close();
+    }
+
+    @Test
+    public void wrapPreconditions() throws Exception {
+        ByteBuffer buffer = ByteBuffer.allocate(10);
+        ByteBuffer[] buffers = new ByteBuffer[] {buffer, buffer, buffer};
+        ByteBuffer[] badBuffers = new ByteBuffer[] {buffer, buffer, null, buffer};
+
+        // Client/server mode not set => IllegalStateException
+        try {
+            newUnconnectedEngine().wrap(buffer, buffer);
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+
+        try {
+            newUnconnectedEngine().wrap(buffers, buffer);
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+
+        try {
+            newUnconnectedEngine().wrap(buffers, 0, 1, buffer);
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+
+        // Read-only destination => ReadOnlyBufferException
+        try {
+            newConnectedEngine().wrap(buffer, buffer.asReadOnlyBuffer());
+            fail();
+        } catch (ReadOnlyBufferException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap(buffers, buffer.asReadOnlyBuffer());
+            fail();
+        } catch (ReadOnlyBufferException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap(buffers, 0, 1, buffer.asReadOnlyBuffer());
+            fail();
+        } catch (ReadOnlyBufferException e) {
+            // Expected
+        }
+
+        // Null destination => IllegalArgumentException
+        try {
+            newConnectedEngine().wrap(buffer, null);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap(buffers, null);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap(buffers, 0, 1, null);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        // Null source => IllegalArgumentException
+        try {
+            newConnectedEngine().wrap((ByteBuffer) null, buffer);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap((ByteBuffer[]) null, buffer);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap(null, 0, 1, buffer);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        // Null entries in buffer array => IllegalArgumentException
+        try {
+            newConnectedEngine().wrap(badBuffers, buffer);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            newConnectedEngine().wrap(badBuffers, 0, badBuffers.length, buffer);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        // Bad offset or length => IndexOutOfBoundsException
+        try {
+            newConnectedEngine().wrap(buffers, 0, 7, buffer);
+            fail();
+        } catch (IndexOutOfBoundsException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void bufferArrayOffsets() throws Exception {
+        TestSSLEnginePair pair = TestSSLEnginePair.create();
+        ByteBuffer tlsBuffer = ByteBuffer.allocate(600);
+        int bufferSize = 100;
+
+        for (BufferType bufferType : BufferType.values()) {
+            ByteBuffer[] sourceBuffers = bufferType.newRandomBuffers(
+                    bufferSize, bufferSize, bufferSize, bufferSize, bufferSize);
+            for (int offset = 0; offset < sourceBuffers.length; offset++) {
+                for (int length = 1; length < sourceBuffers.length - offset; length++) {
+                    // Reset source buffers
+                    for (ByteBuffer buffer : sourceBuffers) {
+                        if (buffer.remaining() == 0) {
+                            buffer.flip();
+                        }
+                        assertEquals(bufferSize, buffer.remaining());
+                    }
+                    // Make an array copy of what we expect to send
+                    byte[] sourceBytes = copyDataFromBuffers(sourceBuffers, offset, length);
+                    byte[] destinationBytes = new byte[sourceBytes.length];
+                    ByteBuffer destination = ByteBuffer.wrap(destinationBytes);
+                    // Send and compare
+                    tlsBuffer.clear();
+                    pair.client.wrap(sourceBuffers, offset, length, tlsBuffer);
+                    tlsBuffer.flip();
+                    pair.server.unwrap(tlsBuffer, destination);
+                    assertArrayEquals(sourceBytes, destinationBytes);
+                }
+            }
+        }
+    }
+
+    private byte[] copyDataFromBuffers(ByteBuffer[] buffers, int offset, int length) {
+        // NB avoids using Arrays.copyOfRange() to prevent any common bugs with
+        // ConscryptEngine.wrap().
+        int size = 0;
+        for (int i = offset; i < offset + length; i++) {
+            size += buffers[i].remaining();
+        }
+        byte[] data = new byte[size];
+        int dataOffset = 0;
+        for (int i = offset; i < offset + length; i++) {
+            ByteBuffer buffer = buffers[i];
+            int remaining = buffer.remaining();
+            buffer.get(data, dataOffset, remaining);
+            buffer.flip();
+            dataOffset += remaining;
+        }
+        return data;
+    }
+
+    private SSLEngine newUnconnectedEngine() {
+        TestSSLContext context = TestSSLContext.create();
+        return context.clientContext.createSSLEngine();
+    }
+
+    private SSLEngine newConnectedEngine() throws Exception {
+        TestSSLEnginePair pair = TestSSLEnginePair.create();
+        assertConnected(pair);
+        return pair.client;
     }
 
     private void assertConnected(TestSSLEnginePair e) {

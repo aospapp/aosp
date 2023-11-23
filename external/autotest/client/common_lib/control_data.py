@@ -1,25 +1,28 @@
+# Lint as: python2, python3
 # pylint: disable-msg=C0111
 # Copyright 2008 Google Inc. Released under the GPL v2
 
-import warnings
-with warnings.catch_warnings():
-    # The 'compiler' module is gone in Python 3.0.  Let's not say
-    # so in every log file.
-    warnings.simplefilter("ignore", DeprecationWarning)
-    import compiler
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import ast
 import logging
 import textwrap
 import re
+import six
 
-from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import autotest_enum
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import priorities
+
 
 REQUIRED_VARS = set(['author', 'doc', 'name', 'time', 'test_type'])
 OBSOLETE_VARS = set(['experimental'])
 
-CONTROL_TYPE = enum.Enum('Server', 'Client', start_value=1)
-CONTROL_TYPE_NAMES =  enum.Enum(*CONTROL_TYPE.names, string_values=True)
+CONTROL_TYPE = autotest_enum.AutotestEnum('Server', 'Client', start_value=1)
+CONTROL_TYPE_NAMES = autotest_enum.AutotestEnum(*CONTROL_TYPE.names,
+                                                string_values=True)
 
 _SUITE_ATTRIBUTE_PREFIX = 'suite:'
 
@@ -50,7 +53,7 @@ def _validate_control_file_fields(control_file_path, control_file_vars,
                    '%s.') % (control_file_path, ', '.join(diff))
         if raise_warnings:
             raise ControlVariableException(warning)
-        print textwrap.wrap(warning, 80)
+        print(textwrap.wrap(warning, 80))
 
     obsolete = OBSOLETE_VARS & set(control_file_vars)
     if obsolete:
@@ -59,14 +62,15 @@ def _validate_control_file_fields(control_file_path, control_file_vars,
                    '%s.') % (control_file_path, ', '.join(obsolete))
         if raise_warnings:
             raise ControlVariableException(warning)
-        print textwrap.wrap(warning, 80)
+        print(textwrap.wrap(warning, 80))
 
 
 class ControlData(object):
     # Available TIME settings in control file, the list must be in lower case
     # and in ascending order, test running faster comes first.
     TEST_TIME_LIST = ['fast', 'short', 'medium', 'long', 'lengthy']
-    TEST_TIME = enum.Enum(*TEST_TIME_LIST, string_values=False)
+    TEST_TIME = autotest_enum.AutotestEnum(*TEST_TIME_LIST,
+                                           string_values=False)
 
     @staticmethod
     def get_test_time_index(time):
@@ -98,8 +102,7 @@ class ControlData(object):
         self.job_retries = 0
         # Default to require server-side package. Unless require_ssp is
         # explicitly set to False, server-side package will be used for the
-        # job. This can be overridden by global config
-        # AUTOSERV/enable_ssp_container
+        # job.
         self.require_ssp = None
         self.attributes = set()
         self.max_result_size_KB = DEFAULT_MAX_RESULT_SIZE_KB
@@ -108,13 +111,13 @@ class ControlData(object):
 
         _validate_control_file_fields(self.path, vars, raise_warnings)
 
-        for key, val in vars.iteritems():
+        for key, val in six.iteritems(vars):
             try:
                 self.set_attr(key, val, raise_warnings)
-            except Exception, e:
+            except Exception as e:
                 if raise_warnings:
                     raise
-                print 'WARNING: %s; skipping' % e
+                print('WARNING: %s; skipping' % e)
 
         self._patch_up_suites_from_attributes()
 
@@ -312,23 +315,23 @@ class ControlData(object):
         self._set_string('source_archive_uri', val)
 
     def set_attributes(self, val):
-        # Add subsystem:default if subsystem is not specified.
         self._set_set('attributes', val)
-        if not any(a.startswith('subsystem') for a in self.attributes):
-            self.attributes.add('subsystem:default')
 
 
 def _extract_const(expr):
-    assert(expr.__class__ == compiler.ast.Const)
-    assert(expr.value.__class__ in (str, int, float, unicode))
-    return str(expr.value).strip()
+    assert (expr.__class__ == ast.Str)
+    if six.PY2:
+        assert (expr.s.__class__ in (str, int, float, unicode))
+    else:
+        assert (expr.s.__class__ in (str, int, float))
+    return str(expr.s).strip()
 
 
 def _extract_dict(expr):
-    assert(expr.__class__ == compiler.ast.Dict)
-    assert(expr.items.__class__ == list)
+    assert (expr.__class__ == ast.Dict)
+    assert (expr.keys.__class__ == list)
     cf_dict = {}
-    for key, value in expr.items:
+    for key, value in zip(expr.keys, expr.values):
         try:
             key = _extract_const(key)
             val = _extract_expression(value)
@@ -340,9 +343,9 @@ def _extract_dict(expr):
 
 
 def _extract_list(expr):
-    assert(expr.__class__ == compiler.ast.List)
+    assert (expr.__class__ == ast.List)
     list_values = []
-    for value in expr.nodes:
+    for value in expr.elts:
         try:
             list_values.append(_extract_expression(value))
         except (AssertionError, ValueError):
@@ -351,34 +354,38 @@ def _extract_list(expr):
 
 
 def _extract_name(expr):
-    assert(expr.__class__ == compiler.ast.Name)
-    assert(expr.name in ('False', 'True', 'None'))
-    return str(expr.name)
+    assert (expr.__class__ == ast.Name)
+    assert (expr.id in ('False', 'True', 'None'))
+    return str(expr.id)
 
 
 def _extract_expression(expr):
-    if expr.__class__ == compiler.ast.Const:
+    if expr.__class__ == ast.Str:
         return _extract_const(expr)
-    if expr.__class__ == compiler.ast.Name:
+    if expr.__class__ == ast.Name:
         return _extract_name(expr)
-    if expr.__class__ == compiler.ast.Dict:
+    if expr.__class__ == ast.Dict:
         return _extract_dict(expr)
-    if expr.__class__ == compiler.ast.List:
+    if expr.__class__ == ast.List:
         return _extract_list(expr)
+    if expr.__class__ == ast.Num:
+        return expr.n
+    if six.PY3 and expr.__class__ == ast.NameConstant:
+        return expr.value
+    if six.PY3 and expr.__class__ == ast.Constant:
+        try:
+            return expr.value.strip()
+        except Exception:
+            return expr.value
     raise ValueError('Unknown rval %s' % expr)
 
 
 def _extract_assignment(n):
-    assert(n.__class__ == compiler.ast.Assign)
-    assert(n.nodes.__class__ == list)
-    assert(len(n.nodes) == 1)
-    assert(n.nodes[0].__class__ == compiler.ast.AssName)
-    assert(n.nodes[0].flags.__class__ == str)
-    assert(n.nodes[0].name.__class__ == str)
-
-    val = _extract_expression(n.expr)
-    key = n.nodes[0].name.lower()
-
+    assert (n.__class__ == ast.Assign)
+    assert (len(n.targets) == 1)
+    assert (n.targets[0].__class__ == ast.Name)
+    val = _extract_expression(n.value)
+    key = n.targets[0].id.lower()
     return (key, val)
 
 
@@ -392,7 +399,7 @@ def parse_control_string(control, raise_warnings=False, path=''):
 
     """
     try:
-        mod = compiler.parse(control)
+        mod = ast.parse(control)
     except SyntaxError as e:
         logging.error('Syntax error (%s) while parsing control string:', e)
         lines = control.split('\n')
@@ -404,8 +411,9 @@ def parse_control_string(control, raise_warnings=False, path=''):
 
 def parse_control(path, raise_warnings=False):
     try:
-        mod = compiler.parseFile(path)
-    except SyntaxError, e:
+        with open(path, 'r') as r:
+            mod = ast.parse(r.read())
+    except SyntaxError as e:
         raise ControlVariableException("Error parsing %s because %s" %
                                        (path, e))
     return finish_parse(mod, path, raise_warnings)
@@ -420,22 +428,20 @@ def _try_extract_assignment(node, variables):
     try:
         key, val = _extract_assignment(node)
         variables[key] = val
-    except (AssertionError, ValueError):
+    except (AssertionError, ValueError) as e:
         pass
 
 
 def finish_parse(mod, path, raise_warnings):
-    assert(mod.__class__ == compiler.ast.Module)
-    assert(mod.node.__class__ == compiler.ast.Stmt)
-    assert(mod.node.nodes.__class__ == list)
+    assert (mod.__class__ == ast.Module)
+    assert (mod.body.__class__ == list)
 
     variables = {}
     injection_variables = {}
-    for n in mod.node.nodes:
-        if (n.__class__ == compiler.ast.Function and
-            re.match('step\d+', n.name)):
+    for n in mod.body:
+        if (n.__class__ == ast.FunctionDef and re.match('step\d+', n.name)):
             vars_in_step = {}
-            for sub_node in n.code.nodes:
+            for sub_node in n.body:
                 _try_extract_assignment(sub_node, vars_in_step)
             if vars_in_step:
                 # Empty the vars collection so assignments from multiple steps

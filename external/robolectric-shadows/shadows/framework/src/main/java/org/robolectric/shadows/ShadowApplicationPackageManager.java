@@ -118,7 +118,7 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
 
   private Context context;
 
-  @Implementation(maxSdk = Q)
+  @Implementation
   protected void __constructor__(Object contextImpl, Object pm) {
     try {
       invokeConstructor(
@@ -133,7 +133,7 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
   }
 
   // BEGIN-INTERNAL
-  @Implementation(minSdk = R)
+  @Implementation(minSdk = R, maxSdk = R)
   protected void __constructor__(
           Object contextImpl, Object packageManager, Object permissionManager) {
     try {

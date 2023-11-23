@@ -17,6 +17,6 @@ This test reboots the machine and checks whether the wireless interface comes up
 
 def run_reboot_stress(machine):
     job.run_test('stress_ClientTestReboot', client_ip=machine,
-                 testname='network_WlanDriver', loops=20)
+                 testname='network_WlanPresent', loops=20)
 
 parallel_simple(run_reboot_stress, machines)

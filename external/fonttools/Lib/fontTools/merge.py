@@ -2,11 +2,6 @@
 #
 # Google Author(s): Behdad Esfahbod, Roozbeh Pournader
 
-"""Font merger.
-"""
-
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
 from fontTools.misc.timeTools import timestampNow
 from fontTools import ttLib, cffLib
 from fontTools.ttLib.tables import otTables, _h_e_a_d
@@ -295,11 +290,18 @@ ttLib.getTableClass('OS/2').mergeMap = {
 	'sTypoLineGap': max,
 	'usWinAscent': max,
 	'usWinDescent': max,
-	# Version 2,3,4
+	# Version 1
 	'ulCodePageRange1': onlyExisting(bitwise_or),
 	'ulCodePageRange2': onlyExisting(bitwise_or),
-	'usMaxContex': onlyExisting(max),
-	# TODO version 5
+	# Version 2, 3, 4
+	'sxHeight': onlyExisting(max),
+	'sCapHeight': onlyExisting(max),
+	'usDefaultChar': onlyExisting(first),
+	'usBreakChar': onlyExisting(first),
+	'usMaxContext': onlyExisting(max),
+	# version 5
+	'usLowerOpticalPointSize': onlyExisting(min),
+	'usUpperOpticalPointSize': onlyExisting(max),
 }
 
 @_add_method(ttLib.getTableClass('OS/2'))
@@ -739,12 +741,12 @@ def __merge_classify_context(self):
 
 	if self.Format not in [1, 2, 3]:
 		return None  # Don't shoot the messenger; let it go
-	if not hasattr(self.__class__, "__ContextHelpers"):
-		self.__class__.__ContextHelpers = {}
-	if self.Format not in self.__class__.__ContextHelpers:
+	if not hasattr(self.__class__, "_merge__ContextHelpers"):
+		self.__class__._merge__ContextHelpers = {}
+	if self.Format not in self.__class__._merge__ContextHelpers:
 		helper = ContextHelper(self.__class__, self.Format)
-		self.__class__.__ContextHelpers[self.Format] = helper
-	return self.__class__.__ContextHelpers[self.Format]
+		self.__class__._merge__ContextHelpers[self.Format] = helper
+	return self.__class__._merge__ContextHelpers[self.Format]
 
 
 @_add_method(otTables.ContextSubst,
@@ -945,6 +947,34 @@ class _NonhashableDict(object):
 		del self.d[id(k)]
 
 class Merger(object):
+	"""Font merger.
+
+	This class merges multiple files into a single OpenType font, taking into
+	account complexities such as OpenType layout (``GSUB``/``GPOS``) tables and
+	cross-font metrics (e.g. ``hhea.ascent`` is set to the maximum value across
+	all the fonts).
+
+	If multiple glyphs map to the same Unicode value, and the glyphs are considered
+	sufficiently different (that is, they differ in any of paths, widths, or
+	height), then subsequent glyphs are renamed and a lookup in the ``locl``
+	feature will be created to disambiguate them. For example, if the arguments
+	are an Arabic font and a Latin font and both contain a set of parentheses,
+	the Latin glyphs will be renamed to ``parenleft#1`` and ``parenright#1``,
+	and a lookup will be inserted into the to ``locl`` feature (creating it if
+	necessary) under the ``latn`` script to substitute ``parenleft`` with
+	``parenleft#1`` etc.
+
+	Restrictions:
+
+	- All fonts must currently have TrueType outlines (``glyf`` table).
+		Merging fonts with CFF outlines is not supported.
+	- All fonts must have the same units per em.
+	- If duplicate glyph disambiguation takes place as described above then the
+		fonts must have a ``GSUB`` table.
+
+	Attributes:
+		options: Currently unused.
+	"""
 
 	def __init__(self, options=None):
 
@@ -954,7 +984,15 @@ class Merger(object):
 		self.options = options
 
 	def merge(self, fontfiles):
+		"""Merges fonts together.
 
+		Args:
+			fontfiles: A list of file names to be merged
+
+		Returns:
+			A :class:`fontTools.ttLib.TTFont` object. Call the ``save`` method on
+			this to write it out to an OTF file.
+		"""
 		mega = ttLib.TTFont()
 
 		#
@@ -975,7 +1013,7 @@ class Merger(object):
 			self._preMerge(font)
 
 		self.fonts = fonts
-		self.duplicateGlyphsPerFont = [{} for f in fonts]
+		self.duplicateGlyphsPerFont = [{} for _ in fonts]
 
 		allTags = reduce(set.union, (list(font.keys()) for font in fonts), set())
 		allTags.remove('GlyphOrder')
@@ -1013,16 +1051,18 @@ class Merger(object):
 	def _mergeGlyphOrders(self, glyphOrders):
 		"""Modifies passed-in glyphOrders to reflect new glyph names.
 		Returns glyphOrder for the merged font."""
-		# Simply append font index to the glyph name for now.
-		# TODO Even this simplistic numbering can result in conflicts.
-		# But then again, we have to improve this soon anyway.
-		mega = []
-		for n,glyphOrder in enumerate(glyphOrders):
+		mega = {}
+		for glyphOrder in glyphOrders:
 			for i,glyphName in enumerate(glyphOrder):
-				glyphName += "#" + repr(n)
-				glyphOrder[i] = glyphName
-				mega.append(glyphName)
-		return mega
+				if glyphName in mega:
+					n = mega[glyphName]
+					while (glyphName + "#" + repr(n)) in mega:
+						n += 1
+					mega[glyphName] = n
+					glyphName += "#" + repr(n)
+					glyphOrder[i] = glyphName
+				mega[glyphName] = 1
+		return list(mega.keys())
 
 	def mergeObjects(self, returnTable, logic, tables):
 		# Right now we don't use self at all.  Will use in the future
@@ -1135,6 +1175,7 @@ __all__ = [
 
 @timer("make one with everything (TOTAL TIME)")
 def main(args=None):
+	"""Merge multiple fonts into one"""
 	from fontTools import configLogger
 
 	if args is None:

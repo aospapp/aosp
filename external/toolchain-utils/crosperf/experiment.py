@@ -28,8 +28,8 @@ class Experiment(object):
   def __init__(self, name, remote, working_directory, chromeos_root,
                cache_conditions, labels, benchmarks, experiment_file, email_to,
                acquire_timeout, log_dir, log_level, share_cache,
-               results_directory, locks_directory, cwp_dso, ignore_min_max,
-               skylab, dut_config):
+               results_directory, compress_results, locks_directory, cwp_dso,
+               ignore_min_max, skylab, dut_config):
     self.name = name
     self.working_directory = working_directory
     self.remote = remote
@@ -42,6 +42,7 @@ class Experiment(object):
                                             self.name + '_results')
     else:
       self.results_directory = misc.CanonicalizePath(results_directory)
+    self.compress_results = compress_results
     self.log_dir = log_dir
     self.log_level = log_level
     self.labels = labels

@@ -37,7 +37,8 @@ static int dt_process_fdt(u_register_t param_from_bl2)
 static uint32_t rk_uart_base = PLAT_RK_UART_BASE;
 static uint32_t rk_uart_baudrate = PLAT_RK_UART_BAUDRATE;
 static uint32_t rk_uart_clock = PLAT_RK_UART_CLOCK;
-static uint8_t fdt_buffer[0x10000];
+#define FDT_BUFFER_SIZE 0x20000
+static uint8_t fdt_buffer[FDT_BUFFER_SIZE];
 
 void *plat_get_fdt(void)
 {
@@ -136,7 +137,7 @@ static int dt_process_fdt(u_register_t param_from_bl2)
 	void *fdt = plat_get_fdt();
 	int ret;
 
-	ret = fdt_open_into((void *)param_from_bl2, fdt, 0x10000);
+	ret = fdt_open_into((void *)param_from_bl2, fdt, FDT_BUFFER_SIZE);
 	if (ret < 0)
 		return ret;
 
@@ -229,12 +230,27 @@ static bool rk_aux_param_handler(struct bl_aux_param_header *param)
 
 void params_early_setup(u_register_t plat_param_from_bl2)
 {
+	int ret;
+
 	/*
 	 * Test if this is a FDT passed as a platform-specific parameter
 	 * block.
 	 */
-	if (!dt_process_fdt(plat_param_from_bl2))
+	ret = dt_process_fdt(plat_param_from_bl2);
+	if (!ret) {
 		return;
+	} else if (ret != -FDT_ERR_BADMAGIC) {
+		/*
+		 * If we found an FDT but couldn't parse it (e.g. corrupt, not
+		 * enough space), return and don't attempt to parse the param
+		 * as something else, since we know that will also fail. All
+		 * we're doing is setting up UART, this doesn't need to be
+		 * fatal.
+		 */
+		WARN("%s: found FDT but could not parse: error %d\n",
+		     __func__, ret);
+		return;
+	}
 
 	bl_aux_params_parse(plat_param_from_bl2, rk_aux_param_handler);
 }

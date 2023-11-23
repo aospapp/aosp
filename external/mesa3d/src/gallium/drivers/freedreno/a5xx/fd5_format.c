@@ -25,7 +25,7 @@
  */
 
 #include "pipe/p_defines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 #include "fd5_format.h"
 
@@ -42,8 +42,6 @@ struct fd5_format {
 	boolean present;
 };
 
-#define RB5_NONE ~0
-
 /* vertex + texture */
 #define VT(pipe, fmt, rbfmt, swapfmt) \
 	[PIPE_FORMAT_ ## pipe] = { \
@@ -58,7 +56,7 @@ struct fd5_format {
 #define _T(pipe, fmt, rbfmt, swapfmt) \
 	[PIPE_FORMAT_ ## pipe] = { \
 		.present = 1, \
-		.vtx = ~0, \
+		.vtx = VFMT5_NONE, \
 		.tex = TFMT5_ ## fmt, \
 		.rb = RB5_ ## rbfmt, \
 		.swap = swapfmt \
@@ -69,7 +67,7 @@ struct fd5_format {
 	[PIPE_FORMAT_ ## pipe] = { \
 		.present = 1, \
 		.vtx = VFMT5_ ## fmt, \
-		.tex = ~0, \
+		.tex = TFMT5_NONE, \
 		.rb = RB5_ ## rbfmt, \
 		.swap = swapfmt \
 	}
@@ -84,7 +82,7 @@ static struct fd5_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R8_UINT,    8_UINT,  R8_UINT,  WZYX),
 	VT(R8_SINT,    8_SINT,  R8_SINT,  WZYX),
 	V_(R8_USCALED, 8_UINT,  NONE,     WZYX),
-	V_(R8_SSCALED, 8_UINT,  NONE,     WZYX),
+	V_(R8_SSCALED, 8_SINT,  NONE,     WZYX),
 
 	_T(A8_UNORM,   8_UNORM, A8_UNORM, WZYX),
 	_T(L8_UNORM,   8_UNORM, R8_UNORM, WZYX),
@@ -105,7 +103,7 @@ static struct fd5_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R16_UINT,    16_UINT,  R16_UINT,  WZYX),
 	VT(R16_SINT,    16_SINT,  R16_SINT,  WZYX),
 	V_(R16_USCALED, 16_UINT,  NONE,      WZYX),
-	V_(R16_SSCALED, 16_UINT,  NONE,      WZYX),
+	V_(R16_SSCALED, 16_SINT,  NONE,      WZYX),
 	VT(R16_FLOAT,   16_FLOAT, R16_FLOAT, WZYX),
 	_T(Z16_UNORM,   16_UNORM, R16_UNORM, WZYX),
 
@@ -149,7 +147,7 @@ static struct fd5_format formats[PIPE_FORMAT_COUNT] = {
 	VT(R32_UINT,    32_UINT,  R32_UINT, WZYX),
 	VT(R32_SINT,    32_SINT,  R32_SINT, WZYX),
 	V_(R32_USCALED, 32_UINT,  NONE,     WZYX),
-	V_(R32_SSCALED, 32_UINT,  NONE,     WZYX),
+	V_(R32_SSCALED, 32_SINT,  NONE,     WZYX),
 	VT(R32_FLOAT,   32_FLOAT, R32_FLOAT,WZYX),
 	V_(R32_FIXED,   32_FIXED, NONE,     WZYX),
 
@@ -344,7 +342,7 @@ enum a5xx_vtx_fmt
 fd5_pipe2vtx(enum pipe_format format)
 {
 	if (!formats[format].present)
-		return ~0;
+		return VFMT5_NONE;
 	return formats[format].vtx;
 }
 
@@ -353,7 +351,7 @@ enum a5xx_tex_fmt
 fd5_pipe2tex(enum pipe_format format)
 {
 	if (!formats[format].present)
-		return ~0;
+		return TFMT5_NONE;
 	return formats[format].tex;
 }
 
@@ -362,7 +360,7 @@ enum a5xx_color_fmt
 fd5_pipe2color(enum pipe_format format)
 {
 	if (!formats[format].present)
-		return ~0;
+		return RB5_NONE;
 	return formats[format].rb;
 }
 
@@ -372,31 +370,6 @@ fd5_pipe2swap(enum pipe_format format)
 	if (!formats[format].present)
 		return WZYX;
 	return formats[format].swap;
-}
-
-// XXX possibly same as a4xx..
-enum a5xx_tex_fetchsize
-fd5_pipe2fetchsize(enum pipe_format format)
-{
-	if (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)
-		format = PIPE_FORMAT_Z32_FLOAT;
-
-	if (util_format_description(format)->layout == UTIL_FORMAT_LAYOUT_ASTC)
-		return TFETCH5_16_BYTE;
-
-	switch (util_format_get_blocksizebits(format) / util_format_get_blockwidth(format)) {
-	case 8:   return TFETCH5_1_BYTE;
-	case 16:  return TFETCH5_2_BYTE;
-	case 32:  return TFETCH5_4_BYTE;
-	case 64:  return TFETCH5_8_BYTE;
-	case 96:  return TFETCH5_1_BYTE; /* Does this matter? */
-	case 128: return TFETCH5_16_BYTE;
-	default:
-		debug_printf("Unknown block size for format %s: %d\n",
-				util_format_name(format),
-				util_format_get_blocksizebits(format));
-		return TFETCH5_1_BYTE;
-	}
 }
 
 enum a5xx_depth_format

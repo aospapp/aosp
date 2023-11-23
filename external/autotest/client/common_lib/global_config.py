@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """A singleton class for accessing global config values
 
 provides access to global configuration file
@@ -13,16 +14,16 @@ provides access to global configuration file
 # When the code is running in a non-Moblab host, moblab_config.ini is ignored.
 # Config values in shadow config will override values in global config.
 
-__author__ = 'raphtee@google.com (Travis Miller)'
-
 import collections
-import ConfigParser
 import os
 import re
+import six.moves.configparser as ConfigParser
 import sys
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import lsbrelease_utils
+from autotest_lib.client.common_lib import seven
+
 
 class ConfigError(error.AutotestError):
     """Configuration error."""
@@ -160,7 +161,7 @@ class global_config_class(object):
         @param section: Section we want to turn into a config parser object.
         @return: ConfigParser() object containing all the contents of section.
         """
-        cfgparser = ConfigParser.ConfigParser()
+        cfgparser = seven.config_parser()
         cfgparser.add_section(section)
         for option, value in self.config.items(section):
             cfgparser.set(section, option, value)
@@ -292,7 +293,7 @@ class global_config_class(object):
 
     def parse_config_file(self):
         """Parse config files."""
-        self.config = ConfigParser.ConfigParser()
+        self.config = seven.config_parser()
         if self.config_file and os.path.exists(self.config_file):
             self.config.read(self.config_file)
         else:
@@ -302,7 +303,7 @@ class global_config_class(object):
         # overwrite the value in global config.
         if (lsbrelease_utils.is_moblab() and self.moblab_file and
             os.path.exists(self.moblab_file)):
-            moblab_config = ConfigParser.ConfigParser()
+            moblab_config = seven.config_parser()
             moblab_config.read(self.moblab_file)
             # now we merge moblab into global
             self.merge_configs(moblab_config)
@@ -311,7 +312,7 @@ class global_config_class(object):
         # this will overwrite anything that is found in the
         # other config
         if self.shadow_file and os.path.exists(self.shadow_file):
-            shadow_config = ConfigParser.ConfigParser()
+            shadow_config = seven.config_parser()
             shadow_config.read(self.shadow_file)
             # now we merge shadow into global
             self.merge_configs(shadow_config)

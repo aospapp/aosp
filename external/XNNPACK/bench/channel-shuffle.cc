@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -25,7 +26,7 @@ static void channel_shuffle_x8(benchmark::State& state, const char* net) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+  auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
   std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) + batch_size * groups * group_channels);
   std::vector<uint8_t> output(batch_size * groups * group_channels);
@@ -72,7 +73,10 @@ static void channel_shuffle_x8(benchmark::State& state, const char* net) {
     return;
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * groups * group_channels;
   state.counters["elements"] =
@@ -90,7 +94,7 @@ static void channel_shuffle_x32(benchmark::State& state, const char* net) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(), std::ref(rng));
 
   std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + batch_size * groups * group_channels);
   std::vector<float> output(batch_size * groups * group_channels);
@@ -137,7 +141,10 @@ static void channel_shuffle_x32(benchmark::State& state, const char* net) {
     return;
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * groups * group_channels;
   state.counters["elements"] =

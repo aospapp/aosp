@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 #include "v3d_context.h"
 #include "broadcom/cle/v3dx_pack.h"
@@ -141,8 +141,8 @@ static const struct v3d_format format_table[] = {
         FORMAT(A32_SINT,          R32I,         R32I,        SWIZ_000X, 32, 1),
         FORMAT(A32_UINT,          R32UI,        R32UI,       SWIZ_000X, 32, 1),
 
-        FORMAT(R11G11B10_FLOAT,   R11F_G11F_B10F, R11F_G11F_B10F, SWIZ_XYZW, 16, 0),
-        FORMAT(R9G9B9E5_FLOAT,    NO,           RGB9_E5,     SWIZ_XYZW, 16, 0),
+        FORMAT(R11G11B10_FLOAT,   R11F_G11F_B10F, R11F_G11F_B10F, SWIZ_XYZ1, 16, 0),
+        FORMAT(R9G9B9E5_FLOAT,    NO,           RGB9_E5,     SWIZ_XYZ1, 16, 0),
 
 #if V3D_VERSION >= 40
         FORMAT(S8_UINT_Z24_UNORM, D24S8,        DEPTH24_X8,  SWIZ_XXXX, 32, 1),
@@ -177,8 +177,13 @@ static const struct v3d_format format_table[] = {
         FORMAT(ETC2_RG11_SNORM,   NO,           SIGNED_RG11_EAC, SWIZ_XY01, 16, 0),
 
         FORMAT(DXT1_RGB,          NO,           BC1,         SWIZ_XYZ1, 16, 0),
-        FORMAT(DXT3_RGBA,         NO,           BC2,         SWIZ_XYZ1, 16, 0),
-        FORMAT(DXT5_RGBA,         NO,           BC3,         SWIZ_XYZ1, 16, 0),
+        FORMAT(DXT1_SRGB,         NO,           BC1,         SWIZ_XYZ1, 16, 0),
+        FORMAT(DXT1_RGBA,         NO,           BC1,         SWIZ_XYZW, 16, 0),
+        FORMAT(DXT1_SRGBA,        NO,           BC1,         SWIZ_XYZW, 16, 0),
+        FORMAT(DXT3_RGBA,         NO,           BC2,         SWIZ_XYZW, 16, 0),
+        FORMAT(DXT3_SRGBA,        NO,           BC2,         SWIZ_XYZW, 16, 0),
+        FORMAT(DXT5_RGBA,         NO,           BC3,         SWIZ_XYZW, 16, 0),
+        FORMAT(DXT5_SRGBA,        NO,           BC3,         SWIZ_XYZW, 16, 0),
 };
 
 const struct v3d_format *

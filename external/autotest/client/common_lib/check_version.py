@@ -7,6 +7,13 @@ import sys
 class check_python_version:
 
     def __init__(self):
+        # In order to ease the migration to Python3, disable the restart logic
+        # when AUTOTEST_NO_RESTART is set. This makes it possible to run
+        # autotest locally as Python3 before any other environment is switched
+        # to Python3.
+        if os.getenv("AUTOTEST_NO_RESTART"):
+            return
+
         # The change to prefer 2.4 really messes up any systems which have both
         # the new and old version of Python, but where the newer is default.
         # This is because packages, libraries, etc are all installed into the

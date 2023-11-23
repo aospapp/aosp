@@ -6,13 +6,14 @@ third_party {
     value: "https://github.com/leethomason/tinyxml2"
   }
   url {
-    type: ARCHIVE
-    value: "https://github.com/leethomason/tinyxml2/archive/7.0.1.zip"
+    type: GIT
+    value: "https://github.com/leethomason/tinyxml2.git"
   }
-  version: "7.0.1"
+  version: "8.0.0"
+  license_type: RESTRICTED
   last_upgrade_date {
-    year: 2018
-    month: 11
-    day: 17
+    year: 2020
+    month: 3
+    day: 23
   }
 }

@@ -61,6 +61,7 @@ class Chrome(object):
                  disable_default_apps=True, auto_login=True, gaia_login=False,
                  username=None, password=None, gaia_id=None,
                  arc_mode=None, arc_timeout=None,
+                 enable_web_app_auto_install=False,
                  disable_arc_opt_in=True,
                  disable_arc_opt_in_verification=True,
                  disable_arc_cpu_restriction=True,
@@ -103,6 +104,7 @@ class Chrome(object):
         @param arc_mode: How ARC instance should be started.  Default is to not
                          start.
         @param arc_timeout: Timeout to wait for ARC to boot.
+        @param enable_web_app_auto_install: For tests that require to auto download and install default web applications. By default it is disabled.
         @param disable_arc_opt_in: For opt in flow autotest. This option is used
                                    to disable the arc opt in flow.
         @param disable_arc_opt_in_verification:
@@ -190,6 +192,11 @@ class Chrome(object):
         self._browser_type = (self.BROWSER_TYPE_LOGIN
                               if logged_in else self.BROWSER_TYPE_GUEST)
         finder_options.browser_type = self.browser_type
+
+        if not enable_web_app_auto_install:
+            finder_options.browser_options.AppendExtraBrowserArgs(
+                    ['--disable-features=DefaultWebAppInstallation'])
+
         if extra_browser_args:
             finder_options.browser_options.AppendExtraBrowserArgs(
                 extra_browser_args)

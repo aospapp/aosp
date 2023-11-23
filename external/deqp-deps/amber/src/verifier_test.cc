@@ -14,6 +14,7 @@
 
 #include "src/verifier.h"
 
+#include <cmath>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -22,6 +23,7 @@
 #include "amber/value.h"
 #include "gtest/gtest.h"
 #include "src/command.h"
+#include "src/float16_helper.h"
 #include "src/make_unique.h"
 #include "src/pipeline.h"
 #include "src/type_parser.h"
@@ -32,7 +34,7 @@ namespace {
 class VerifierTest : public testing::Test {
  public:
   VerifierTest() = default;
-  ~VerifierTest() = default;
+  ~VerifierTest() override = default;
 
   const Format* GetColorFormat() {
     if (color_frame_format_)
@@ -1518,6 +1520,100 @@ TEST_F(VerifierTest, ProbeSSBOWithPadding) {
   Verifier verifier;
   Result r = verifier.ProbeSSBO(&probe_ssbo, 4, ssbo);
   EXPECT_TRUE(r.IsSuccess()) << r.Error();
+}
+
+TEST_F(VerifierTest, ProbeSSBOHexFloat) {
+  Pipeline pipeline(PipelineType::kGraphics);
+  auto color_buf = pipeline.GenerateDefaultColorAttachmentBuffer();
+
+  ProbeSSBOCommand probe_ssbo(color_buf.get());
+
+  TypeParser parser;
+  auto type = parser.Parse("R16_SFLOAT");
+  Format fmt(type.get());
+
+  probe_ssbo.SetFormat(&fmt);
+  probe_ssbo.SetComparator(ProbeSSBOCommand::Comparator::kFuzzyEqual);
+  probe_ssbo.SetTolerances({ProbeCommand::Tolerance{false, 0.1}});
+
+  std::vector<Value> values;
+  values.resize(4);
+  values[0].SetDoubleValue(2.5);
+  values[1].SetDoubleValue(0.73);
+  values[2].SetDoubleValue(10.0);
+  values[3].SetDoubleValue(123.5);
+  probe_ssbo.SetValues(std::move(values));
+
+  const uint16_t ssbo[4] = {
+      float16::FloatToHexFloat16(2.5f), float16::FloatToHexFloat16(0.73f),
+      float16::FloatToHexFloat16(10.0f), float16::FloatToHexFloat16(123.5f)};
+
+  Verifier verifier;
+  Result r = verifier.ProbeSSBO(&probe_ssbo, sizeof(uint16_t) * 4, ssbo);
+  EXPECT_TRUE(r.IsSuccess()) << r.Error();
+}
+
+TEST_F(VerifierTest, ProbeSSBOFloatNaN) {
+  Pipeline pipeline(PipelineType::kGraphics);
+  auto color_buf = pipeline.GenerateDefaultColorAttachmentBuffer();
+
+  ProbeSSBOCommand probe_ssbo(color_buf.get());
+
+  TypeParser parser;
+  auto type = parser.Parse("R32_SFLOAT");
+  Format fmt(type.get());
+
+  probe_ssbo.SetFormat(&fmt);
+  probe_ssbo.SetComparator(ProbeSSBOCommand::Comparator::kEqual);
+
+  // expected=13.7, actual=nan
+  {
+    std::vector<Value> values;
+    values.emplace_back();
+    values.back().SetDoubleValue(13.7);
+    probe_ssbo.SetValues(std::move(values));
+
+    float ssbo = std::nanf("");
+
+    Verifier verifier;
+    Result r =
+        verifier.ProbeSSBO(&probe_ssbo, 1, static_cast<const void*>(&ssbo));
+    EXPECT_FALSE(r.IsSuccess()) << r.Error();
+    EXPECT_EQ("Line 1: Verifier failed: nan == 13.700000, at index 0",
+              r.Error());
+  }
+
+  // expected=nan, actual=13.7
+  {
+    std::vector<Value> values;
+    values.emplace_back();
+    values.back().SetDoubleValue(std::nan(""));
+    probe_ssbo.SetValues(std::move(values));
+
+    float ssbo = 13.7f;
+
+    Verifier verifier;
+    Result r =
+        verifier.ProbeSSBO(&probe_ssbo, 1, static_cast<const void*>(&ssbo));
+    EXPECT_FALSE(r.IsSuccess()) << r.Error();
+    EXPECT_EQ("Line 1: Verifier failed: 13.700000 == nan, at index 0",
+              r.Error());
+  }
+
+  // expected=nan, actual=nan
+  {
+    std::vector<Value> values;
+    values.emplace_back();
+    values.back().SetDoubleValue(std::nan(""));
+    probe_ssbo.SetValues(std::move(values));
+
+    float ssbo = std::nanf("");
+
+    Verifier verifier;
+    Result r =
+        verifier.ProbeSSBO(&probe_ssbo, 1, static_cast<const void*>(&ssbo));
+    EXPECT_TRUE(r.IsSuccess()) << r.Error();
+  }
 }
 
 }  // namespace amber

@@ -25,7 +25,7 @@
  *
  **************************************************************************/
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_memory.h"
 #include "util/simple_list.h"
 
@@ -38,7 +38,7 @@
 #include "tr_public.h"
 
 
-static boolean trace = FALSE;
+static bool trace = false;
 
 static const char *
 trace_screen_get_name(struct pipe_screen *_screen)
@@ -220,7 +220,7 @@ trace_screen_get_compute_param(struct pipe_screen *_screen,
 }
 
 
-static boolean
+static bool
 trace_screen_is_format_supported(struct pipe_screen *_screen,
                                  enum pipe_format format,
                                  enum pipe_texture_target target,
@@ -230,7 +230,7 @@ trace_screen_is_format_supported(struct pipe_screen *_screen,
 {
    struct trace_screen *tr_scr = trace_screen(_screen);
    struct pipe_screen *screen = tr_scr->screen;
-   boolean result;
+   bool result;
 
    trace_dump_call_begin("pipe_screen", "is_format_supported");
 
@@ -390,7 +390,7 @@ trace_screen_check_resource_capability(struct pipe_screen *_screen,
    return screen->check_resource_capability(screen, resource, bind);
 }
 
-static boolean
+static bool
 trace_screen_resource_get_handle(struct pipe_screen *_screen,
                                  struct pipe_context *_pipe,
                                 struct pipe_resource *resource,
@@ -405,6 +405,28 @@ trace_screen_resource_get_handle(struct pipe_screen *_screen,
 
    return screen->resource_get_handle(screen, tr_pipe ? tr_pipe->pipe : NULL,
                                       resource, handle, usage);
+}
+
+static bool
+trace_screen_resource_get_param(struct pipe_screen *_screen,
+                                struct pipe_context *_pipe,
+                                struct pipe_resource *resource,
+                                unsigned plane,
+                                unsigned layer,
+                                unsigned level,
+                                enum pipe_resource_param param,
+                                unsigned handle_usage,
+                                uint64_t *value)
+{
+   struct trace_screen *tr_screen = trace_screen(_screen);
+   struct trace_context *tr_pipe = _pipe ? trace_context(_pipe) : NULL;
+   struct pipe_screen *screen = tr_screen->screen;
+
+   /* TODO trace call */
+
+   return screen->resource_get_param(screen, tr_pipe ? tr_pipe->pipe : NULL,
+                                     resource, plane, layer, level, param,
+                                     handle_usage, value);
 }
 
 static void
@@ -532,7 +554,7 @@ trace_screen_fence_get_fd(struct pipe_screen *_screen,
 }
 
 
-static boolean
+static bool
 trace_screen_fence_finish(struct pipe_screen *_screen,
                           struct pipe_context *_ctx,
                           struct pipe_fence_handle *fence,
@@ -623,6 +645,14 @@ trace_screen_get_timestamp(struct pipe_screen *_screen)
 }
 
 static void
+trace_screen_finalize_nir(struct pipe_screen *_screen, void *nir, bool optimize)
+{
+   struct pipe_screen *screen = trace_screen(_screen)->screen;
+
+   screen->finalize_nir(screen, nir, optimize);
+}
+
+static void
 trace_screen_destroy(struct pipe_screen *_screen)
 {
    struct trace_screen *tr_scr = trace_screen(_screen);
@@ -637,18 +667,18 @@ trace_screen_destroy(struct pipe_screen *_screen)
    FREE(tr_scr);
 }
 
-boolean
+bool
 trace_enabled(void)
 {
-   static boolean firstrun = TRUE;
+   static bool firstrun = true;
 
    if (!firstrun)
       return trace;
-   firstrun = FALSE;
+   firstrun = false;
 
    if(trace_dump_trace_begin()) {
       trace_dumping_start();
-      trace = TRUE;
+      trace = true;
    }
 
    return trace;
@@ -687,6 +717,7 @@ trace_screen_create(struct pipe_screen *screen)
    tr_scr->base.resource_from_handle = trace_screen_resource_from_handle;
    SCR_INIT(check_resource_capability);
    tr_scr->base.resource_get_handle = trace_screen_resource_get_handle;
+   SCR_INIT(resource_get_param);
    SCR_INIT(resource_get_info);
    SCR_INIT(resource_from_memobj);
    SCR_INIT(resource_changed);
@@ -700,6 +731,7 @@ trace_screen_create(struct pipe_screen *screen)
    tr_scr->base.get_timestamp = trace_screen_get_timestamp;
    SCR_INIT(get_driver_uuid);
    SCR_INIT(get_device_uuid);
+   SCR_INIT(finalize_nir);
 
    tr_scr->screen = screen;
 

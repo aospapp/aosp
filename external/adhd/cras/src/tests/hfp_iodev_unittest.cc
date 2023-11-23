@@ -43,7 +43,7 @@ static size_t hfp_fill_output_with_zeros_called;
 static size_t hfp_force_output_level_called;
 static size_t hfp_force_output_level_target;
 static size_t fake_buffer_size = 500;
-static cras_audio_area* dummy_audio_area;
+static cras_audio_area* mock_audio_area;
 
 void ResetStubData() {
   cras_bt_device_append_iodev_called = 0;
@@ -73,9 +73,9 @@ void ResetStubData() {
 
   fake_info = reinterpret_cast<struct hfp_info*>(0x123);
 
-  if (!dummy_audio_area) {
-    dummy_audio_area = (cras_audio_area*)calloc(
-        1, sizeof(*dummy_audio_area) + sizeof(cras_channel_area) * 2);
+  if (!mock_audio_area) {
+    mock_audio_area = (cras_audio_area*)calloc(
+        1, sizeof(*mock_audio_area) + sizeof(cras_channel_area) * 2);
   }
 }
 
@@ -86,8 +86,8 @@ class HfpIodev : public testing::Test {
   virtual void SetUp() { ResetStubData(); }
 
   virtual void TearDown() {
-    free(dummy_audio_area);
-    dummy_audio_area = NULL;
+    free(mock_audio_area);
+    mock_audio_area = NULL;
   }
 };
 
@@ -243,6 +243,9 @@ void cras_iodev_set_active_node(struct cras_iodev* iodev,
   iodev->active_node = node;
 }
 
+// From ewma_power
+void ewma_power_disable(struct ewma_power* ewma) {}
+
 //  From system_state.
 size_t cras_system_get_volume() {
   return 0;
@@ -282,6 +285,10 @@ const char* cras_bt_device_object_path(const struct cras_bt_device* device) {
   return "/fake/object/path";
 }
 
+int cras_bt_device_get_stable_id(const struct cras_bt_device* device) {
+  return 123;
+}
+
 // From cras_hfp_info
 int hfp_info_add_iodev(struct hfp_info* info,
                        enum CRAS_STREAM_DIRECTION direction,
@@ -306,7 +313,7 @@ int hfp_info_running(struct hfp_info* info) {
   return hfp_info_running_return_val;
 }
 
-int hfp_info_start(int fd, unsigned int mtu, struct hfp_info* info) {
+int hfp_info_start(int fd, unsigned int mtu, int codec, struct hfp_info* info) {
   hfp_info_start_called++;
   return 0;
 }
@@ -351,7 +358,7 @@ void hfp_force_output_level(struct hfp_info* info, unsigned int level) {
 }
 
 void cras_iodev_init_audio_area(struct cras_iodev* iodev, int num_channels) {
-  iodev->area = dummy_audio_area;
+  iodev->area = mock_audio_area;
 }
 
 void cras_iodev_free_audio_area(struct cras_iodev* iodev) {}
@@ -360,10 +367,14 @@ void cras_iodev_free_resources(struct cras_iodev* iodev) {
   cras_iodev_free_resources_called++;
 }
 
+int cras_iodev_fill_odev_zeros(struct cras_iodev* odev, unsigned int frames) {
+  return 0;
+}
+
 void cras_audio_area_config_buf_pointers(struct cras_audio_area* area,
                                          const struct cras_audio_format* fmt,
                                          uint8_t* base_buffer) {
-  dummy_audio_area->channels[0].buf = base_buffer;
+  mock_audio_area->channels[0].buf = base_buffer;
 }
 
 int hfp_set_call_status(struct hfp_slc_handle* handle, int call) {
@@ -376,6 +387,18 @@ int hfp_event_speaker_gain(struct hfp_slc_handle* handle, int gain) {
 
 int hfp_slc_get_selected_codec(struct hfp_slc_handle* handle) {
   return HFP_CODEC_ID_CVSD;
+}
+
+bool hfp_slc_get_wideband_speech_supported(struct hfp_slc_handle* handle) {
+  return false;
+}
+
+int hfp_slc_codec_connection_setup(struct hfp_slc_handle* handle) {
+  return 0;
+}
+
+int hfp_slc_is_hsp(struct hfp_slc_handle* handle) {
+  return 0;
 }
 
 }  // extern "C"

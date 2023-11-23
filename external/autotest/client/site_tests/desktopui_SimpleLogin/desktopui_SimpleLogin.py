@@ -10,10 +10,10 @@ from autotest_lib.client.common_lib.cros import chrome
 
 class desktopui_SimpleLogin(test.test):
     """Login and wait until exit flag file is seen."""
-    version = 1
+    version = 2
 
 
-    def run_once(self, exit_without_logout=False):
+    def run_once(self, start_url=None, exit_without_logout=False):
         """
         Entrance point for test.
 
@@ -25,6 +25,13 @@ class desktopui_SimpleLogin(test.test):
             os.remove(terminate_path)
 
         cr = chrome.Chrome()
+        if start_url is not None:
+            tab = cr.browser.tabs[0]
+            try:
+                tab.Navigate(start_url)
+            except Exception as e:
+                logging.debug(e)
+                pass
         if exit_without_logout is True:
             sys.exit(0)
         while True:

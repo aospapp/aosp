@@ -32,7 +32,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Row.R2;
 import com.ibm.icu.text.UnicodeSet;
 
@@ -57,7 +56,7 @@ public class LanguageTagParser {
                 return o1.charAt(0) == 't' ? 0 : 2;
             case 2:
                 return o1.charAt(1) <= '9' ? 1 : 3;
-            default: 
+            default:
                 throw new IllegalArgumentException();
             }
         }
@@ -92,10 +91,10 @@ public class LanguageTagParser {
     }
 
     /**
-     * @return Returns the grandfathered flag
+     * @return True if the language tag is marked as “Type: grandfathered” in BCP 47.
      */
-    public boolean isGrandfathered() {
-        return grandfathered;
+    public boolean isLegacy() {
+        return legacy;
     }
 
     /**
@@ -158,7 +157,7 @@ public class LanguageTagParser {
      * @return Returns each of the language-script tags in the collection.
      */
     public static Set<String> getLanguageAndScript(Collection<String> in, Set<String> output) {
-        if (output == null) output = new TreeSet<String>();
+        if (output == null) output = new TreeSet<>();
         LanguageTagParser lparser = new LanguageTagParser();
         for (Iterator<String> it = in.iterator(); it.hasNext();) {
             output.add(lparser.set(it.next()).getLanguageScript());
@@ -169,13 +168,13 @@ public class LanguageTagParser {
     // private fields
 
     private String original;
-    private boolean grandfathered = false;
+    private boolean legacy = false;
     private String language;
     private String script;
     private String region;
-    private Set<String> variants = new TreeSet<String>();
-    private Map<String, List<String>> extensions = new TreeMap<String, List<String>>(); // use tree map
-    private Map<String, List<String>> localeExtensions = new TreeMap<String, List<String>>(EXTENSION_ORDER);
+    private Set<String> variants = new TreeSet<>();
+    private Map<String, List<String>> extensions = new TreeMap<>(); // use tree map
+    private Map<String, List<String>> localeExtensions = new TreeMap<>(EXTENSION_ORDER);
 
     private static final UnicodeSet ALPHA = new UnicodeSet("[a-zA-Z]").freeze();
     private static final UnicodeSet DIGIT = new UnicodeSet("[0-9]").freeze();
@@ -184,7 +183,7 @@ public class LanguageTagParser {
     private static final UnicodeSet X = new UnicodeSet("[xX]").freeze();
     private static final UnicodeSet ALPHA_MINUS_X = new UnicodeSet(ALPHA).removeAll(X).freeze();
     private static StandardCodes standardCodes = StandardCodes.make();
-    private static final Set<String> grandfatheredCodes = standardCodes.getAvailableCodes("grandfathered");
+    private static final Set<String> legacyCodes = standardCodes.getAvailableCodes("legacy");
     private static final String separator = "-_"; // '-' alone for 3066bis language tags
     private static final UnicodeSet SEPARATORS = new UnicodeSet().addAll(separator).freeze();
     private static final Splitter SPLIT_BAR = Splitter.on(CharMatcher.anyOf(separator));
@@ -216,7 +215,7 @@ public class LanguageTagParser {
 
         // clear everything out
         language = region = script = "";
-        grandfathered = false;
+        legacy = false;
         variants.clear();
         extensions.clear();
         localeExtensions.clear();
@@ -233,7 +232,7 @@ public class LanguageTagParser {
                 }
                 List<String> valueList = SPLIT_BAR.splitToList(value);
                 switch(key.length()) {
-                case 1: 
+                case 1:
                     extensions.put(key, valueList);
                     break;
                 case 2:
@@ -247,10 +246,9 @@ public class LanguageTagParser {
             languageTag = languageTag.substring(0, atPosition);
         }
 
-        // first test for grandfathered
-        if (grandfatheredCodes.contains(languageTag)) {
+        if (legacyCodes.contains(languageTag)) {
             language = languageTag;
-            grandfathered = true;
+            legacy = true;
             return this;
         }
 
@@ -328,7 +326,7 @@ public class LanguageTagParser {
      * @return true iff the language tag validates
      */
     public boolean isValid() {
-        if (grandfathered) return true; // don't need further checking, since we already did so when parsing
+        if (legacy) return true; // don't need further checking, since we already did so when parsing
         if (!validates(language, "language")) return false;
         if (!validates(script, "script")) return false;
         if (!validates(region, "territory")) return false;
@@ -425,8 +423,8 @@ public class LanguageTagParser {
                 if (subtag.length() < minLength) {
                     return subtag;
                 }
-                if (takesSubkeys 
-                    && subtag.length() == 2 
+                if (takesSubkeys
+                    && subtag.length() == 2
                     && (!firstT || isTKey(subtag))) { // start new key-value pair
                     if (!result.isEmpty() || base.length() != 1) { // don't add empty t- or u-
                         localeExtensions.put(base, ImmutableList.copyOf(result));
@@ -490,7 +488,7 @@ public class LanguageTagParser {
     }
 
     public enum OutputOption {
-        ICU('_'), BCP47('-');
+        ICU('_'), ICU_LCVARIANT('_'), BCP47('-');
         final char separator;
         final Joiner joiner;
 
@@ -511,6 +509,7 @@ public class LanguageTagParser {
         }
     }
 
+    @Override
     public String toString() {
         return toString(OutputOption.ICU);
     }
@@ -631,7 +630,7 @@ public class LanguageTagParser {
     public static boolean isTKey(String key) {
         return key.length() == 2 && key.charAt(1) < 'a';
     }
-    
+
     public boolean hasT() {
         for (String key : localeExtensions.keySet()) {
             if (key.equals("t") || isTKey(key)) {
@@ -654,7 +653,7 @@ public class LanguageTagParser {
 
     public enum Fields {
         LANGUAGE, SCRIPT, REGION, VARIANTS
-    };
+    }
 
     public static Set<Fields> LANGUAGE_SCRIPT = Collections.unmodifiableSet(EnumSet.of(Fields.LANGUAGE, Fields.SCRIPT));
     public static Set<Fields> LANGUAGE_REGION = Collections.unmodifiableSet(EnumSet.of(Fields.LANGUAGE, Fields.REGION));
@@ -753,7 +752,7 @@ public class LanguageTagParser {
             this.separator = separator;
             this.separator2 = separator2;
         }
-    };
+    }
 
     public String toString(Format format) {
         StringBuilder result = new StringBuilder();
@@ -801,7 +800,7 @@ public class LanguageTagParser {
 
     private void appendField(Format format, StringBuilder result, String fieldName, Collection<String> fieldValues) {
         if (!fieldValues.isEmpty()) {
-            appendField(format, result, fieldName, CollectionUtilities.join(fieldValues, ","));
+            appendField(format, result, fieldName, Joiner.on(",").join(fieldValues));
         }
     }
 
@@ -829,35 +828,42 @@ public class LanguageTagParser {
                     if (!haveT) {
                         result.append(format.separator).append('t');
                         if (haveTLang) { // empty is illegal, but just in case
-                            result.append(format.separator).append(CollectionUtilities.join(tLang, format.separator));
+                            result.append(format.separator).append(
+                                Joiner.on(format.separator).join(tLang));
                             haveTLang = false;
                         }
                         haveT = true;
                     }
-                    appendFieldKey(format, result, entry.getKey(), CollectionUtilities.join(entry.getValue(), format.separator));
+                    appendFieldKey(format, result, entry.getKey(),
+                        Joiner.on(format.separator).join(entry.getValue()));
                 } else {
                     if (!haveU) {
                         result2.append(format.separator).append('u');
                         if (haveUSpecial) { // not yet valid, but just in case
-                            result2.append(format.separator).append(CollectionUtilities.join(uSpecial, format.separator));
+                            result2.append(format.separator).append(
+                                Joiner.on(format.separator).join(uSpecial));
                             haveUSpecial = false;
                         }
                         haveU = true;
                     }
-                    appendFieldKey(format, result2, entry.getKey(), CollectionUtilities.join(entry.getValue(), format.separator));
+                    appendFieldKey(format, result2, entry.getKey(),
+                        Joiner.on(format.separator).join(entry.getValue()));
                 }
             }
             if (haveTLang) {
-                result.append(format.separator).append('t').append(format.separator).append(CollectionUtilities.join(tLang, format.separator));
+                result.append(format.separator).append('t').append(format.separator).append(
+                    Joiner.on(format.separator).join(tLang));
             }
             if (haveUSpecial) {
-                result2.append(format.separator).append('u').append(format.separator).append(CollectionUtilities.join(uSpecial, format.separator));
+                result2.append(format.separator).append('u').append(format.separator).append(
+                    Joiner.on(format.separator).join(uSpecial));
             }
             result.append(result2); // put in right order
         } else {
             for (Entry<String, List<String>> entry : fieldValues.entrySet()) {
                 if (match == null || match.contains(entry.getKey())) {
-                    appendFieldKey(format, result, entry.getKey(), CollectionUtilities.join(entry.getValue(), format.separator));
+                    appendFieldKey(format, result, entry.getKey(),
+                        Joiner.on(format.separator).join(entry.getValue()));
                 }
             }
         }

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -7,11 +7,10 @@
 PLAT_INCLUDES		:=	-Iplat/imx/imx8qx/include		\
 				-Iplat/imx/common/include		\
 
-IMX_GIC_SOURCES	:=		drivers/arm/gic/v3/gicv3_helpers.c	\
-				drivers/arm/gic/v3/arm_gicv3_common.c	\
-				drivers/arm/gic/v3/gic500.c		\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/common/gic_common.c	\
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+IMX_GIC_SOURCES	:=		${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				plat/imx/common/plat_imx8_gic.c
 
@@ -33,3 +32,9 @@ include plat/imx/common/sci/sci_api.mk
 
 USE_COHERENT_MEM	:=	1
 RESET_TO_BL31		:=	1
+
+IMX_DEBUG_UART		?= 	0
+$(eval $(call add_define,IMX_USE_UART${IMX_DEBUG_UART}))
+
+DEBUG_CONSOLE		?= 	0
+$(eval $(call add_define,DEBUG_CONSOLE))

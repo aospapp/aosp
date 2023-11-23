@@ -29,7 +29,6 @@ MODULE_DIRS="\
     benchmark-base \
     common \
     openjdk \
-    common \
     platform \
     testing \
 "

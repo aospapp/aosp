@@ -39,6 +39,8 @@ periodically. Each time when a FPS rate is sampled, callback() is called with
 the FPS number as its parameter.
 """
 
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
 
 import argparse
@@ -52,6 +54,8 @@ import re
 import sys
 import threading
 import time
+
+from six.moves import range
 
 from autotest_lib.client.bin import utils as bin_utils
 from autotest_lib.client.common_lib import utils as common_lib_utils

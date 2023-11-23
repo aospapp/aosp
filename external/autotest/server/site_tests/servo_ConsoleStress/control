@@ -9,7 +9,7 @@ NAME = "servo_ConsoleStress"
 PURPOSE = "Verify console."
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """Run the control a bunch. Make sure the output doesn't change
 

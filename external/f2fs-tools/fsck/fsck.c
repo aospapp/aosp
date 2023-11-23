@@ -144,12 +144,16 @@ static int find_and_dec_hard_link_list(struct f2fs_sb_info *sbi, u32 nid)
 static int is_valid_ssa_node_blk(struct f2fs_sb_info *sbi, u32 nid,
 							u32 blk_addr)
 {
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
 	struct f2fs_summary_block *sum_blk;
 	struct f2fs_summary *sum_entry;
 	struct seg_entry * se;
 	u32 segno, offset;
 	int need_fix = 0, ret = 0;
 	int type;
+
+	if (get_sb(feature) & cpu_to_le32(F2FS_FEATURE_RO))
+		return 0;
 
 	segno = GET_SEGNO(sbi, blk_addr);
 	offset = OFFSET_IN_SEG(sbi, blk_addr);
@@ -261,12 +265,16 @@ out:
 static int is_valid_ssa_data_blk(struct f2fs_sb_info *sbi, u32 blk_addr,
 		u32 parent_nid, u16 idx_in_node, u8 version)
 {
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
 	struct f2fs_summary_block *sum_blk;
 	struct f2fs_summary *sum_entry;
 	struct seg_entry * se;
 	u32 segno, offset;
 	int need_fix = 0, ret = 0;
 	int type;
+
+	if (get_sb(feature) & cpu_to_le32(F2FS_FEATURE_RO))
+		return 0;
 
 	segno = GET_SEGNO(sbi, blk_addr);
 	offset = OFFSET_IN_SEG(sbi, blk_addr);
@@ -790,8 +798,21 @@ void fsck_chk_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 	}
 	ofs = get_extra_isize(node_blk);
 
+	if ((node_blk->i.i_flags & cpu_to_le32(F2FS_CASEFOLD_FL)) &&
+	    (ftype != F2FS_FT_DIR ||
+	     !(c.feature & cpu_to_le32(F2FS_FEATURE_CASEFOLD)))) {
+		ASSERT_MSG("[0x%x] unexpected casefold flag", nid);
+		if (c.fix_on) {
+			FIX_MSG("ino[0x%x] clear casefold flag", nid);
+			node_blk->i.i_flags &= ~cpu_to_le32(F2FS_CASEFOLD_FL);
+			need_fix = 1;
+		}
+	}
+
 	if ((node_blk->i.i_inline & F2FS_INLINE_DATA)) {
 		unsigned int inline_size = MAX_INLINE_DATA(node_blk);
+		if (cur_qtype != -1)
+			qf_szchk_type[cur_qtype] = QF_SZCHK_INLINE;
 		block_t blkaddr = le32_to_cpu(node_blk->i.i_addr[ofs]);
 
 		if (blkaddr != 0) {
@@ -860,6 +881,15 @@ void fsck_chk_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 	}
 
 	/* check data blocks in inode */
+	if (cur_qtype != -1) {
+		qf_szchk_type[cur_qtype] = QF_SZCHK_REGFILE;
+		qf_maxsize[cur_qtype] = (ADDRS_PER_INODE(&node_blk->i) +
+				2 * ADDRS_PER_BLOCK(&node_blk->i) +
+				2 * ADDRS_PER_BLOCK(&node_blk->i) *
+				NIDS_PER_BLOCK +
+				(u64) ADDRS_PER_BLOCK(&node_blk->i) *
+				NIDS_PER_BLOCK * NIDS_PER_BLOCK) * F2FS_BLKSIZE;
+	}
 	for (idx = 0; idx < ADDRS_PER_INODE(&node_blk->i);
 						idx++, child.pgofs++) {
 		block_t blkaddr = le32_to_cpu(node_blk->i.i_addr[ofs + idx]);
@@ -884,6 +914,8 @@ void fsck_chk_inode_blk(struct f2fs_sb_info *sbi, u32 nid,
 					file_is_encrypt(&node_blk->i));
 			if (!ret) {
 				*blk_cnt = *blk_cnt + 1;
+				if (cur_qtype != -1 && blkaddr != NEW_ADDR)
+					qf_last_blkofs[cur_qtype] = child.pgofs;
 			} else if (c.fix_on) {
 				node_blk->i.i_addr[ofs + idx] = 0;
 				need_fix = 1;
@@ -1126,6 +1158,8 @@ int fsck_chk_dnode_blk(struct f2fs_sb_info *sbi, struct f2fs_inode *inode,
 			file_is_encrypt(inode));
 		if (!ret) {
 			*blk_cnt = *blk_cnt + 1;
+			if (cur_qtype != -1 && blkaddr != NEW_ADDR)
+				qf_last_blkofs[cur_qtype] = child->pgofs;
 		} else if (c.fix_on) {
 			node_blk->dn.addr[idx] = 0;
 			need_fix = 1;
@@ -1754,8 +1788,11 @@ int fsck_chk_orphan_node(struct f2fs_sb_info *sbi)
 			if (c.preen_mode == PREEN_MODE_1 && !c.fix_on) {
 				get_node_info(sbi, ino, &ni);
 				if (!IS_VALID_NID(sbi, ino) ||
-						!IS_VALID_BLK_ADDR(sbi, ni.blk_addr))
+				    !IS_VALID_BLK_ADDR(sbi, ni.blk_addr)) {
+					free(orphan_blk);
+					free(new_blk);
 					return -EINVAL;
+				}
 
 				continue;
 			}
@@ -1794,6 +1831,7 @@ int fsck_chk_quota_node(struct f2fs_sb_info *sbi)
 	u32 blk_cnt = 0;
 
 	for (qtype = 0; qtype < F2FS_MAX_QUOTAS; qtype++) {
+		cur_qtype = qtype;
 		if (sb->qf_ino[qtype] == 0)
 			continue;
 		nid_t ino = QUOTA_INO(sb, qtype);
@@ -1811,10 +1849,13 @@ int fsck_chk_quota_node(struct f2fs_sb_info *sbi)
 		}
 		ret = fsck_chk_node_blk(sbi, NULL, ino,
 				F2FS_FT_REG_FILE, TYPE_INODE, &blk_cnt, NULL);
-		if (ret)
+		if (ret) {
 			ASSERT_MSG("wrong quota inode, qtype [%d] ino [0x%x]",
 								qtype, ino);
+			qf_szchk_type[qtype] = QF_SZCHK_ERR;
+		}
 	}
+	cur_qtype = -1;
 	return ret;
 }
 
@@ -1886,11 +1927,12 @@ int fsck_chk_meta(struct f2fs_sb_info *sbi)
 		if (IS_NODESEG(se->type))
 			sit_node_blks += se->valid_blocks;
 	}
-	if (fsck->chk.sit_free_segs + sit_valid_segs != TOTAL_SEGS(sbi)) {
+	if (fsck->chk.sit_free_segs + sit_valid_segs !=
+				get_usable_seg_count(sbi)) {
 		ASSERT_MSG("SIT usage does not match: sit_free_segs %u, "
 				"sit_valid_segs %u, total_segs %u",
 			fsck->chk.sit_free_segs, sit_valid_segs,
-			TOTAL_SEGS(sbi));
+			get_usable_seg_count(sbi));
 		return -EINVAL;
 	}
 
@@ -2338,9 +2380,14 @@ static int check_curseg_write_pointer(struct f2fs_sb_info *UNUSED(sbi),
 
 int check_curseg_offset(struct f2fs_sb_info *sbi, int type)
 {
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
 	struct curseg_info *curseg = CURSEG_I(sbi, type);
 	struct seg_entry *se;
 	int j, nblocks;
+
+	if (get_sb(feature) & cpu_to_le32(F2FS_FEATURE_RO) &&
+			type != CURSEG_HOT_DATA && type != CURSEG_HOT_NODE)
+		return 0;
 
 	if ((curseg->next_blkoff >> 3) >= SIT_VBLOCK_MAP_SIZE) {
 		ASSERT_MSG("Next block offset:%u is invalid, type:%d",
@@ -2924,6 +2971,7 @@ void fsck_chk_and_fix_write_pointers(struct f2fs_sb_info *sbi)
 
 int fsck_chk_curseg_info(struct f2fs_sb_info *sbi)
 {
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
 	struct curseg_info *curseg;
 	struct seg_entry *se;
 	struct f2fs_summary_block *sum_blk;
@@ -2933,6 +2981,10 @@ int fsck_chk_curseg_info(struct f2fs_sb_info *sbi)
 		curseg = CURSEG_I(sbi, i);
 		se = get_seg_entry(sbi, curseg->segno);
 		sum_blk = curseg->sum_blk;
+
+		if ((get_sb(feature) & cpu_to_le32(F2FS_FEATURE_RO)) &&
+			(i != CURSEG_HOT_DATA && i != CURSEG_HOT_NODE))
+			continue;
 
 		if (se->type != i) {
 			ASSERT_MSG("Incorrect curseg [%d]: segno [0x%x] "
@@ -3016,7 +3068,10 @@ int fsck_verify(struct f2fs_sb_info *sbi)
 		}
 		c.bug_on = 1;
 	}
-
+	printf("[FSCK] Max image size: %"PRIu64" MB, Free space: %u MB\n",
+		c.max_size >> 20,
+		(sbi->user_block_count - sbi->total_valid_block_count) >>
+		(20 - F2FS_BLKSIZE_BITS));
 	printf("[FSCK] Unreachable nat entries                       ");
 	if (nr_unref_nid == 0x0) {
 		printf(" [Ok..] [0x%x]\n", nr_unref_nid);
@@ -3115,10 +3170,11 @@ int fsck_verify(struct f2fs_sb_info *sbi)
 #ifndef WITH_ANDROID
 	if (nr_unref_nid && !c.ro) {
 		char ans[255] = {0};
+		int res;
 
 		printf("\nDo you want to restore lost files into ./lost_found/? [Y/N] ");
-		ret = scanf("%s", ans);
-		ASSERT(ret >= 0);
+		res = scanf("%s", ans);
+		ASSERT(res >= 0);
 		if (!strcasecmp(ans, "y")) {
 			for (i = 0; i < fsck->nr_nat_entries; i++) {
 				if (f2fs_test_bit(i, fsck->nat_area_bitmap))
@@ -3146,6 +3202,8 @@ int fsck_verify(struct f2fs_sb_info *sbi)
 			is_set_ckpt_flags(cp, CP_QUOTA_NEED_FSCK_FLAG)) {
 			write_checkpoints(sbi);
 		}
+		/* to return FSCK_ERROR_CORRECTED */
+		ret = 0;
 	}
 	return ret;
 }

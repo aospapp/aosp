@@ -16,16 +16,15 @@
 
 package org.chromium.latency.walt;
 
+import static org.chromium.latency.walt.Utils.getBooleanPreference;
+import static org.chromium.latency.walt.Utils.getIntPreference;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.Fragment;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
 import android.text.method.ScrollingMovementMethod;
 import android.view.Choreographer;
 import android.view.LayoutInflater;
@@ -35,6 +34,11 @@ import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
+
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Description;
@@ -46,9 +50,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import static org.chromium.latency.walt.Utils.getBooleanPreference;
-import static org.chromium.latency.walt.Utils.getIntPreference;
 
 /**
  * Measurement of screen response time when switching between black and white.

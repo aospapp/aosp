@@ -26,6 +26,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := gallium_dri
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../LICENSE
 
 LOCAL_MODULE_RELATIVE_PATH := $(MESA_DRI_MODULE_REL_PATH)
 LOCAL_SRC_FILES := target.c
@@ -42,7 +45,9 @@ LOCAL_LDFLAGS := \
 LOCAL_SHARED_LIBRARIES := \
 	libdl \
 	libglapi \
-	libz
+	libz \
+	liblog \
+	libsync
 
 # If Android version >=8 MESA should static link libexpat else should dynamic link
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 27; echo $$?), 0)
@@ -54,8 +59,20 @@ LOCAL_SHARED_LIBRARIES += \
 endif
 
 LOCAL_STATIC_LIBRARIES += \
+	libetnaviv_drm \
+	libfreedreno_common \
 	libfreedreno_drm \
-	libfreedreno_ir3
+	libfreedreno_ir2 \
+	libfreedreno_ir3 \
+	libfreedreno_perfcntrs \
+	libmesa_gallium \
+	libpanfrost_bifrost \
+	libpanfrost_bifrost_disasm \
+	libpanfrost_lib \
+	libpanfrost_midgard \
+	libpanfrost_midgard_disasm \
+	libpanfrost_shared \
+	libpanfrost_util \
 
 ifeq ($(USE_LIBBACKTRACE),true)
 	LOCAL_SHARED_LIBRARIES += libbacktrace
@@ -73,7 +90,6 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_nir \
 	libmesa_dri_common \
 	libmesa_megadriver_stub \
-	libmesa_gallium \
 	libmesa_pipe_loader \
 	libmesa_util \
 	libmesa_loader

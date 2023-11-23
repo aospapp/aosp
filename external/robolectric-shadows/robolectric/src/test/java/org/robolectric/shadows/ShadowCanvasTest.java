@@ -274,12 +274,12 @@ public class ShadowCanvasTest {
     assertThat(shadowCanvas.getDrawnCircle(0).centerX).isEqualTo(1.0f);
     assertThat(shadowCanvas.getDrawnCircle(0).centerY).isEqualTo(2.0f);
     assertThat(shadowCanvas.getDrawnCircle(0).radius).isEqualTo(3.0f);
-    assertThat(shadowCanvas.getDrawnCircle(0).paint).isSameAs(paint0);
+    assertThat(shadowCanvas.getDrawnCircle(0).paint).isSameInstanceAs(paint0);
 
     assertThat(shadowCanvas.getDrawnCircle(1).centerX).isEqualTo(4.0f);
     assertThat(shadowCanvas.getDrawnCircle(1).centerY).isEqualTo(5.0f);
     assertThat(shadowCanvas.getDrawnCircle(1).radius).isEqualTo(6.0f);
-    assertThat(shadowCanvas.getDrawnCircle(1).paint).isSameAs(paint1);
+    assertThat(shadowCanvas.getDrawnCircle(1).paint).isSameInstanceAs(paint1);
   }
 
   @Test
@@ -297,13 +297,13 @@ public class ShadowCanvasTest {
     assertThat(shadowCanvas.getDrawnArc(0).startAngle).isEqualTo(1f);
     assertThat(shadowCanvas.getDrawnArc(0).sweepAngle).isEqualTo(2f);
     assertThat(shadowCanvas.getDrawnArc(0).useCenter).isTrue();
-    assertThat(shadowCanvas.getDrawnArc(0).paint).isSameAs(paint0);
+    assertThat(shadowCanvas.getDrawnArc(0).paint).isSameInstanceAs(paint0);
 
     assertThat(shadowCanvas.getDrawnArc(1).oval).isEqualTo(oval1);
     assertThat(shadowCanvas.getDrawnArc(1).startAngle).isEqualTo(3f);
     assertThat(shadowCanvas.getDrawnArc(1).sweepAngle).isEqualTo(4f);
     assertThat(shadowCanvas.getDrawnArc(1).useCenter).isFalse();
-    assertThat(shadowCanvas.getDrawnArc(1).paint).isSameAs(paint1);
+    assertThat(shadowCanvas.getDrawnArc(1).paint).isSameInstanceAs(paint1);
   }
 
   @Test

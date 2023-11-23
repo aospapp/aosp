@@ -14,9 +14,6 @@ DEFAULT_FAILURE_MESSAGE = (
 ATTENUATOR_FAILURE_MESSAGE = (
         'Cannot infer DNS name of WiFi variable attenuator from a client IP '
         'address.  Use --atten_addr=<ip or dns name>')
-BLUETOOTH_TESTER_FAILURE_MESSAGE = (
-        'Remote host cannot be an IP address unless tester specified with '
-         '--args tester=IP')
 ROUTER_FAILURE_MESSAGE = (
         'Cannot infer DNS name of WiFi router from a client IP address.')
 PCAP_FAILURE_MESSAGE = (
@@ -129,21 +126,3 @@ def get_attenuator_addr(client_hostname,
             cmdline_override=cmdline_override,
             not_dnsname_msg=ATTENUATOR_FAILURE_MESSAGE,
             allow_failure=allow_failure)
-
-
-def get_tester_addr(client_hostname, cmdline_override=None):
-    """Build a hostname for a Bluetooth test device from the client hostname.
-
-    Optionally override that hostname with the provided command line hostname.
-
-    @param client_hostname: string DNS name of the client.
-    @param cmdline_override: string DNS name of the Bluetooth tester
-            provided via commandline arguments.
-    @return usable DNS name for Bluetooth tester device.
-
-    """
-    return get_companion_device_addr(
-            client_hostname,
-            '-chameleon',
-            cmdline_override=cmdline_override,
-            not_dnsname_msg=BLUETOOTH_TESTER_FAILURE_MESSAGE)

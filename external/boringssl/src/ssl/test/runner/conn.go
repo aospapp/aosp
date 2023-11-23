@@ -22,7 +22,6 @@ import (
 )
 
 var errNoCertificateAlert = errors.New("tls: no certificate alert")
-var errEndOfEarlyDataAlert = errors.New("tls: end of early data alert")
 
 // A Conn represents a secured connection.
 // It implements the net.Conn interface.
@@ -44,7 +43,6 @@ type Conn struct {
 	didResume            bool // whether this connection was a session resumption
 	extendedMasterSecret bool // whether this session used an extended master secret
 	cipherSuite          *cipherSuite
-	earlyCipherSuite     *cipherSuite
 	ocspResponse         []byte // stapled OCSP response
 	sctList              []byte // signed certificate timestamp list
 	peerCertificates     []*x509.Certificate
@@ -63,8 +61,11 @@ type Conn struct {
 	// not applicable.
 	curveID CurveID
 	// quicTransportParams contains the QUIC transport params received
-	// by the peer.
+	// by the peer using codepoint 57.
 	quicTransportParams []byte
+	// quicTransportParams contains the QUIC transport params received
+	// by the peer using legacy codepoint 0xffa5.
+	quicTransportParamsLegacy []byte
 
 	clientRandom, serverRandom [32]byte
 	earlyExporterSecret        []byte
@@ -74,6 +75,9 @@ type Conn struct {
 	clientProtocol         string
 	clientProtocolFallback bool
 	usedALPN               bool
+
+	localApplicationSettings, peerApplicationSettings []byte
+	hasApplicationSettings                            bool
 
 	// verify_data values for the renegotiation extension.
 	clientVerify []byte
@@ -753,7 +757,7 @@ func (hc *halfConn) splitBlock(b *block, n int) (*block, *block) {
 	return b, bb
 }
 
-func (c *Conn) useInTrafficSecret(version uint16, suite *cipherSuite, secret []byte) error {
+func (c *Conn) useInTrafficSecret(level encryptionLevel, version uint16, suite *cipherSuite, secret []byte) error {
 	if c.hand.Len() != 0 {
 		return c.in.setErrorLocked(errors.New("tls: buffered handshake messages on cipher change"))
 	}
@@ -761,17 +765,42 @@ func (c *Conn) useInTrafficSecret(version uint16, suite *cipherSuite, secret []b
 	if !c.isClient {
 		side = clientWrite
 	}
+	if c.config.Bugs.MockQUICTransport != nil {
+		c.config.Bugs.MockQUICTransport.readLevel = level
+		c.config.Bugs.MockQUICTransport.readSecret = secret
+		c.config.Bugs.MockQUICTransport.readCipherSuite = suite.id
+	}
 	c.in.useTrafficSecret(version, suite, secret, side)
 	c.seenHandshakePackEnd = false
 	return nil
 }
 
-func (c *Conn) useOutTrafficSecret(version uint16, suite *cipherSuite, secret []byte) {
+func (c *Conn) useOutTrafficSecret(level encryptionLevel, version uint16, suite *cipherSuite, secret []byte) {
 	side := serverWrite
 	if c.isClient {
 		side = clientWrite
 	}
+	if c.config.Bugs.MockQUICTransport != nil {
+		c.config.Bugs.MockQUICTransport.writeLevel = level
+		c.config.Bugs.MockQUICTransport.writeSecret = secret
+		c.config.Bugs.MockQUICTransport.writeCipherSuite = suite.id
+	}
 	c.out.useTrafficSecret(version, suite, secret, side)
+}
+
+func (c *Conn) setSkipEarlyData() {
+	if c.config.Bugs.MockQUICTransport != nil {
+		c.config.Bugs.MockQUICTransport.skipEarlyData = true
+	} else {
+		c.skipEarlyData = true
+	}
+}
+
+func (c *Conn) shouldSkipEarlyData() bool {
+	if c.config.Bugs.MockQUICTransport != nil {
+		return c.config.Bugs.MockQUICTransport.skipEarlyData
+	}
+	return c.skipEarlyData
 }
 
 func (c *Conn) doReadRecord(want recordType) (recordType, *block, error) {
@@ -900,6 +929,9 @@ RestartReadRecord:
 }
 
 func (c *Conn) readTLS13ChangeCipherSpec() error {
+	if c.config.Bugs.MockQUICTransport != nil {
+		return nil
+	}
 	if !c.expectTLS13ChangeCipherSpec {
 		panic("c.expectTLS13ChangeCipherSpec not set")
 	}
@@ -967,7 +999,11 @@ func (c *Conn) readRecord(want recordType) error {
 	}
 
 Again:
-	typ, b, err := c.doReadRecord(want)
+	doReadRecord := c.doReadRecord
+	if c.config.Bugs.MockQUICTransport != nil {
+		doReadRecord = c.config.Bugs.MockQUICTransport.readRecord
+	}
+	typ, b, err := doReadRecord(want)
 	if err != nil {
 		return err
 	}
@@ -1007,10 +1043,6 @@ Again:
 			if alert(data[1]) == alertNoCertificate {
 				c.in.freeBlock(b)
 				return errNoCertificateAlert
-			}
-			if alert(data[1]) == alertEndOfEarlyData {
-				c.in.freeBlock(b)
-				return errEndOfEarlyDataAlert
 			}
 
 			// drop on the floor
@@ -1087,7 +1119,7 @@ func (c *Conn) sendAlertLocked(level byte, err alert) error {
 // L < c.out.Mutex.
 func (c *Conn) sendAlert(err alert) error {
 	level := byte(alertLevelError)
-	if err == alertNoRenegotiation || err == alertCloseNotify || err == alertNoCertificate || err == alertEndOfEarlyData {
+	if err == alertNoRenegotiation || err == alertCloseNotify || err == alertNoCertificate {
 		level = alertLevelWarning
 	}
 	return c.SendAlert(level, err)
@@ -1121,18 +1153,14 @@ func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
 			msgType = typeHelloRetryRequest
 		}
 		if msgType != data[0] {
-			newData := make([]byte, len(data))
-			copy(newData, data)
-			newData[0] = msgType
-			data = newData
+			data = append([]byte{msgType}, data[1:]...)
 		}
 
 		if c.config.Bugs.SendTrailingMessageData != 0 && msgType == c.config.Bugs.SendTrailingMessageData {
-			newData := make([]byte, len(data))
+			// Add a 0 to the body.
+			newData := make([]byte, len(data)+1)
 			copy(newData, data)
 
-			// Add a 0 to the body.
-			newData = append(newData, 0)
 			// Fix the header.
 			newLen := len(newData) - 4
 			newData[1] = byte(newLen >> 16)
@@ -1141,10 +1169,19 @@ func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
 
 			data = newData
 		}
+
+		if c.config.Bugs.TrailingDataWithFinished && msgType == typeFinished {
+			// Add a 0 to the record. Note unused bytes in |data| may be owned by the
+			// caller, so we force a new allocation.
+			data = append(data[:len(data):len(data)], 0)
+		}
 	}
 
 	if c.isDTLS {
 		return c.dtlsWriteRecord(typ, data)
+	}
+	if c.config.Bugs.MockQUICTransport != nil {
+		return c.config.Bugs.MockQUICTransport.writeRecord(typ, data)
 	}
 
 	if typ == recordTypeHandshake {
@@ -1361,7 +1398,11 @@ func (c *Conn) readHandshake() (interface{}, error) {
 			isDTLS: c.isDTLS,
 		}
 	case typeEncryptedExtensions:
-		m = new(encryptedExtensionsMsg)
+		if c.isClient {
+			m = new(encryptedExtensionsMsg)
+		} else {
+			m = new(clientEncryptedExtensionsMsg)
+		}
 	case typeCertificate:
 		m = &certificateMsg{
 			hasRequestContext: c.vers >= VersionTLS13,
@@ -1579,19 +1620,22 @@ func (c *Conn) processTLS13NewSessionTicket(newSessionTicket *newSessionTicketMs
 	}
 
 	session := &ClientSessionState{
-		sessionTicket:      newSessionTicket.ticket,
-		vers:               c.vers,
-		wireVersion:        c.wireVersion,
-		cipherSuite:        cipherSuite.id,
-		masterSecret:       c.resumptionSecret,
-		serverCertificates: c.peerCertificates,
-		sctList:            c.sctList,
-		ocspResponse:       c.ocspResponse,
-		ticketCreationTime: c.config.time(),
-		ticketExpiration:   c.config.time().Add(time.Duration(newSessionTicket.ticketLifetime) * time.Second),
-		ticketAgeAdd:       newSessionTicket.ticketAgeAdd,
-		maxEarlyDataSize:   newSessionTicket.maxEarlyDataSize,
-		earlyALPN:          c.clientProtocol,
+		sessionTicket:            newSessionTicket.ticket,
+		vers:                     c.vers,
+		wireVersion:              c.wireVersion,
+		cipherSuite:              cipherSuite.id,
+		masterSecret:             c.resumptionSecret,
+		serverCertificates:       c.peerCertificates,
+		sctList:                  c.sctList,
+		ocspResponse:             c.ocspResponse,
+		ticketCreationTime:       c.config.time(),
+		ticketExpiration:         c.config.time().Add(time.Duration(newSessionTicket.ticketLifetime) * time.Second),
+		ticketAgeAdd:             newSessionTicket.ticketAgeAdd,
+		maxEarlyDataSize:         newSessionTicket.maxEarlyDataSize,
+		earlyALPN:                c.clientProtocol,
+		hasApplicationSettings:   c.hasApplicationSettings,
+		localApplicationSettings: c.localApplicationSettings,
+		peerApplicationSettings:  c.peerApplicationSettings,
 	}
 
 	session.masterSecret = deriveSessionPSK(cipherSuite, c.wireVersion, c.resumptionSecret, newSessionTicket.ticketNonce)
@@ -1638,7 +1682,7 @@ func (c *Conn) handlePostHandshakeMessage() error {
 		if c.config.Bugs.RejectUnsolicitedKeyUpdate {
 			return errors.New("tls: unexpected KeyUpdate message")
 		}
-		if err := c.useInTrafficSecret(c.in.wireVersion, c.cipherSuite, updateTrafficSecret(c.cipherSuite.hash(), c.wireVersion, c.in.trafficSecret)); err != nil {
+		if err := c.useInTrafficSecret(encryptionApplication, c.in.wireVersion, c.cipherSuite, updateTrafficSecret(c.cipherSuite.hash(), c.wireVersion, c.in.trafficSecret)); err != nil {
 			return err
 		}
 		if keyUpdate.keyUpdateRequest == keyUpdateRequested {
@@ -1672,7 +1716,7 @@ func (c *Conn) ReadKeyUpdateACK() error {
 		return errors.New("tls: received invalid KeyUpdate message")
 	}
 
-	return c.useInTrafficSecret(c.in.wireVersion, c.cipherSuite, updateTrafficSecret(c.cipherSuite.hash(), c.wireVersion, c.in.trafficSecret))
+	return c.useInTrafficSecret(encryptionApplication, c.in.wireVersion, c.cipherSuite, updateTrafficSecret(c.cipherSuite.hash(), c.wireVersion, c.in.trafficSecret))
 }
 
 func (c *Conn) Renegotiate() error {
@@ -1843,6 +1887,7 @@ func (c *Conn) ConnectionState() ConnectionState {
 		state.CipherSuite = c.cipherSuite.id
 		state.PeerCertificates = c.peerCertificates
 		state.VerifiedChains = c.verifiedChains
+		state.OCSPResponse = c.ocspResponse
 		state.ServerName = c.serverName
 		state.ChannelID = c.channelID
 		state.TokenBindingNegotiated = c.tokenBindingNegotiated
@@ -1853,18 +1898,12 @@ func (c *Conn) ConnectionState() ConnectionState {
 		state.PeerSignatureAlgorithm = c.peerSignatureAlgorithm
 		state.CurveID = c.curveID
 		state.QUICTransportParams = c.quicTransportParams
+		state.QUICTransportParamsLegacy = c.quicTransportParamsLegacy
+		state.HasApplicationSettings = c.hasApplicationSettings
+		state.PeerApplicationSettings = c.peerApplicationSettings
 	}
 
 	return state
-}
-
-// OCSPResponse returns the stapled OCSP response from the TLS server, if
-// any. (Only valid for client connections.)
-func (c *Conn) OCSPResponse() []byte {
-	c.handshakeMutex.Lock()
-	defer c.handshakeMutex.Unlock()
-
-	return c.ocspResponse
 }
 
 // VerifyHostname checks that the peer certificate chain is valid for
@@ -1883,17 +1922,13 @@ func (c *Conn) VerifyHostname(host string) error {
 }
 
 func (c *Conn) exportKeyingMaterialTLS13(length int, secret, label, context []byte) []byte {
-	cipherSuite := c.cipherSuite
-	if cipherSuite == nil {
-		cipherSuite = c.earlyCipherSuite
-	}
-	hash := cipherSuite.hash()
+	hash := c.cipherSuite.hash()
 	exporterKeyingLabel := []byte("exporter")
 	contextHash := hash.New()
 	contextHash.Write(context)
 	exporterContext := hash.New().Sum(nil)
-	derivedSecret := hkdfExpandLabel(cipherSuite.hash(), secret, label, exporterContext, hash.Size())
-	return hkdfExpandLabel(cipherSuite.hash(), derivedSecret, exporterKeyingLabel, contextHash.Sum(nil), length)
+	derivedSecret := hkdfExpandLabel(c.cipherSuite.hash(), secret, label, exporterContext, hash.Size())
+	return hkdfExpandLabel(c.cipherSuite.hash(), derivedSecret, exporterKeyingLabel, contextHash.Sum(nil), length)
 }
 
 // ExportKeyingMaterial exports keying material from the current connection
@@ -1981,20 +2016,26 @@ func (c *Conn) SendNewSessionTicket(nonce []byte) error {
 		ticketNonce:                 nonce,
 		maxEarlyDataSize:            c.config.MaxEarlyDataSize,
 	}
+	if c.config.Bugs.MockQUICTransport != nil && m.maxEarlyDataSize > 0 {
+		m.maxEarlyDataSize = 0xffffffff
+	}
 
 	if c.config.Bugs.SendTicketLifetime != 0 {
 		m.ticketLifetime = uint32(c.config.Bugs.SendTicketLifetime / time.Second)
 	}
 
 	state := sessionState{
-		vers:               c.vers,
-		cipherSuite:        c.cipherSuite.id,
-		masterSecret:       deriveSessionPSK(c.cipherSuite, c.wireVersion, c.resumptionSecret, nonce),
-		certificates:       peerCertificatesRaw,
-		ticketCreationTime: c.config.time(),
-		ticketExpiration:   c.config.time().Add(time.Duration(m.ticketLifetime) * time.Second),
-		ticketAgeAdd:       uint32(addBuffer[3])<<24 | uint32(addBuffer[2])<<16 | uint32(addBuffer[1])<<8 | uint32(addBuffer[0]),
-		earlyALPN:          []byte(c.clientProtocol),
+		vers:                     c.vers,
+		cipherSuite:              c.cipherSuite.id,
+		masterSecret:             deriveSessionPSK(c.cipherSuite, c.wireVersion, c.resumptionSecret, nonce),
+		certificates:             peerCertificatesRaw,
+		ticketCreationTime:       c.config.time(),
+		ticketExpiration:         c.config.time().Add(time.Duration(m.ticketLifetime) * time.Second),
+		ticketAgeAdd:             uint32(addBuffer[3])<<24 | uint32(addBuffer[2])<<16 | uint32(addBuffer[1])<<8 | uint32(addBuffer[0]),
+		earlyALPN:                []byte(c.clientProtocol),
+		hasApplicationSettings:   c.hasApplicationSettings,
+		localApplicationSettings: c.localApplicationSettings,
+		peerApplicationSettings:  c.peerApplicationSettings,
 	}
 
 	if !c.config.Bugs.SendEmptySessionTicket {
@@ -2030,7 +2071,7 @@ func (c *Conn) sendKeyUpdateLocked(keyUpdateRequest byte) error {
 	if err := c.flushHandshake(); err != nil {
 		return err
 	}
-	c.useOutTrafficSecret(c.out.wireVersion, c.cipherSuite, updateTrafficSecret(c.cipherSuite.hash(), c.wireVersion, c.out.trafficSecret))
+	c.useOutTrafficSecret(encryptionApplication, c.out.wireVersion, c.cipherSuite, updateTrafficSecret(c.cipherSuite.hash(), c.wireVersion, c.out.trafficSecret))
 	return nil
 }
 

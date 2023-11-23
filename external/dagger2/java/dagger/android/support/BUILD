@@ -15,10 +15,16 @@
 # Description:
 #   Public Dagger API for Android that interacts with the Android support libraries
 
-package(default_visibility = ["//:src"])
+load(
+    "//:build_defs.bzl",
+    "POM_VERSION",
+    "SOURCE_7_TARGET_7",
+)
+load("//tools:dejetify.bzl", "dejetified_library")
+load("//tools:maven.bzl", "pom_file")
+load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 
-load("//:build_defs.bzl", "SOURCE_7_TARGET_7")
-load("//tools:maven.bzl", "pom_file", "POM_VERSION")
+package(default_visibility = ["//:src"])
 
 filegroup(
     name = "support-srcs",
@@ -32,27 +38,12 @@ android_library(
     manifest = "AndroidManifest.xml",
     tags = ["maven_coordinates=com.google.dagger:dagger-android-support:" + POM_VERSION],
     deps = [
-        ":manual-maven-deps",
         "//:dagger_with_compiler",
         "//java/dagger/android",
         "@google_bazel_common//third_party/java/error_prone:annotations",
-    ],
-)
-
-# Our pom.xml generator does not have a way to add manual maven deps. This target exports the
-# targets that don't have the necessary maven_coordinates tags.
-android_library(
-    name = "manual-maven-deps",
-    tags = [
-        "maven_coordinates=com.android.support:appcompat-v7:25.0.0",
-        "maven_coordinates=com.android.support:support-annotations:25.0.0",
-        "maven_coordinates=com.android.support:support-fragment:25.0.0",
-    ],
-    visibility = ["//visibility:private"],
-    exports = [
-        "@androidsdk//com.android.support:appcompat-v7-25.0.0",
-        "@androidsdk//com.android.support:support-annotations-25.0.0",
-        "@androidsdk//com.android.support:support-fragment-25.0.0",
+        "@maven//:androidx_annotation_annotation",
+        "@maven//:androidx_appcompat_appcompat",
+        "@maven//:androidx_fragment_fragment",
     ],
 )
 
@@ -64,12 +55,37 @@ pom_file(
     targets = [":support"],
 )
 
-load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+dejetified_library(
+    name = "dejetified-support",
+    input = ":support.aar",
+    output = "support-legacy.aar",
+)
+
+android_library(
+    name = "legacy-deps",
+    tags = ["maven_coordinates=com.google.dagger:dagger-android-support-legacy:" + POM_VERSION],
+    exports = [
+        "//:dagger_with_compiler",
+        "//java/dagger/android:legacy-deps",
+        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "@maven//:com_android_support_appcompat_v7",
+        "@maven//:com_android_support_support_annotations",
+        "@maven//:com_android_support_support_fragment",
+    ],
+)
+
+pom_file(
+    name = "legacy-pom",
+    artifact_id = "dagger-android-support-legacy",
+    artifact_name = "Dagger Android Legacy Support",
+    packaging = "aar",
+    targets = [":legacy-deps"],
+)
 
 javadoc_library(
     name = "support-javadoc",
     srcs = [":support-srcs"],
-    android_api_level = 26,
+    android_api_level = 30,
     root_packages = ["dagger.android.support"],
     deps = [":support"],
 )

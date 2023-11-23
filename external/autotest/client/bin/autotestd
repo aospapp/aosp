@@ -17,8 +17,8 @@ logdir = sys.argv[1]
 os.dup2(2, 3)
 
 # open up log files to use for std*
-stdout = open(os.path.join(logdir, 'stdout'), 'a', 0)
-stderr = open(os.path.join(logdir, 'stderr'), 'a', 0)
+stdout = open(os.path.join(logdir, 'stdout'), 'a', buffering=2)
+stderr = open(os.path.join(logdir, 'stderr'), 'a', buffering=2)
 
 # set up the file descriptors now, simulating the old behaviour
 os.dup2(stdout.fileno(), 1)
@@ -36,14 +36,18 @@ if '-H' not in args:
 cmd = ' '.join(args)
 
 # open up a log file for saving off the exit code
-exit_file = open(os.path.join(logdir, 'exit_code'), 'w', 0)
+exit_file = open(os.path.join(logdir, 'exit_code'), 'wb', buffering=0)
 fcntl.flock(exit_file, fcntl.LOCK_EX)
 
 # touch a 'started' file to indicate we've been initialized
 open(os.path.join(logdir, 'started'), 'w').close()
 
 # run the actual autotest client and write the exit code into the log file
-exit_code = subprocess.call(cmd, shell=True)
+# close_fds must be False to support python 2 and 3. In 3 the default changes
+# to True, and will break fd writing used elsewhere (e.g. harness_autoserv)
+exit_code = subprocess.call("{} {}".format(sys.executable, cmd),
+                            shell=True,
+                            close_fds=False)
 exit_file.write('%+04d' % exit_code)
 exit_file.flush()
 fcntl.flock(exit_file, fcntl.LOCK_UN)

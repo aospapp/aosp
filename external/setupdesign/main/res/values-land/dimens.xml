@@ -17,6 +17,11 @@
 
 <resources>
 
+    <!-- General -->
+    <dimen name="sud_glif_button_min_height">36dp</dimen>
+    <dimen name="sud_glif_footer_min_height">52dp</dimen>
+    <dimen name="sud_glif_footer_padding_vertical">0dp</dimen>
+
     <!-- Card layout (for tablets) -->
     <dimen name="sud_card_title_padding_end">32dp</dimen>
     <dimen name="sud_card_title_padding_start">56dp</dimen>
@@ -32,5 +37,12 @@
 
     <!-- Illustration -->
     <item name="sud_illustration_aspect_ratio" format="float" type="dimen">0</item>
+
+    <!-- TODO: Add testcase for testing padding value in landscape mode -->
+    <!-- Loading content styles -->
+    <dimen name="sud_content_loading_frame_padding_top">0dp</dimen>
+    <dimen name="sud_content_loading_frame_padding_start">0dp</dimen>
+    <dimen name="sud_content_loading_frame_padding_end">0dp</dimen>
+    <dimen name="sud_content_loading_frame_padding_bottom">24dp</dimen>
 
 </resources>

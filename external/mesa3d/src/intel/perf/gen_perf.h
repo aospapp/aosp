@@ -25,17 +25,25 @@
 #define GEN_PERF_H
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
+#if defined(MAJOR_IN_SYSMACROS)
 #include <sys/sysmacros.h>
+#elif defined(MAJOR_IN_MKDEV)
+#include <sys/mkdev.h>
+#endif
 
 #include "util/hash_table.h"
+#include "compiler/glsl/list.h"
 #include "util/ralloc.h"
+
+#include "drm-uapi/i915_drm.h"
 
 struct gen_device_info;
 
-struct gen_perf;
+struct gen_perf_config;
 struct gen_perf_query_info;
 
 enum gen_perf_counter_type {
@@ -55,6 +63,39 @@ enum gen_perf_counter_data_type {
    GEN_PERF_COUNTER_DATA_TYPE_DOUBLE,
 };
 
+enum gen_perf_counter_units {
+   /* size */
+   GEN_PERF_COUNTER_UNITS_BYTES,
+
+   /* frequency */
+   GEN_PERF_COUNTER_UNITS_HZ,
+
+   /* time */
+   GEN_PERF_COUNTER_UNITS_NS,
+   GEN_PERF_COUNTER_UNITS_US,
+
+   /**/
+   GEN_PERF_COUNTER_UNITS_PIXELS,
+   GEN_PERF_COUNTER_UNITS_TEXELS,
+   GEN_PERF_COUNTER_UNITS_THREADS,
+   GEN_PERF_COUNTER_UNITS_PERCENT,
+
+   /* events */
+   GEN_PERF_COUNTER_UNITS_MESSAGES,
+   GEN_PERF_COUNTER_UNITS_NUMBER,
+   GEN_PERF_COUNTER_UNITS_CYCLES,
+   GEN_PERF_COUNTER_UNITS_EVENTS,
+   GEN_PERF_COUNTER_UNITS_UTILIZATION,
+
+   /**/
+   GEN_PERF_COUNTER_UNITS_EU_SENDS_TO_L3_CACHE_LINES,
+   GEN_PERF_COUNTER_UNITS_EU_ATOMIC_REQUESTS_TO_L3_CACHE_LINES,
+   GEN_PERF_COUNTER_UNITS_EU_REQUESTS_TO_L3_CACHE_LINES,
+   GEN_PERF_COUNTER_UNITS_EU_BYTES_PER_L3_CACHE_LINE,
+
+   GEN_PERF_COUNTER_UNITS_MAX
+};
+
 struct gen_pipeline_stat {
    uint32_t reg;
    uint32_t numerator;
@@ -69,6 +110,17 @@ struct gen_pipeline_stat {
  *   1 timestamp, 1 clock, 36 A counters, 8 B counters and 8 C counters
  */
 #define MAX_OA_REPORT_COUNTERS 62
+
+/*
+ * When currently allocate only one page for pipeline statistics queries. Here
+ * we derived the maximum number of counters for that amount.
+ */
+#define STATS_BO_SIZE               4096
+#define STATS_BO_END_OFFSET_BYTES   (STATS_BO_SIZE / 2)
+#define MAX_STAT_COUNTERS           (STATS_BO_END_OFFSET_BYTES / 8)
+
+#define I915_PERF_OA_SAMPLE_SIZE (8 +   /* drm_i915_perf_record_header */ \
+                                  256)  /* OA counter report */
 
 struct gen_perf_query_result {
    /**
@@ -97,21 +149,34 @@ struct gen_perf_query_result {
     * query.
     */
    uint64_t unslice_frequency[2];
+
+   /**
+    * Timestamp of the query.
+    */
+   uint64_t begin_timestamp;
+
+   /**
+    * Whether the query was interrupted by another workload (aka preemption).
+    */
+   bool query_disjoint;
 };
 
 struct gen_perf_query_counter {
    const char *name;
    const char *desc;
+   const char *symbol_name;
+   const char *category;
    enum gen_perf_counter_type type;
    enum gen_perf_counter_data_type data_type;
+   enum gen_perf_counter_units units;
    uint64_t raw_max;
    size_t offset;
 
    union {
-      uint64_t (*oa_counter_read_uint64)(struct gen_perf *perf,
+      uint64_t (*oa_counter_read_uint64)(struct gen_perf_config *perf,
                                          const struct gen_perf_query_info *query,
                                          const uint64_t *accumulator);
-      float (*oa_counter_read_float)(struct gen_perf *perf,
+      float (*oa_counter_read_float)(struct gen_perf_config *perf,
                                      const struct gen_perf_query_info *query,
                                      const uint64_t *accumulator);
       struct gen_pipeline_stat pipeline_stat;
@@ -123,6 +188,18 @@ struct gen_perf_query_register_prog {
    uint32_t val;
 };
 
+/* Register programming for a given query */
+struct gen_perf_registers {
+   const struct gen_perf_query_register_prog *flex_regs;
+   uint32_t n_flex_regs;
+
+   const struct gen_perf_query_register_prog *mux_regs;
+   uint32_t n_mux_regs;
+
+   const struct gen_perf_query_register_prog *b_counter_regs;
+   uint32_t n_b_counter_regs;
+};
+
 struct gen_perf_query_info {
    enum gen_perf_query_type {
       GEN_PERF_QUERY_TYPE_OA,
@@ -130,6 +207,7 @@ struct gen_perf_query_info {
       GEN_PERF_QUERY_TYPE_PIPELINE,
    } kind;
    const char *name;
+   const char *symbol_name;
    const char *guid;
    struct gen_perf_query_counter *counters;
    int n_counters;
@@ -147,20 +225,39 @@ struct gen_perf_query_info {
    int b_offset;
    int c_offset;
 
-   /* Register programming for a given query */
-   struct gen_perf_query_register_prog *flex_regs;
-   uint32_t n_flex_regs;
-
-   struct gen_perf_query_register_prog *mux_regs;
-   uint32_t n_mux_regs;
-
-   struct gen_perf_query_register_prog *b_counter_regs;
-   uint32_t n_b_counter_regs;
+   struct gen_perf_registers config;
 };
 
-struct gen_perf {
+struct gen_perf_query_counter_info {
+   struct gen_perf_query_counter *counter;
+
+   uint64_t query_mask;
+
+   /**
+    * Each counter can be a part of many groups, each time at different index.
+    * This struct stores one of those locations.
+    */
+   struct {
+      int group_idx; /* query/group number */
+      int counter_idx; /* index inside of query/group */
+   } location;
+};
+
+struct gen_perf_config {
+   /* Whether i915 has DRM_I915_QUERY_PERF_CONFIG support. */
+   bool i915_query_supported;
+
+   /* Version of the i915-perf subsystem, refer to i915_drm.h. */
+   int i915_perf_version;
+
+   /* Powergating configuration for the running the query. */
+   struct drm_i915_gem_context_param_sseu sseu;
+
    struct gen_perf_query_info *queries;
    int n_queries;
+
+   struct gen_perf_query_counter_info *counter_infos;
+   int n_counters;
 
    /* Variables referenced in the XML meta data for OA performance
     * counters, e.g in the normalization equations.
@@ -186,11 +283,85 @@ struct gen_perf {
     */
    struct hash_table *oa_metrics_table;
 
+   /* When MDAPI hasn't configured the metric we need to use by the time the
+    * query begins, this OA metric is used as a fallback.
+    */
+   uint64_t fallback_raw_oa_metric;
+
+   /* Whether we have support for this platform. If true && n_queries == 0,
+    * this means we will not be able to use i915-perf because of it is in
+    * paranoid mode.
+    */
+   bool platform_supported;
+
    /* Location of the device's sysfs entry. */
    char sysfs_dev_dir[256];
 
-   int (*ioctl)(int, unsigned long, void *);
+   struct {
+      void *(*bo_alloc)(void *bufmgr, const char *name, uint64_t size);
+      void (*bo_unreference)(void *bo);
+      void *(*bo_map)(void *ctx, void *bo, unsigned flags);
+      void (*bo_unmap)(void *bo);
+      bool (*batch_references)(void *batch, void *bo);
+      void (*bo_wait_rendering)(void *bo);
+      int (*bo_busy)(void *bo);
+      void (*emit_stall_at_pixel_scoreboard)(void *ctx);
+      void (*emit_mi_report_perf_count)(void *ctx,
+                                        void *bo,
+                                        uint32_t offset_in_bytes,
+                                        uint32_t report_id);
+      void (*batchbuffer_flush)(void *ctx,
+                                const char *file, int line);
+      void (*store_register_mem)(void *ctx, void *bo, uint32_t reg, uint32_t reg_size, uint32_t offset);
+
+   } vtbl;
 };
+
+struct gen_perf_counter_pass {
+   struct gen_perf_query_info *query;
+   struct gen_perf_query_counter *counter;
+   uint32_t pass;
+};
+
+void gen_perf_init_metrics(struct gen_perf_config *perf_cfg,
+                           const struct gen_device_info *devinfo,
+                           int drm_fd,
+                           bool include_pipeline_statistics);
+
+/** Query i915 for a metric id using guid.
+ */
+bool gen_perf_load_metric_id(struct gen_perf_config *perf_cfg,
+                             const char *guid,
+                             uint64_t *metric_id);
+
+/** Load a configuation's content from i915 using a guid.
+ */
+struct gen_perf_registers *gen_perf_load_configuration(struct gen_perf_config *perf_cfg,
+                                                      int fd, const char *guid);
+
+/** Store a configuration into i915 using guid and return a new metric id.
+ *
+ * If guid is NULL, then a generated one will be provided by hashing the
+ * content of the configuration.
+ */
+uint64_t gen_perf_store_configuration(struct gen_perf_config *perf_cfg, int fd,
+                                      const struct gen_perf_registers *config,
+                                      const char *guid);
+
+/** Read the slice/unslice frequency from 2 OA reports and store then into
+ *  result.
+ */
+void gen_perf_query_result_read_frequencies(struct gen_perf_query_result *result,
+                                            const struct gen_device_info *devinfo,
+                                            const uint32_t *start,
+                                            const uint32_t *end);
+/** Accumulate the delta between 2 OA reports into result for a given query.
+ */
+void gen_perf_query_result_accumulate(struct gen_perf_query_result *result,
+                                      const struct gen_perf_query_info *query,
+                                      const uint32_t *start,
+                                      const uint32_t *end);
+void gen_perf_query_result_clear(struct gen_perf_query_result *result);
 
 static inline size_t
 gen_perf_query_counter_get_size(const struct gen_perf_query_counter *counter)
@@ -211,82 +382,20 @@ gen_perf_query_counter_get_size(const struct gen_perf_query_counter *counter)
    }
 }
 
-static inline struct gen_perf_query_info *
-gen_perf_query_append_query_info(struct gen_perf *perf, int max_counters)
+static inline struct gen_perf_config *
+gen_perf_new(void *ctx)
 {
-   struct gen_perf_query_info *query;
-
-   perf->queries = reralloc(perf, perf->queries,
-                            struct gen_perf_query_info,
-                            ++perf->n_queries);
-   query = &perf->queries[perf->n_queries - 1];
-   memset(query, 0, sizeof(*query));
-
-   if (max_counters > 0) {
-      query->max_counters = max_counters;
-      query->counters =
-         rzalloc_array(perf, struct gen_perf_query_counter, max_counters);
-   }
-
-   return query;
-}
-
-static inline void
-gen_perf_query_info_add_stat_reg(struct gen_perf_query_info *query,
-                                 uint32_t reg,
-                                 uint32_t numerator,
-                                 uint32_t denominator,
-                                 const char *name,
-                                 const char *description)
-{
-   struct gen_perf_query_counter *counter;
-
-   assert(query->n_counters < query->max_counters);
-
-   counter = &query->counters[query->n_counters];
-   counter->name = name;
-   counter->desc = description;
-   counter->type = GEN_PERF_COUNTER_TYPE_RAW;
-   counter->data_type = GEN_PERF_COUNTER_DATA_TYPE_UINT64;
-   counter->offset = sizeof(uint64_t) * query->n_counters;
-   counter->pipeline_stat.reg = reg;
-   counter->pipeline_stat.numerator = numerator;
-   counter->pipeline_stat.denominator = denominator;
-
-   query->n_counters++;
-}
-
-static inline void
-gen_perf_query_info_add_basic_stat_reg(struct gen_perf_query_info *query,
-                                       uint32_t reg, const char *name)
-{
-   gen_perf_query_info_add_stat_reg(query, reg, 1, 1, name, name);
-}
-
-static inline struct gen_perf *
-gen_perf_new(void *ctx, int (*ioctl_cb)(int, unsigned long, void *))
-{
-   struct gen_perf *perf = rzalloc(ctx, struct gen_perf);
-
-   perf->ioctl = ioctl_cb;
-
+   struct gen_perf_config *perf = rzalloc(ctx, struct gen_perf_config);
    return perf;
 }
 
-bool gen_perf_load_oa_metrics(struct gen_perf *perf, int fd,
-                              const struct gen_device_info *devinfo);
-bool gen_perf_load_metric_id(struct gen_perf *perf, const char *guid,
-                             uint64_t *metric_id);
-
-void gen_perf_query_result_read_frequencies(struct gen_perf_query_result *result,
-                                            const struct gen_device_info *devinfo,
-                                            const uint32_t *start,
-                                            const uint32_t *end);
-void gen_perf_query_result_accumulate(struct gen_perf_query_result *result,
-                                      const struct gen_perf_query_info *query,
-                                      const uint32_t *start,
-                                      const uint32_t *end);
-void gen_perf_query_result_clear(struct gen_perf_query_result *result);
-
+uint32_t gen_perf_get_n_passes(struct gen_perf_config *perf,
+                               const uint32_t *counter_indices,
+                               uint32_t counter_indices_count,
+                               struct gen_perf_query_info **pass_queries);
+void gen_perf_get_counters_passes(struct gen_perf_config *perf,
+                                  const uint32_t *counter_indices,
+                                  uint32_t counter_indices_count,
+                                  struct gen_perf_counter_pass *counter_pass);
 
 #endif /* GEN_PERF_H */

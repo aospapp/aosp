@@ -1,14 +1,20 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """This module provides the link between audio widgets."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import time
 
 from autotest_lib.client.cros.chameleon import audio_level
 from autotest_lib.client.cros.chameleon import chameleon_bluetooth_audio
+from six.moves import range
 
 
 class WidgetBinderError(Exception):
@@ -415,7 +421,7 @@ class HDMIWidgetLink(WidgetLink):
         board = self._cros_host.get_board().split(':')[1]
         if board in ['cyan', 'celes', 'lars']:
             logging.info('Need extra plug/unplug on board %s', board)
-            for _ in xrange(3):
+            for _ in range(3):
                 handler.plug()
                 time.sleep(3)
                 handler.unplug()

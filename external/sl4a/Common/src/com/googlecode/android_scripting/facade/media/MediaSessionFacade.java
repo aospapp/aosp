@@ -16,19 +16,15 @@
 
 package com.googlecode.android_scripting.facade.media;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
+import android.media.session.MediaSession.Callback;
 import android.media.session.MediaSessionManager;
 import android.media.session.MediaSessionManager.OnActiveSessionsChangedListener;
 import android.media.session.PlaybackState;
-import android.media.session.MediaSession.Callback;
 import android.view.KeyEvent;
 
 import com.googlecode.android_scripting.Log;
@@ -39,6 +35,10 @@ import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcDefault;
 import com.googlecode.android_scripting.rpc.RpcParameter;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
 
 /**
  * Expose functionalities of MediaSession related classes
@@ -146,8 +146,8 @@ public class MediaSessionFacade extends RpcReceiver {
         }
         KeyEvent keyDown = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
         KeyEvent keyUp = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
-        mManager.dispatchMediaKeyEvent(keyDown);
-        mManager.dispatchMediaKeyEvent(keyUp);
+        mManager.dispatchMediaKeyEvent(keyDown, false);
+        mManager.dispatchMediaKeyEvent(keyUp, false);
     }
 
     private MediaController getMediaController(int idx) {

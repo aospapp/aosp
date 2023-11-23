@@ -46,7 +46,7 @@ ok_dims(const struct pipe_resource *r, const struct pipe_box *b, int lvl)
 
 /* Not sure if format restrictions differ for src and dst, or if
  * they only matter when src fmt != dst fmt..  but there appear to
- * be *some* limitations so let's just start blacklisting stuff that
+ * be *some* limitations so let's just start rejecting stuff that
  * piglit complains about
  */
 static bool
@@ -72,7 +72,7 @@ ok_format(enum pipe_format fmt)
 		break;
 	}
 
-	if (fd5_pipe2color(fmt) == ~0)
+	if (fd5_pipe2color(fmt) == RB5_NONE)
 		return false;
 
 	return true;
@@ -98,8 +98,8 @@ can_do_blit(const struct pipe_blit_info *info)
 	 * untiling by setting both src and dst COLOR_SWAP=WZYX, but that
 	 * means the formats must match:
 	 */
-	if ((fd_resource(info->dst.resource)->tile_mode ||
-				fd_resource(info->src.resource)->tile_mode) &&
+	if ((fd_resource(info->dst.resource)->layout.tile_mode ||
+				fd_resource(info->src.resource)->layout.tile_mode) &&
 			info->dst.format != info->src.format)
 		return false;
 
@@ -153,23 +153,6 @@ can_do_blit(const struct pipe_blit_info *info)
 static void
 emit_setup(struct fd_ringbuffer *ring)
 {
-	OUT_PKT7(ring, CP_EVENT_WRITE, 1);
-	OUT_RING(ring, LRZ_FLUSH);
-
-	OUT_PKT7(ring, CP_SKIP_IB2_ENABLE_GLOBAL, 1);
-	OUT_RING(ring, 0x0);
-
-	OUT_PKT4(ring, REG_A5XX_PC_POWER_CNTL, 1);
-	OUT_RING(ring, 0x00000003);   /* PC_POWER_CNTL */
-
-	OUT_PKT4(ring, REG_A5XX_VFD_POWER_CNTL, 1);
-	OUT_RING(ring, 0x00000003);   /* VFD_POWER_CNTL */
-
-	/* 0x10000000 for BYPASS.. 0x7c13c080 for GMEM: */
-	OUT_WFI5(ring);
-	OUT_PKT4(ring, REG_A5XX_RB_CCU_CNTL, 1);
-	OUT_RING(ring, 0x10000000);   /* RB_CCU_CNTL */
-
 	OUT_PKT4(ring, REG_A5XX_RB_RENDER_CNTL, 1);
 	OUT_RING(ring, 0x00000008);
 
@@ -215,8 +198,8 @@ emit_blit_buffer(struct fd_ringbuffer *ring, const struct pipe_blit_info *info)
 	src = fd_resource(info->src.resource);
 	dst = fd_resource(info->dst.resource);
 
-	debug_assert(src->cpp == 1);
-	debug_assert(dst->cpp == 1);
+	debug_assert(src->layout.cpp == 1);
+	debug_assert(dst->layout.cpp == 1);
 	debug_assert(info->src.resource->format == info->dst.resource->format);
 	debug_assert((sbox->y == 0) && (sbox->height == 1));
 	debug_assert((dbox->y == 0) && (dbox->height == 1));
@@ -289,7 +272,7 @@ emit_blit_buffer(struct fd_ringbuffer *ring, const struct pipe_blit_info *info)
 		OUT_RING(ring, A5XX_RB_2D_DST_INFO_COLOR_FORMAT(RB5_R8_UNORM) |
 				A5XX_RB_2D_DST_INFO_TILE_MODE(TILE5_LINEAR) |
 				A5XX_RB_2D_DST_INFO_COLOR_SWAP(WZYX));
-		OUT_RELOCW(ring, dst->bo, doff, 0, 0);   /* RB_2D_DST_LO/HI */
+		OUT_RELOC(ring, dst->bo, doff, 0, 0);   /* RB_2D_DST_LO/HI */
 		OUT_RING(ring, A5XX_RB_2D_DST_SIZE_PITCH(p) |
 				A5XX_RB_2D_DST_SIZE_ARRAY_PITCH(128));
 		OUT_RING(ring, 0x00000000);
@@ -325,7 +308,7 @@ emit_blit(struct fd_ringbuffer *ring, const struct pipe_blit_info *info)
 	const struct pipe_box *sbox = &info->src.box;
 	const struct pipe_box *dbox = &info->dst.box;
 	struct fd_resource *src, *dst;
-	struct fd_resource_slice *sslice, *dslice;
+	struct fdl_slice *sslice, *dslice;
 	enum a5xx_color_fmt sfmt, dfmt;
 	enum a5xx_tile_mode stile, dtile;
 	enum a3xx_color_swap sswap, dswap;
@@ -342,16 +325,14 @@ emit_blit(struct fd_ringbuffer *ring, const struct pipe_blit_info *info)
 	sfmt = fd5_pipe2color(info->src.format);
 	dfmt = fd5_pipe2color(info->dst.format);
 
-	stile = fd_resource_level_linear(info->src.resource, info->src.level) ?
-			TILE5_LINEAR : src->tile_mode;
-	dtile = fd_resource_level_linear(info->dst.resource, info->dst.level) ?
-			TILE5_LINEAR : dst->tile_mode;
+	stile = fd_resource_tile_mode(info->src.resource, info->src.level);
+	dtile = fd_resource_tile_mode(info->dst.resource, info->dst.level);
 
 	sswap = fd5_pipe2swap(info->src.format);
 	dswap = fd5_pipe2swap(info->dst.format);
 
-	spitch = sslice->pitch * src->cpp;
-	dpitch = dslice->pitch * dst->cpp;
+	spitch = fd_resource_pitch(src, info->src.level);
+	dpitch = fd_resource_pitch(dst, info->dst.level);
 
 	/* if dtile, then dswap ignored by hw, and likewise if stile then sswap
 	 * ignored by hw.. but in this case we have already rejected the blit
@@ -376,12 +357,12 @@ emit_blit(struct fd_ringbuffer *ring, const struct pipe_blit_info *info)
 	if (info->src.resource->target == PIPE_TEXTURE_3D)
 		ssize = sslice->size0;
 	else
-		ssize = src->layer_size;
+		ssize = src->layout.layer_size;
 
 	if (info->dst.resource->target == PIPE_TEXTURE_3D)
 		dsize = dslice->size0;
 	else
-		dsize = dst->layer_size;
+		dsize = dst->layout.layer_size;
 
 	for (unsigned i = 0; i < info->dst.box.depth; i++) {
 		unsigned soff = fd_resource_offset(src, info->src.level, sbox->z + i);
@@ -421,7 +402,7 @@ emit_blit(struct fd_ringbuffer *ring, const struct pipe_blit_info *info)
 		OUT_RING(ring, A5XX_RB_2D_DST_INFO_COLOR_FORMAT(dfmt) |
 				A5XX_RB_2D_DST_INFO_TILE_MODE(dtile) |
 				A5XX_RB_2D_DST_INFO_COLOR_SWAP(dswap));
-		OUT_RELOCW(ring, dst->bo, doff, 0, 0);   /* RB_2D_DST_LO/HI */
+		OUT_RELOC(ring, dst->bo, doff, 0, 0);   /* RB_2D_DST_LO/HI */
 		OUT_RING(ring, A5XX_RB_2D_DST_SIZE_PITCH(dpitch) |
 				A5XX_RB_2D_DST_SIZE_ARRAY_PITCH(dsize));
 		OUT_RING(ring, 0x00000000);
@@ -461,15 +442,12 @@ fd5_blitter_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 
 	batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
 
-	fd5_emit_restore(batch, batch->draw);
-	fd5_emit_lrz_flush(batch->draw);
-
 	emit_setup(batch->draw);
 
 	if ((info->src.resource->target == PIPE_BUFFER) &&
 			(info->dst.resource->target == PIPE_BUFFER)) {
-		assert(fd_resource(info->src.resource)->tile_mode == TILE5_LINEAR);
-		assert(fd_resource(info->dst.resource)->tile_mode == TILE5_LINEAR);
+		assert(fd_resource(info->src.resource)->layout.tile_mode == TILE5_LINEAR);
+		assert(fd_resource(info->dst.resource)->layout.tile_mode == TILE5_LINEAR);
 		emit_blit_buffer(batch->draw, info);
 	} else {
 		/* I don't *think* we need to handle blits between buffer <-> !buffer */
@@ -481,7 +459,7 @@ fd5_blitter_blit(struct fd_context *ctx, const struct pipe_blit_info *info)
 	fd_resource(info->dst.resource)->valid = true;
 	batch->needs_flush = true;
 
-	fd_batch_flush(batch, false, false);
+	fd_batch_flush(batch);
 	fd_batch_reference(&batch, NULL);
 
 	return true;

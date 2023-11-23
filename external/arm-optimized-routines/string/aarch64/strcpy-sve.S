@@ -1,18 +1,18 @@
 /*
  * strcpy/stpcpy - copy a string returning pointer to start/end.
  *
- * Copyright (c) 2018, Arm Limited.
+ * Copyright (c) 2018-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
+#include "../asmdefs.h"
+
+#if __ARM_FEATURE_SVE
 /* Assumptions:
  *
  * ARMv8-a, AArch64
  * SVE Available.
  */
-
-	.arch	armv8-a+sve
-	.text
 
 /* To build as stpcpy, define BUILD_STPCPY before compiling this file.  */
 #ifdef BUILD_STPCPY
@@ -21,10 +21,9 @@
 #define FUNC  __strcpy_aarch64_sve
 #endif
 
-	.globl	FUNC
-	.type	FUNC, %function
-	.p2align 4
-FUNC:
+ENTRY (FUNC)
+	PTR_ARG (0)
+	PTR_ARG (1)
 	setffr				/* initialize FFR */
 	ptrue	p2.b, all		/* all ones; loop invariant */
 	mov	x2, 0			/* initialize offset */
@@ -66,4 +65,7 @@ FUNC:
 #endif
 	ret
 
-	.size	FUNC, . - FUNC
+END (FUNC)
+
+#endif
+

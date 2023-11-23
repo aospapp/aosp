@@ -33,7 +33,7 @@ MetadataTracker::MetadataTracker(TraceProcessorContext* context)
   }
 }
 
-MetadataId MetadataTracker::SetMetadata(metadata::KeyIDs key, Variadic value) {
+MetadataId MetadataTracker::SetMetadata(metadata::KeyId key, Variadic value) {
   PERFETTO_DCHECK(metadata::kKeyTypes[key] == metadata::KeyType::kSingle);
   PERFETTO_DCHECK(value.type == metadata::kValueTypes[key]);
 
@@ -55,7 +55,18 @@ MetadataId MetadataTracker::SetMetadata(metadata::KeyIDs key, Variadic value) {
   return id_and_row.id;
 }
 
-MetadataId MetadataTracker::AppendMetadata(metadata::KeyIDs key,
+SqlValue MetadataTracker::GetMetadataForTesting(metadata::KeyId key) {
+  // KeyType::kMulti not yet supported by this method:
+  PERFETTO_CHECK(metadata::kKeyTypes[key] == metadata::KeyType::kSingle);
+
+  auto* metadata_table = context_->storage->mutable_metadata_table();
+  uint32_t key_idx = static_cast<uint32_t>(key);
+  uint32_t row =
+      metadata_table->name().IndexOf(metadata::kNames[key_idx]).value();
+  return metadata_table->mutable_str_value()->Get(row);
+}
+
+MetadataId MetadataTracker::AppendMetadata(metadata::KeyId key,
                                            Variadic value) {
   PERFETTO_DCHECK(key < metadata::kNumKeys);
   PERFETTO_DCHECK(metadata::kKeyTypes[key] == metadata::KeyType::kMulti);
@@ -65,6 +76,17 @@ MetadataId MetadataTracker::AppendMetadata(metadata::KeyIDs key,
   tables::MetadataTable::Row row;
   row.name = key_ids_[key_idx];
   row.key_type = key_type_ids_[static_cast<size_t>(metadata::KeyType::kMulti)];
+
+  auto* metadata_table = context_->storage->mutable_metadata_table();
+  auto id_and_row = metadata_table->Insert(row);
+  WriteValue(id_and_row.row, value);
+  return id_and_row.id;
+}
+
+MetadataId MetadataTracker::SetDynamicMetadata(StringId key, Variadic value) {
+  tables::MetadataTable::Row row;
+  row.name = key;
+  row.key_type = key_type_ids_[static_cast<size_t>(metadata::KeyType::kSingle)];
 
   auto* metadata_table = context_->storage->mutable_metadata_table();
   auto id_and_row = metadata_table->Insert(row);
@@ -82,6 +104,8 @@ void MetadataTracker::WriteValue(uint32_t row, Variadic value) {
       metadata_table->mutable_str_value()->Set(row, value.string_value);
       break;
     case Variadic::Type::kJson:
+      metadata_table->mutable_str_value()->Set(row, value.json_value);
+      break;
     case Variadic::Type::kBool:
     case Variadic::Type::kPointer:
     case Variadic::Type::kUint:

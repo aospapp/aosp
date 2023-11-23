@@ -1,4 +1,5 @@
 homepage: "https://github.com/WebAssembly/wabt"
+language: c++
 primary_contact: "binji@chromium.org"
 sanitizers:
  - address
@@ -7,3 +8,4 @@ sanitizers:
 architectures:
  - x86_64
  - i386
+main_repo: 'https://github.com/WebAssembly/wabt'

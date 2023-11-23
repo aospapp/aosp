@@ -506,7 +506,7 @@ CONFIG_AP=y
 CONFIG_P2P=y
 
 # Enable TDLS support
-#CONFIG_TDLS=y
+CONFIG_TDLS=y
 
 # Wi-Fi Display
 # This can be used to enable Wi-Fi Display extensions for P2P using an external
@@ -530,6 +530,8 @@ CONFIG_WIFI_DISPLAY=y
 #
 # External password backend for testing purposes (developer use)
 #CONFIG_EXT_PASSWORD_TEST=y
+# File-based backend to read passwords from an external file.
+#CONFIG_EXT_PASSWORD_FILE=y
 
 # Enable Fast Session Transfer (FST)
 #CONFIG_FST=y
@@ -625,4 +627,10 @@ CONFIG_DPP=y
 # support for this by default, but that functionality is subject to be removed
 # in the future.
 #CONFIG_NO_TKIP=y
+
+# Pre-Association Security Negotiation (PASN)
+# Experimental implementation based on IEEE P802.11z/D2.6 and the protocol
+# design is still subject to change. As such, this should not yet be enabled in
+# production use.
+#CONFIG_PASN=y
 

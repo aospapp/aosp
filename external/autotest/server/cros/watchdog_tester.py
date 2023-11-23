@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import logging, re
 
 # http://docs.python.org/2/library/errno.html
@@ -13,11 +15,12 @@ class WatchdogTester(object):
     """Helper class to perform various watchdog tests."""
 
     WD_DEV = '/dev/watchdog'
-
+    DAISYDOG_PATH='/usr/sbin/daisydog'
     def _exists_on_client(self):
         return self._client.run('test -c "%s"' % self.WD_DEV,
+                                ignore_status=True).exit_status == 0 and \
+               self._client.run('test -x "%s"' % self.DAISYDOG_PATH,
                                 ignore_status=True).exit_status == 0
-
     # If daisydog is running, stop it so we can use /dev/watchdog
     def _stop_daemon(self):
         """If running, stop daisydog so we can use /dev/watchdog."""
@@ -51,7 +54,7 @@ class WatchdogTester(object):
 
         try:
             self._client.run('echo "z" > %s' % self.WD_DEV)
-        except error.AutoservRunError, e:
+        except error.AutoservRunError as e:
             raise error.TestError('write to %s failed (%s)' %
                                   (self.WD_DEV, errno.errorcode[e.errno]))
 

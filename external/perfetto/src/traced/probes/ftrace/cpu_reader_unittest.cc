@@ -37,6 +37,7 @@
 #include "protos/perfetto/trace/ftrace/ftrace_event.pbzero.h"
 #include "protos/perfetto/trace/ftrace/ftrace_event_bundle.gen.h"
 #include "protos/perfetto/trace/ftrace/ftrace_event_bundle.pbzero.h"
+#include "protos/perfetto/trace/ftrace/power.gen.h"
 #include "protos/perfetto/trace/ftrace/sched.gen.h"
 #include "protos/perfetto/trace/trace_packet.gen.h"
 #include "src/traced/probes/ftrace/test/test_messages.gen.h"
@@ -61,8 +62,11 @@ namespace perfetto {
 namespace {
 
 FtraceDataSourceConfig EmptyConfig() {
-  return FtraceDataSourceConfig{
-      EventFilter{}, DisabledCompactSchedConfigForTesting(), {}, {}};
+  return FtraceDataSourceConfig{EventFilter{},
+                                DisabledCompactSchedConfigForTesting(),
+                                {},
+                                {},
+                                false /*symbolize_ksyms*/};
 }
 
 constexpr uint64_t kNanoInSecond = 1000 * 1000 * 1000;
@@ -112,24 +116,20 @@ class CpuReaderTableTest : public ::testing::Test {
 template <class ZeroT, class ProtoT>
 class ProtoProvider {
  public:
-  explicit ProtoProvider(size_t chunk_size)
-      : chunk_size_(chunk_size), delegate_(chunk_size_), stream_(&delegate_) {
-    delegate_.set_writer(&stream_);
-    writer_.Reset(&stream_);
-  }
+  explicit ProtoProvider(size_t chunk_size) : chunk_size_(chunk_size) {}
   ~ProtoProvider() = default;
 
-  ZeroT* writer() { return &writer_; }
+  ZeroT* writer() { return writer_.get(); }
+  void ResetWriter() { writer_.Reset(); }
 
   // Stitch together the scattered chunks into a single buffer then attempt
   // to parse the buffer as a FtraceEventBundle. Returns the FtraceEventBundle
   // on success and nullptr on failure.
   std::unique_ptr<ProtoT> ParseProto() {
     auto bundle = std::unique_ptr<ProtoT>(new ProtoT());
-    std::vector<uint8_t> buffer = delegate_.StitchSlices();
-    if (!bundle->ParseFromArray(buffer.data(), buffer.size())) {
+    std::vector<uint8_t> buffer = writer_.SerializeAsArray();
+    if (!bundle->ParseFromArray(buffer.data(), buffer.size()))
       return nullptr;
-    }
     return bundle;
   }
 
@@ -138,9 +138,7 @@ class ProtoProvider {
   ProtoProvider& operator=(const ProtoProvider&) = delete;
 
   size_t chunk_size_;
-  protozero::ScatteredHeapBuffer delegate_;
-  protozero::ScatteredStreamWriter stream_;
-  ZeroT writer_;
+  protozero::HeapBuffered<ZeroT> writer_;
 };
 
 using BundleProvider = ProtoProvider<protos::pbzero::FtraceEventBundle,
@@ -818,8 +816,11 @@ TEST(CpuReaderTest, ParseSixSchedSwitchCompactFormat) {
   ProtoTranslationTable* table = GetTable(test_case->name);
   auto page = PageFromXxd(test_case->data);
 
-  FtraceDataSourceConfig ds_config{
-      EventFilter{}, EnabledCompactSchedConfigForTesting(), {}, {}};
+  FtraceDataSourceConfig ds_config{EventFilter{},
+                                   EnabledCompactSchedConfigForTesting(),
+                                   {},
+                                   {},
+                                   false /* symbolize_ksyms*/};
   ds_config.event_filter.AddEnabledEvent(
       table->EventToFtraceId(GroupAndName("sched", "sched_switch")));
 
@@ -846,6 +847,7 @@ TEST(CpuReaderTest, ParseSixSchedSwitchCompactFormat) {
   ASSERT_TRUE(bundle);
   EXPECT_EQ(0u, bundle->event().size());
   EXPECT_FALSE(bundle->has_compact_sched());
+  bundle_provider.ResetWriter();
 
   // Instead, sched switch fields were buffered:
   EXPECT_LT(0u, compact_buffer.sched_switch().size());
@@ -996,10 +998,21 @@ TEST_F(CpuReaderTableTest, ParseAllFields) {
     }
 
     {
+      // char* -> string
+      event->fields.emplace_back(Field{});
+      Field* field = &event->fields.back();
+      field->ftrace_offset = 56;
+      field->ftrace_size = 8;
+      field->ftrace_type = kFtraceStringPtr;
+      field->proto_field_id = 503;
+      field->proto_field_type = ProtoSchemaType::kString;
+    }
+
+    {
       // dataloc -> string
       event->fields.emplace_back(Field{});
       Field* field = &event->fields.back();
-      field->ftrace_offset = 57;
+      field->ftrace_offset = 65;
       field->ftrace_size = 4;
       field->ftrace_type = kFtraceDataLoc;
       field->proto_field_id = 502;
@@ -1010,7 +1023,7 @@ TEST_F(CpuReaderTableTest, ParseAllFields) {
       // char -> string
       event->fields.emplace_back(Field{});
       Field* field = &event->fields.back();
-      field->ftrace_offset = 61;
+      field->ftrace_offset = 69;
       field->ftrace_size = 0;
       field->ftrace_type = kFtraceCString;
       field->proto_field_id = 501;
@@ -1023,10 +1036,12 @@ TEST_F(CpuReaderTableTest, ParseAllFields) {
     }
   }
 
+  PrintkMap printk_formats;
+  printk_formats.insert(0xffffff8504f51b23, "my_printk_format_string");
   ProtoTranslationTable table(
       &ftrace_, events, std::move(common_fields),
       ProtoTranslationTable::DefaultPageHeaderSpecForTesting(),
-      InvalidCompactSchedEventFormatForTesting());
+      InvalidCompactSchedEventFormatForTesting(), printk_formats);
 
   FakeEventProvider provider(base::kPageSize);
 
@@ -1053,6 +1068,7 @@ TEST_F(CpuReaderTableTest, ParseAllFields) {
   writer.Write<int64_t>(k64BitKernelBlockDeviceId);  // Dev id 64
   writer.Write<int64_t>(99u);                        // Inode 64
   writer.WriteFixedString(16, "Hello");
+  writer.Write<uint64_t>(0xffffff8504f51b23ULL);  // char* (printk formats)
   writer.Write<uint8_t>(0);  // Deliberately mis-aligning.
   writer.Write<uint32_t>(40 | 6 << 16);
   writer.WriteFixedString(300, "Goodbye");
@@ -1076,13 +1092,14 @@ TEST_F(CpuReaderTableTest, ParseAllFields) {
             static_cast<uint32_t>(kUserspaceBlockDeviceId));
   EXPECT_EQ(event->all_fields().field_inode_32(), 98u);
 // TODO(primiano): for some reason this fails on mac.
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
+#if !PERFETTO_BUILDFLAG(PERFETTO_OS_APPLE)
   EXPECT_EQ(event->all_fields().field_dev_64(), k64BitUserspaceBlockDeviceId);
 #endif
   EXPECT_EQ(event->all_fields().field_inode_64(), 99u);
   EXPECT_EQ(event->all_fields().field_char_16(), "Hello");
   EXPECT_EQ(event->all_fields().field_char(), "Goodbye");
   EXPECT_EQ(event->all_fields().field_data_loc(), "Hello");
+  EXPECT_EQ(event->all_fields().field_char_star(), "my_printk_format_string");
   EXPECT_THAT(metadata.pids, Contains(97));
   EXPECT_EQ(metadata.inode_and_device.size(), 2U);
   EXPECT_THAT(metadata.inode_and_device,
@@ -1165,7 +1182,8 @@ TEST(CpuReaderTest, NewPacketOnLostEvents) {
 
   TraceWriterForTesting trace_writer;
   CpuReader::ProcessPagesForDataSource(&trace_writer, &metadata, /*cpu=*/1,
-                                       &ds_config, buf, kTestPages, table);
+                                       &ds_config, buf, kTestPages, table,
+                                       /*symbolizer=*/nullptr);
 
   // Each packet should contain the parsed contents of a contiguous run of pages
   // without data loss.
@@ -1182,6 +1200,251 @@ TEST(CpuReaderTest, NewPacketOnLostEvents) {
 
   EXPECT_TRUE(packets[2].ftrace_events().lost_events());
   EXPECT_EQ(4u, packets[2].ftrace_events().event().size());
+}
+
+// Page containing an absolute timestamp (RINGBUF_TYPE_TIME_STAMP).
+static char g_abs_timestamp[] =
+    R"(
+00000000: 8949 fbfb 38e4 0400 6407 0000 0000 0000  .I..8...d.......
+00000010: 5032 0a2d 3b01 0100 0000 0000 7377 6170  P2.-;.......swap
+00000020: 7065 722f 3000 0000 0000 0000 0000 0000  per/0...........
+00000030: 7800 0000 0000 0000 0000 0000 6776 6673  x...........gvfs
+00000040: 2d61 6663 2d76 6f6c 756d 6500 6483 0000  -afc-volume.d...
+00000050: 7800 0000 f0de 1700 3b01 0100 6483 0000  x.......;...d...
+00000060: 6776 6673 2d61 6663 2d76 6f6c 756d 6500  gvfs-afc-volume.
+00000070: 6483 0000 7800 0000 0100 0000 0000 0000  d...x...........
+00000080: 7377 6170 7065 722f 3000 0000 0000 0000  swapper/0.......
+00000090: 0000 0000 7800 0000 aaa1 5c08 0401 1100  ....x.....\.....
+000000a0: 0000 0000 88fc 31eb 029f ffff 609e d3c0  ......1.....`...
+000000b0: ffff ffff 0076 b4a1 029f ffff 0020 0000  .....v....... ..
+000000c0: ffff ffff e477 1700 0301 1100 0000 0000  .....w..........
+000000d0: 88fc 31eb 029f ffff aa26 0100 3e01 1100  ..1......&..>...
+000000e0: 0000 0000 6b77 6f72 6b65 722f 7538 3a35  ....kworker/u8:5
+000000f0: 0000 0000 24c0 0c00 7800 0000 0100 0000  ....$...x.......
+00000100: 0300 0000 90e6 e700 3b01 0100 0000 0000  ........;.......
+00000110: 7377 6170 7065 722f 3000 0000 0000 0000  swapper/0.......
+00000120: 0000 0000 7800 0000 0000 0000 0000 0000  ....x...........
+00000130: 6b77 6f72 6b65 722f 7538 3a35 0000 0000  kworker/u8:5....
+00000140: 24c0 0c00 7800 0000 aa56 0300 3e01 0100  $...x....V..>...
+00000150: 24c0 0c00 6b77 6f72 6b65 722f 7538 3a31  $...kworker/u8:1
+00000160: 0000 0000 8eb5 0c00 7800 0000 0100 0000  ........x.......
+00000170: 0300 0000 06eb 0300 0201 0000 24c0 0c00  ............$...
+00000180: 6026 f22a 049f ffff f0e4 4cc0 ffff ffff  `&.*......L.....
+00000190: ca45 0f00 3e01 0100 24c0 0c00 646d 6372  .E..>...$...dmcr
+000001a0: 7970 745f 7772 6974 652f 3200 2601 0000  ypt_write/2.&...
+000001b0: 7800 0000 0100 0000 0100 0000 c617 0200  x...............
+000001c0: 0101 0000 24c0 0c00 6026 f22a 049f ffff  ....$...`&.*....
+000001d0: f0e4 4cc0 ffff ffff a47c 0000 0301 0100  ..L......|......
+000001e0: 24c0 0c00 6015 f22a 049f ffff 0685 0000  $...`..*........
+000001f0: 0201 0000 24c0 0c00 a05d f22a 049f ffff  ....$....].*....
+00000200: f0e4 4cc0 ffff ffff c6dd 0800 0101 0000  ..L.............
+00000210: 24c0 0c00 a05d f22a 049f ffff f0e4 4cc0  $....].*......L.
+00000220: ffff ffff 8444 0000 0301 0100 24c0 0c00  .....D......$...
+00000230: 6059 f22a 049f ffff e672 0000 0201 0000  `Y.*.....r......
+00000240: 24c0 0c00 e050 f22a 049f ffff f0e4 4cc0  $....P.*......L.
+00000250: ffff ffff 4673 0a00 0101 0000 24c0 0c00  ....Fs......$...
+00000260: e050 f22a 049f ffff f0e4 4cc0 ffff ffff  .P.*......L.....
+00000270: 04ca 0000 0301 0100 24c0 0c00 2000 f22a  ........$... ..*
+00000280: 049f ffff 86b1 0000 0201 0000 24c0 0c00  ............$...
+00000290: 6015 f22a 049f ffff f0e4 4cc0 ffff ffff  `..*......L.....
+000002a0: e640 0c00 0101 0000 24c0 0c00 6015 f22a  .@......$...`..*
+000002b0: 049f ffff f0e4 4cc0 ffff ffff 64b4 0000  ......L.....d...
+000002c0: 0301 0100 24c0 0c00 2011 f22a 049f ffff  ....$... ..*....
+000002d0: 66b9 0000 0201 0000 24c0 0c00 a06e f22a  f.......$....n.*
+000002e0: 049f ffff f0e4 4cc0 ffff ffff 6ae1 4200  ......L.....j.B.
+000002f0: 3e01 1100 24c0 0c00 6a62 6432 2f64 6d2d  >...$...jbd2/dm-
+00000300: 312d 3800 0000 0000 6a01 0000 7800 0000  1-8.....j...x...
+00000310: 0100 0000 0300 0000 269b 0400 0101 0000  ........&.......
+00000320: 24c0 0c00 a06e f22a 049f ffff f0e4 4cc0  $....n.*......L.
+00000330: ffff ffff ff9d 6fb6 1f87 9c00 1000 0000  ......o.........
+00000340: 3b01 0100 24c0 0c00 6b77 6f72 6b65 722f  ;...$...kworker/
+00000350: 7538 3a35 0000 0000 24c0 0c00 7800 0000  u8:5....$...x...
+00000360: 8000 0000 0000 0000 7377 6170 7065 722f  ........swapper/
+00000370: 3000 0000 0000 0000 0000 0000 7800 0000  0...........x...
+00000380: 6ad2 3802 0401 1100 0000 0000 c800 384b  j.8...........8K
+00000390: 029f ffff 7018 75c0 ffff ffff 00ac edce  ....p.u.........
+000003a0: 039f ffff 0020 0000 0000 0000 c4de 0000  ..... ..........
+000003b0: 0301 1100 0000 0000 c800 384b 029f ffff  ..........8K....
+000003c0: 8a27 0100 3e01 1100 0000 0000 6b77 6f72  .'..>.......kwor
+000003d0: 6b65 722f 303a 3200 0000 0000 48b4 0c00  ker/0:2.....H...
+000003e0: 7800 0000 0100 0000 0000 0000 706d 0800  x...........pm..
+000003f0: 3b01 0100 0000 0000 7377 6170 7065 722f  ;.......swapper/
+00000400: 3000 0000 0000 0000 0000 0000 7800 0000  0...........x...
+00000410: 0000 0000 0000 0000 6b77 6f72 6b65 722f  ........kworker/
+00000420: 303a 3200 0000 0000 48b4 0c00 7800 0000  0:2.....H...x...
+00000430: 4636 0200 0201 0000 48b4 0c00 c800 384b  F6......H.....8K
+00000440: 029f ffff 7018 75c0 ffff ffff ca56 0500  ....p.u......V..
+00000450: 0401 0100 48b4 0c00 606a ad55 029f ffff  ....H...`j.U....
+00000460: f0e4 4cc0 ffff ffff 002c 04d0 039f ffff  ..L......,......
+00000470: 0020 0000 ffff ffff e435 0000 0301 0100  . .......5......
+00000480: 48b4 0c00 606a ad55 029f ffff ca67 0000  H...`j.U.....g..
+00000490: 3e01 0100 48b4 0c00 6b77 6f72 6b65 722f  >...H...kworker/
+000004a0: 7538 3a35 0000 0000 24c0 0c00 7800 0000  u8:5....$...x...
+000004b0: 0100 0000 0000 0000 e6fc 0200 0101 0000  ................
+000004c0: 48b4 0c00 c800 384b 029f ffff 7018 75c0  H.....8K....p.u.
+000004d0: ffff ffff 708f 0200 3b01 0100 48b4 0c00  ....p...;...H...
+000004e0: 6b77 6f72 6b65 722f 303a 3200 0000 0000  kworker/0:2.....
+000004f0: 48b4 0c00 7800 0000 8000 0000 0000 0000  H...x...........
+00000500: 6b77 6f72 6b65 722f 7538 3a35 0000 0000  kworker/u8:5....
+00000510: 24c0 0c00 7800 0000 0614 0100 0201 0000  $...x...........
+00000520: 24c0 0c00 606a ad55 029f ffff f0e4 4cc0  $...`j.U......L.
+00000530: ffff ffff ea7e 0c00 3e01 0100 24c0 0c00  .....~..>...$...
+00000540: 646d 6372 7970 745f 7772 6974 652f 3200  dmcrypt_write/2.
+00000550: 2601 0000 7800 0000 0100 0000 0100 0000  &...x...........
+00000560: 4645 0200 0101 0000 24c0 0c00 606a ad55  FE......$...`j.U
+00000570: 029f ffff f0e4 4cc0 ffff ffff b043 0900  ......L......C..
+00000580: 3b01 0100 24c0 0c00 6b77 6f72 6b65 722f  ;...$...kworker/
+00000590: 7538 3a35 0000 0000 24c0 0c00 7800 0000  u8:5....$...x...
+000005a0: 8000 0000 0000 0000 7377 6170 7065 722f  ........swapper/
+000005b0: 3000 0000 0000 0000 0000 0000 7800 0000  0...........x...
+000005c0: ca7a 3900 0401 1100 0000 0000 48bc d5a1  .z9.........H...
+000005d0: 029f ffff 10e2 62bb ffff ffff 00e0 40d0  ......b.......@.
+000005e0: 039f ffff 0020 0000 0000 0000 c4bb 0000  ..... ..........
+000005f0: 0301 1100 0000 0000 48bc d5a1 029f ffff  ........H.......
+00000600: 2aea 0000 3e01 1100 0000 0000 6b77 6f72  *...>.......kwor
+00000610: 6b65 722f 303a 3148 0000 0000 cfc1 0c00  ker/0:1H........
+00000620: 6400 0000 0100 0000 0000 0000 90bb 0600  d...............
+00000630: 3b01 0100 0000 0000 7377 6170 7065 722f  ;.......swapper/
+00000640: 3000 0000 0000 0000 0000 0000 7800 0000  0...........x...
+00000650: 0000 0000 0000 0000 6b77 6f72 6b65 722f  ........kworker/
+00000660: 303a 3148 0000 0000 cfc1 0c00 6400 0000  0:1H........d...
+00000670: 8617 0200 0201 0000 cfc1 0c00 48bc d5a1  ............H...
+00000680: 029f ffff 10e2 62bb ffff ffff c68f 0400  ......b.........
+00000690: 0101 0000 cfc1 0c00 48bc d5a1 029f ffff  ........H.......
+000006a0: 10e2 62bb ffff ffff b063 0300 3b01 0100  ..b......c..;...
+000006b0: cfc1 0c00 6b77 6f72 6b65 722f 303a 3148  ....kworker/0:1H
+000006c0: 0000 0000 cfc1 0c00 6400 0000 8000 0000  ........d.......
+000006d0: 0000 0000 7377 6170 7065 722f 3000 0000  ....swapper/0...
+000006e0: 0000 0000 0000 0000 7800 0000 4a10 ad01  ........x...J...
+000006f0: 3e01 1100 0000 0000 6a62 6432 2f64 6d2d  >.......jbd2/dm-
+00000700: 312d 3800 0000 0000 6a01 0000 7800 0000  1-8.....j...x...
+00000710: 0100 0000 0300 0000 ea27 b900 3e01 1100  .........'..>...
+00000720: 0000 0000 7263 755f 7363 6865 6400 0000  ....rcu_sched...
+00000730: 0000 0000 0d00 0000 7800 0000 0100 0000  ........x.......
+00000740: 0200 0000 3d00 0000 2c00 0000 0000 0000  ....=...,.......
+00000750: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+00000760: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+00000770: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+  )";
+
+TEST(CpuReaderTest, ParseAbsoluteTimestamp) {
+  BundleProvider bundle_provider(base::kPageSize);
+  auto page = PageFromXxd(g_abs_timestamp);
+
+  // Hand-build a translation table that handles sched_switch for this test
+  // page. We cannot reuse the test data format file, since the ftrace id for
+  // sched_switch in this page is different.
+  std::vector<Field> common_fields;
+  {  // common_pid
+    common_fields.emplace_back(Field{});
+    Field* field = &common_fields.back();
+    field->ftrace_offset = 4;
+    field->ftrace_size = 4;
+    field->ftrace_type = kFtraceCommonPid32;
+    field->proto_field_id = 2;
+    field->proto_field_type = ProtoSchemaType::kInt32;
+    SetTranslationStrategy(field->ftrace_type, field->proto_field_type,
+                           &field->strategy);
+  }
+  Event sched_switch_event{
+      "sched_switch",
+      "sched",
+      {
+          {8, 16, FtraceFieldType::kFtraceFixedCString, "prev_comm", 1,
+           ProtoSchemaType::kString,
+           TranslationStrategy::kInvalidTranslationStrategy},
+          {24, 4, FtraceFieldType::kFtracePid32, "prev_pid", 2,
+           ProtoSchemaType::kInt32,
+           TranslationStrategy::kInvalidTranslationStrategy},
+          {28, 4, FtraceFieldType::kFtraceInt32, "prev_prio", 3,
+           ProtoSchemaType::kInt32,
+           TranslationStrategy::kInvalidTranslationStrategy},
+          {32, 8, FtraceFieldType::kFtraceInt64, "prev_state", 4,
+           ProtoSchemaType::kInt64,
+           TranslationStrategy::kInvalidTranslationStrategy},
+          {40, 16, FtraceFieldType::kFtraceFixedCString, "next_comm", 5,
+           ProtoSchemaType::kString,
+           TranslationStrategy::kInvalidTranslationStrategy},
+          {56, 4, FtraceFieldType::kFtracePid32, "next_pid", 6,
+           ProtoSchemaType::kInt32,
+           TranslationStrategy::kInvalidTranslationStrategy},
+          {60, 4, FtraceFieldType::kFtraceInt32, "next_prio", 7,
+           ProtoSchemaType::kInt32,
+           TranslationStrategy::kInvalidTranslationStrategy},
+      },
+      /*ftrace_event_id=*/315,
+      /*proto_field_id=*/4,
+      /*size=*/64};
+  for (Field& field : sched_switch_event.fields) {
+    SetTranslationStrategy(field.ftrace_type, field.proto_field_type,
+                           &field.strategy);
+  }
+  std::vector<Event> events;
+  events.emplace_back(std::move(sched_switch_event));
+
+  NiceMock<MockFtraceProcfs> mock_ftrace;
+  PrintkMap printk_formats;
+  ProtoTranslationTable translation_table(
+      &mock_ftrace, events, std::move(common_fields),
+      ProtoTranslationTable::DefaultPageHeaderSpecForTesting(),
+      InvalidCompactSchedEventFormatForTesting(), printk_formats);
+  ProtoTranslationTable* table = &translation_table;
+
+  FtraceDataSourceConfig ds_config = EmptyConfig();
+  ds_config.event_filter.AddEnabledEvent(
+      table->EventToFtraceId(GroupAndName("sched", "sched_switch")));
+
+  FtraceMetadata metadata{};
+  CompactSchedBuffer compact_buffer;
+  const uint8_t* parse_pos = page.get();
+  base::Optional<CpuReader::PageHeader> page_header =
+      CpuReader::ParsePageHeader(&parse_pos, table->page_header_size_len());
+
+  const uint8_t* page_end = page.get() + base::kPageSize;
+  ASSERT_TRUE(page_header.has_value());
+  EXPECT_FALSE(page_header->lost_events);
+  EXPECT_TRUE(parse_pos < page_end);
+  EXPECT_TRUE(parse_pos + page_header->size < page_end);
+
+  size_t evt_bytes = CpuReader::ParsePagePayload(
+      parse_pos, &page_header.value(), table, &ds_config, &compact_buffer,
+      bundle_provider.writer(), &metadata);
+
+  ASSERT_LT(0u, evt_bytes);
+
+  auto bundle = bundle_provider.ParseProto();
+  ASSERT_TRUE(bundle);
+
+  // There should be 9 sched_switch events within the above page.
+  // We assert that all of their timestamps are exactly as expected.
+  //
+  // The key record that we're testing is an absolute timestamp
+  // (RINGBUF_TYPE_TIME_STAMP) between the 3rd and 4th sched_switch events.
+  //
+  // This timestamp record starts at 0x334 bytes into the page.
+  // The event header (first 4 bytes): 0xb66f9dff
+  // -> type (bottom 5 bits): 31 (RINGBUF_TYPE_TIME_STAMP)
+  // -> bottom 27 bits of ts: 0x5b37cef
+  // Next 4 bytes have the top bits (28..59) of ts.
+  // -> post-shift: 0x4e438f8000000
+  // Adding the two parts of the timestamp, we get: 1376833332542703.
+  //
+  // The next event (sched_switch at 0x33c) after this timestamp has a
+  // delta-timestamp of 0 in its event header, so we expect the 4th
+  // sched_switch to have a timestamp of exactly 1376833332542703.
+  EXPECT_EQ(bundle->event().size(), 9u);
+
+  std::vector<uint64_t> switch_timestamps;
+  for (const auto& e : bundle->event())
+    switch_timestamps.push_back(e.timestamp());
+
+  uint64_t expected_timestamps[] = {
+      1376833327307547ull, 1376833327356434ull, 1376833332265799ull,
+      1376833332542703ull, 1376833333729055ull, 1376833333757142ull,
+      1376833333808564ull, 1376833333943445ull, 1376833333964012ull};
+
+  ASSERT_THAT(switch_timestamps,
+              testing::ElementsAreArray(expected_timestamps));
 }
 
 TEST(CpuReaderTest, TranslateBlockDeviceIDToUserspace) {
@@ -1641,6 +1904,95 @@ TEST(CpuReaderTest, ParseFullPageSchedSwitch) {
   auto bundle = bundle_provider.ParseProto();
   ASSERT_TRUE(bundle);
   EXPECT_EQ(bundle->event().size(), 59u);
+}
+
+// clang-format off
+// # tracer: nop
+// #
+// # entries-in-buffer/entries-written: 18/18   #P:8
+// #
+// #                              _-----=> irqs-off
+// #                             / _----=> need-resched
+// #                            | / _---=> hardirq/softirq
+// #                            || / _--=> preempt-depth
+// #                            ||| /     delay
+// #           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
+// #              | |       |   ||||       |         |
+//            <...>-9290  [000] ....  1352.654573: suspend_resume: sync_filesystems[0] end
+//            <...>-9290  [000] ....  1352.665366: suspend_resume: freeze_processes[0] begin
+//            <...>-9290  [000] ....  1352.699711: suspend_resume: freeze_processes[0] end
+//            <...>-9290  [000] ....  1352.699718: suspend_resume: suspend_enter[1] end
+//            <...>-9290  [000] ....  1352.699723: suspend_resume: dpm_prepare[2] begin
+//            <...>-9290  [000] ....  1352.703470: suspend_resume: dpm_prepare[2] end
+//            <...>-9290  [000] ....  1352.703477: suspend_resume: dpm_suspend[2] begin
+//            <...>-9290  [000] ....  1352.720107: suspend_resume: dpm_resume[16] end
+//            <...>-9290  [000] ....  1352.720113: suspend_resume: dpm_complete[16] begin
+//            <...>-9290  [000] .n..  1352.724540: suspend_resume: dpm_complete[16] end
+//            <...>-9290  [000] ....  1352.724567: suspend_resume: resume_console[1] begin
+//            <...>-9290  [000] ....  1352.724570: suspend_resume: resume_console[1] end
+//            <...>-9290  [000] ....  1352.724574: suspend_resume: thaw_processes[0] begin
+static ExamplePage g_suspend_resume {
+    "synthetic",
+    R"(00000000: edba 155a 3201 0000 7401 0000 0000 0000  ...Z2...t.......
+00000010: 7e58 22cd 1201 0000 0600 0000 ac00 0000  ~X".............
+00000020: 4a24 0000 5a7a f504 85ff ffff 0000 0000  J$..Zz..........
+00000030: 0017 0000 c621 9614 ac00 0000 4a24 0000  .....!......J$..
+00000040: 1c7a f504 85ff ffff 0000 0000 0100 0000  .z..............
+00000050: e6f1 8141 ac00 0000 4a24 0000 1c7a f504  ...A....J$...z..
+00000060: 85ff ffff 0000 0000 0000 0000 8682 0300  ................
+00000070: ac00 0000 4a24 0000 4c7a f504 85ff ffff  ....J$..Lz......
+00000080: 0100 0000 0063 755f 0657 0200 ac00 0000  .....cu_.W......
+00000090: 4a24 0000 8ad5 0105 85ff ffff 0200 0000  J$..............
+000000a0: 0100 0000 06b5 2507 ac00 0000 4a24 0000  ......%.....J$..
+000000b0: 8ad5 0105 85ff ffff 0200 0000 0000 0000  ................
+000000c0: 460d 0300 ac00 0000 4a24 0000 51d5 0105  F.......J$..Q...
+000000d0: 85ff ffff 0200 0000 0117 0000 c63e b81f  .............>..
+000000e0: ac00 0000 4a24 0000 7fd5 0105 85ff ffff  ....J$..........
+000000f0: 1000 0000 0010 0b00 a6f9 0200 ac00 0000  ................
+00000100: 4a24 0000 96d5 0105 85ff ffff 1000 0000  J$..............
+00000110: 01c0 1f00 a6dd 7108 ac00 0400 4a24 0000  ......q.....J$..
+00000120: 96d5 0105 85ff ffff 1000 0000 0000 0000  ................
+00000130: c6f1 0c00 ac00 0000 4a24 0000 3d7a f504  ........J$..=z..
+00000140: 85ff ffff 0100 0000 01ea 24d5 a66c 0100  ..........$..l..
+00000150: ac00 0000 4a24 0000 3d7a f504 85ff ffff  ....J$..=z......
+00000160: 0100 0000 0000 0001 6636 0200 ac00 0000  ........f6......
+00000170: 4a24 0000 d178 f504 85ff ffff 0000 0000  J$...x..........
+00000180: 0100 0000 0000 0000 0000 0000 0000 0000  ................
+00000190: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+)"};
+
+TEST(CpuReaderTest, ParseSuspendResume) {
+  const ExamplePage* test_case = &g_suspend_resume;
+
+  BundleProvider bundle_provider(base::kPageSize);
+  ProtoTranslationTable* table = GetTable(test_case->name);
+  auto page = PageFromXxd(test_case->data);
+
+  FtraceDataSourceConfig ds_config = EmptyConfig();
+  ds_config.event_filter.AddEnabledEvent(
+      table->EventToFtraceId(GroupAndName("power", "suspend_resume")));
+
+  FtraceMetadata metadata{};
+  CompactSchedBuffer compact_buffer;
+  const uint8_t* parse_pos = page.get();
+  base::Optional<CpuReader::PageHeader> page_header =
+      CpuReader::ParsePageHeader(&parse_pos, table->page_header_size_len());
+  ASSERT_TRUE(page_header.has_value());
+
+  CpuReader::ParsePagePayload(
+      parse_pos, &page_header.value(), table, &ds_config, &compact_buffer,
+      bundle_provider.writer(), &metadata);
+  auto bundle = bundle_provider.ParseProto();
+  ASSERT_TRUE(bundle);
+  ASSERT_EQ(bundle->event().size(), 13u);
+  EXPECT_EQ(bundle->event()[0].suspend_resume().action(), "sync_filesystems");
+  EXPECT_EQ(bundle->event()[1].suspend_resume().action(), "freeze_processes");
+  EXPECT_EQ(bundle->event()[2].suspend_resume().action(), "freeze_processes");
+  EXPECT_EQ(bundle->event()[3].suspend_resume().action(), "suspend_enter");
+  // dpm_prepare deliberately missing from:
+  // src/traced/probes/ftrace/test/data/synthetic/printk_formats to ensure we
+  // handle that case correctly.
+  EXPECT_EQ(bundle->event()[4].suspend_resume().action(), "");
 }
 
 // clang-format off

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,7 +14,7 @@
 	.weak	plat_set_my_stack
 
 	/* ---------------------------------------------------------------------
-	 * When the compatility layer is disabled, the platform APIs
+	 * When the compatibility layer is disabled, the platform APIs
 	 * plat_get_my_stack() and plat_set_my_stack() are supported by the
 	 * platform and the previous APIs platform_get_stack() and
 	 * platform_set_stack() are defined in terms of new APIs making use of
@@ -32,7 +32,7 @@
 	 * -----------------------------------------------------
 	 */
 func plat_get_my_stack
-	mov	x10, x30 // lr
+	mov	x10, x30
 	get_my_mp_stack platform_normal_stacks, PLATFORM_STACK_SIZE
 	ret	x10
 endfunc plat_get_my_stack
@@ -45,14 +45,14 @@ endfunc plat_get_my_stack
 	 * -----------------------------------------------------
 	 */
 func plat_set_my_stack
-	mov	x9, x30 // lr
+	mov	x9, x30
 	bl 	plat_get_my_stack
 	mov	sp, x0
 	ret	x9
 endfunc plat_set_my_stack
 
 	/* -----------------------------------------------------
-	 * Per-cpu stacks in normal memory. Each cpu gets a
+	 * Per-CPU stacks in normal memory. Each CPU gets a
 	 * stack of PLATFORM_STACK_SIZE bytes.
 	 * -----------------------------------------------------
 	 */

@@ -181,6 +181,7 @@ public class DoubleCheckCycleTest {
                 })
             .build();
 
+
     int numThreads = 10;
     CountDownLatch remainingTasks = new CountDownLatch(numThreads);
     List<Thread> tasks = new ArrayList<>(numThreads);

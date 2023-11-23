@@ -16,50 +16,50 @@
 
 package com.googlecode.android_scripting.facade;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.json.JSONObject;
+import android.app.Service;
+import android.net.VpnManager;
+import android.os.RemoteException;
+import android.security.Credentials;
+import android.security.KeyStore;
+import android.security.LegacyVpnProfileStore;
 
 import com.android.internal.net.LegacyVpnInfo;
 import com.android.internal.net.VpnConfig;
 import com.android.internal.net.VpnProfile;
 import com.android.internal.util.ArrayUtils;
+
 import com.google.android.collect.Lists;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
-import android.app.Service;
-import android.content.Context;
-import android.net.IConnectivityManager;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.security.Credentials;
-import android.security.KeyStore;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Access NFC functions.
+ * Access VPN functions.
  */
 public class VpnFacade extends RpcReceiver {
 
     private final Service mService;
-    private final IConnectivityManager mConService;
+    private final VpnManager mVpnManager;
     private CertInstallerHelper mCertHelper;
 
     public VpnFacade(FacadeManager manager) {
         super(manager);
         mService = manager.getService();
         mCertHelper = new CertInstallerHelper();
-        mConService = IConnectivityManager.Stub
-                .asInterface(ServiceManager.getService(Context.CONNECTIVITY_SERVICE));
+        mVpnManager = mService.getSystemService(VpnManager.class);
     }
 
     static List<VpnProfile> loadVpnProfiles(KeyStore keyStore, int... excludeTypes) {
         final ArrayList<VpnProfile> result = Lists.newArrayList();
 
-        for (String key : keyStore.list(Credentials.VPN)) {
-            final VpnProfile profile = VpnProfile.decode(key, keyStore.get(Credentials.VPN + key));
+        for (String key : LegacyVpnProfileStore.list(Credentials.VPN)) {
+            final VpnProfile profile = VpnProfile.decode(key,
+                    LegacyVpnProfileStore.get(Credentials.VPN + key));
             if (profile != null && !ArrayUtils.contains(excludeTypes, profile.type)) {
                 result.add(profile);
             }
@@ -92,17 +92,17 @@ public class VpnFacade extends RpcReceiver {
     public void vpnStartLegacyVpn(@RpcParameter(name = "vpnProfile") JSONObject vpnProfile)
             throws RemoteException {
         VpnProfile profile = genLegacyVpnProfile(vpnProfile);
-        mConService.startLegacyVpn(profile);
+        mVpnManager.startLegacyVpn(profile);
     }
 
     @Rpc(description = "Stop the current legacy VPN connection.")
     public void vpnStopLegacyVpn() throws RemoteException {
-        mConService.prepareVpn(VpnConfig.LEGACY_VPN, VpnConfig.LEGACY_VPN, mService.getUserId());
+        mVpnManager.prepareVpn(VpnConfig.LEGACY_VPN, VpnConfig.LEGACY_VPN, mService.getUserId());
     }
 
     @Rpc(description = "Get the info object of the currently active legacy VPN connection.")
     public LegacyVpnInfo vpnGetLegacyVpnInfo() throws RemoteException {
-        return mConService.getLegacyVpnInfo(mService.getUserId());
+        return mVpnManager.getLegacyVpnInfo(mService.getUserId());
     }
 
     @Override

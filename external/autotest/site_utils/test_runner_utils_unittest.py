@@ -4,6 +4,9 @@
 # found in the LICENSE file.
 # pylint: disable-msg=C0111
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os, unittest
 import mox
 import common
@@ -15,6 +18,8 @@ from autotest_lib.server.cros.dynamic_suite import control_file_getter
 from autotest_lib.server.cros.dynamic_suite import suite as suite_module
 from autotest_lib.server.hosts import host_info
 from autotest_lib.site_utils import test_runner_utils
+from six.moves import range
+from six.moves import zip
 
 
 class StartsWithList(mox.Comparator):
@@ -47,7 +52,7 @@ class ContainsSublist(mox.Comparator):
         if len(rhs)<n:
             return False
         return any((self._sublist == rhs[i:i+n])
-                   for i in xrange(len(rhs) - n + 1))
+                   for i in range(len(rhs) - n + 1))
 
 class DummyJob(object):
     def __init__(self, id=1):

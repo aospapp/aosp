@@ -19,17 +19,24 @@ package com.google.android.setupdesign.items;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.TextView;
+import com.google.android.setupcompat.PartnerCustomizationLayout;
+import com.google.android.setupdesign.GlifLayout;
 import com.google.android.setupdesign.R;
 import com.google.android.setupdesign.util.DescriptionStyler;
 
 /**
  * Definition of an item in an {@link ItemHierarchy}. An item is usually defined in XML and inflated
  * using {@link ItemInflater}.
+ *
+ * @deprecated Use {@link com.google.android.setupdesign.template.DescriptionMixin} instead.
  */
+@Deprecated
 public class DescriptionItem extends Item {
 
-  private boolean applyPartnerDescriptionStyle = false;
+  private boolean partnerDescriptionHeavyStyle = false;
+  private boolean partnerDescriptionLightStyle = false;
 
   public DescriptionItem() {
     super();
@@ -39,16 +46,40 @@ public class DescriptionItem extends Item {
     super(context, attrs);
   }
 
-  public boolean shouldApplyPartnerDescriptionStyle() {
-    return applyPartnerDescriptionStyle;
+  /**
+   * Returns true if the description of partner's layout should apply heavy style, this depends on
+   * if the layout fulfill conditions in {@code applyPartnerHeavyThemeResource} of {@link
+   * com.google.android.setupdesign.GlifLayout}
+   */
+  public boolean shouldApplyPartnerDescriptionHeavyStyle() {
+    return partnerDescriptionHeavyStyle;
+  }
+
+  /**
+   * Returns true if the description of partner's layout should apply light style, this depends on
+   * if the layout fulfill conditions in {@code shouldApplyPartnerResource} of {@link
+   * com.google.android.setupcompat.PartnerCustomizationLayout}
+   */
+  public boolean shouldApplyPartnerDescriptionLightStyle() {
+    return partnerDescriptionLightStyle;
   }
 
   /**
    * Applies partner description style on the title of the item, i.e. the TextView with {@code
    * R.id.sud_items_title}.
+   *
+   * @param layout A layout indicates if the description of partner's layout should apply heavy or
+   *     light style
    */
-  public void setApplyPartnerDescriptionStyle(boolean applyPartnerDescriptionStyle) {
-    this.applyPartnerDescriptionStyle = applyPartnerDescriptionStyle;
+  public void setPartnerDescriptionStyle(FrameLayout layout) {
+    if (layout instanceof GlifLayout) {
+      this.partnerDescriptionHeavyStyle =
+          ((GlifLayout) layout).shouldApplyPartnerHeavyThemeResource();
+    }
+    if (layout instanceof PartnerCustomizationLayout) {
+      this.partnerDescriptionLightStyle =
+          ((PartnerCustomizationLayout) layout).shouldApplyPartnerResource();
+    }
     notifyItemChanged();
   }
 
@@ -56,8 +87,10 @@ public class DescriptionItem extends Item {
   public void onBindView(View view) {
     super.onBindView(view);
     TextView label = (TextView) view.findViewById(R.id.sud_items_title);
-    if (shouldApplyPartnerDescriptionStyle()) {
-      DescriptionStyler.applyPartnerCustomizationStyle(label);
+    if (shouldApplyPartnerDescriptionHeavyStyle()) {
+      DescriptionStyler.applyPartnerCustomizationHeavyStyle(label);
+    } else if (shouldApplyPartnerDescriptionLightStyle()) {
+      DescriptionStyler.applyPartnerCustomizationLightStyle(label);
     }
   }
 }

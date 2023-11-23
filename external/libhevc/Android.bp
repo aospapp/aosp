@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_libhevc_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_libhevc_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libhevcdec",
     vendor_available: true,
@@ -15,6 +32,8 @@ cc_library_static {
         // common/x86/ihevc_sao_ssse3_intr.c: implicit conversion from
         // 'int' to 'char' changes value from 128 to -128
         "-Wno-error=constant-conversion",
+        // #KEEP_THREAD_ACTIVE is experimental
+        "-UKEEP_THREADS_ACTIVE",
     ],
 
     export_include_dirs: [
@@ -277,30 +296,6 @@ cc_library_static {
             },
         },
 
-        mips64: {
-            local_include_dirs: [
-                "decoder/mips",
-                "common/mips",
-            ],
-
-            srcs: [
-                "decoder/mips/ihevcd_function_selector.c",
-                "decoder/mips/ihevcd_function_selector_mips_generic.c",
-            ],
-        },
-
-        mips: {
-            local_include_dirs: [
-                "decoder/mips",
-                "common/mips",
-            ],
-
-            srcs: [
-                "decoder/mips/ihevcd_function_selector.c",
-                "decoder/mips/ihevcd_function_selector_mips_generic.c",
-            ],
-        },
-
         x86_64: {
             cflags: [
                 "-DX86",
@@ -394,8 +389,11 @@ cc_library_static {
         integer_overflow: true,
         misc_undefined: ["bounds"],
         // Enable CFI if this becomes a shared library.
-        // cfi: true,
-        blacklist: "libhevc_blacklist.txt",
+        cfi: true,
+	config: {
+            cfi_assembly_support: true,
+        },
+        blocklist: "libhevc_blocklist.txt",
     },
 
     apex_available: [
@@ -416,6 +414,7 @@ cc_test {
         "-Wall",
         "-Werror",
     ],
+    gtest: false,
     srcs: ["test/decoder/main.c"],
     static_libs: ["libhevcdec"],
     target: {
@@ -774,8 +773,11 @@ cc_library_static {
         integer_overflow: true,
         misc_undefined: ["bounds"],
         // Enable CFI if this becomes a shared library.
-        // cfi: true,
-        blacklist: "libhevc_blacklist.txt",
+        cfi: true,
+	config: {
+            cfi_assembly_support: true,
+        },
+        blocklist: "libhevc_blocklist.txt",
     },
 
     apex_available: [
@@ -794,6 +796,7 @@ cc_test {
         "-Wall",
         "-Werror",
     ],
+    gtest: false,
     srcs: ["test/encoder/main.c"],
     static_libs: ["libhevcenc"],
     sanitize: {

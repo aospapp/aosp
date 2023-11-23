@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,6 +6,10 @@
 """Sequence extensions to server_job.
 Adds ability to schedule jobs on given machines.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import os
@@ -16,6 +21,8 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros.dynamic_suite import control_file_getter
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.site_utils import job_directories
+import six
+from six.moves import range
 
 MINUTE_IN_SECS = 60
 HOUR_IN_MINUTES = 60
@@ -82,7 +89,7 @@ parallel_simple(run, machines)
         @returns a timeout value for the test, 4h by default.
         """
         if self._duration:
-            return 2 * int(self._duration) / MINUTE_IN_SECS
+            return 2 * int(self._duration) // MINUTE_IN_SECS
         # default value:
         return DEFAULT_JOB_TIMEOUT_IN_MINS
 
@@ -108,7 +115,7 @@ parallel_simple(run, machines)
             return cntl_file_getter.get_control_file_contents_by_name(
                     self._name)
         child_args = ['',]
-        for arg, value in self._args.iteritems():
+        for arg, value in six.iteritems(self._args):
             child_args.append('%s=%s' % (arg, repr(value)))
         if self._duration:
             child_args.append('duration=%d' % self._duration)
@@ -143,7 +150,7 @@ parallel_simple(run, machines)
         runtime_mins = self.child_job_timeout()
         hostname = utils.get_hostname_from_machine(machine)
 
-        for i in xrange(0, self._iteration):
+        for i in range(0, self._iteration):
             child_job_name = self.child_job_name(hostname, i)
             logging.debug('Creating job: %s', child_job_name)
             afe.create_job(

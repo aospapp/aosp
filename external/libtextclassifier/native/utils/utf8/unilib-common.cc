@@ -61,6 +61,12 @@ constexpr char32 kWhitespaces[] = {
     0x1F501, 0x1F502, 0x1F503, 0x1F504, 0x1F5D8, 0x1F5DE};
 constexpr int kNumWhitespaces = ARRAYSIZE(kWhitespaces);
 
+// https://en.wikipedia.org/wiki/Bidirectional_text
+constexpr char32 kBidirectional[] = {0x061C, 0x200E, 0x200F, 0x202A,
+                                     0x202B, 0x202C, 0x202D, 0x202E,
+                                     0x2066, 0x2067, 0x2068, 0x2069};
+constexpr int kNumBidirectional = ARRAYSIZE(kBidirectional);
+
 // grep -E "Nd" UnicodeData.txt | sed -re "s/([0-9A-Z]+);.*/0x\1, /"
 // As the name suggests, these ranges are always 10 codepoints long, so we just
 // store the end of the range.
@@ -389,6 +395,22 @@ constexpr int kNumNumberSign = ARRAYSIZE(kNumberSign);
 constexpr char32 kDots[] = {0x002e, 0xfe52, 0xff0e};
 constexpr int kNumDots = ARRAYSIZE(kDots);
 
+// Source: https://unicode-search.net/unicode-namesearch.pl?term=Apostrophe
+constexpr char32 kApostrophe[] = {0x0027, 0x02BC, 0x02EE, 0x055A,
+                                  0x07F4, 0x07F5, 0xFF07};
+constexpr int kNumApostrophe = ARRAYSIZE(kApostrophe);
+
+// Source: https://unicode-search.net/unicode-namesearch.pl?term=Quotation
+constexpr char32 kQuotation[] = {
+    0x0022, 0x00AB, 0x00BB, 0x2018, 0x2019, 0x201A, 0x201B, 0x201C,
+    0x201D, 0x201E, 0x201F, 0x2039, 0x203A, 0x275B, 0x275C, 0x275D,
+    0x275E, 0x276E, 0x276F, 0x2E42, 0x301D, 0x301E, 0x301F, 0xFF02};
+constexpr int kNumQuotation = ARRAYSIZE(kQuotation);
+
+// Source: https://unicode-search.net/unicode-namesearch.pl?term=ampersand
+constexpr char32 kAmpersand[] = {0x0026, 0xFE60, 0xFF06, 0x1F674, 0x1F675};
+constexpr int kNumAmpersand = ARRAYSIZE(kAmpersand);
+
 #undef ARRAYSIZE
 
 static_assert(kNumOpeningBrackets == kNumClosingBrackets,
@@ -502,6 +524,10 @@ bool IsWhitespace(char32 codepoint) {
   return GetMatchIndex(kWhitespaces, kNumWhitespaces, codepoint) >= 0;
 }
 
+bool IsBidirectional(char32 codepoint) {
+  return GetMatchIndex(kBidirectional, kNumBidirectional, codepoint) >= 0;
+}
+
 bool IsDigit(char32 codepoint) {
   return GetOverlappingRangeIndex(kDecimalDigitRangesEnd,
                                   kNumDecimalDigitRangesEnd,
@@ -564,6 +590,18 @@ bool IsNumberSign(char32 codepoint) {
 
 bool IsDot(char32 codepoint) {
   return GetMatchIndex(kDots, kNumDots, codepoint) >= 0;
+}
+
+bool IsApostrophe(char32 codepoint) {
+  return GetMatchIndex(kApostrophe, kNumApostrophe, codepoint) >= 0;
+}
+
+bool IsQuotation(char32 codepoint) {
+  return GetMatchIndex(kQuotation, kNumQuotation, codepoint) >= 0;
+}
+
+bool IsAmpersand(char32 codepoint) {
+  return GetMatchIndex(kAmpersand, kNumAmpersand, codepoint) >= 0;
 }
 
 bool IsLatinLetter(char32 codepoint) {

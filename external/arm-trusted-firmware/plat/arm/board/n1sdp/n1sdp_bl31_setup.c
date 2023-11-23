@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -63,8 +63,8 @@ static struct gic600_multichip_data n1sdp_multichip_data __init = {
 		PLAT_ARM_GICD_BASE >> 16
 	},
 	.spi_ids = {
-		{32, 255},
-		{0, 0}
+		{32, 479},
+		{512, 959}
 	}
 };
 
@@ -74,7 +74,7 @@ static uintptr_t n1sdp_multichip_gicr_frames[3] = {
 	0
 };
 
-scmi_channel_plat_info_t *plat_css_get_scmi_info()
+scmi_channel_plat_info_t *plat_css_get_scmi_info(int channel_id)
 {
 	return &n1sdp_scmi_plat_info;
 }

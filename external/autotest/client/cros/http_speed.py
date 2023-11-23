@@ -1,10 +1,12 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """A tool to measure single-stream link bandwidth using HTTP connections."""
 
-import logging, random, time, urllib2
+import logging, random, time
+from six.moves import urllib
 
 import numpy.random
 
@@ -18,7 +20,7 @@ class Error(Exception):
 def TimeTransfer(url, data):
     """Transfers data to/from url.  Returns (time, url contents)."""
     start_time = time.time()
-    result = urllib2.urlopen(url, data=data, timeout=TIMEOUT)
+    result = urllib.request.urlopen(url, data=data, timeout=TIMEOUT)
     got = result.read()
     transfer_time = time.time() - start_time
     if transfer_time <= 0:

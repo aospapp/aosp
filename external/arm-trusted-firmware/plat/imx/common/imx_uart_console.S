@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,7 +25,7 @@ func console_imx_uart_register
 	mov	x7, x30
 	mov	x6, x3
 	cbz	x6, register_fail
-	str	x0, [x6, #CONSOLE_T_DRVDATA]
+	str	x0, [x6, #CONSOLE_T_BASE]
 
 	bl	console_imx_uart_init
 	cbz	x0, register_fail
@@ -44,7 +44,7 @@ func console_imx_uart_init
 endfunc console_imx_uart_init
 
 func console_imx_uart_putc
-	ldr	x1, [x1, #CONSOLE_T_DRVDATA]
+	ldr	x1, [x1, #CONSOLE_T_BASE]
 	cbz	x1, putc_error
 
 	/* Prepare '\r' to '\n' */
@@ -68,7 +68,7 @@ putc_error:
 endfunc console_imx_uart_putc
 
 func console_imx_uart_getc
-	ldr	x0, [x0, #CONSOLE_T_DRVDATA]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	cbz	x0, getc_error
 1:
 	ldr	w1, [x0, #UTS]
@@ -84,6 +84,5 @@ getc_error:
 endfunc console_imx_uart_getc
 
 func console_imx_uart_flush
-	mov	x0, #0
 	ret
 endfunc console_imx_uart_flush

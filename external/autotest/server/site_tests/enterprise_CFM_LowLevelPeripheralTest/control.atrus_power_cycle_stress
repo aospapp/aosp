@@ -9,7 +9,7 @@ NAME = "enterprise_CFM_LowLevelPeripheralTest.atrus_power_cycle_stress"
 PURPOSE = "Stresses an Atrus device by repeatedly power cycling its USB port."
 CRITERIA = ("Atrus detectable as a USB device after each cycle "
             "and no crash files appear")
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod-remora"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_TYPE = "server"

@@ -1,142 +1,38 @@
 /*
- * Copyright (c) 2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
 
+#if MEASURED_BOOT
+#include <common/desc_image_load.h>
+#endif
+#include <common/fdt_wrappers.h>
+
 #include <libfdt.h>
 
-#include <common/desc_image_load.h>
-#include <common/fdt_wrappers.h>
 #include <plat/arm/common/arm_dyn_cfg_helpers.h>
 #include <plat/arm/common/plat_arm.h>
 
 #define DTB_PROP_MBEDTLS_HEAP_ADDR "mbedtls_heap_addr"
 #define DTB_PROP_MBEDTLS_HEAP_SIZE "mbedtls_heap_size"
 
-typedef struct config_load_info_prop {
-	unsigned int config_id;
-	const char *config_addr;
-	const char *config_max_size;
-} config_load_info_prop_t;
+#if MEASURED_BOOT
+#define DTB_PROP_BL2_HASH_DATA	"bl2_hash_data"
+#ifdef SPD_opteed
+/*
+ * Currently OP-TEE does not support reading DTBs from Secure memory
+ * and this property should be removed when this feature is supported.
+ */
+#define DTB_PROP_HW_SM_LOG_ADDR	"tpm_event_log_sm_addr"
+#endif
+#define DTB_PROP_HW_LOG_ADDR	"tpm_event_log_addr"
+#define DTB_PROP_HW_LOG_SIZE    "tpm_event_log_size"
 
-static const config_load_info_prop_t prop_names[] = {
-	{HW_CONFIG_ID, "hw_config_addr", "hw_config_max_size"},
-	{SOC_FW_CONFIG_ID, "soc_fw_config_addr", "soc_fw_config_max_size"},
-	{TOS_FW_CONFIG_ID, "tos_fw_config_addr", "tos_fw_config_max_size"},
-	{NT_FW_CONFIG_ID, "nt_fw_config_addr", "nt_fw_config_max_size"}
-};
-
-/*******************************************************************************
- * Helper to read the load information corresponding to the `config_id` in
- * TB_FW_CONFIG. This function expects the following properties to be defined :
- *	<config>_addr		size : 2 cells
- *	<config>_max_size	size : 1 cell
- *
- * Arguments:
- *	void *dtb		 - pointer to the TB_FW_CONFIG in memory
- *	int node		 - The node offset to appropriate node in the
- *					 DTB.
- *	unsigned int config_id	 - The configuration id
- *	uint64_t *config_addr	 - Returns the `config` load address if read
- *					 is successful.
- *	uint32_t *config_size	 - Returns the `config` size if read is
- *					 successful.
- *
- * Returns 0 on success and -1 on error.
- ******************************************************************************/
-int arm_dyn_get_config_load_info(void *dtb, int node, unsigned int config_id,
-		uint64_t *config_addr, uint32_t *config_size)
-{
-	int err;
-	unsigned int i;
-
-	assert(dtb != NULL);
-	assert(config_addr != NULL);
-	assert(config_size != NULL);
-
-	for (i = 0; i < ARRAY_SIZE(prop_names); i++) {
-		if (prop_names[i].config_id == config_id)
-			break;
-	}
-
-	if (i == ARRAY_SIZE(prop_names)) {
-		WARN("Invalid config id %d\n", config_id);
-		return -1;
-	}
-
-	/* Check if the pointer to DT is correct */
-	assert(fdt_check_header(dtb) == 0);
-
-	/* Assert the node offset point to "arm,tb_fw" compatible property */
-	assert(node == fdt_node_offset_by_compatible(dtb, -1, "arm,tb_fw"));
-
-	err = fdtw_read_cells(dtb, node, prop_names[i].config_addr, 2,
-				(void *) config_addr);
-	if (err < 0) {
-		WARN("Read cell failed for %s\n", prop_names[i].config_addr);
-		return -1;
-	}
-
-	err = fdtw_read_cells(dtb, node, prop_names[i].config_max_size, 1,
-				(void *) config_size);
-	if (err < 0) {
-		WARN("Read cell failed for %s\n", prop_names[i].config_max_size);
-		return -1;
-	}
-
-	VERBOSE("Dyn cfg: Read config_id %d load info from TB_FW_CONFIG 0x%llx 0x%x\n",
-				config_id, (unsigned long long)*config_addr, *config_size);
-
-	return 0;
-}
-
-/*******************************************************************************
- * Helper to read the `disable_auth` property in config DTB. This function
- * expects the following properties to be present in the config DTB.
- *	name : disable_auth		size : 1 cell
- *
- * Arguments:
- *	void *dtb		 - pointer to the TB_FW_CONFIG in memory
- *	int node		 - The node offset to appropriate node in the
- *				   DTB.
- *	uint64_t *disable_auth	 - The value of `disable_auth` property on
- *				   successful read. Must be 0 or 1.
- *
- * Returns 0 on success and -1 on error.
- ******************************************************************************/
-int arm_dyn_get_disable_auth(void *dtb, int node, uint32_t *disable_auth)
-{
-	int err;
-
-	assert(dtb != NULL);
-	assert(disable_auth != NULL);
-
-	/* Check if the pointer to DT is correct */
-	assert(fdt_check_header(dtb) == 0);
-
-	/* Assert the node offset point to "arm,tb_fw" compatible property */
-	assert(node == fdt_node_offset_by_compatible(dtb, -1, "arm,tb_fw"));
-
-	/* Locate the disable_auth cell and read the value */
-	err = fdtw_read_cells(dtb, node, "disable_auth", 1, disable_auth);
-	if (err < 0) {
-		WARN("Read cell failed for `disable_auth`\n");
-		return -1;
-	}
-
-	/* Check if the value is boolean */
-	if ((*disable_auth != 0U) && (*disable_auth != 1U)) {
-		WARN("Invalid value for `disable_auth` cell %d\n", *disable_auth);
-		return -1;
-	}
-
-	VERBOSE("Dyn cfg: `disable_auth` cell found with value = %d\n",
-					*disable_auth);
-	return 0;
-}
+static int dtb_root = -1;
+#endif /* MEASURED_BOOT */
 
 /*******************************************************************************
  * Validate the tb_fw_config is a valid DTB file and returns the node offset
@@ -154,61 +50,21 @@ int arm_dyn_tb_fw_cfg_init(void *dtb, int *node)
 
 	/* Check if the pointer to DT is correct */
 	if (fdt_check_header(dtb) != 0) {
-		WARN("Invalid DTB file passed as TB_FW_CONFIG\n");
+		WARN("Invalid DTB file passed as%s\n", " TB_FW_CONFIG");
 		return -1;
 	}
 
 	/* Assert the node offset point to "arm,tb_fw" compatible property */
 	*node = fdt_node_offset_by_compatible(dtb, -1, "arm,tb_fw");
 	if (*node < 0) {
-		WARN("The compatible property `arm,tb_fw` not found in the config\n");
+		WARN("The compatible property '%s' not%s", "arm,tb_fw",
+			" found in the config\n");
 		return -1;
 	}
 
-	VERBOSE("Dyn cfg: Found \"arm,tb_fw\" in the config\n");
+	VERBOSE("Dyn cfg: '%s'%s", "arm,tb_fw", " found in the config\n");
 	return 0;
 }
-
-/*
- * Reads and returns the Mbed TLS shared heap information from the DTB.
- * This function is supposed to be called *only* when a DTB is present.
- * This function is supposed to be called only by BL2.
- *
- * Returns:
- *	0 = success
- *	-1 = error. In this case the values of heap_addr, heap_size should be
- *	    considered as garbage by the caller.
- */
-int arm_get_dtb_mbedtls_heap_info(void *dtb, void **heap_addr,
-	size_t *heap_size)
-{
-	int err, dtb_root;
-
-	/* Verify the DTB is valid and get the root node */
-	err = arm_dyn_tb_fw_cfg_init(dtb, &dtb_root);
-	if (err < 0) {
-		ERROR("Invalid TB_FW_CONFIG. Cannot retrieve Mbed TLS heap information from DTB\n");
-		return -1;
-	}
-
-	/* Retrieve the Mbed TLS heap details from the DTB */
-	err = fdtw_read_cells(dtb, dtb_root,
-		DTB_PROP_MBEDTLS_HEAP_ADDR, 2, heap_addr);
-	if (err < 0) {
-		ERROR("Error while reading %s from DTB\n",
-			DTB_PROP_MBEDTLS_HEAP_ADDR);
-		return -1;
-	}
-	err = fdtw_read_cells(dtb, dtb_root,
-		DTB_PROP_MBEDTLS_HEAP_SIZE, 1, heap_size);
-	if (err < 0) {
-		ERROR("Error while reading %s from DTB\n",
-			DTB_PROP_MBEDTLS_HEAP_SIZE);
-		return -1;
-	}
-	return 0;
-}
-
 
 /*
  * This function writes the Mbed TLS heap address and size in the DTB. When it
@@ -221,19 +77,21 @@ int arm_get_dtb_mbedtls_heap_info(void *dtb, void **heap_addr,
  *
  * Returns:
  *	0 = success
- *	1 = error
+ *     -1 = error
  */
 int arm_set_dtb_mbedtls_heap_info(void *dtb, void *heap_addr, size_t heap_size)
 {
-	int err, dtb_root;
-
+#if !MEASURED_BOOT
+	int dtb_root;
+#endif
 	/*
 	 * Verify that the DTB is valid, before attempting to write to it,
 	 * and get the DTB root node.
 	 */
-	err = arm_dyn_tb_fw_cfg_init(dtb, &dtb_root);
+	int err = arm_dyn_tb_fw_cfg_init(dtb, &dtb_root);
 	if (err < 0) {
-		ERROR("Invalid TB_FW_CONFIG loaded. Unable to get root node\n");
+		ERROR("Invalid%s loaded. Unable to get root node\n",
+			" TB_FW_CONFIG");
 		return -1;
 	}
 
@@ -247,18 +105,199 @@ int arm_set_dtb_mbedtls_heap_info(void *dtb, void *heap_addr, size_t heap_size)
 	err = fdtw_write_inplace_cells(dtb, dtb_root,
 		DTB_PROP_MBEDTLS_HEAP_ADDR, 2, &heap_addr);
 	if (err < 0) {
-		ERROR("Unable to write DTB property %s\n",
-			DTB_PROP_MBEDTLS_HEAP_ADDR);
+		ERROR("%sDTB property '%s'\n",
+			"Unable to write ", DTB_PROP_MBEDTLS_HEAP_ADDR);
 		return -1;
 	}
 
 	err = fdtw_write_inplace_cells(dtb, dtb_root,
 		DTB_PROP_MBEDTLS_HEAP_SIZE, 1, &heap_size);
 	if (err < 0) {
-		ERROR("Unable to write DTB property %s\n",
-			DTB_PROP_MBEDTLS_HEAP_SIZE);
+		ERROR("%sDTB property '%s'\n",
+			"Unable to write ", DTB_PROP_MBEDTLS_HEAP_SIZE);
 		return -1;
 	}
 
 	return 0;
 }
+
+#if MEASURED_BOOT
+/*
+ * This function writes the BL2 hash data in HW_FW_CONFIG DTB.
+ * When it is called, it is guaranteed that a DTB is available.
+ *
+ * This function is supposed to be called only by BL1.
+ *
+ * Returns:
+ *	0 = success
+ *    < 0 = error
+ */
+int arm_set_bl2_hash_info(void *dtb, void *data)
+{
+	assert(dtb_root >= 0);
+
+	/*
+	 * Write the BL2 hash data in the DTB.
+	 */
+	return fdtw_write_inplace_bytes(dtb, dtb_root,
+					DTB_PROP_BL2_HASH_DATA,
+					TCG_DIGEST_SIZE, data);
+}
+
+/*
+ * Write the Event Log address and its size in the DTB.
+ *
+ * This function is supposed to be called only by BL2.
+ *
+ * Returns:
+ *	0 = success
+ *    < 0 = error
+ */
+static int arm_set_event_log_info(uintptr_t config_base,
+#ifdef SPD_opteed
+				  uintptr_t sm_log_addr,
+#endif
+				  uintptr_t log_addr, size_t log_size)
+{
+	/* As libfdt uses void *, we can't avoid this cast */
+	void *dtb = (void *)config_base;
+	const char *compatible = "arm,tpm_event_log";
+	int err, node;
+
+	/*
+	 * Verify that the DTB is valid, before attempting to write to it,
+	 * and get the DTB root node.
+	 */
+
+	/* Check if the pointer to DT is correct */
+	err = fdt_check_header(dtb);
+	if (err < 0) {
+		WARN("Invalid DTB file passed\n");
+		return err;
+	}
+
+	/* Assert the node offset point to compatible property */
+	node = fdt_node_offset_by_compatible(dtb, -1, compatible);
+	if (node < 0) {
+		WARN("The compatible property '%s' not%s", compatible,
+			" found in the config\n");
+		return node;
+	}
+
+	VERBOSE("Dyn cfg: '%s'%s", compatible, " found in the config\n");
+
+#ifdef SPD_opteed
+	if (sm_log_addr != 0UL) {
+		err = fdtw_write_inplace_cells(dtb, node,
+			DTB_PROP_HW_SM_LOG_ADDR, 2, &sm_log_addr);
+		if (err < 0) {
+			ERROR("%sDTB property '%s'\n",
+				"Unable to write ", DTB_PROP_HW_SM_LOG_ADDR);
+			return err;
+		}
+	}
+#endif
+	err = fdtw_write_inplace_cells(dtb, node,
+		DTB_PROP_HW_LOG_ADDR, 2, &log_addr);
+	if (err < 0) {
+		ERROR("%sDTB property '%s'\n",
+			"Unable to write ", DTB_PROP_HW_LOG_ADDR);
+		return err;
+	}
+
+	err = fdtw_write_inplace_cells(dtb, node,
+		DTB_PROP_HW_LOG_SIZE, 1, &log_size);
+	if (err < 0) {
+		ERROR("%sDTB property '%s'\n",
+			"Unable to write ", DTB_PROP_HW_LOG_SIZE);
+	} else {
+		/*
+		 * Ensure that the info written to the DTB is visible
+		 * to other images.
+		 */
+		flush_dcache_range(config_base, fdt_totalsize(dtb));
+	}
+
+	return err;
+}
+
+/*
+ * This function writes the Event Log address and its size
+ * in the TOS_FW_CONFIG DTB.
+ *
+ * This function is supposed to be called only by BL2.
+ *
+ * Returns:
+ *	0 = success
+ *    < 0 = error
+ */
+int arm_set_tos_fw_info(uintptr_t config_base, uintptr_t log_addr,
+			size_t log_size)
+{
+	int err;
+
+	assert(config_base != 0UL);
+	assert(log_addr != 0UL);
+
+	/* Write the Event Log address and its size in the DTB */
+	err = arm_set_event_log_info(config_base,
+#ifdef SPD_opteed
+					0UL,
+#endif
+					log_addr, log_size);
+	if (err < 0) {
+		ERROR("%sEvent Log data to TOS_FW_CONFIG\n",
+					"Unable to write ");
+	}
+
+	return err;
+}
+
+/*
+ * This function writes the Event Log address and its size
+ * in the NT_FW_CONFIG DTB.
+ *
+ * This function is supposed to be called only by BL2.
+ *
+ * Returns:
+ *	0 = success
+ *    < 0 = error
+ */
+int arm_set_nt_fw_info(uintptr_t config_base,
+#ifdef SPD_opteed
+			uintptr_t log_addr,
+#endif
+			size_t log_size, uintptr_t *ns_log_addr)
+{
+	uintptr_t ns_addr;
+	const bl_mem_params_node_t *cfg_mem_params;
+	int err;
+
+	assert(config_base != 0UL);
+	assert(ns_log_addr != NULL);
+
+	/* Get the config load address and size from NT_FW_CONFIG */
+	cfg_mem_params = get_bl_mem_params_node(NT_FW_CONFIG_ID);
+	assert(cfg_mem_params != NULL);
+
+	/* Calculate Event Log address in Non-secure memory */
+	ns_addr = cfg_mem_params->image_info.image_base +
+			cfg_mem_params->image_info.image_max_size;
+
+	/* Check for memory space */
+	if ((uint64_t)(ns_addr + log_size) > ARM_NS_DRAM1_END) {
+		return -1;
+	}
+
+	/* Write the Event Log address and its size in the DTB */
+	err = arm_set_event_log_info(config_base,
+#ifdef SPD_opteed
+					log_addr,
+#endif
+					ns_addr, log_size);
+
+	/* Return Event Log address in Non-secure memory */
+	*ns_log_addr = (err < 0) ? 0UL : ns_addr;
+	return err;
+}
+#endif /* MEASURED_BOOT */

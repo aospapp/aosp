@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Language" content="en-us">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <link rel="stylesheet" type="text/css"
-	href="http://unicode.org/cldr/apps/surveytool.css">
+	href="https://unicode.org/cldr/apps/surveytool.css">
 <title>Help Text file for Supplemental Charts</title>
 <style type="text/css">
 <!--
@@ -122,7 +122,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>.</li>
 						<li><b>XML Source:</b> <a
 							href="http://unicode.org/cldr/data/common/supplemental/supplementalData.xml">
@@ -185,7 +185,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>.</li>
 						<li><b>XML Source:</b> <a
 							href="http://unicode.org/cldr/data/common/supplemental/supplementalData.xml">
@@ -249,7 +249,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>.</li>
 						<li><b>XML Source:</b> <a
 							href="http://unicode.org/cldr/data/common/supplemental/supplementalData.xml">
@@ -272,7 +272,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>. However, such reports should be limited to cases
 							where the information here deviates from <a
 							href="http://unstats.un.org/unsd/methods/m49/m49regin.htm">UN
@@ -294,7 +294,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>.</li>
 						<li><b>XML Source:</b>under &lt;mapTimezones&gt; in <a
 							href="http://unicode.org/cldr/data/common/supplemental/metaZones.xml">metaZones.xml</a>
@@ -332,7 +332,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>.</li>
 						<li><b>XML Source:</b> <a
 							href="http://unicode.org/cldr/data/common/supplemental/characters.xml">characters.xml</a>&nbsp;
@@ -353,7 +353,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">
 								bug report</a>.</li>
 						<li><b>XML Source:</b> <a
 							href="http://unicode.org/cldr/data/common/supplemental/supplementalMetadata.xml">
@@ -397,7 +397,7 @@ DIV.1st {
 					<ul>
 						<li><b>Reporting Defects:</b> If you find errors or omissions
 							in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">bug
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">bug
 								report</a>.</li>
 					</ul>
 				</td>
@@ -415,10 +415,9 @@ DIV.1st {
 						(such as "1-2", used in expressions like "1-2 meters long"). CLDR
 						uses short, mnemonic tags for these plural categories. For more
 						information on these categories, see <a
-							href="http://cldr.unicode.org/index/cldr-spec/plural-rules">Plural
+							href="http://cldr.unicode.org/index/cldr-spec/plural-rules" target='spec'>Plural
 							Rules</a>.
 					</p>
-					<p></p>
 					<ul>
 						<li><b>Examples:</b> The symbol ~ (as in "1.7~2.1") has a
 							special meaning: it is a range of numbers that includes the end
@@ -427,11 +426,15 @@ DIV.1st {
 							and 2.0, but not 2 or 1.91 or 1.90). The samples are generated mechanically, and
 							are not comprehensive: “0, 2~19, 101~119, …” could show up as the less-complete
 							“0, 2~16, 101 …”.</li>
+						<li><strong>Rules:</strong> The plural categories are computed based on machine-readable rules, 
+						using the syntax described in <a href="http://unicode.org/reports/tr35/tr35-numbers.html#Language_Plural_Rules" target='spec'>Language Plural Rules</a>. 
+						In particular, they use special variables and relation defined in <a href="http://unicode.org/reports/tr35/tr35-numbers.html#Operands" target='spec'>Plural Rule Operands</a>
+						and following.</li>
 						<li><b>Reporting Defects:</b> When you find errors or
 							omissions in this data, please report the information with a <a
-							target="_blank" href="http://unicode.org/cldr/trac/newticket">bug
+							target="_blank" href="http://cldr.unicode.org/index/bug-reports#TOC-Filing-a-Ticket">bug
 								report</a>. But first read &quot;Reporting Defects&quot; on <a
-							href="http://cldr.unicode.org/index/cldr-spec/plural-rules">Plural
+							href="http://cldr.unicode.org/index/cldr-spec/plural-rules" target='spec'>Plural
 								Rules</a>.</li>
 					</ul>
 				</td>

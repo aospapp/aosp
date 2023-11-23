@@ -17,6 +17,23 @@
 //-------------------------------
 // build a target jar
 
+package {
+    default_applicable_licenses: ["external_junit-params_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_junit-params_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE.txt",
+    ],
+}
+
 java_library {
     name: "junit-params",
     host_supported: true,
@@ -43,6 +60,11 @@ java_library_host {
 java_test {
     name: "junit-params-test",
     host_supported: true,
+    // Don't consider those unit tests, they would be hard to maintain since they are
+    // from external, and have dependencies on the junit version.
+    test_options: {
+        unit_test: false,
+    },
     srcs: ["src/test/java/**/*.java"],
     java_resource_dirs: ["src/test/resources"],
     sdk_version: "core_current",
@@ -60,4 +82,3 @@ java_import {
     jars: ["lib/assertj-core-1.7.1.jar"],
     host_supported: true,
 }
-

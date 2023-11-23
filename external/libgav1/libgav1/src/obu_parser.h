@@ -23,8 +23,11 @@
 #include <memory>
 #include <type_traits>
 
-#include "src/decoder_buffer.h"
+#include "src/buffer_pool.h"
+#include "src/decoder_state.h"
 #include "src/dsp/common.h"
+#include "src/gav1/decoder_buffer.h"
+#include "src/gav1/status_code.h"
 #include "src/quantizer.h"
 #include "src/utils/common.h"
 #include "src/utils/compiler_attributes.h"
@@ -35,17 +38,12 @@
 
 namespace libgav1 {
 
-struct DecoderState;
-
 // structs and enums related to Open Bitstream Units (OBU).
 
 enum {
   kMinimumMajorBitstreamLevel = 2,
-  kMaxOperatingPoints = 32,
   kSelectScreenContentTools = 2,
   kSelectIntegerMv = 2,
-  kLoopFilterMaxModeDeltas = 2,
-  kMaxCdefStrengths = 8,
   kLoopRestorationTileSizeMax = 256,
   kGlobalMotionAlphaBits = 12,
   kGlobalMotionTranslationBits = 12,
@@ -55,14 +53,16 @@ enum {
   kGlobalMotionTranslationOnlyPrecisionBits = 3,
   kMaxTileWidth = 4096,
   kMaxTileArea = 4096 * 2304,
-  kMaxTileColumns = 64,
-  kMaxTileRows = 64,
-  kPrimaryReferenceNone = 7
+  kPrimaryReferenceNone = 7,
+  // A special value of the scalability_mode_idc syntax element that indicates
+  // the picture prediction structure is specified in scalability_structure().
+  kScalabilitySS = 14
 };  // anonymous enum
 
 struct ObuHeader {
   ObuType type;
   bool has_extension;
+  bool has_size_field;
   int8_t temporal_id;
   int8_t spatial_id;
 };
@@ -87,81 +87,17 @@ struct BitStreamLevel {
   uint8_t minor;  // Range: 0-3.
 };
 
-enum ColorPrimaries : uint8_t {
-  // 0 is reserved.
-  kColorPrimaryBt709 = 1,
-  kColorPrimaryUnspecified,
-  // 3 is reserved.
-  kColorPrimaryBt470M = 4,
-  kColorPrimaryBt470Bg,
-  kColorPrimaryBt601,
-  kColorPrimarySmpte240,
-  kColorPrimaryGenericFilm,
-  kColorPrimaryBt2020,
-  kColorPrimaryXyz,
-  kColorPrimarySmpte431,
-  kColorPrimarySmpte432,
-  // 13-21 are reserved.
-  kColorPrimaryEbu3213 = 22,
-  // 23-254 are reserved.
-  kMaxColorPrimaries = 255
-};
-
-enum TransferCharacteristics : uint8_t {
-  // 0 is reserved.
-  kTransferCharacteristicBt709 = 1,
-  kTransferCharacteristicUnspecified,
-  // 3 is reserved.
-  kTransferCharacteristicBt470M = 4,
-  kTransferCharacteristicBt470Bg,
-  kTransferCharacteristicBt601,
-  kTransferCharacteristicSmpte240,
-  kTransferCharacteristicLinear,
-  kTransferCharacteristicLog100,
-  kTransferCharacteristicLog100Sqrt10,
-  kTransferCharacteristicIec61966,
-  kTransferCharacteristicBt1361,
-  kTransferCharacteristicSrgb,
-  kTransferCharacteristicBt2020TenBit,
-  kTransferCharacteristicBt2020TwelveBit,
-  kTransferCharacteristicSmpte2084,
-  kTransferCharacteristicSmpte428,
-  kTransferCharacteristicHlg,
-  // 19-254 are reserved.
-  kMaxTransferCharacteristics = 255
-};
-
-enum MatrixCoefficients : uint8_t {
-  kMatrixCoefficientIdentity,
-  kMatrixCoefficientBt709,
-  kMatrixCoefficientUnspecified,
-  // 3 is reserved.
-  kMatrixCoefficientFcc = 4,
-  kMatrixCoefficientBt470BG,
-  kMatrixCoefficientBt601,
-  kMatrixCoefficientSmpte240,
-  kMatrixCoefficientSmpteYcgco,
-  kMatrixCoefficientBt2020Ncl,
-  kMatrixCoefficientBt2020Cl,
-  kMatrixCoefficientSmpte2085,
-  kMatrixCoefficientChromatNcl,
-  kMatrixCoefficientChromatCl,
-  kMatrixCoefficientIctcp,
-  // 15-254 are reserved.
-  kMaxMatrixCoefficients = 255
-};
-
 struct ColorConfig {
   int8_t bitdepth;
   bool is_monochrome;
-  ColorPrimaries color_primaries;
+  ColorPrimary color_primary;
   TransferCharacteristics transfer_characteristics;
   MatrixCoefficients matrix_coefficients;
   // A binary value (0 or 1) that is associated with the VideoFullRangeFlag
   // variable specified in ISO/IEC 23091-4/ITUT H.273.
   // * 0: the studio swing representation.
   // * 1: the full swing representation.
-  int8_t color_range;
+  ColorRange color_range;
   int8_t subsampling_x;
   int8_t subsampling_y;
   ChromaSamplePosition chroma_sample_position;
@@ -227,6 +163,9 @@ struct ObuSequenceHeader {
   // If enable_order_hint is true, order_hint_bits is in the range [1, 8].
   // If enable_order_hint is false, order_hint_bits is 0.
   int8_t order_hint_bits;
+  // order_hint_shift_bits equals (32 - order_hint_bits) % 32.
+  // This is used frequently in GetRelativeDistance().
+  uint8_t order_hint_shift_bits;
   bool enable_jnt_comp;
   bool enable_ref_frame_mvs;
   bool choose_screen_content_tools;
@@ -251,7 +190,6 @@ struct ObuSequenceHeader {
   // call.
   OperatingParameters operating_parameters;
 };
-
 // Verify it is safe to use offsetof with ObuSequenceHeader and to use memcmp
 // to compare two ObuSequenceHeader objects.
 static_assert(std::is_standard_layout<ObuSequenceHeader>::value, "");
@@ -266,189 +204,20 @@ static_assert(sizeof(ObuSequenceHeader) ==
                       sizeof(OperatingParameters),
               "");
 
-// Loop filter parameters:
-//
-// If level[0] and level[1] are both equal to 0, the loop filter process is
-// not invoked.
-//
-// |sharpness| and |delta_enabled| are only used by the loop filter process.
-//
-// The |ref_deltas| and |mode_deltas| arrays are used not only by the loop
-// filter process but also by the reference frame update and loading
-// processes. The loop filter process uses |ref_deltas| and |mode_deltas| only
-// when |delta_enabled| is true.
-struct LoopFilter {
-  // Contains loop filter strength values in the range of [0, 63].
-  std::array<int8_t, kFrameLfCount> level;
-  // Indicates the sharpness level in the range of [0, 7].
-  int8_t sharpness;
-  // Whether the filter level depends on the mode and reference frame used to
-  // predict a block.
-  bool delta_enabled;
-  // Contains the adjustment needed for the filter level based on the chosen
-  // reference frame, in the range of [-64, 63].
-  std::array<int8_t, kNumReferenceFrameTypes> ref_deltas;
-  // Contains the adjustment needed for the filter level based on the chosen
-  // mode, in the range of [-64, 63].
-  std::array<int8_t, kLoopFilterMaxModeDeltas> mode_deltas;
-};
-
-struct Delta {
-  bool present;
-  uint8_t scale;
-  bool multi;
-};
-
-struct Cdef {
-  uint8_t damping;
-  uint8_t bits;
-  uint8_t y_primary_strength[kMaxCdefStrengths];
-  uint8_t y_secondary_strength[kMaxCdefStrengths];
-  uint8_t uv_primary_strength[kMaxCdefStrengths];
-  uint8_t uv_secondary_strength[kMaxCdefStrengths];
-};
-
-enum GlobalMotionTransformationType : uint8_t {
-  kGlobalMotionTransformationTypeIdentity,
-  kGlobalMotionTransformationTypeTranslation,
-  kGlobalMotionTransformationTypeRotZoom,
-  kGlobalMotionTransformationTypeAffine,
-  kNumGlobalMotionTransformationTypes
-};
-
-// Global motion and warped motion parameters. See the paper for more info:
-// S. Parker, Y. Chen, D. Barker, P. de Rivaz, D. Mukherjee, "Global and locally
-// adaptive warped motion compensation in video compression", Proc. IEEE
-// International Conference on Image Processing (ICIP), pp. 275-279, Sep. 2017.
-struct GlobalMotion {
-  GlobalMotionTransformationType type;
-  int32_t params[6];
-
-  // Represent two shearing operations. Computed from |params| by SetupShear().
-  //
-  // The least significant six (= kWarpParamRoundingBits) bits are all zeros.
-  // (This means alpha, beta, gamma, and delta could be represented by a 10-bit
-  // signed integer.) The minimum value is INT16_MIN (= -32768) and the maximum
-  // value is 32704 = 0x7fc0, the largest int16_t value whose least significant
-  // six bits are all zeros.
-  //
-  // Valid warp parameters (as validated by SetupShear()) have smaller ranges.
-  // Their absolute values are less than 2^14 (= 16384). (This follows from
-  // the warpValid check at the end of Section 7.11.3.6.)
-  //
-  // NOTE: Section 7.11.3.6 of the spec allows a maximum value of 32768, which
-  // is outside the range of int16_t. When cast to int16_t, 32768 becomes
-  // -32768. This potential int16_t overflow does not matter because either
-  // 32768 or -32768 causes SetupShear() to return false,
-  int16_t alpha;
-  int16_t beta;
-  int16_t gamma;
-  int16_t delta;
-};
-
-struct TileInfo {
-  bool uniform_spacing;
-  int sb_rows;
-  int sb_columns;
-  int tile_count;
-  int tile_columns_log2;
-  int tile_columns;
-  int tile_column_start[kMaxTileColumns + 1];
-  int tile_rows_log2;
-  int tile_rows;
-  int tile_row_start[kMaxTileRows + 1];
-  int16_t context_update_id;
-  uint8_t tile_size_bytes;
-};
-
-struct ObuFrameHeader {
-  uint16_t display_frame_id;
-  uint16_t current_frame_id;
-  int64_t frame_offset;
-  uint16_t expected_frame_id[kNumInterReferenceFrameTypes];
-  int32_t width;
-  int32_t height;
-  int32_t columns4x4;
-  int32_t rows4x4;
-  // The render size (render_width and render_height) is a hint to the
-  // application about the desired display size. It has no effect on the
-  // decoding process.
-  int32_t render_width;
-  int32_t render_height;
-  int32_t upscaled_width;
-  LoopRestoration loop_restoration;
-  uint32_t buffer_removal_time[kMaxOperatingPoints];
-  uint32_t frame_presentation_time;
-  // Note: global_motion[0] (for kReferenceFrameIntra) is not used.
-  std::array<GlobalMotion, kNumReferenceFrameTypes> global_motion;
-  TileInfo tile_info;
-  QuantizerParameters quantizer;
-  Segmentation segmentation;
-  bool show_existing_frame;
-  // frame_to_show is in the range [0, 7]. Only used if show_existing_frame is
-  // true.
-  int8_t frame_to_show;
-  FrameType frame_type;
-  bool show_frame;
-  bool showable_frame;
-  bool error_resilient_mode;
-  bool enable_cdf_update;
-  bool frame_size_override_flag;
-  // The order_hint syntax element in the uncompressed header. If
-  // show_existing_frame is false, the OrderHint variable in the spec is equal
-  // to this field, and so this field can be used in place of OrderHint when
-  // show_existing_frame is known to be false, such as during tile decoding.
-  uint8_t order_hint;
-  int8_t primary_reference_frame;
-  bool render_and_frame_size_different;
-  uint8_t superres_scale_denominator;
-  bool allow_screen_content_tools;
-  bool allow_intrabc;
-  bool frame_refs_short_signaling;
-  // A bitmask that specifies which reference frame slots will be updated with
-  // the current frame after it is decoded.
-  uint8_t refresh_frame_flags;
-  static_assert(sizeof(ObuFrameHeader::refresh_frame_flags) * 8 ==
-                    kNumReferenceFrameTypes,
-                "");
-  bool found_reference;
-  int8_t force_integer_mv;
-  bool allow_high_precision_mv;
-  InterpolationFilter interpolation_filter;
-  bool is_motion_mode_switchable;
-  bool use_ref_frame_mvs;
-  bool enable_frame_end_update_cdf;
-  // True if all segments are losslessly encoded at the coded resolution.
-  bool coded_lossless;
-  // True if all segments are losslessly encoded at the upscaled resolution.
-  bool upscaled_lossless;
-  TxMode tx_mode;
-  // True means that the mode info for inter blocks contains the syntax
-  // element comp_mode that indicates whether to use single or compound
-  // prediction. False means that all inter blocks will use single prediction.
-  bool reference_mode_select;
-  // The frames to use for compound prediction when skip_mode is true.
-  ReferenceFrameType skip_mode_frame[2];
-  bool skip_mode_present;
-  bool reduced_tx_set;
-  bool allow_warped_motion;
-  Delta delta_q;
-  Delta delta_lf;
-  // A valid value of reference_frame_index[i] is in the range [0, 7]. -1
-  // indicates an invalid value.
-  int8_t reference_frame_index[kNumInterReferenceFrameTypes];
-  // The ref_order_hint[ i ] syntax element in the uncompressed header.
-  // Specifies the expected output order hint for each reference frame.
-  uint8_t reference_order_hint[kNumReferenceFrameTypes];
-  LoopFilter loop_filter;
-  Cdef cdef;
-  FilmGrainParams film_grain_params;
+struct TileBuffer {
+  const uint8_t* data;
+  size_t size;
 };
 
 enum MetadataType : uint8_t {
   // 0 is reserved for AOM use.
   kMetadataTypeHdrContentLightLevel = 1,
-  kMetadataTypeHdrMasteringDisplayColorVolume
+  kMetadataTypeHdrMasteringDisplayColorVolume = 2,
+  kMetadataTypeScalability = 3,
+  kMetadataTypeItutT35 = 4,
+  kMetadataTypeTimecode = 5,
+  // 6-31 are unregistered user private.
+  // 32 and greater are reserved for AOM use.
 };
 
 struct ObuMetadata {
@@ -462,28 +231,28 @@ struct ObuMetadata {
   uint16_t white_point_chromaticity_y;
   uint32_t luminance_max;
   uint32_t luminance_min;
-};
-
-struct ObuTileGroup {
-  int start;
-  int end;
-  // Pointer to the start of Tile Group data.
-  const uint8_t* data;
-  // Size of the Tile Group data (excluding the Tile Group headers).
-  size_t data_size;
-  // Offset of the start of Tile Group data relative to |ObuParser->data_|.
-  size_t data_offset;
+  // ITU-T T.35.
+  uint8_t itu_t_t35_country_code;
+  uint8_t itu_t_t35_country_code_extension_byte;  // Valid if
+                                                  // itu_t_t35_country_code is
+                                                  // 0xFF.
+  std::unique_ptr<uint8_t[]> itu_t_t35_payload_bytes;
+  size_t itu_t_t35_payload_size;
 };
 
 class ObuParser : public Allocable {
  public:
-  ObuParser(const uint8_t* const data, size_t size,
-            DecoderState* const decoder_state)
-      : data_(data), size_(size), decoder_state_(*decoder_state) {}
+  ObuParser(const uint8_t* const data, size_t size, int operating_point,
+            BufferPool* const buffer_pool, DecoderState* const decoder_state)
+      : data_(data),
+        size_(size),
+        operating_point_(operating_point),
+        buffer_pool_(buffer_pool),
+        decoder_state_(*decoder_state) {}
 
-  // Copyable and Movable.
-  ObuParser(const ObuParser& rhs) = default;
-  ObuParser& operator=(const ObuParser& rhs) = default;
+  // Not copyable or movable.
+  ObuParser(const ObuParser& rhs) = delete;
+  ObuParser& operator=(const ObuParser& rhs) = delete;
 
   // Returns true if there is more data that needs to be parsed.
   bool HasData() const;
@@ -496,21 +265,30 @@ class ObuParser : public Allocable {
   //   * A kFrameHeader with show_existing_frame = true is seen.
   //
   // If the parsing is successful, relevant fields will be populated. The fields
-  // are valid only if the return value is true. Returns true on success, false
-  // otherwise.
-  bool ParseOneFrame();
+  // are valid only if the return value is kStatusOk. Returns kStatusOk on
+  // success, an error status otherwise. On success, |current_frame| will be
+  // populated with a valid frame buffer.
+  StatusCode ParseOneFrame(RefCountedBufferPtr* current_frame);
 
   // Getters. Only valid if ParseOneFrame() completes successfully.
   const Vector<ObuHeader>& obu_headers() const { return obu_headers_; }
   const ObuSequenceHeader& sequence_header() const { return sequence_header_; }
   const ObuFrameHeader& frame_header() const { return frame_header_; }
+  const Vector<TileBuffer>& tile_buffers() const { return tile_buffers_; }
   const ObuMetadata& metadata() const { return metadata_; }
-  const Vector<ObuTileGroup>& tile_groups() const { return tile_groups_; }
+  // Returns true if the last call to ParseOneFrame() encountered a sequence
+  // header change.
+  bool sequence_header_changed() const { return sequence_header_changed_; }
 
   // Setters.
   void set_sequence_header(const ObuSequenceHeader& sequence_header) {
     sequence_header_ = sequence_header;
     has_sequence_header_ = true;
+  }
+
+  // Moves |tile_buffers_| into |tile_buffers|.
+  void MoveTileBuffers(Vector<TileBuffer>* tile_buffers) {
+    *tile_buffers = std::move(tile_buffers_);
   }
 
  private:
@@ -524,11 +302,11 @@ class ObuParser : public Allocable {
   bool ParseTimingInfo(ObuSequenceHeader* sequence_header);        // 5.5.3.
   bool ParseDecoderModelInfo(ObuSequenceHeader* sequence_header);  // 5.5.4.
   bool ParseOperatingParameters(ObuSequenceHeader* sequence_header,
-                                int index);  // 5.5.5.
+                                int index);          // 5.5.5.
   bool ParseSequenceHeader(bool seen_frame_header);  // 5.5.1.
-  bool ParseFrameParameters();               // 5.9.2, 5.9.7 and 5.9.10.
-  void MarkInvalidReferenceFrames();         // 5.9.4.
-  bool ParseFrameSizeAndRenderSize();        // 5.9.5 and 5.9.6.
+  bool ParseFrameParameters();                       // 5.9.2, 5.9.7 and 5.9.10.
+  void MarkInvalidReferenceFrames();                 // 5.9.4.
+  bool ParseFrameSizeAndRenderSize();                // 5.9.5 and 5.9.6.
   bool ParseSuperResParametersAndComputeImageSize();  // 5.9.8 and 5.9.9.
   // Checks the bitstream conformance requirement in Section 6.8.6.
   bool ValidateInterFrameSize() const;
@@ -573,35 +351,57 @@ class ObuParser : public Allocable {
   bool ParseFilmGrainParameters();     // 5.9.30.
   bool ParseTileInfoSyntax();          // 5.9.15.
   bool ParseFrameHeader();             // 5.9.
-  bool ParseMetadata(size_t size);     // 5.8.
-  // Validates the |start| and |end| fields of the current tile group. If
-  // valid, updates next_tile_group_start_ and returns true. Otherwise,
-  // returns false.
-  bool ValidateTileGroup();
-  bool SetTileDataOffset(size_t total_size, size_t tg_header_size,
-                         size_t bytes_consumed_so_far);
+  // |data| and |size| specify the payload data of the padding OBU.
+  // NOTE: Although the payload data is available in the bit_reader_ member,
+  // it is also passed to ParsePadding() as function parameters so that
+  // ParsePadding() can find the trailing bit of the OBU and skip over the
+  // payload data as an opaque chunk of data.
+  bool ParsePadding(const uint8_t* data, size_t size);  // 5.7.
+  bool ParseMetadataScalability();                      // 5.8.5 and 5.8.6.
+  bool ParseMetadataTimecode();                         // 5.8.7.
+  // |data| and |size| specify the payload data of the metadata OBU.
+  // NOTE: Although the payload data is available in the bit_reader_ member,
+  // it is also passed to ParseMetadata() as function parameters so that
+  // ParseMetadata() can find the trailing bit of the OBU and either extract
+  // or skip over the payload data as an opaque chunk of data.
+  bool ParseMetadata(const uint8_t* data, size_t size);  // 5.8.
+  // Adds and populates the TileBuffer for each tile in the tile group and
+  // updates |next_tile_group_start_|
+  bool AddTileBuffers(int start, int end, size_t total_size,
+                      size_t tg_header_size, size_t bytes_consumed_so_far);
   bool ParseTileGroup(size_t size, size_t bytes_consumed_so_far);  // 5.11.1.
 
   // Parser elements.
   std::unique_ptr<RawBitReader> bit_reader_;
   const uint8_t* data_;
   size_t size_;
+  const int operating_point_;
 
   // OBU elements. Only valid if ParseOneFrame() completes successfully.
   Vector<ObuHeader> obu_headers_;
   ObuSequenceHeader sequence_header_ = {};
   ObuFrameHeader frame_header_ = {};
+  Vector<TileBuffer> tile_buffers_;
   ObuMetadata metadata_ = {};
-  Vector<ObuTileGroup> tile_groups_;
-  // The expected |start| value of the next ObuTileGroup.
+  // The expected starting tile number of the next Tile Group.
   int next_tile_group_start_ = 0;
   // If true, the sequence_header_ field is valid.
   bool has_sequence_header_ = false;
+  // If true, it means that the last call to ParseOneFrame() encountered a
+  // sequence header change.
+  bool sequence_header_changed_ = false;
   // If true, the obu_extension_flag syntax element in the OBU header must be
   // 0. Set to true when parsing a sequence header if OperatingPointIdc is 0.
   bool extension_disallowed_ = false;
 
+  BufferPool* const buffer_pool_;
   DecoderState& decoder_state_;
+  // Used by ParseOneFrame() to populate the current frame that is being
+  // decoded. The invariant maintained is that this variable will be nullptr at
+  // the beginning and at the end of each call to ParseOneFrame(). This ensures
+  // that the ObuParser is not holding on to any references to the current
+  // frame once the ParseOneFrame() call is complete.
+  RefCountedBufferPtr current_frame_;
 
   // For unit testing private functions.
   friend class ObuParserTest;

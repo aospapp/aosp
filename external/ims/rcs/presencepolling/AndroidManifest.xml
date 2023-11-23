@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!--
  * Copyright (c) 2015, Motorola Mobility LLC
  * All rights reserved.
@@ -28,20 +28,20 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-    package="com.android.service.ims.presence"
-    android:sharedUserId="android.uid.phone"
-    coreApp="true">
+     xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+     package="com.android.service.ims.presence"
+     android:sharedUserId="android.uid.phone"
+     coreApp="true">
 
     <uses-sdk android:minSdkVersion="19"/>
 
     <permission android:name="com.android.rcs.eab.permission.READ_WRITE_EAB"
-            android:protectionLevel="signatureOrSystem" />
+         android:protectionLevel="signatureOrSystem"/>
 
-    <protected-broadcast android:name="android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED" />
-    <protected-broadcast android:name="android.provider.rcs.eab.EAB_DATABASE_RESET" />
-    <protected-broadcast android:name="com.android.service.ims.presence.capability_polling_retry" />
-    <protected-broadcast android:name="com.android.service.ims.presence.periodical_capability_discovery" />
+    <protected-broadcast android:name="android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED"/>
+    <protected-broadcast android:name="android.provider.rcs.eab.EAB_DATABASE_RESET"/>
+    <protected-broadcast android:name="com.android.service.ims.presence.capability_polling_retry"/>
+    <protected-broadcast android:name="com.android.service.ims.presence.periodical_capability_discovery"/>
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BROADCAST_STICKY"/>
@@ -51,64 +51,65 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
     <uses-permission android:name="com.android.rcs.eab.permission.READ_WRITE_EAB"/>
     <uses-permission android:name="android.permission.READ_PROFILE"/>
     <uses-permission android:name="com.android.ims.rcs.permission.STATUS_CHANGED"/>
     <uses-permission android:name="com.android.ims.permission.PRESENCE_ACCESS"/>
 
-    <application
-        android:label="@string/app_label"
-        android:singleUser="true"
-        android:process="com.android.ims.rcsservice">
+    <application android:label="@string/app_label"
+         android:singleUser="true"
+         android:process="com.android.ims.rcsservice">
 
-        <service
-            android:name=".PollingService"
-            android:excludeFromRecents="true"
-            android:singleUser="true"
-            android:permission="com.android.ims.permission.PRESENCE_ACCESS">
+        <service android:name=".PollingService"
+             android:excludeFromRecents="true"
+             android:singleUser="true"
+             android:permission="com.android.ims.permission.PRESENCE_ACCESS">
         </service>
 
-        <receiver android:name=".DeviceBoot" androidprv:systemUserOnly="true">
+        <receiver android:name=".DeviceBoot"
+             androidprv:systemUserOnly="true"
+             android:exported="true">
             <intent-filter android:priority="103">
                  <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".DeviceShutdown" androidprv:systemUserOnly="true">
+        <receiver android:name=".DeviceShutdown"
+             androidprv:systemUserOnly="true"
+             android:exported="true">
             <intent-filter>
                  <action android:name="android.intent.action.ACTION_SHUTDOWN"/>
             </intent-filter>
         </receiver>
 
         <receiver android:name=".AlarmBroadcastReceiver"
-            androidprv:systemUserOnly="true"
-            android:permission="com.android.ims.permission.PRESENCE_ACCESS">
+             androidprv:systemUserOnly="true"
+             android:permission="com.android.ims.permission.PRESENCE_ACCESS"
+             android:exported="true">
             <intent-filter>
                 <action android:name="com.android.service.ims.presence.periodical_capability_discovery"/>
                 <action android:name="com.android.service.ims.presence.capability_polling_retry"/>
-                <action android:name="android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED" />
+                <action android:name="android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED"/>
             </intent-filter>
         </receiver>
 
         <service android:name=".PersistService"
-          android:exported="false"
-          android:permission="com.android.ims.permission.PRESENCE_ACCESS">
+             android:exported="false"
+             android:permission="com.android.ims.permission.PRESENCE_ACCESS">
             <intent-filter>
                 <action android:name="com.android.ims.ACTION_PRESENCE_CHANGED"/>
             </intent-filter>
         </service>
 
-        <service
-            android:name="com.android.service.ims.presence.EABService"
-            android:enabled="true">
+        <service android:name="com.android.service.ims.presence.EABService"
+             android:enabled="true">
         </service>
 
-        <provider
-            android:name=".EABProvider"
-            android:permission="com.android.rcs.eab.permission.READ_WRITE_EAB"
-            android:exported="true"
-            android:enabled="true"
-            android:authorities="com.android.rcs.eab" />
+        <provider android:name=".EABProvider"
+             android:permission="com.android.rcs.eab.permission.READ_WRITE_EAB"
+             android:exported="true"
+             android:enabled="true"
+             android:authorities="com.android.rcs.eab"/>
     </application>
 </manifest>

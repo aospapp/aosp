@@ -39,7 +39,6 @@
 #include "util/u_dual_blend.h"
 
 #include "os/os_thread.h"
-#include "util/u_double_list.h"
 #include "util/u_format.h"
 #include "tgsi/tgsi_parse.h"
 
@@ -47,27 +46,55 @@
 #include "vrend_shader.h"
 
 #include "vrend_renderer.h"
+#include "vrend_debug.h"
+#include "vrend_winsys.h"
+
+#include "virgl_util.h"
 
 #include "virgl_hw.h"
+#include "virgl_resource.h"
+#include "virglrenderer.h"
+#include "virglrenderer_hw.h"
+#include "virgl_protocol.h"
 
 #include "tgsi/tgsi_text.h"
 
-#ifdef HAVE_EVENTFD
-#include <sys/eventfd.h>
+#ifdef HAVE_EPOXY_GLX_H
+#include <epoxy/glx.h>
 #endif
 
-/* debugging aid to dump shaders */
-int vrend_dump_shaders;
+/*
+ * VIRGL_RENDERER_CAPSET_VIRGL has version 0 and 1, but they are both
+ * virgl_caps_v1 and are exactly the same.
+ *
+ * VIRGL_RENDERER_CAPSET_VIRGL2 has version 0, 1, and 2, but they are
+ * all virgl_caps_v2 and are exactly the same.
+ *
+ * Since virgl_caps_v2 is growable and no backward-incompatible change is
+ * expected, we don't bump up these versions anymore.
+ */
+#define VREND_CAPSET_VIRGL_MAX_VERSION 1
+#define VREND_CAPSET_VIRGL2_MAX_VERSION 2
 
-/* debugging via KHR_debug extension */
-int vrend_use_debug_cb = 0;
+static const uint32_t fake_occlusion_query_samples_passed_default = 1024;
 
-struct vrend_if_cbs *vrend_clicbs;
+const struct vrend_if_cbs *vrend_clicbs;
 
 struct vrend_fence {
-   uint32_t fence_id;
-   uint32_t ctx_id;
-   GLsync syncobj;
+   /* When the sync thread is waiting on the fence and the main thread
+    * destroys the context, ctx is set to NULL.  Otherwise, ctx is always
+    * valid.
+    */
+   struct vrend_context *ctx;
+   uint32_t flags;
+   void *fence_cookie;
+
+   union {
+      GLsync glsyncobj;
+#ifdef HAVE_EPOXY_EGL_H
+      EGLSyncKHR eglsyncobj;
+#endif
+   };
    struct list_head fences;
 };
 
@@ -78,9 +105,10 @@ struct vrend_query {
    GLuint type;
    GLuint index;
    GLuint gltype;
-   int ctx_id;
+   struct vrend_context *ctx;
    struct vrend_resource *res;
    uint64_t current_total;
+   bool fake_samples_passed;
 };
 
 struct global_error_state {
@@ -91,40 +119,68 @@ enum features_id
 {
    feat_arb_or_gles_ext_texture_buffer,
    feat_arb_robustness,
+   feat_arb_buffer_storage,
+   feat_arrays_of_arrays,
+   feat_ati_meminfo,
+   feat_atomic_counters,
    feat_base_instance,
    feat_barrier,
+   feat_bind_vertex_buffers,
    feat_bit_encoding,
+   feat_blend_equation_advanced,
+   feat_clear_texture,
+   feat_clip_control,
    feat_compute_shader,
    feat_copy_image,
    feat_conditional_render_inverted,
+   feat_conservative_depth,
    feat_cube_map_array,
+   feat_cull_distance,
    feat_debug_cb,
+   feat_depth_clamp,
    feat_draw_instance,
    feat_dual_src_blend,
+   feat_egl_image_external,
+   feat_egl_image_storage,
+   feat_enhanced_layouts,
    feat_fb_no_attach,
    feat_framebuffer_fetch,
+   feat_framebuffer_fetch_non_coherent,
    feat_geometry_shader,
    feat_gl_conditional_render,
    feat_gl_prim_restart,
    feat_gles_khr_robustness,
+   feat_gles31_compatibility,
    feat_gles31_vertex_attrib_binding,
+   feat_gpu_shader5,
    feat_images,
    feat_indep_blend,
    feat_indep_blend_func,
    feat_indirect_draw,
+   feat_indirect_params,
+   feat_memory_object,
+   feat_memory_object_fd,
    feat_mesa_invert,
    feat_ms_scaled_blit,
    feat_multisample,
+   feat_multi_draw_indirect,
    feat_nv_conditional_render,
    feat_nv_prim_restart,
+   feat_nvx_gpu_memory_info,
    feat_polygon_offset_clamp,
+   feat_occlusion_query,
+   feat_occlusion_query_boolean,
+   feat_qbo,
    feat_robust_buffer_access,
    feat_sample_mask,
    feat_sample_shading,
    feat_samplers,
+   feat_sampler_border_colors,
    feat_shader_clock,
+   feat_separate_shader_objects,
    feat_ssbo,
    feat_ssbo_barrier,
+   feat_srgb_write_control,
    feat_stencil_texturing,
    feat_storage_multisample,
    feat_tessellation,
@@ -133,9 +189,11 @@ enum features_id
    feat_texture_buffer_range,
    feat_texture_gather,
    feat_texture_multisample,
+   feat_texture_query_lod,
    feat_texture_srgb_decode,
    feat_texture_storage,
    feat_texture_view,
+   feat_timer_query,
    feat_transform_feedback,
    feat_transform_feedback2,
    feat_transform_feedback3,
@@ -149,65 +207,99 @@ enum features_id
 #define FEAT_MAX_EXTS 4
 #define UNAVAIL INT_MAX
 
+#define FEAT(NAME, GLVER, GLESVER, ...) \
+   [feat_ ## NAME ] = {GLVER, GLESVER, { __VA_ARGS__ }, #NAME}
+
 static const  struct {
    int gl_ver;
    int gles_ver;
    const char *gl_ext[FEAT_MAX_EXTS];
+   const char *log_name;
 } feature_list[] = {
-   [feat_arb_or_gles_ext_texture_buffer] = { 31, UNAVAIL, { "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL } },
-   [feat_arb_robustness] = { UNAVAIL, UNAVAIL, { "GL_ARB_robustness" } },
-   [feat_base_instance] = { 42, UNAVAIL, { "GL_ARB_base_instance", "GL_EXT_base_instance" } },
-   [feat_barrier] = { 42, 31, {} },
-   [feat_bit_encoding] = { 33, UNAVAIL, { "GL_ARB_shader_bit_encoding" } },
-   [feat_compute_shader] = { 43, 31, { "GL_ARB_compute_shader" } },
-   [feat_copy_image] = { 43, 32, { "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" } },
-   [feat_conditional_render_inverted] = { 45, UNAVAIL, { "GL_ARB_conditional_render_inverted" } },
-   [feat_cube_map_array] = { 40, UNAVAIL, { "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" } },
-   [feat_debug_cb] = { UNAVAIL, UNAVAIL, {} }, /* special case */
-   [feat_draw_instance] = { 31, 30, { "GL_ARB_draw_instanced" } },
-   [feat_dual_src_blend] = { 33, UNAVAIL, { "GL_ARB_blend_func_extended" } },
-   [feat_fb_no_attach] = { 43, 31, { "GL_ARB_framebuffer_no_attachments" } },
-   [feat_framebuffer_fetch] = { UNAVAIL, UNAVAIL, { "GL_EXT_shader_framebuffer_fetch" } },
-   [feat_geometry_shader] = { 32, 32, {"GL_EXT_geometry_shader", "GL_OES_geometry_shader"} },
-   [feat_gl_conditional_render] = { 30, UNAVAIL, {} },
-   [feat_gl_prim_restart] = { 31, 30, {} },
-   [feat_gles_khr_robustness] = { UNAVAIL, UNAVAIL, { "GL_KHR_robustness" } },
-   [feat_gles31_vertex_attrib_binding] = { 43, 31, { "GL_ARB_vertex_attrib_binding" } },
-   [feat_images] = { 42, 31, { "GL_ARB_shader_image_load_store" } },
-   [feat_indep_blend] = { 30, UNAVAIL, { "GL_EXT_draw_buffers2" } },
-   [feat_indep_blend_func] = { 40, UNAVAIL, { "GL_ARB_draw_buffers_blend" } },
-   [feat_indirect_draw] = { 40, 31, { "GL_ARB_draw_indirect" } },
-   [feat_mesa_invert] = { UNAVAIL, UNAVAIL, { "GL_MESA_pack_invert" } },
-   [feat_ms_scaled_blit] = { UNAVAIL, UNAVAIL, { "GL_EXT_framebuffer_multisample_blit_scaled" } },
-   [feat_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
-   [feat_nv_conditional_render] = { UNAVAIL, UNAVAIL, { "GL_NV_conditional_render" } },
-   [feat_nv_prim_restart] = { UNAVAIL, UNAVAIL, { "GL_NV_primitive_restart" } },
-   [feat_polygon_offset_clamp] = { 46, UNAVAIL, { "GL_ARB_polygon_offset_clamp" } },
-   [feat_robust_buffer_access] = { 43, UNAVAIL, { "GL_ARB_robust_buffer_access_behaviour" } },
-   [feat_sample_mask] = { 32, 31, { "GL_ARB_texture_multisample" } },
-   [feat_sample_shading] = { 40, UNAVAIL, { "GL_ARB_sample_shading" } },
-   [feat_samplers] = { 33, 30, { "GL_ARB_sampler_objects" } },
-   [feat_shader_clock] = { UNAVAIL, UNAVAIL, { "GL_ARB_shader_clock" } },
-   [feat_ssbo] = { 43, 31, { "GL_ARB_shader_storage_buffer_object" } },
-   [feat_ssbo_barrier] = { 43, 31, {} },
-   [feat_stencil_texturing] = { 43, 31, { "GL_ARB_stencil_texturing" } },
-   [feat_storage_multisample] = { 43, 31, { "GL_ARB_texture_storage_multisample" } },
-   [feat_tessellation] = { 40, UNAVAIL, { "GL_ARB_tessellation_shader" } },
-   [feat_texture_array] = { 30, 30, { "GL_EXT_texture_array" } },
-   [feat_texture_barrier] = { 45, UNAVAIL, { "GL_ARB_texture_barrier" } },
-   [feat_texture_buffer_range] = { 43, UNAVAIL, { "GL_ARB_texture_buffer_range" } },
-   [feat_texture_gather] = { 40, 31, { "GL_ARB_texture_gather" } },
-   [feat_texture_multisample] = { 32, 30, { "GL_ARB_texture_multisample" } },
-   [feat_texture_srgb_decode] = { UNAVAIL, UNAVAIL, { "GL_EXT_texture_sRGB_decode" } },
-   [feat_texture_storage] = { 42, 30, { "GL_ARB_texture_storage" } },
-   [feat_texture_view] = { 43, UNAVAIL, { "GL_ARB_texture_view" } },
-   [feat_transform_feedback] = { 30, 30, { "GL_EXT_transform_feedback" } },
-   [feat_transform_feedback2] = { 40, 30, { "GL_ARB_transform_feedback2" } },
-   [feat_transform_feedback3] = { 40, UNAVAIL, { "GL_ARB_transform_feedback3" } },
-   [feat_transform_feedback_overflow_query] = { 46, UNAVAIL, { "GL_ARB_transform_feedback_overflow_query" } },
-   [feat_txqs] = { 45, UNAVAIL, { "GL_ARB_shader_texture_image_samples" } },
-   [feat_ubo] = { 31, 30, { "GL_ARB_uniform_buffer_object" } },
-   [feat_viewport_array] = { 41, UNAVAIL, { "GL_ARB_viewport_array" } },
+   FEAT(arb_or_gles_ext_texture_buffer, 31, UNAVAIL, "GL_ARB_texture_buffer_object", "GL_EXT_texture_buffer", NULL),
+   FEAT(arb_robustness, UNAVAIL, UNAVAIL,  "GL_ARB_robustness" ),
+   FEAT(arb_buffer_storage, 44, UNAVAIL, "GL_ARB_buffer_storage", "GL_EXT_buffer_storage"),
+   FEAT(arrays_of_arrays, 43, 31, "GL_ARB_arrays_of_arrays"),
+   FEAT(ati_meminfo, UNAVAIL, UNAVAIL, "GL_ATI_meminfo" ),
+   FEAT(atomic_counters, 42, 31,  "GL_ARB_shader_atomic_counters" ),
+   FEAT(base_instance, 42, UNAVAIL,  "GL_ARB_base_instance", "GL_EXT_base_instance" ),
+   FEAT(barrier, 42, 31, NULL),
+   FEAT(bind_vertex_buffers, 44, UNAVAIL, NULL),
+   FEAT(bit_encoding, 33, UNAVAIL,  "GL_ARB_shader_bit_encoding" ),
+   FEAT(blend_equation_advanced, UNAVAIL, 32,  "GL_KHR_blend_equation_advanced" ),
+   FEAT(clear_texture, 44, UNAVAIL, "GL_ARB_clear_texture", "GL_EXT_clear_texture"),
+   FEAT(clip_control, 45, UNAVAIL, "GL_ARB_clip_control", "GL_EXT_clip_control"),
+   FEAT(compute_shader, 43, 31,  "GL_ARB_compute_shader" ),
+   FEAT(copy_image, 43, 32,  "GL_ARB_copy_image", "GL_EXT_copy_image", "GL_OES_copy_image" ),
+   FEAT(conditional_render_inverted, 45, UNAVAIL,  "GL_ARB_conditional_render_inverted" ),
+   FEAT(conservative_depth, 42, UNAVAIL, "GL_ARB_conservative_depth", "GL_EXT_conservative_depth" ),
+   FEAT(cube_map_array, 40, 32,  "GL_ARB_texture_cube_map_array", "GL_EXT_texture_cube_map_array", "GL_OES_texture_cube_map_array" ),
+   FEAT(cull_distance, 45, UNAVAIL, "GL_ARB_cull_distance", "GL_EXT_clip_cull_distance" ),
+   FEAT(debug_cb, UNAVAIL, UNAVAIL, NULL), /* special case */
+   FEAT(draw_instance, 31, 30,  "GL_ARB_draw_instanced" ),
+   FEAT(dual_src_blend, 33, UNAVAIL,  "GL_ARB_blend_func_extended", "GL_EXT_blend_func_extended" ),
+   FEAT(depth_clamp, 32, UNAVAIL, "GL_ARB_depth_clamp", "GL_EXT_depth_clamp", "GL_NV_depth_clamp"),
+   FEAT(enhanced_layouts, 44, UNAVAIL, "GL_ARB_enhanced_layouts"),
+   FEAT(egl_image_external, UNAVAIL, UNAVAIL, "GL_OES_EGL_image_external"),
+   FEAT(egl_image_storage, UNAVAIL, UNAVAIL, "GL_EXT_EGL_image_storage"),
+   FEAT(fb_no_attach, 43, 31,  "GL_ARB_framebuffer_no_attachments" ),
+   FEAT(framebuffer_fetch, UNAVAIL, UNAVAIL,  "GL_EXT_shader_framebuffer_fetch" ),
+   FEAT(framebuffer_fetch_non_coherent, UNAVAIL, UNAVAIL,  "GL_EXT_shader_framebuffer_fetch_non_coherent" ),
+   FEAT(geometry_shader, 32, 32, "GL_EXT_geometry_shader", "GL_OES_geometry_shader"),
+   FEAT(gl_conditional_render, 30, UNAVAIL, NULL),
+   FEAT(gl_prim_restart, 31, 30, NULL),
+   FEAT(gles_khr_robustness, UNAVAIL, UNAVAIL,  "GL_KHR_robustness" ),
+   FEAT(gles31_compatibility, 45, 31, "ARB_ES3_1_compatibility" ),
+   FEAT(gles31_vertex_attrib_binding, 43, 31,  "GL_ARB_vertex_attrib_binding" ),
+   FEAT(gpu_shader5, 40, 32, "GL_ARB_gpu_shader5", "GL_EXT_gpu_shader5", "GL_OES_gpu_shader5" ),
+   FEAT(images, 42, 31,  "GL_ARB_shader_image_load_store" ),
+   FEAT(indep_blend, 30, 32,  "GL_EXT_draw_buffers2", "GL_OES_draw_buffers_indexed" ),
+   FEAT(indep_blend_func, 40, 32,  "GL_ARB_draw_buffers_blend", "GL_OES_draw_buffers_indexed"),
+   FEAT(indirect_draw, 40, 31,  "GL_ARB_draw_indirect" ),
+   FEAT(indirect_params, 46, UNAVAIL,  "GL_ARB_indirect_parameters" ),
+   FEAT(memory_object, UNAVAIL, UNAVAIL, "GL_EXT_memory_object"),
+   FEAT(memory_object_fd, UNAVAIL, UNAVAIL, "GL_EXT_memory_object_fd"),
+   FEAT(mesa_invert, UNAVAIL, UNAVAIL,  "GL_MESA_pack_invert" ),
+   FEAT(ms_scaled_blit, UNAVAIL, UNAVAIL,  "GL_EXT_framebuffer_multisample_blit_scaled" ),
+   FEAT(multisample, 32, 30,  "GL_ARB_texture_multisample" ),
+   FEAT(multi_draw_indirect, 43, UNAVAIL,  "GL_ARB_multi_draw_indirect", "GL_EXT_multi_draw_indirect" ),
+   FEAT(nv_conditional_render, UNAVAIL, UNAVAIL,  "GL_NV_conditional_render" ),
+   FEAT(nv_prim_restart, UNAVAIL, UNAVAIL,  "GL_NV_primitive_restart" ),
+   FEAT(nvx_gpu_memory_info, UNAVAIL, UNAVAIL, "GL_NVX_gpu_memory_info" ),
+   FEAT(polygon_offset_clamp, 46, UNAVAIL,  "GL_ARB_polygon_offset_clamp", "GL_EXT_polygon_offset_clamp"),
+   FEAT(occlusion_query, 15, UNAVAIL, "GL_ARB_occlusion_query"),
+   FEAT(occlusion_query_boolean, 33, 30, "GL_EXT_occlusion_query_boolean", "GL_ARB_occlusion_query2"),
+   FEAT(qbo, 44, UNAVAIL, "GL_ARB_query_buffer_object" ),
+   FEAT(robust_buffer_access, 43, UNAVAIL,  "GL_ARB_robust_buffer_access_behavior", "GL_KHR_robust_buffer_access_behavior" ),
+   FEAT(sample_mask, 32, 31,  "GL_ARB_texture_multisample" ),
+   FEAT(sample_shading, 40, 32,  "GL_ARB_sample_shading", "GL_OES_sample_shading" ),
+   FEAT(samplers, 33, 30,  "GL_ARB_sampler_objects" ),
+   FEAT(sampler_border_colors, 33, 32,  "GL_ARB_sampler_objects", "GL_EXT_texture_border_clamp", "GL_OES_texture_border_clamp" ),
+   FEAT(separate_shader_objects, 41, 31, "GL_ARB_seperate_shader_objects"),
+   FEAT(shader_clock, UNAVAIL, UNAVAIL,  "GL_ARB_shader_clock" ),
+   FEAT(ssbo, 43, 31,  "GL_ARB_shader_storage_buffer_object" ),
+   FEAT(ssbo_barrier, 43, 31, NULL),
+   FEAT(srgb_write_control, 30, UNAVAIL, "GL_EXT_sRGB_write_control"),
+   FEAT(stencil_texturing, 43, 31,  "GL_ARB_stencil_texturing" ),
+   FEAT(storage_multisample, 43, 31,  "GL_ARB_texture_storage_multisample" ),
+   FEAT(tessellation, 40, 32,  "GL_ARB_tessellation_shader", "GL_OES_tessellation_shader", "GL_EXT_tessellation_shader" ),
+   FEAT(texture_array, 30, 30,  "GL_EXT_texture_array" ),
+   FEAT(texture_barrier, 45, UNAVAIL,  "GL_ARB_texture_barrier" ),
+   FEAT(texture_buffer_range, 43, 32,  "GL_ARB_texture_buffer_range" ),
+   FEAT(texture_gather, 40, 31,  "GL_ARB_texture_gather" ),
+   FEAT(texture_multisample, 32, 31,  "GL_ARB_texture_multisample" ),
+   FEAT(texture_query_lod, 40, UNAVAIL, "GL_ARB_texture_query_lod", "GL_EXT_texture_query_lod"),
+   FEAT(texture_srgb_decode, UNAVAIL, UNAVAIL,  "GL_EXT_texture_sRGB_decode" ),
+   FEAT(texture_storage, 42, 30,  "GL_ARB_texture_storage" ),
+   FEAT(texture_view, 43, UNAVAIL,  "GL_ARB_texture_view", "GL_OES_texture_view" ),
+   FEAT(timer_query, 33, UNAVAIL, "GL_ARB_timer_query", "GL_EXT_disjoint_timer_query"),
+   FEAT(transform_feedback, 30, 30,  "GL_EXT_transform_feedback" ),
+   FEAT(transform_feedback2, 40, 30,  "GL_ARB_transform_feedback2" ),
+   FEAT(transform_feedback3, 40, UNAVAIL,  "GL_ARB_transform_feedback3" ),
+   FEAT(transform_feedback_overflow_query, 46, UNAVAIL,  "GL_ARB_transform_feedback_overflow_query" ),
+   FEAT(txqs, 45, UNAVAIL,  "GL_ARB_shader_texture_image_samples" ),
+   FEAT(ubo, 31, 30,  "GL_ARB_uniform_buffer_object" ),
+   FEAT(viewport_array, 41, UNAVAIL,  "GL_ARB_viewport_array", "GL_OES_viewport_array"),
 };
 
 struct global_renderer_state {
@@ -218,35 +310,57 @@ struct global_renderer_state {
    struct vrend_context *current_hw_ctx;
    struct list_head waiting_query_list;
 
-   bool inited;
+   bool finishing;
    bool use_gles;
    bool use_core_profile;
+   bool use_external_blob;
+   bool use_integer;
+#ifdef HAVE_EPOXY_EGL_H
+   bool use_egl_fence;
+#endif
 
    bool features[feat_last];
 
    /* these appeared broken on at least one driver */
    bool use_explicit_locations;
-   uint32_t max_uniform_blocks;
    uint32_t max_draw_buffers;
-   struct list_head active_ctx_list;
+   uint32_t max_texture_2d_size;
+   uint32_t max_texture_3d_size;
+   uint32_t max_texture_cube_size;
 
    /* threaded sync */
    bool stop_sync_thread;
    int eventfd;
 
    pipe_mutex fence_mutex;
+   /* a fence is always on either of the lists, or is pointed to by
+    * fence_waiting
+    */
    struct list_head fence_list;
    struct list_head fence_wait_list;
+   struct vrend_fence *fence_waiting;
    pipe_condvar fence_cond;
+
+   struct vrend_context *ctx0;
 
    pipe_thread sync_thread;
    virgl_gl_context sync_context;
+
+   /* Needed on GLES to inject a TCS */
+   float tess_factors[6];
+   bool bgra_srgb_emulation_loaded;
+
+   /* inferred GL caching type */
+   uint32_t inferred_gl_caching_type;
 };
 
 static struct global_renderer_state vrend_state;
 
 static inline bool has_feature(enum features_id feature_id)
 {
+   VREND_DEBUG(dbg_feature_use, NULL, "Try using feature %s:%d\n",
+               feature_list[feature_id].log_name,
+               vrend_state.features[feature_id]);
    return vrend_state.features[feature_id];
 }
 
@@ -262,22 +376,25 @@ struct vrend_linked_shader_program {
 
    bool dual_src_linked;
    struct vrend_shader *ss[PIPE_SHADER_TYPES];
+   uint64_t vs_fs_key;
 
+   uint32_t ubo_used_mask[PIPE_SHADER_TYPES];
    uint32_t samplers_used_mask[PIPE_SHADER_TYPES];
-   GLuint *samp_locs[PIPE_SHADER_TYPES];
 
    GLuint *shadow_samp_mask_locs[PIPE_SHADER_TYPES];
    GLuint *shadow_samp_add_locs[PIPE_SHADER_TYPES];
 
-   GLint *const_locs[PIPE_SHADER_TYPES];
+   GLint const_location[PIPE_SHADER_TYPES];
 
    GLuint *attrib_locs;
    uint32_t shadow_samp_mask[PIPE_SHADER_TYPES];
 
-   GLuint *ubo_locs[PIPE_SHADER_TYPES];
    GLuint vs_ws_adjust_loc;
+   float viewport_neg_val;
 
    GLint fs_stipple_loc;
+
+   GLint fs_alpha_ref_val_loc;
 
    GLuint clip_locs[8];
 
@@ -286,15 +403,17 @@ struct vrend_linked_shader_program {
 
    uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
    GLuint *ssbo_locs[PIPE_SHADER_TYPES];
+
+   struct vrend_sub_context *ref_context;
 };
 
 struct vrend_shader {
    struct vrend_shader *next_variant;
    struct vrend_shader_selector *sel;
 
-   GLchar *glsl_prog;
+   struct vrend_strarray glsl_strings;
    GLuint id;
-   GLuint compiled_fs_id;
+   uint32_t uid;
    struct vrend_shader_key key;
    struct list_head programs;
 };
@@ -318,6 +437,9 @@ struct vrend_shader_selector {
 struct vrend_texture {
    struct vrend_resource base;
    struct pipe_sampler_state state;
+   GLint cur_swizzle[4];
+   GLuint cur_srgb_decode;
+   GLuint cur_base, cur_max;
 };
 
 struct vrend_surface {
@@ -331,7 +453,7 @@ struct vrend_surface {
 
 struct vrend_sampler_state {
    struct pipe_sampler_state base;
-   GLuint id;
+   GLuint ids[2];
 };
 
 struct vrend_so_target {
@@ -346,21 +468,12 @@ struct vrend_so_target {
 struct vrend_sampler_view {
    struct pipe_reference reference;
    GLuint id;
-   GLuint format;
+   enum virgl_formats format;
    GLenum target;
    GLuint val0, val1;
-   GLuint gl_swizzle_r;
-   GLuint gl_swizzle_g;
-   GLuint gl_swizzle_b;
-   GLuint gl_swizzle_a;
-   GLenum cur_swizzle_r;
-   GLenum cur_swizzle_g;
-   GLenum cur_swizzle_b;
-   GLenum cur_swizzle_a;
-   GLuint cur_base, cur_max;
+   GLint gl_swizzle[4];
    GLenum depth_texture_mode;
    GLuint srgb_decode;
-   GLuint cur_srgb_decode;
    struct vrend_resource *texture;
 };
 
@@ -388,6 +501,12 @@ struct vrend_ssbo {
    unsigned buffer_offset;
 };
 
+struct vrend_abo {
+   struct vrend_resource *res;
+   unsigned buffer_size;
+   unsigned buffer_offset;
+};
+
 struct vrend_vertex_element {
    struct pipe_vertex_element base;
    GLenum type;
@@ -399,11 +518,14 @@ struct vrend_vertex_element_array {
    unsigned count;
    struct vrend_vertex_element elements[PIPE_MAX_ATTRIBS];
    GLuint id;
+   uint32_t signed_int_bitmask;
+   uint32_t unsigned_int_bitmask;
 };
 
 struct vrend_constants {
    unsigned int *consts;
    uint32_t num_consts;
+   uint32_t num_allocated_consts;
 };
 
 struct vrend_shader_view {
@@ -434,6 +556,14 @@ struct vrend_streamout_object {
 #define XFB_STATE_STARTED 2
 #define XFB_STATE_PAUSED 3
 
+struct vrend_vertex_buffer {
+   struct pipe_vertex_buffer base;
+   uint32_t res_id;
+};
+
+#define VREND_PROGRAM_NQUEUES (1 << 8)
+#define VREND_PROGRAM_NQUEUE_MASK (VREND_PROGRAM_NQUEUES - 1)
+
 struct vrend_sub_context {
    struct list_head head;
 
@@ -444,14 +574,18 @@ struct vrend_sub_context {
    GLuint vaoid;
    uint32_t enabled_attribs_bitmask;
 
-   struct list_head programs;
+   /* Using an array of lists only adds VREND_PROGRAM_NQUEUES - 1 list_head
+    * structures to the consumed memory, but looking up the program can
+    * be spead up by the factor VREND_PROGRAM_NQUEUES which makes this
+    * worthwile. */
+   struct list_head gl_programs[VREND_PROGRAM_NQUEUES];
+   struct list_head cs_programs;
    struct util_hash_table *object_hash;
 
    struct vrend_vertex_element_array *ve;
    int num_vbos;
    int old_num_vbos; /* for cleaning up */
-   struct pipe_vertex_buffer vbo[PIPE_MAX_ATTRIBS];
-   uint32_t vbo_res_ids[PIPE_MAX_ATTRIBS];
+   struct vrend_vertex_buffer vbo[PIPE_MAX_ATTRIBS];
 
    struct pipe_index_buffer ib;
    uint32_t index_buffer_res_id;
@@ -459,15 +593,15 @@ struct vrend_sub_context {
    bool vbo_dirty;
    bool shader_dirty;
    bool cs_shader_dirty;
-   bool sampler_state_dirty;
    bool stencil_state_dirty;
    bool image_state_dirty;
+   bool blend_state_dirty;
 
    uint32_t long_shader_in_progress_handle[PIPE_SHADER_TYPES];
    struct vrend_shader_selector *shaders[PIPE_SHADER_TYPES];
    struct vrend_linked_shader_program *prog;
 
-   int prog_ids[PIPE_SHADER_TYPES];
+   GLuint prog_ids[PIPE_SHADER_TYPES];
    struct vrend_shader_view views[PIPE_SHADER_TYPES];
 
    struct vrend_constants consts[PIPE_SHADER_TYPES];
@@ -476,8 +610,11 @@ struct vrend_sub_context {
 
    struct pipe_constant_buffer cbs[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
    uint32_t const_bufs_used_mask[PIPE_SHADER_TYPES];
+   uint32_t const_bufs_dirty[PIPE_SHADER_TYPES];
 
    int num_sampler_states[PIPE_SHADER_TYPES];
+
+   uint32_t sampler_views_dirty[PIPE_SHADER_TYPES];
 
    uint32_t fb_id;
    int nr_cbufs, old_nr_cbufs;
@@ -485,10 +622,10 @@ struct vrend_sub_context {
    struct vrend_surface *surf[PIPE_MAX_COLOR_BUFS];
 
    struct vrend_viewport vps[PIPE_MAX_VIEWPORTS];
-   float depth_transform, depth_scale;
    /* viewport is negative */
    uint32_t scissor_state_dirty;
    uint32_t viewport_state_dirty;
+   uint32_t viewport_state_initialized;
 
    uint32_t fb_height;
 
@@ -510,13 +647,17 @@ struct vrend_sub_context {
 
    struct pipe_clip_state ucp_state;
 
-   bool blend_enabled;
    bool depth_test_enabled;
    bool alpha_test_enabled;
    bool stencil_test_enabled;
+   bool framebuffer_srgb_enabled;
 
    GLuint program_id;
    int last_shader_idx;
+
+   GLint draw_indirect_buffer;
+
+   GLint draw_indirect_params_buffer;
 
    struct pipe_rasterizer_state hw_rs_state;
    struct pipe_blend_state hw_blend_state;
@@ -534,12 +675,28 @@ struct vrend_sub_context {
 
    struct vrend_ssbo ssbo[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_BUFFERS];
    uint32_t ssbo_used_mask[PIPE_SHADER_TYPES];
+
+   struct vrend_abo abo[PIPE_MAX_HW_ATOMIC_BUFFERS];
+   uint32_t abo_used_mask;
+   struct vrend_context_tweaks tweaks;
+   uint8_t swizzle_output_rgb_to_bgr;
+   int fake_occlusion_query_samples_passed_multiplier;
+
+   int prim_mode;
+   bool drawing;
+   struct vrend_context *parent;
+};
+
+struct vrend_untyped_resource {
+   struct virgl_resource *resource;
+   struct list_head head;
 };
 
 struct vrend_context {
    char debug_name[64];
 
    struct list_head sub_ctxs;
+   struct list_head vrend_resources;
 
    struct vrend_sub_context *sub;
    struct vrend_sub_context *sub0;
@@ -557,38 +714,83 @@ struct vrend_context {
    /* resource bounds to this context */
    struct util_hash_table *res_hash;
 
+   /*
+    * vrend_context only works with typed virgl_resources.  More specifically,
+    * it works with vrend_resources that are inherited from pipe_resources
+    * wrapped in virgl_resources.
+    *
+    * Normally, a vrend_resource is created first by
+    * vrend_renderer_resource_create.  It is then wrapped in a virgl_resource
+    * by virgl_resource_create_from_pipe.  Depending on whether it is a blob
+    * resource or not, the two functions can be called from different paths.
+    * But we always get both a virgl_resource and a vrend_resource as a
+    * result.
+    *
+    * It is however possible that we encounter untyped virgl_resources that
+    * have no pipe_resources.  To work with untyped virgl_resources, we park
+    * them in untyped_resources first when they are attached.  We move them
+    * into res_hash only after we get the type information and create the
+    * vrend_resources in vrend_decode_pipe_resource_set_type.
+    */
+   struct list_head untyped_resources;
+   struct virgl_resource *untyped_resource_cache;
+
    struct list_head active_nontimer_query_list;
-   struct list_head ctx_entry;
 
    struct vrend_shader_cfg shader_cfg;
+
+   unsigned debug_flags;
+
+   vrend_context_fence_retire fence_retire;
+   void *fence_retire_data;
 };
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle);
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause);
-static void vrend_update_viewport_state(struct vrend_context *ctx);
-static void vrend_update_scissor_state(struct vrend_context *ctx);
+static void vrend_update_viewport_state(struct vrend_sub_context *sub_ctx);
+static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx);
 static void vrend_destroy_query_object(void *obj_ptr);
 static void vrend_finish_context_switch(struct vrend_context *ctx);
-static void vrend_patch_blend_state(struct vrend_context *ctx);
-static void vrend_update_frontface_state(struct vrend_context *ctx);
+static void vrend_patch_blend_state(struct vrend_sub_context *sub_ctx);
+static void vrend_update_frontface_state(struct vrend_sub_context *ctx);
 static void vrender_get_glsl_version(int *glsl_version);
-static void vrend_destroy_resource_object(void *obj_ptr);
-static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle);
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent);
-static void vrend_apply_sampler_state(struct vrend_context *ctx,
+static void vrend_apply_sampler_state(struct vrend_sub_context *sub_ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
-                                      int id, int sampler_id, uint32_t srgb_decode);
+                                      int id, int sampler_id,
+                                      struct vrend_sampler_view *tview);
 static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr_samples);
 
-void vrend_update_stencil_state(struct vrend_context *ctx);
+void vrend_update_stencil_state(struct vrend_sub_context *sub_ctx);
 
-static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX];
+static struct vrend_format_table tex_conv_table[VIRGL_FORMAT_MAX_EXTENDED];
 
 static inline bool vrend_format_can_sample(enum virgl_formats format)
 {
-   return tex_conv_table[format].bindings & VIRGL_BIND_SAMPLER_VIEW;
+   if (tex_conv_table[format].bindings & VIRGL_BIND_SAMPLER_VIEW)
+      return true;
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   uint32_t gbm_format = 0;
+   if (virgl_gbm_convert_format(&format, &gbm_format))
+      return false;
+
+   if (!gbm || !gbm->device || !gbm_format)
+      return false;
+
+   uint32_t gbm_usage = GBM_BO_USE_TEXTURING;
+   return gbm_device_is_format_supported(gbm->device, gbm_format, gbm_usage);
+#else
+   return false;
+#endif
 }
+
+static inline bool vrend_format_can_readback(enum virgl_formats format)
+{
+   return tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_READBACK;
+}
+
 static inline bool vrend_format_can_render(enum virgl_formats format)
 {
    return tex_conv_table[format].bindings & VIRGL_BIND_RENDER_TARGET;
@@ -599,22 +801,50 @@ static inline bool vrend_format_is_ds(enum virgl_formats format)
    return tex_conv_table[format].bindings & VIRGL_BIND_DEPTH_STENCIL;
 }
 
-bool vrend_is_ds_format(enum virgl_formats format)
+static inline bool vrend_format_can_scanout(enum virgl_formats format)
 {
-   return vrend_format_is_ds(format);
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   uint32_t gbm_format = 0;
+   if (virgl_gbm_convert_format(&format, &gbm_format))
+      return false;
+
+   if (!gbm || !gbm->device || !gbm_format)
+      return false;
+
+   return gbm_device_is_format_supported(gbm->device, gbm_format, GBM_BO_USE_SCANOUT);
+#else
+   (void)format;
+   return true;
+#endif
+}
+
+static inline bool vrend_format_can_texture_view(enum virgl_formats format)
+{
+   return has_feature(feat_texture_view) &&
+      tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE;
+}
+
+struct vrend_context_tweaks *vrend_get_context_tweaks(struct vrend_context *ctx)
+{
+   return &ctx->sub->tweaks;
 }
 
 bool vrend_format_is_emulated_alpha(enum virgl_formats format)
 {
-   if (!vrend_state.use_core_profile)
+   if (vrend_state.use_gles || !vrend_state.use_core_profile)
       return false;
    return (format == VIRGL_FORMAT_A8_UNORM ||
            format == VIRGL_FORMAT_A16_UNORM);
 }
 
-static bool vrend_format_needs_swizzle(enum virgl_formats format)
+static bool vrend_blit_needs_swizzle(enum virgl_formats src,
+                                     enum virgl_formats dst)
 {
-   return tex_conv_table[format].flags & VIRGL_BIND_NEED_SWIZZLE;
+   for (int i = 0; i < 4; ++i) {
+      if (tex_conv_table[src].swizzle[i] != tex_conv_table[dst].swizzle[i])
+         return true;
+   }
+   return false;
 }
 
 static inline const char *pipe_shader_to_prefix(int shader_type)
@@ -631,19 +861,54 @@ static inline const char *pipe_shader_to_prefix(int shader_type)
    };
 }
 
-static const char *vrend_ctx_error_strings[] = { "None", "Unknown", "Illegal shader", "Illegal handle", "Illegal resource", "Illegal surface", "Illegal vertex format", "Illegal command buffer" };
+static GLenum translate_blend_func_advanced(enum gl_advanced_blend_mode blend)
+{
+   switch(blend){
+   case BLEND_MULTIPLY: return GL_MULTIPLY_KHR;
+   case BLEND_SCREEN: return GL_SCREEN_KHR;
+   case BLEND_OVERLAY: return GL_OVERLAY_KHR;
+   case BLEND_DARKEN: return GL_DARKEN_KHR;
+   case BLEND_LIGHTEN: return GL_LIGHTEN_KHR;
+   case BLEND_COLORDODGE: return GL_COLORDODGE_KHR;
+   case BLEND_COLORBURN: return GL_COLORBURN_KHR;
+   case BLEND_HARDLIGHT: return GL_HARDLIGHT_KHR;
+   case BLEND_SOFTLIGHT: return GL_SOFTLIGHT_KHR;
+   case BLEND_DIFFERENCE: return GL_DIFFERENCE_KHR;
+   case BLEND_EXCLUSION: return GL_EXCLUSION_KHR;
+   case BLEND_HSL_HUE: return GL_HSL_HUE_KHR;
+   case BLEND_HSL_SATURATION: return GL_HSL_SATURATION_KHR;
+   case BLEND_HSL_COLOR: return GL_HSL_COLOR_KHR;
+   case BLEND_HSL_LUMINOSITY: return GL_HSL_LUMINOSITY_KHR;
+   default:
+      assert("invalid blend token()" == NULL);
+      return 0;
+   }
+}
 
-static void __report_context_error(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+static const char *vrend_ctx_error_strings[] = {
+   [VIRGL_ERROR_CTX_NONE]                  = "None",
+   [VIRGL_ERROR_CTX_UNKNOWN]               = "Unknown",
+   [VIRGL_ERROR_CTX_ILLEGAL_SHADER]        = "Illegal shader",
+   [VIRGL_ERROR_CTX_ILLEGAL_HANDLE]        = "Illegal handle",
+   [VIRGL_ERROR_CTX_ILLEGAL_RESOURCE]      = "Illegal resource",
+   [VIRGL_ERROR_CTX_ILLEGAL_SURFACE]       = "Illegal surface",
+   [VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT] = "Illegal vertex format",
+   [VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER]    = "Illegal command buffer",
+   [VIRGL_ERROR_CTX_GLES_HAVE_TES_BUT_MISS_TCS] = "On GLES context and shader program has tesselation evaluation shader but no tesselation control shader",
+   [VIRGL_ERROR_GL_ANY_SAMPLES_PASSED] = "Query for ANY_SAMPLES_PASSED not supported",
+   [VIRGL_ERROR_CTX_ILLEGAL_FORMAT]        = "Illegal format ID",
+   [VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET] = "Illegat target for sampler view",
+   [VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS]   = "IOV data size exceeds resource capacity",
+};
+
+void vrend_report_context_error_internal(const char *fname, struct vrend_context *ctx,
+                                         enum virgl_ctx_errors error, uint32_t value)
 {
    ctx->in_error = true;
    ctx->last_error = error;
-   fprintf(stderr,"%s: context error reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error], value);
-}
-#define report_context_error(ctx, error, value) __report_context_error(__func__, ctx, error, value)
-
-void vrend_report_buffer_error(struct vrend_context *ctx, int cmd)
-{
-   report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, cmd);
+   vrend_printf("%s: context error reported %d \"%s\" %s %d\n", fname,
+                ctx->ctx_id, ctx->debug_name, vrend_ctx_error_strings[error],
+                value);
 }
 
 #define CORE_PROFILE_WARN_NONE 0
@@ -653,13 +918,23 @@ void vrend_report_buffer_error(struct vrend_context *ctx, int cmd)
 #define CORE_PROFILE_WARN_CLAMP 4
 #define CORE_PROFILE_WARN_SHADE_MODEL 5
 
-static const char *vrend_core_profile_warn_strings[] = { "None", "Stipple", "Polygon Mode", "Two Side", "Clamping", "Shade Model" };
+static const char *vrend_core_profile_warn_strings[] = {
+   [CORE_PROFILE_WARN_NONE]         = "None",
+   [CORE_PROFILE_WARN_STIPPLE]      = "Stipple",
+   [CORE_PROFILE_WARN_POLYGON_MODE] = "Polygon Mode",
+   [CORE_PROFILE_WARN_TWO_SIDE]     = "Two Side",
+   [CORE_PROFILE_WARN_CLAMP]        = "Clamping",
+   [CORE_PROFILE_WARN_SHADE_MODEL]  = "Shade Model",
+};
 
-static void __report_core_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+static void __report_core_warn(const char *fname, struct vrend_context *ctx,
+                               enum virgl_ctx_errors error)
 {
-   fprintf(stderr,"%s: core profile violation reported %d \"%s\" %s %d\n", fname, ctx->ctx_id, ctx->debug_name, vrend_core_profile_warn_strings[error], value);
+   vrend_printf("%s: core profile violation reported %d \"%s\" %s\n", fname,
+                ctx->ctx_id, ctx->debug_name,
+                vrend_core_profile_warn_strings[error]);
 }
-#define report_core_warn(ctx, error, value) __report_core_warn(__func__, ctx, error, value)
+#define report_core_warn(ctx, error) __report_core_warn(__func__, ctx, error)
 
 
 #define GLES_WARN_NONE 0
@@ -667,12 +942,12 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_POLYGON_MODE 2
 #define GLES_WARN_DEPTH_RANGE 3
 #define GLES_WARN_POINT_SIZE 4
-#define GLES_WARN_LOD_BIAS 5
-//#define GLES_WARN_ free slot 6
+#define GLES_WARN_SEAMLESS_CUBE_MAP 5
+#define GLES_WARN_LOD_BIAS 6
 #define GLES_WARN_TEXTURE_RECT 7
 #define GLES_WARN_OFFSET_LINE 8
 #define GLES_WARN_OFFSET_POINT 9
-#define GLES_WARN_DEPTH_CLIP 10
+//#define GLES_WARN_ free slot 10
 #define GLES_WARN_FLATSHADE_FIRST 11
 #define GLES_WARN_LINE_SMOOTH 12
 #define GLES_WARN_POLY_SMOOTH 13
@@ -680,41 +955,61 @@ static void __report_core_warn(const char *fname, struct vrend_context *ctx, enu
 #define GLES_WARN_LOGIC_OP 15
 #define GLES_WARN_TIMESTAMP 16
 
+MAYBE_UNUSED
 static const char *vrend_gles_warn_strings[] = {
-   "None", "Stipple", "Polygon Mode", "Depth Range", "Point Size", "Lod Bias",
-   "<<WARNING #6>>", "Texture Rect", "Offset Line", "Offset Point",
-   "Depth Clip", "Flatshade First", "Line Smooth", "Poly Smooth",
-   "Depth Clear", "LogicOp", "GL_TIMESTAMP"
+   [GLES_WARN_NONE]             = "None",
+   [GLES_WARN_STIPPLE]          = "Stipple",
+   [GLES_WARN_POLYGON_MODE]     = "Polygon Mode",
+   [GLES_WARN_DEPTH_RANGE]      = "Depth Range",
+   [GLES_WARN_POINT_SIZE]       = "Point Size",
+   [GLES_WARN_SEAMLESS_CUBE_MAP] = "Seamless Cube Map",
+   [GLES_WARN_LOD_BIAS]         = "Lod Bias",
+   [GLES_WARN_TEXTURE_RECT]     = "Texture Rect",
+   [GLES_WARN_OFFSET_LINE]      = "Offset Line",
+   [GLES_WARN_OFFSET_POINT]     = "Offset Point",
+   [GLES_WARN_FLATSHADE_FIRST]  = "Flatshade First",
+   [GLES_WARN_LINE_SMOOTH]      = "Line Smooth",
+   [GLES_WARN_POLY_SMOOTH]      = "Poly Smooth",
+   [GLES_WARN_DEPTH_CLEAR]      = "Depth Clear",
+   [GLES_WARN_LOGIC_OP]         = "LogicOp",
+   [GLES_WARN_TIMESTAMP]        = "GL_TIMESTAMP",
 };
 
-static void __report_gles_warn(const char *fname, struct vrend_context *ctx, enum virgl_ctx_errors error, uint32_t value)
+static void __report_gles_warn(MAYBE_UNUSED const char *fname,
+                               MAYBE_UNUSED struct vrend_context *ctx,
+                               MAYBE_UNUSED enum virgl_ctx_errors error)
 {
-   int id = ctx ? ctx->ctx_id : -1;
-   const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s %d\n", fname, id, name, vrend_gles_warn_strings[error], value);
+   VREND_DEBUG(dbg_gles, ctx, "%s: GLES violation - %s\n", fname, vrend_gles_warn_strings[error]);
 }
-#define report_gles_warn(ctx, error, value) __report_gles_warn(__func__, ctx, error, value)
+#define report_gles_warn(ctx, error) __report_gles_warn(__func__, ctx, error)
 
-static void __report_gles_missing_func(const char *fname, struct vrend_context *ctx, const char *missf)
+static void __report_gles_missing_func(MAYBE_UNUSED const char *fname,
+                                       MAYBE_UNUSED struct vrend_context *ctx,
+                                       MAYBE_UNUSED const char *missf)
 {
-   int id = ctx ? ctx->ctx_id : -1;
-   const char *name = ctx ? ctx->debug_name : "NO_CONTEXT";
-   fprintf(stderr,"%s: gles violation reported %d \"%s\" %s is missing\n", fname, id, name, missf);
+   VREND_DEBUG(dbg_gles, ctx, "%s: GLES function %s is missing\n", fname, missf);
 }
+
 #define report_gles_missing_func(ctx, missf) __report_gles_missing_func(__func__, ctx, missf)
 
 static void init_features(int gl_ver, int gles_ver)
 {
    for (enum features_id id = 0; id < feat_last; id++) {
       if (gl_ver >= feature_list[id].gl_ver ||
-          gles_ver >= feature_list[id].gles_ver)
+          gles_ver >= feature_list[id].gles_ver) {
          set_feature(id);
-      else {
+         VREND_DEBUG(dbg_features, NULL, "Host feature %s provided by %s %3.1f\n",
+                     feature_list[id].log_name, (gl_ver > 0 ? "GL" : "GLES"),
+                     0.1f * (gl_ver > 0 ? gl_ver : gles_ver));
+      } else {
          for (uint32_t i = 0; i < FEAT_MAX_EXTS; i++) {
             if (!feature_list[id].gl_ext[i])
                break;
             if (epoxy_has_gl_extension(feature_list[id].gl_ext[i])) {
                set_feature(id);
+               VREND_DEBUG(dbg_features, NULL,
+                           "Host feature %s provide by %s\n", feature_list[id].log_name,
+                           feature_list[id].gl_ext[i]);
                break;
             }
          }
@@ -774,6 +1069,14 @@ vrend_so_target_reference(struct vrend_so_target **ptr, struct vrend_so_target *
    *ptr = target;
 }
 
+static void vrend_shader_dump(struct vrend_shader *shader)
+{
+   const char *prefix = pipe_shader_to_prefix(shader->sel->type);
+   vrend_printf("%s: %d GLSL:\n", prefix, shader->id);
+   strarray_dump_with_line_numbers(&shader->glsl_strings);
+   vrend_printf("\n");
+}
+
 static void vrend_shader_destroy(struct vrend_shader *shader)
 {
    struct vrend_linked_shader_program *ent, *tmp;
@@ -783,7 +1086,7 @@ static void vrend_shader_destroy(struct vrend_shader *shader)
    }
 
    glDeleteShader(shader->id);
-   free(shader->glsl_prog);
+   strarray_free(&shader->glsl_strings, true);
    free(shader);
 }
 
@@ -808,20 +1111,24 @@ static void vrend_destroy_shader_selector(struct vrend_shader_selector *sel)
    free(sel);
 }
 
-static bool vrend_compile_shader(struct vrend_context *ctx,
+static bool vrend_compile_shader(struct vrend_sub_context *sub_ctx,
                                  struct vrend_shader *shader)
 {
    GLint param;
-   glShaderSource(shader->id, 1, (const char **)&shader->glsl_prog, NULL);
+   const char *shader_parts[SHADER_MAX_STRINGS];
+
+   for (int i = 0; i < shader->glsl_strings.num_strings; i++)
+      shader_parts[i] = shader->glsl_strings.strings[i].buf;
+   glShaderSource(shader->id, shader->glsl_strings.num_strings, shader_parts, NULL);
    glCompileShader(shader->id);
    glGetShaderiv(shader->id, GL_COMPILE_STATUS, &param);
    if (param == GL_FALSE) {
       char infolog[65536];
       int len;
       glGetShaderInfoLog(shader->id, 65536, &len, infolog);
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      fprintf(stderr,"shader failed to compile\n%s\n", infolog);
-      fprintf(stderr,"GLSL:\n%s\n", shader->glsl_prog);
+      vrend_report_context_error(sub_ctx->parent, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_printf("shader failed to compile\n%s\n", infolog);
+      vrend_shader_dump(shader);
       return false;
    }
    return true;
@@ -838,21 +1145,50 @@ vrend_shader_state_reference(struct vrend_shader_selector **ptr, struct vrend_sh
 }
 
 void
-vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings)
+vrend_insert_format(struct vrend_format_table *entry, uint32_t bindings, uint32_t flags)
 {
    tex_conv_table[entry->format] = *entry;
    tex_conv_table[entry->format].bindings = bindings;
+   tex_conv_table[entry->format].flags = flags;
 }
 
 void
-vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry, uint32_t bindings, uint8_t swizzle[4])
+vrend_insert_format_swizzle(int override_format, struct vrend_format_table *entry,
+                            uint32_t bindings, uint8_t swizzle[4], uint32_t flags)
 {
    int i;
    tex_conv_table[override_format] = *entry;
    tex_conv_table[override_format].bindings = bindings;
-   tex_conv_table[override_format].flags = VIRGL_BIND_NEED_SWIZZLE;
+   tex_conv_table[override_format].flags = flags | VIRGL_TEXTURE_NEED_SWIZZLE;
    for (i = 0; i < 4; i++)
       tex_conv_table[override_format].swizzle[i] = swizzle[i];
+}
+
+static inline enum virgl_formats
+vrend_format_replace_emulated(uint32_t bind, enum virgl_formats format)
+{
+   enum virgl_formats retval = format;
+
+   if (vrend_state.use_gles && (bind & VIRGL_BIND_PREFER_EMULATED_BGRA)) {
+      VREND_DEBUG(dbg_tweak, vrend_state.current_ctx, "Check tweak for format %s", util_format_name(format));
+      if (!vrend_state.bgra_srgb_emulation_loaded) {
+         GLint err = glGetError();
+         if (err != GL_NO_ERROR)
+            vrend_printf("Warning: stale error state when calling %s\n", __func__);
+         VREND_DEBUG_NOCTX(dbg_tweak, vrend_state.current_ctx, " ... add swizzled formats\n");
+         vrend_build_emulated_format_list_gles();
+         vrend_check_texture_storage(tex_conv_table);
+         vrend_state.bgra_srgb_emulation_loaded = true;
+      }
+      if (format == VIRGL_FORMAT_B8G8R8A8_UNORM)
+         retval = VIRGL_FORMAT_B8G8R8A8_UNORM_EMULATED;
+      else if (format == VIRGL_FORMAT_B8G8R8X8_UNORM)
+         retval = VIRGL_FORMAT_B8G8R8X8_UNORM_EMULATED;
+
+      VREND_DEBUG_NOCTX(dbg_tweak, vrend_state.current_ctx,
+                        "%s\n", (retval != format ? "... replace" : ""));
+   }
+   return retval;
 }
 
 const struct vrend_format_table *
@@ -861,17 +1197,23 @@ vrend_get_format_table_entry(enum virgl_formats format)
    return &tex_conv_table[format];
 }
 
+const struct vrend_format_table *
+      vrend_get_format_table_entry_with_emulation(uint32_t bind, enum virgl_formats format)
+{
+   return vrend_get_format_table_entry(vrend_format_replace_emulated(bind, format));
+}
+
 static bool vrend_is_timer_query(GLenum gltype)
 {
    return gltype == GL_TIMESTAMP ||
       gltype == GL_TIME_ELAPSED;
 }
 
-static void vrend_use_program(struct vrend_context *ctx, GLuint program_id)
+static void vrend_use_program(struct vrend_sub_context *sub_ctx, GLuint program_id)
 {
-   if (ctx->sub->program_id != program_id) {
+   if (sub_ctx->program_id != program_id) {
       glUseProgram(program_id);
-      ctx->sub->program_id = program_id;
+      sub_ctx->program_id = program_id;
    }
 }
 
@@ -886,17 +1228,6 @@ static void vrend_init_pstipple_texture(struct vrend_context *ctx)
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
    ctx->pstip_inited = true;
-}
-
-static void vrend_blend_enable(struct vrend_context *ctx, bool blend_enable)
-{
-   if (ctx->sub->blend_enabled != blend_enable) {
-      ctx->sub->blend_enabled = blend_enable;
-      if (blend_enable)
-         glEnable(GL_BLEND);
-      else
-         glDisable(GL_BLEND);
-   }
 }
 
 static void vrend_depth_test_enable(struct vrend_context *ctx, bool depth_test_enable)
@@ -925,10 +1256,10 @@ static void vrend_alpha_test_enable(struct vrend_context *ctx, bool alpha_test_e
    }
 }
 
-static void vrend_stencil_test_enable(struct vrend_context *ctx, bool stencil_test_enable)
+static void vrend_stencil_test_enable(struct vrend_sub_context *sub_ctx, bool stencil_test_enable)
 {
-   if (ctx->sub->stencil_test_enabled != stencil_test_enable) {
-      ctx->sub->stencil_test_enabled = stencil_test_enable;
+   if (sub_ctx->stencil_test_enabled != stencil_test_enable) {
+      sub_ctx->stencil_test_enabled = stencil_test_enable;
       if (stencil_test_enable)
          glEnable(GL_STENCIL_TEST);
       else
@@ -936,26 +1267,27 @@ static void vrend_stencil_test_enable(struct vrend_context *ctx, bool stencil_te
    }
 }
 
+MAYBE_UNUSED
 static void dump_stream_out(struct pipe_stream_output_info *so)
 {
    unsigned i;
    if (!so)
       return;
-   printf("streamout: %d\n", so->num_outputs);
-   printf("strides: ");
+   vrend_printf("streamout: %d\n", so->num_outputs);
+   vrend_printf("strides: ");
    for (i = 0; i < 4; i++)
-      printf("%d ", so->stride[i]);
-   printf("\n");
-   printf("outputs:\n");
+      vrend_printf("%d ", so->stride[i]);
+   vrend_printf("\n");
+   vrend_printf("outputs:\n");
    for (i = 0; i < so->num_outputs; i++) {
-      printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d st: %d\n",
-             i,
-             so->output[i].register_index,
-             so->output[i].start_component,
-             so->output[i].num_components,
-             so->output[i].output_buffer,
-             so->output[i].dst_offset,
-             so->output[i].stream);
+      vrend_printf("\t%d: reg: %d sc: %d, nc: %d ob: %d do: %d st: %d\n",
+                   i,
+                   so->output[i].register_index,
+                   so->output[i].start_component,
+                   so->output[i].num_components,
+                   so->output[i].output_buffer,
+                   so->output[i].dst_offset,
+                   so->output[i].stream);
    }
 }
 
@@ -983,7 +1315,9 @@ static char *get_skip_str(int *skip_val)
    return start_skip;
 }
 
-static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo)
+static void set_stream_out_varyings(MAYBE_UNUSED struct vrend_sub_context *sub_ctx,
+                                    int prog_id,
+                                    struct vrend_shader_info *sinfo)
 {
    struct pipe_stream_output_info *so = &sinfo->so_info;
    char *varyings[PIPE_MAX_SHADER_OUTPUTS*2];
@@ -996,8 +1330,7 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
    if (!so->num_outputs)
       return;
 
-   if (vrend_dump_shaders)
-      dump_stream_out(so);
+   VREND_DEBUG_EXT(dbg_shader_streamout, sub_ctx->parent, dump_stream_out(so));
 
    for (i = 0; i < so->num_outputs; i++) {
       if (last_buffer != so->output[i].output_buffer) {
@@ -1042,8 +1375,8 @@ static void set_stream_out_varyings(int prog_id, struct vrend_shader_info *sinfo
          free(varyings[i]);
 }
 
-static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
-                              int id)
+static int bind_sampler_locs(struct vrend_linked_shader_program *sprog,
+                             int id, int next_sampler_id)
 {
    if (sprog->ss[id]->sel->sinfo.samplers_used_mask) {
       uint32_t mask = sprog->ss[id]->sel->sinfo.samplers_used_mask;
@@ -1056,75 +1389,73 @@ static void bind_sampler_locs(struct vrend_linked_shader_program *sprog,
       } else {
          sprog->shadow_samp_mask_locs[id] = sprog->shadow_samp_add_locs[id] = NULL;
       }
-      sprog->samp_locs[id] = calloc(nsamp, sizeof(uint32_t));
-      if (sprog->samp_locs[id]) {
-         const char *prefix = pipe_shader_to_prefix(id);
-         index = 0;
-         while(mask) {
-            uint32_t i = u_bit_scan(&mask);
-            char name[64];
-            if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
-               int arr_idx = shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
-               snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - arr_idx);
-            } else
-               snprintf(name, 32, "%ssamp%d", prefix, i);
-            sprog->samp_locs[id][index] = glGetUniformLocation(sprog->id, name);
-            if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
-               snprintf(name, 32, "%sshadmask%d", prefix, i);
-               sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(sprog->id, name);
-               snprintf(name, 32, "%sshadadd%d", prefix, i);
-               sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(sprog->id, name);
-            }
-            index++;
+      const char *prefix = pipe_shader_to_prefix(id);
+      index = 0;
+      while(mask) {
+         uint32_t i = u_bit_scan(&mask);
+         char name[64];
+         if (sprog->ss[id]->sel->sinfo.num_sampler_arrays) {
+            int arr_idx = vrend_shader_lookup_sampler_array(&sprog->ss[id]->sel->sinfo, i);
+            snprintf(name, 32, "%ssamp%d[%d]", prefix, arr_idx, i - arr_idx);
+         } else
+            snprintf(name, 32, "%ssamp%d", prefix, i);
+
+         glUniform1i(glGetUniformLocation(sprog->id, name), next_sampler_id++);
+
+         if (sprog->ss[id]->sel->sinfo.shadow_samp_mask & (1 << i)) {
+            snprintf(name, 32, "%sshadmask%d", prefix, i);
+            sprog->shadow_samp_mask_locs[id][index] = glGetUniformLocation(sprog->id, name);
+            snprintf(name, 32, "%sshadadd%d", prefix, i);
+            sprog->shadow_samp_add_locs[id][index] = glGetUniformLocation(sprog->id, name);
          }
+         index++;
       }
    } else {
-      sprog->samp_locs[id] = NULL;
       sprog->shadow_samp_mask_locs[id] = NULL;
       sprog->shadow_samp_add_locs[id] = NULL;
       sprog->shadow_samp_mask[id] = 0;
    }
    sprog->samplers_used_mask[id] = sprog->ss[id]->sel->sinfo.samplers_used_mask;
+
+   return next_sampler_id;
 }
 
 static void bind_const_locs(struct vrend_linked_shader_program *sprog,
                             int id)
 {
   if (sprog->ss[id]->sel->sinfo.num_consts) {
-      sprog->const_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_consts, sizeof(uint32_t));
-      if (sprog->const_locs[id]) {
-         const char *prefix = pipe_shader_to_prefix(id);
-         for (int i = 0; i < sprog->ss[id]->sel->sinfo.num_consts; i++) {
-            char name[32];
-            snprintf(name, 32, "%sconst0[%d]", prefix, i);
-            sprog->const_locs[id][i] = glGetUniformLocation(sprog->id, name);
-         }
-      }
-   } else
-      sprog->const_locs[id] = NULL;
+     char name[32];
+     snprintf(name, 32, "%sconst0", pipe_shader_to_prefix(id));
+     sprog->const_location[id] = glGetUniformLocation(sprog->id, name);
+  } else
+      sprog->const_location[id] = -1;
 }
 
-static void bind_ubo_locs(struct vrend_linked_shader_program *sprog,
-                          int id)
+static int bind_ubo_locs(struct vrend_linked_shader_program *sprog,
+                         int id, int next_ubo_id)
 {
    if (!has_feature(feat_ubo))
-      return;
-   if (sprog->ss[id]->sel->sinfo.num_ubos) {
+      return next_ubo_id;
+   if (sprog->ss[id]->sel->sinfo.ubo_used_mask) {
       const char *prefix = pipe_shader_to_prefix(id);
 
-      sprog->ubo_locs[id] = calloc(sprog->ss[id]->sel->sinfo.num_ubos, sizeof(uint32_t));
-      for (int i = 0; i < sprog->ss[id]->sel->sinfo.num_ubos; i++) {
-         int ubo_idx = sprog->ss[id]->sel->sinfo.ubo_idx[i];
+      unsigned mask = sprog->ss[id]->sel->sinfo.ubo_used_mask;
+      while (mask) {
+         uint32_t ubo_idx = u_bit_scan(&mask);
          char name[32];
          if (sprog->ss[id]->sel->sinfo.ubo_indirect)
             snprintf(name, 32, "%subo[%d]", prefix, ubo_idx - 1);
          else
             snprintf(name, 32, "%subo%d", prefix, ubo_idx);
 
-         sprog->ubo_locs[id][i] = glGetUniformBlockIndex(sprog->id, name);
+         GLuint loc = glGetUniformBlockIndex(sprog->id, name);
+         glUniformBlockBinding(sprog->id, loc, next_ubo_id++);
       }
-   } else
-      sprog->ubo_locs[id] = NULL;
+   }
+
+   sprog->ubo_used_mask[id] = sprog->ss[id]->sel->sinfo.ubo_used_mask;
+
+   return next_ubo_id;
 }
 
 static void bind_ssbo_locs(struct vrend_linked_shader_program *sprog,
@@ -1156,10 +1487,13 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
    char name[32];
    const char *prefix = pipe_shader_to_prefix(id);
 
+   uint32_t mask = sprog->ss[id]->sel->sinfo.images_used_mask;
+   if (!mask && ! sprog->ss[id]->sel->sinfo.num_image_arrays)
+      return;
+
    if (!has_feature(feat_images))
       return;
 
-   uint32_t mask = sprog->ss[id]->sel->sinfo.images_used_mask;
    int nsamp = util_last_bit(mask);
    if (nsamp) {
       sprog->img_locs[id] = calloc(nsamp, sizeof(GLint));
@@ -1175,7 +1509,7 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
             snprintf(name, 32, "%simg%d[%d]", prefix, img_array->first, j);
             sprog->img_locs[id][img_array->first + j] = glGetUniformLocation(sprog->id, name);
             if (sprog->img_locs[id][img_array->first + j] == -1)
-               fprintf(stderr, "failed to get uniform loc for image %s\n", name);
+               vrend_printf( "failed to get uniform loc for image %s\n", name);
          }
       }
    } else if (mask) {
@@ -1184,7 +1518,7 @@ static void bind_image_locs(struct vrend_linked_shader_program *sprog,
             snprintf(name, 32, "%simg%d", prefix, i);
             sprog->img_locs[id][i] = glGetUniformLocation(sprog->id, name);
             if (sprog->img_locs[id][i] == -1)
-               fprintf(stderr, "failed to get uniform loc for image %s\n", name);
+               vrend_printf( "failed to get uniform loc for image %s\n", name);
          } else {
             sprog->img_locs[id][i] = -1;
          }
@@ -1208,10 +1542,10 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
       char infolog[65536];
       int len;
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
-      fprintf(stderr,"got error linking\n%s\n", infolog);
+      vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      fprintf(stderr,"compute shader: %d GLSL\n%s\n", cs->id, cs->glsl_prog);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_shader_dump(cs);
       glDeleteProgram(prog_id);
       free(sprog);
       return NULL;
@@ -1220,17 +1554,19 @@ static struct vrend_linked_shader_program *add_cs_shader_program(struct vrend_co
 
    list_add(&sprog->sl[PIPE_SHADER_COMPUTE], &cs->programs);
    sprog->id = prog_id;
-   list_addtail(&sprog->head, &ctx->sub->programs);
+   list_addtail(&sprog->head, &ctx->sub->cs_programs);
 
-   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE);
-   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE);
+   vrend_use_program(ctx->sub, prog_id);
+
+   bind_sampler_locs(sprog, PIPE_SHADER_COMPUTE, 0);
+   bind_ubo_locs(sprog, PIPE_SHADER_COMPUTE, 0);
    bind_ssbo_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_const_locs(sprog, PIPE_SHADER_COMPUTE);
    bind_image_locs(sprog, PIPE_SHADER_COMPUTE);
    return sprog;
 }
 
-static struct vrend_linked_shader_program *add_shader_program(struct vrend_context *ctx,
+static struct vrend_linked_shader_program *add_shader_program(struct vrend_sub_context *sub_ctx,
                                                               struct vrend_shader *vs,
                                                               struct vrend_shader *fs,
                                                               struct vrend_shader *gs,
@@ -1244,46 +1580,8 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    GLint lret;
    int id;
    int last_shader;
-   bool do_patch = false;
    if (!sprog)
       return NULL;
-
-   /* need to rewrite VS code to add interpolation params */
-   if (gs && gs->compiled_fs_id != fs->id)
-      do_patch = true;
-   if (!gs && tes && tes->compiled_fs_id != fs->id)
-      do_patch = true;
-   if (!gs && !tes && vs->compiled_fs_id != fs->id)
-      do_patch = true;
-
-   if (do_patch) {
-      bool ret;
-
-      if (gs)
-         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, gs->glsl_prog,
-                                                &gs->sel->sinfo,
-                                                &fs->sel->sinfo, "gso", fs->key.flatshade);
-      else if (tes)
-         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, tes->glsl_prog,
-                                                &tes->sel->sinfo,
-                                                &fs->sel->sinfo, "teo", fs->key.flatshade);
-      else
-         vrend_patch_vertex_shader_interpolants(&ctx->shader_cfg, vs->glsl_prog,
-                                                &vs->sel->sinfo,
-                                                &fs->sel->sinfo, "vso", fs->key.flatshade);
-      ret = vrend_compile_shader(ctx, gs ? gs : (tes ? tes : vs));
-      if (ret == false) {
-         glDeleteShader(gs ? gs->id : (tes ? tes->id : vs->id));
-         free(sprog);
-         return NULL;
-      }
-      if (gs)
-         gs->compiled_fs_id = fs->id;
-      else if (tes)
-         tes->compiled_fs_id = fs->id;
-      else
-         vs->compiled_fs_id = fs->id;
-   }
 
    prog_id = glCreateProgram();
    glAttachShader(prog_id, vs->id);
@@ -1295,21 +1593,27 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    if (gs) {
       if (gs->id > 0)
          glAttachShader(prog_id, gs->id);
-      set_stream_out_varyings(prog_id, &gs->sel->sinfo);
+      set_stream_out_varyings(sub_ctx, prog_id, &gs->sel->sinfo);
    } else if (tes)
-      set_stream_out_varyings(prog_id, &tes->sel->sinfo);
+      set_stream_out_varyings(sub_ctx, prog_id, &tes->sel->sinfo);
    else
-      set_stream_out_varyings(prog_id, &vs->sel->sinfo);
+      set_stream_out_varyings(sub_ctx, prog_id, &vs->sel->sinfo);
    glAttachShader(prog_id, fs->id);
 
    if (fs->sel->sinfo.num_outputs > 1) {
-      if (util_blend_state_is_dual(&ctx->sub->blend_state, 0)) {
-         glBindFragDataLocationIndexed(prog_id, 0, 0, "fsout_c0");
-         glBindFragDataLocationIndexed(prog_id, 0, 1, "fsout_c1");
+      if (util_blend_state_is_dual(&sub_ctx->blend_state, 0)) {
+         if (has_feature(feat_dual_src_blend)) {
+            glBindFragDataLocationIndexed(prog_id, 0, 0, "fsout_c0");
+            glBindFragDataLocationIndexed(prog_id, 0, 1, "fsout_c1");
+         } else {
+            vrend_report_context_error(sub_ctx->parent, VIRGL_ERROR_CTX_ILLEGAL_DUAL_SRC_BLEND, 0);
+         }
          sprog->dual_src_linked = true;
       } else {
-         glBindFragDataLocationIndexed(prog_id, 0, 0, "fsout_c0");
-         glBindFragDataLocationIndexed(prog_id, 1, 0, "fsout_c1");
+         if (has_feature(feat_dual_src_blend)) {
+            glBindFragDataLocationIndexed(prog_id, 0, 0, "fsout_c0");
+            glBindFragDataLocationIndexed(prog_id, 1, 0, "fsout_c1");
+         }
          sprog->dual_src_linked = false;
       }
    } else
@@ -1331,13 +1635,13 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
       char infolog[65536];
       int len;
       glGetProgramInfoLog(prog_id, 65536, &len, infolog);
-      fprintf(stderr,"got error linking\n%s\n", infolog);
+      vrend_printf("got error linking\n%s\n", infolog);
       /* dump shaders */
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      fprintf(stderr,"vert shader: %d GLSL\n%s\n", vs->id, vs->glsl_prog);
+      vrend_report_context_error(sub_ctx->parent, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+      vrend_shader_dump(vs);
       if (gs)
-         fprintf(stderr,"geom shader: %d GLSL\n%s\n", gs->id, gs->glsl_prog);
-      fprintf(stderr,"frag shader: %d GLSL\n%s\n", fs->id, fs->glsl_prog);
+         vrend_shader_dump(gs);
+      vrend_shader_dump(fs);
       glDeleteProgram(prog_id);
       free(sprog);
       return NULL;
@@ -1345,6 +1649,9 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
 
    sprog->ss[PIPE_SHADER_VERTEX] = vs;
    sprog->ss[PIPE_SHADER_FRAGMENT] = fs;
+   sprog->vs_fs_key = (((uint64_t)fs->id) << 32) | (vs->id & ~VREND_PROGRAM_NQUEUE_MASK) |
+                      (sprog->dual_src_linked ? 1 : 0);
+
    sprog->ss[PIPE_SHADER_GEOMETRY] = gs;
    sprog->ss[PIPE_SHADER_TESS_CTRL] = tcs;
    sprog->ss[PIPE_SHADER_TESS_EVAL] = tes;
@@ -1361,20 +1668,28 @@ static struct vrend_linked_shader_program *add_shader_program(struct vrend_conte
    last_shader = tes ? PIPE_SHADER_TESS_EVAL : (gs ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
    sprog->id = prog_id;
 
-   list_addtail(&sprog->head, &ctx->sub->programs);
+   list_addtail(&sprog->head, &sub_ctx->gl_programs[vs->id & VREND_PROGRAM_NQUEUE_MASK]);
 
    if (fs->key.pstipple_tex)
       sprog->fs_stipple_loc = glGetUniformLocation(prog_id, "pstipple_sampler");
    else
       sprog->fs_stipple_loc = -1;
+   if (vrend_shader_needs_alpha_func(&fs->key))
+      sprog->fs_alpha_ref_val_loc = glGetUniformLocation(prog_id, "alpha_ref_val");
+   else
+      sprog->fs_alpha_ref_val_loc = -1;
    sprog->vs_ws_adjust_loc = glGetUniformLocation(prog_id, "winsys_adjust_y");
+
+   vrend_use_program(sub_ctx, prog_id);
+
+   int next_ubo_id = 0, next_sampler_id = 0;
    for (id = PIPE_SHADER_VERTEX; id <= last_shader; id++) {
       if (!sprog->ss[id])
          continue;
 
-      bind_sampler_locs(sprog, id);
+      next_sampler_id = bind_sampler_locs(sprog, id, next_sampler_id);
       bind_const_locs(sprog, id);
-      bind_ubo_locs(sprog, id);
+      next_ubo_id = bind_ubo_locs(sprog, id, next_ubo_id);
       bind_image_locs(sprog, id);
       bind_ssbo_locs(sprog, id);
    }
@@ -1405,16 +1720,17 @@ static struct vrend_linked_shader_program *lookup_cs_shader_program(struct vrend
                                                                     GLuint cs_id)
 {
    struct vrend_linked_shader_program *ent;
-   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
-      if (!ent->ss[PIPE_SHADER_COMPUTE])
-         continue;
-      if (ent->ss[PIPE_SHADER_COMPUTE]->id == cs_id)
+   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->cs_programs, head) {
+      if (ent->ss[PIPE_SHADER_COMPUTE]->id == cs_id) {
+         list_del(&ent->head);
+         list_add(&ent->head, &ctx->sub->cs_programs);
          return ent;
+      }
    }
    return NULL;
 }
 
-static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_context *ctx,
+static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_sub_context *sub_ctx,
                                                                  GLuint vs_id,
                                                                  GLuint fs_id,
                                                                  GLuint gs_id,
@@ -1422,16 +1738,15 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
                                                                  GLuint tes_id,
                                                                  bool dual_src)
 {
+   uint64_t vs_fs_key = (((uint64_t)fs_id) << 32) | (vs_id & ~VREND_PROGRAM_NQUEUE_MASK) |
+                        (dual_src ? 1 : 0);
+
    struct vrend_linked_shader_program *ent;
-   LIST_FOR_EACH_ENTRY(ent, &ctx->sub->programs, head) {
-      if (ent->dual_src_linked != dual_src)
+
+   struct list_head *programs = &sub_ctx->gl_programs[vs_id & VREND_PROGRAM_NQUEUE_MASK];
+   LIST_FOR_EACH_ENTRY(ent, programs, head) {
+      if (likely(ent->vs_fs_key != vs_fs_key))
          continue;
-      if (ent->ss[PIPE_SHADER_COMPUTE])
-         continue;
-      if (ent->ss[PIPE_SHADER_VERTEX]->id != vs_id)
-        continue;
-      if (ent->ss[PIPE_SHADER_FRAGMENT]->id != fs_id)
-        continue;
       if (ent->ss[PIPE_SHADER_GEOMETRY] &&
           ent->ss[PIPE_SHADER_GEOMETRY]->id != gs_id)
         continue;
@@ -1441,14 +1756,23 @@ static struct vrend_linked_shader_program *lookup_shader_program(struct vrend_co
       if (ent->ss[PIPE_SHADER_TESS_EVAL] &&
           ent->ss[PIPE_SHADER_TESS_EVAL]->id != tes_id)
          continue;
+      /* put the entry in front */
+      if (programs->next != &ent->head) {
+         list_del(&ent->head);
+         list_add(&ent->head, programs);
+      }
       return ent;
    }
+
    return NULL;
 }
 
 static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
 {
    int i;
+   if (ent->ref_context && ent->ref_context->prog == ent)
+      ent->ref_context->prog = NULL;
+
    glDeleteProgram(ent->id);
    list_del(&ent->head);
 
@@ -1457,11 +1781,8 @@ static void vrend_destroy_program(struct vrend_linked_shader_program *ent)
          list_del(&ent->sl[i]);
       free(ent->shadow_samp_mask_locs[i]);
       free(ent->shadow_samp_add_locs[i]);
-      free(ent->samp_locs[i]);
       free(ent->ssbo_locs[i]);
       free(ent->img_locs[i]);
-      free(ent->const_locs[i]);
-      free(ent->ubo_locs[i]);
    }
    free(ent->attrib_locs);
    free(ent);
@@ -1471,11 +1792,16 @@ static void vrend_free_programs(struct vrend_sub_context *sub)
 {
    struct vrend_linked_shader_program *ent, *tmp;
 
-   if (LIST_IS_EMPTY(&sub->programs))
-      return;
+   if (!LIST_IS_EMPTY(&sub->cs_programs)) {
+      LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->cs_programs, head)
+         vrend_destroy_program(ent);
+   }
 
-   LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->programs, head) {
-      vrend_destroy_program(ent);
+   for (unsigned i = 0; i < VREND_PROGRAM_NQUEUES; ++i) {
+      if (!LIST_IS_EMPTY(&sub->gl_programs[i])) {
+         LIST_FOR_EACH_ENTRY_SAFE(ent, tmp, &sub->gl_programs[i], head)
+            vrend_destroy_program(ent);
+      }
    }
 }
 
@@ -1488,6 +1814,13 @@ static void vrend_destroy_streamout_object(struct vrend_streamout_object *obj)
    if (has_feature(feat_transform_feedback2))
       glDeleteTransformFeedbacks(1, &obj->id);
    FREE(obj);
+}
+
+void vrend_sync_make_current(virgl_gl_context gl_cxt) {
+   GLsync sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+   vrend_clicbs->make_current(gl_cxt);
+   glWaitSync(sync, 0, GL_TIMEOUT_IGNORED);
+   glDeleteSync(sync);
 }
 
 int vrend_create_surface(struct vrend_context *ctx,
@@ -1505,7 +1838,7 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 
@@ -1515,11 +1848,14 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    surf->res_handle = res_handle;
    surf->format = format;
+   format = vrend_format_replace_emulated(res->base.bind, format);
+
    surf->val0 = val0;
    surf->val1 = val1;
    surf->id = res->id;
 
-   if (has_feature(feat_texture_view) && !res->is_buffer) {
+   if (!has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER) &&
+         vrend_format_can_texture_view(format)) {
       /* We don't need texture views for buffer objects.
        * Otherwise we only need a texture view if the
        * a) formats differ between the surface and base texture
@@ -1531,12 +1867,27 @@ int vrend_create_surface(struct vrend_context *ctx,
       int first_layer = surf->val1 & 0xffff;
       int last_layer = (surf->val1 >> 16) & 0xffff;
 
+      VREND_DEBUG(dbg_tex, ctx, "Create texture view from %s for %s (emulated:%d)\n",
+                  util_format_name(res->base.format),
+                  util_format_name(surf->format),
+                  surf->format != format);
+
       if ((first_layer != last_layer &&
            (first_layer != 0 || (last_layer != (int)util_max_layer(&res->base, surf->val0)))) ||
           surf->format != res->base.format) {
-         GLenum internalformat = tex_conv_table[surf->format].internalformat;
+         GLenum target = res->target;
+         GLenum internalformat = tex_conv_table[format].internalformat;
+
          glGenTextures(1, &surf->id);
-         glTextureView(surf->id, res->target, res->id, internalformat,
+         if (vrend_state.use_gles) {
+            if (target == GL_TEXTURE_RECTANGLE_NV ||
+                target == GL_TEXTURE_1D)
+               target = GL_TEXTURE_2D;
+            else if (target == GL_TEXTURE_1D_ARRAY)
+               target = GL_TEXTURE_2D_ARRAY;
+         }
+
+         glTextureView(surf->id, target, res->id, internalformat,
                        0, res->base.last_level + 1,
                        first_layer, last_layer - first_layer + 1);
       }
@@ -1546,7 +1897,7 @@ int vrend_create_surface(struct vrend_context *ctx,
 
    vrend_resource_reference(&surf->texture, res);
 
-   ret_handle = vrend_renderer_object_insert(ctx, surf, sizeof(*surf), handle, VIRGL_OBJECT_SURFACE);
+   ret_handle = vrend_renderer_object_insert(ctx, surf, handle, VIRGL_OBJECT_SURFACE);
    if (ret_handle == 0) {
       FREE(surf);
       return ENOMEM;
@@ -1616,7 +1967,7 @@ static void vrend_destroy_sampler_state_object(void *obj_ptr)
    struct vrend_sampler_state *state = obj_ptr;
 
    if (has_feature(feat_samplers))
-      glDeleteSamplers(1, &state->id);
+      glDeleteSamplers(2, state->ids);
    FREE(state);
 }
 
@@ -1665,6 +2016,16 @@ static inline GLenum convert_min_filter(unsigned int filter, unsigned int mip_fi
    return 0;
 }
 
+static void apply_sampler_border_color(GLuint sampler,
+                                       const GLuint colors[static 4])
+{
+   if (has_feature(feat_sampler_border_colors)) {
+      glSamplerParameterIuiv(sampler, GL_TEXTURE_BORDER_COLOR, colors);
+   } else if (colors[0] || colors[1] || colors[2] || colors[3]) {
+      vrend_printf("sampler border color setting requested but not supported\n");
+   }
+}
+
 int vrend_create_sampler_state(struct vrend_context *ctx,
                                uint32_t handle,
                                struct pipe_sampler_state *templ)
@@ -1678,33 +2039,42 @@ int vrend_create_sampler_state(struct vrend_context *ctx,
    state->base = *templ;
 
    if (has_feature(feat_samplers)) {
-      glGenSamplers(1, &state->id);
+      glGenSamplers(2, state->ids);
 
-      glSamplerParameteri(state->id, GL_TEXTURE_WRAP_S, convert_wrap(templ->wrap_s));
-      glSamplerParameteri(state->id, GL_TEXTURE_WRAP_T, convert_wrap(templ->wrap_t));
-      glSamplerParameteri(state->id, GL_TEXTURE_WRAP_R, convert_wrap(templ->wrap_r));
-      glSamplerParameterf(state->id, GL_TEXTURE_MIN_FILTER, convert_min_filter(templ->min_img_filter, templ->min_mip_filter));
-      glSamplerParameterf(state->id, GL_TEXTURE_MAG_FILTER, convert_mag_filter(templ->mag_img_filter));
-      glSamplerParameterf(state->id, GL_TEXTURE_MIN_LOD, templ->min_lod);
-      glSamplerParameterf(state->id, GL_TEXTURE_MAX_LOD, templ->max_lod);
-      glSamplerParameteri(state->id, GL_TEXTURE_COMPARE_MODE, templ->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
-      glSamplerParameteri(state->id, GL_TEXTURE_COMPARE_FUNC, GL_NEVER + templ->compare_func);
-      if (vrend_state.use_gles) {
-         if (templ->lod_bias != 0.0f) {
-            report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
+      for (int i = 0; i < 2; ++i) {
+         glSamplerParameteri(state->ids[i], GL_TEXTURE_WRAP_S, convert_wrap(templ->wrap_s));
+         glSamplerParameteri(state->ids[i], GL_TEXTURE_WRAP_T, convert_wrap(templ->wrap_t));
+         glSamplerParameteri(state->ids[i], GL_TEXTURE_WRAP_R, convert_wrap(templ->wrap_r));
+         glSamplerParameterf(state->ids[i], GL_TEXTURE_MIN_FILTER, convert_min_filter(templ->min_img_filter, templ->min_mip_filter));
+         glSamplerParameterf(state->ids[i], GL_TEXTURE_MAG_FILTER, convert_mag_filter(templ->mag_img_filter));
+         glSamplerParameterf(state->ids[i], GL_TEXTURE_MIN_LOD, templ->min_lod);
+         glSamplerParameterf(state->ids[i], GL_TEXTURE_MAX_LOD, templ->max_lod);
+         glSamplerParameteri(state->ids[i], GL_TEXTURE_COMPARE_MODE, templ->compare_mode ? GL_COMPARE_R_TO_TEXTURE : GL_NONE);
+         glSamplerParameteri(state->ids[i], GL_TEXTURE_COMPARE_FUNC, GL_NEVER + templ->compare_func);
+         if (vrend_state.use_gles) {
+            if (templ->lod_bias)
+               report_gles_warn(ctx, GLES_WARN_LOD_BIAS);
+         } else
+            glSamplerParameterf(state->ids[i], GL_TEXTURE_LOD_BIAS, templ->lod_bias);
+
+         if (vrend_state.use_gles) {
+            if (templ->seamless_cube_map != 0) {
+               report_gles_warn(ctx, GLES_WARN_SEAMLESS_CUBE_MAP);
+            }
+         } else {
+            glSamplerParameteri(state->ids[i], GL_TEXTURE_CUBE_MAP_SEAMLESS, templ->seamless_cube_map);
+
          }
-      } else {
-         glSamplerParameteri(state->id, GL_TEXTURE_CUBE_MAP_SEAMLESS, templ->seamless_cube_map);
-         glSamplerParameterf(state->id, GL_TEXTURE_LOD_BIAS, templ->lod_bias);
-      }
 
-      glSamplerParameterIuiv(state->id, GL_TEXTURE_BORDER_COLOR, templ->border_color.ui);
+         apply_sampler_border_color(state->ids[i], templ->border_color.ui);
+         glSamplerParameteri(state->ids[i], GL_TEXTURE_SRGB_DECODE_EXT, i == 0 ? GL_SKIP_DECODE_EXT : GL_DECODE_EXT);
+      }
    }
-   ret_handle = vrend_renderer_object_insert(ctx, state, sizeof(struct vrend_sampler_state), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, state, handle,
                                              VIRGL_OBJECT_SAMPLER_STATE);
    if (!ret_handle) {
       if (has_feature(feat_samplers))
-         glDeleteSamplers(1, &state->id);
+         glDeleteSamplers(2, state->ids);
       FREE(state);
       return ENOMEM;
    }
@@ -1738,7 +2108,7 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 
@@ -1748,11 +2118,34 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
 
    pipe_reference_init(&view->reference, 1);
    view->format = format & 0xffffff;
-   view->target = tgsitargettogltarget((format >> 24) & 0xff, res->base.nr_samples);
+
+   if (!view->format || view->format >= VIRGL_FORMAT_MAX) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, view->format);
+      FREE(view);
+      return EINVAL;
+   }
+
+   uint32_t pipe_target = (format >> 24) & 0xff;
+   if (pipe_target >= PIPE_MAX_TEXTURE_TYPES) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SAMPLER_VIEW_TARGET,
+                           view->format);
+      FREE(view);
+      return EINVAL;
+   }
+
+   view->target = tgsitargettogltarget(pipe_target, res->base.nr_samples);
+
+   /* Work around TEXTURE_RECTANGLE and TEXTURE_1D missing on GLES */
+   if (vrend_state.use_gles) {
+      if (view->target == GL_TEXTURE_RECTANGLE_NV ||
+          view->target == GL_TEXTURE_1D)
+         view->target = GL_TEXTURE_2D;
+      else if (view->target == GL_TEXTURE_1D_ARRAY)
+         view->target = GL_TEXTURE_2D_ARRAY;
+   }
+
    view->val0 = val0;
    view->val1 = val1;
-   view->cur_base = -1;
-   view->cur_max = 10000;
 
    swizzle[0] = swizzle_packed & 0x7;
    swizzle[1] = (swizzle_packed >> 3) & 0x7;
@@ -1762,11 +2155,43 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    vrend_resource_reference(&view->texture, res);
 
    view->id = view->texture->id;
-   if (!view->target)
+   if (view->target == PIPE_BUFFER)
       view->target = view->texture->target;
 
-   if (has_feature(feat_texture_view) && !view->texture->is_buffer)  {
-      enum pipe_format format;
+   view->srgb_decode = GL_DECODE_EXT;
+   if (view->format != view->texture->base.format) {
+      if (util_format_is_srgb(view->texture->base.format) &&
+          !util_format_is_srgb(view->format))
+         view->srgb_decode = GL_SKIP_DECODE_EXT;
+   }
+
+   if (!(util_format_has_alpha(view->format) || util_format_is_depth_or_stencil(view->format))) {
+      if (swizzle[0] == PIPE_SWIZZLE_ALPHA)
+          swizzle[0] = PIPE_SWIZZLE_ONE;
+      if (swizzle[1] == PIPE_SWIZZLE_ALPHA)
+          swizzle[1] = PIPE_SWIZZLE_ONE;
+      if (swizzle[2] == PIPE_SWIZZLE_ALPHA)
+          swizzle[2] = PIPE_SWIZZLE_ONE;
+      if (swizzle[3] == PIPE_SWIZZLE_ALPHA)
+          swizzle[3] = PIPE_SWIZZLE_ONE;
+   }
+
+   if (tex_conv_table[view->format].flags & VIRGL_TEXTURE_NEED_SWIZZLE) {
+      if (swizzle[0] <= PIPE_SWIZZLE_ALPHA)
+         swizzle[0] = tex_conv_table[view->format].swizzle[swizzle[0]];
+      if (swizzle[1] <= PIPE_SWIZZLE_ALPHA)
+         swizzle[1] = tex_conv_table[view->format].swizzle[swizzle[1]];
+      if (swizzle[2] <= PIPE_SWIZZLE_ALPHA)
+         swizzle[2] = tex_conv_table[view->format].swizzle[swizzle[2]];
+      if (swizzle[3] <= PIPE_SWIZZLE_ALPHA)
+         swizzle[3] = tex_conv_table[view->format].swizzle[swizzle[3]];
+   }
+
+   for (unsigned i = 0; i < 4; ++i)
+      view->gl_swizzle[i] = to_gl_swizzle(swizzle[i]);
+
+   if (!has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+      enum virgl_formats format;
       bool needs_view = false;
 
       /*
@@ -1792,56 +2217,64 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
          format = view->texture->base.format;
       else if (view->format != view->texture->base.format)
          needs_view = true;
-      if (needs_view) {
+
+      if (needs_view && vrend_format_can_texture_view(view->texture->base.format)) {
         glGenTextures(1, &view->id);
         GLenum internalformat = tex_conv_table[format].internalformat;
         unsigned base_layer = view->val0 & 0xffff;
         unsigned max_layer = (view->val0 >> 16) & 0xffff;
-        view->cur_base = view->val1 & 0xff;
-        view->cur_max = (view->val1 >> 8) & 0xff;
+        int base_level = view->val1 & 0xff;
+        int max_level = (view->val1 >> 8) & 0xff;
+
         glTextureView(view->id, view->target, view->texture->id, internalformat,
-                      view->cur_base, (view->cur_max - view->cur_base) + 1,
+                      base_level, (max_level - base_level) + 1,
                       base_layer, max_layer - base_layer + 1);
-     }
+
+        glBindTexture(view->target, view->id);
+
+        if (util_format_is_depth_or_stencil(view->format)) {
+           if (vrend_state.use_core_profile == false) {
+              /* setting depth texture mode is deprecated in core profile */
+              if (view->depth_texture_mode != GL_RED) {
+                 glTexParameteri(view->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
+                 view->depth_texture_mode = GL_RED;
+              }
+           }
+           if (has_feature(feat_stencil_texturing)) {
+              const struct util_format_description *desc = util_format_description(view->format);
+              if (!util_format_has_depth(desc)) {
+                 glTexParameteri(view->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+              } else {
+                 glTexParameteri(view->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+              }
+           }
+        }
+
+        glTexParameteri(view->target, GL_TEXTURE_BASE_LEVEL, base_level);
+        glTexParameteri(view->target, GL_TEXTURE_MAX_LEVEL, max_level);
+        if (vrend_state.use_gles) {
+           for (unsigned int i = 0; i < 4; ++i) {
+              glTexParameteri(view->target, GL_TEXTURE_SWIZZLE_R + i, view->gl_swizzle[i]);
+           }
+        } else
+           glTexParameteriv(view->target, GL_TEXTURE_SWIZZLE_RGBA, view->gl_swizzle);
+        if (util_format_is_srgb(view->format) &&
+            has_feature(feat_texture_srgb_decode)) {
+           glTexParameteri(view->target, GL_TEXTURE_SRGB_DECODE_EXT,
+                            view->srgb_decode);
+        }
+        glBindTexture(view->target, 0);
+      } else if (needs_view && view->val0 < ARRAY_SIZE(res->aux_plane_egl_image) &&
+            res->aux_plane_egl_image[view->val0]) {
+        void *image = res->aux_plane_egl_image[view->val0];
+        glGenTextures(1, &view->id);
+        glBindTexture(view->target, view->id);
+        glEGLImageTargetTexture2DOES(view->target, (GLeglImageOES) image);
+        glBindTexture(view->target, 0);
+      }
    }
-   view->srgb_decode = GL_DECODE_EXT;
-   if (view->format != view->texture->base.format) {
-      if (util_format_is_srgb(view->texture->base.format) &&
-          !util_format_is_srgb(view->format))
-         view->srgb_decode = GL_SKIP_DECODE_EXT;
-   }
 
-   if (!(util_format_has_alpha(view->format) || util_format_is_depth_or_stencil(view->format))) {
-      if (swizzle[0] == PIPE_SWIZZLE_ALPHA)
-          swizzle[0] = PIPE_SWIZZLE_ONE;
-      if (swizzle[1] == PIPE_SWIZZLE_ALPHA)
-          swizzle[1] = PIPE_SWIZZLE_ONE;
-      if (swizzle[2] == PIPE_SWIZZLE_ALPHA)
-          swizzle[2] = PIPE_SWIZZLE_ONE;
-      if (swizzle[3] == PIPE_SWIZZLE_ALPHA)
-          swizzle[3] = PIPE_SWIZZLE_ONE;
-   }
-
-   if (tex_conv_table[view->format].flags & VIRGL_BIND_NEED_SWIZZLE) {
-      if (swizzle[0] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[0] = tex_conv_table[view->format].swizzle[swizzle[0]];
-      if (swizzle[1] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[1] = tex_conv_table[view->format].swizzle[swizzle[1]];
-      if (swizzle[2] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[2] = tex_conv_table[view->format].swizzle[swizzle[2]];
-      if (swizzle[3] <= PIPE_SWIZZLE_ALPHA)
-         swizzle[3] = tex_conv_table[view->format].swizzle[swizzle[3]];
-   }
-
-   view->gl_swizzle_r = to_gl_swizzle(swizzle[0]);
-   view->gl_swizzle_g = to_gl_swizzle(swizzle[1]);
-   view->gl_swizzle_b = to_gl_swizzle(swizzle[2]);
-   view->gl_swizzle_a = to_gl_swizzle(swizzle[3]);
-
-   view->cur_swizzle_r = view->cur_swizzle_g =
-         view->cur_swizzle_b = view->cur_swizzle_a = -1;
-
-   ret_handle = vrend_renderer_object_insert(ctx, view, sizeof(*view), handle, VIRGL_OBJECT_SAMPLER_VIEW);
+   ret_handle = vrend_renderer_object_insert(ctx, view, handle, VIRGL_OBJECT_SAMPLER_VIEW);
    if (ret_handle == 0) {
       FREE(view);
       return ENOMEM;
@@ -1849,13 +2282,42 @@ int vrend_create_sampler_view(struct vrend_context *ctx,
    return 0;
 }
 
-static void vrend_fb_bind_texture_id(struct vrend_resource *res,
-                                     int id,
-                                     int idx,
-                                     uint32_t level, uint32_t layer)
+static
+void debug_texture(MAYBE_UNUSED const char *f, const struct vrend_resource *gt)
+{
+   MAYBE_UNUSED const struct pipe_resource *pr = &gt->base;
+#define PRINT_TARGET(X) case X: vrend_printf( #X); break
+   VREND_DEBUG_EXT(dbg_tex, NULL,
+               vrend_printf("%s: ", f);
+               switch (tgsitargettogltarget(pr->target, pr->nr_samples)) {
+               PRINT_TARGET(GL_TEXTURE_RECTANGLE_NV);
+               PRINT_TARGET(GL_TEXTURE_1D);
+               PRINT_TARGET(GL_TEXTURE_2D);
+               PRINT_TARGET(GL_TEXTURE_3D);
+               PRINT_TARGET(GL_TEXTURE_1D_ARRAY);
+               PRINT_TARGET(GL_TEXTURE_2D_ARRAY);
+               PRINT_TARGET(GL_TEXTURE_2D_MULTISAMPLE);
+               PRINT_TARGET(GL_TEXTURE_CUBE_MAP);
+               PRINT_TARGET(GL_TEXTURE_CUBE_MAP_ARRAY);
+               default:
+                  vrend_printf("UNKNOWN");
+               }
+               vrend_printf(" id:%d pipe_type:%d ms:%d format:%s size: %dx%dx%d mip:%d\n",
+                            gt->id, pr->target, pr->nr_samples, util_format_name(pr->format),
+                            pr->width0, pr->height0, pr->depth0, pr->last_level);
+               );
+#undef PRINT_TARGET
+}
+
+void vrend_fb_bind_texture_id(struct vrend_resource *res,
+                              int id,
+                              int idx,
+                              uint32_t level, uint32_t layer)
 {
    const struct util_format_description *desc = util_format_description(res->base.format);
-   GLenum attachment = GL_COLOR_ATTACHMENT0_EXT + idx;
+   GLenum attachment = GL_COLOR_ATTACHMENT0 + idx;
+
+   debug_texture(__func__, res);
 
    if (vrend_format_is_ds(res->base.format)) {
       if (util_format_has_stencil(desc)) {
@@ -1873,52 +2335,52 @@ static void vrend_fb_bind_texture_id(struct vrend_resource *res,
    case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
    case GL_TEXTURE_CUBE_MAP_ARRAY:
       if (layer == 0xffffffff)
-         glFramebufferTexture(GL_FRAMEBUFFER_EXT, attachment,
+         glFramebufferTexture(GL_FRAMEBUFFER, attachment,
                               id, level);
       else
-         glFramebufferTextureLayer(GL_FRAMEBUFFER_EXT, attachment,
+         glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment,
                                    id, level, layer);
       break;
    case GL_TEXTURE_3D:
       if (layer == 0xffffffff)
-         glFramebufferTexture(GL_FRAMEBUFFER_EXT, attachment,
+         glFramebufferTexture(GL_FRAMEBUFFER, attachment,
                               id, level);
       else if (vrend_state.use_gles)
-         glFramebufferTexture3DOES(GL_FRAMEBUFFER_EXT, attachment,
+         glFramebufferTexture3DOES(GL_FRAMEBUFFER, attachment,
                                    res->target, id, level, layer);
       else
-         glFramebufferTexture3DEXT(GL_FRAMEBUFFER_EXT, attachment,
-                                   res->target, id, level, layer);
+         glFramebufferTexture3D(GL_FRAMEBUFFER, attachment,
+                                res->target, id, level, layer);
       break;
    case GL_TEXTURE_CUBE_MAP:
       if (layer == 0xffffffff)
-         glFramebufferTexture(GL_FRAMEBUFFER_EXT, attachment,
+         glFramebufferTexture(GL_FRAMEBUFFER, attachment,
                               id, level);
       else
-         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, attachment,
-                                   GL_TEXTURE_CUBE_MAP_POSITIVE_X + layer, id, level);
+         glFramebufferTexture2D(GL_FRAMEBUFFER, attachment,
+                                GL_TEXTURE_CUBE_MAP_POSITIVE_X + layer, id, level);
       break;
    case GL_TEXTURE_1D:
-      glFramebufferTexture1DEXT(GL_FRAMEBUFFER_EXT, attachment,
-                                res->target, id, level);
+      glFramebufferTexture1D(GL_FRAMEBUFFER, attachment,
+                             res->target, id, level);
       break;
    case GL_TEXTURE_2D:
    default:
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, attachment,
-                                res->target, id, level);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, attachment,
+                             res->target, id, level);
       break;
    }
 
    if (attachment == GL_DEPTH_ATTACHMENT) {
       switch (res->target) {
       case GL_TEXTURE_1D:
-         glFramebufferTexture1DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT,
-                                   GL_TEXTURE_1D, 0, 0);
+         glFramebufferTexture1D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+                                GL_TEXTURE_1D, 0, 0);
          break;
       case GL_TEXTURE_2D:
       default:
-         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT,
-                                   GL_TEXTURE_2D, 0, 0);
+         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+                                GL_TEXTURE_2D, 0, 0);
          break;
       }
    }
@@ -1936,8 +2398,8 @@ static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
    struct vrend_surface *surf = ctx->sub->zsurf;
 
    if (!surf) {
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
-                                GL_TEXTURE_2D, 0, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                             GL_TEXTURE_2D, 0, 0);
    } else {
       uint32_t first_layer = surf->val1 & 0xffff;
       uint32_t last_layer = (surf->val1 >> 16) & 0xffff;
@@ -1950,51 +2412,50 @@ static void vrend_hw_set_zsurf_texture(struct vrend_context *ctx)
    }
 }
 
-static void vrend_hw_set_color_surface(struct vrend_context *ctx, int index)
+static void vrend_hw_set_color_surface(struct vrend_sub_context *sub_ctx, int index)
 {
-   struct vrend_surface *surf = ctx->sub->surf[index];
+   struct vrend_surface *surf = sub_ctx->surf[index];
 
    if (!surf) {
       GLenum attachment = GL_COLOR_ATTACHMENT0 + index;
 
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, attachment,
-                                GL_TEXTURE_2D, 0, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, attachment,
+                             GL_TEXTURE_2D, 0, 0);
    } else {
-      uint32_t first_layer = ctx->sub->surf[index]->val1 & 0xffff;
-      uint32_t last_layer = (ctx->sub->surf[index]->val1 >> 16) & 0xffff;
+      uint32_t first_layer = sub_ctx->surf[index]->val1 & 0xffff;
+      uint32_t last_layer = (sub_ctx->surf[index]->val1 >> 16) & 0xffff;
 
       vrend_fb_bind_texture_id(surf->texture, surf->id, index, surf->val0,
                                first_layer != last_layer ? 0xffffffff : first_layer);
    }
 }
 
-static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
+static void vrend_hw_emit_framebuffer_state(struct vrend_sub_context *sub_ctx)
 {
    static const GLenum buffers[8] = {
-      GL_COLOR_ATTACHMENT0_EXT,
-      GL_COLOR_ATTACHMENT1_EXT,
-      GL_COLOR_ATTACHMENT2_EXT,
-      GL_COLOR_ATTACHMENT3_EXT,
-      GL_COLOR_ATTACHMENT4_EXT,
-      GL_COLOR_ATTACHMENT5_EXT,
-      GL_COLOR_ATTACHMENT6_EXT,
-      GL_COLOR_ATTACHMENT7_EXT,
+      GL_COLOR_ATTACHMENT0,
+      GL_COLOR_ATTACHMENT1,
+      GL_COLOR_ATTACHMENT2,
+      GL_COLOR_ATTACHMENT3,
+      GL_COLOR_ATTACHMENT4,
+      GL_COLOR_ATTACHMENT5,
+      GL_COLOR_ATTACHMENT6,
+      GL_COLOR_ATTACHMENT7,
    };
-   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
 
-   if (ctx->sub->nr_cbufs == 0) {
+   if (sub_ctx->nr_cbufs == 0) {
       glReadBuffer(GL_NONE);
-      if (!vrend_state.use_gles) {
+      if (has_feature(feat_srgb_write_control)) {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
+         sub_ctx->framebuffer_srgb_enabled = false;
       }
-   } else if (!vrend_state.use_gles) {
-      /* Do not enter this path on GLES as this is not needed. */
+   } else if (has_feature(feat_srgb_write_control)) {
       struct vrend_surface *surf = NULL;
       bool use_srgb = false;
       int i;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i]) {
-            surf = ctx->sub->surf[i];
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i]) {
+            surf = sub_ctx->surf[i];
             if (util_format_is_srgb(surf->format)) {
                use_srgb = true;
             }
@@ -2005,8 +2466,25 @@ static void vrend_hw_emit_framebuffer_state(struct vrend_context *ctx)
       } else {
          glDisable(GL_FRAMEBUFFER_SRGB_EXT);
       }
+      sub_ctx->framebuffer_srgb_enabled = use_srgb;
    }
-   glDrawBuffers(ctx->sub->nr_cbufs, buffers);
+
+   if (vrend_state.use_gles &&
+       vrend_get_tweak_is_active(&sub_ctx->tweaks, virgl_tweak_gles_brga_apply_dest_swizzle)) {
+      sub_ctx->swizzle_output_rgb_to_bgr = 0;
+      for (int i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i]) {
+            struct vrend_surface *surf = sub_ctx->surf[i];
+            if (surf->texture->base.bind & VIRGL_BIND_PREFER_EMULATED_BGRA) {
+               VREND_DEBUG(dbg_tweak, sub_ctx->parent, "Swizzled BGRA output for 0x%x (%s)\n", i, util_format_name(surf->format));
+               sub_ctx->swizzle_output_rgb_to_bgr |= 1 << i;
+            }
+         }
+      }
+
+   }
+
+   glDrawBuffers(sub_ctx->nr_cbufs, buffers);
 }
 
 void vrend_set_framebuffer_state(struct vrend_context *ctx,
@@ -2020,67 +2498,69 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    GLint new_height = -1;
    bool new_ibf = false;
 
-   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
+   glBindFramebuffer(GL_FRAMEBUFFER, sub_ctx->fb_id);
 
    if (zsurf_handle) {
-      zsurf = vrend_object_lookup(ctx->sub->object_hash, zsurf_handle, VIRGL_OBJECT_SURFACE);
+      zsurf = vrend_object_lookup(sub_ctx->object_hash, zsurf_handle, VIRGL_OBJECT_SURFACE);
       if (!zsurf) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, zsurf_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, zsurf_handle);
          return;
       }
    } else
       zsurf = NULL;
 
-   if (ctx->sub->zsurf != zsurf) {
-      vrend_surface_reference(&ctx->sub->zsurf, zsurf);
+   if (sub_ctx->zsurf != zsurf) {
+      vrend_surface_reference(&sub_ctx->zsurf, zsurf);
       vrend_hw_set_zsurf_texture(ctx);
    }
 
-   old_num = ctx->sub->nr_cbufs;
-   ctx->sub->nr_cbufs = nr_cbufs;
-   ctx->sub->old_nr_cbufs = old_num;
+   old_num = sub_ctx->nr_cbufs;
+   sub_ctx->nr_cbufs = nr_cbufs;
+   sub_ctx->old_nr_cbufs = old_num;
 
    for (i = 0; i < (int)nr_cbufs; i++) {
       if (surf_handle[i] != 0) {
-         surf = vrend_object_lookup(ctx->sub->object_hash, surf_handle[i], VIRGL_OBJECT_SURFACE);
+         surf = vrend_object_lookup(sub_ctx->object_hash, surf_handle[i], VIRGL_OBJECT_SURFACE);
          if (!surf) {
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, surf_handle[i]);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, surf_handle[i]);
             return;
          }
       } else
          surf = NULL;
 
-      if (ctx->sub->surf[i] != surf) {
-         vrend_surface_reference(&ctx->sub->surf[i], surf);
-         vrend_hw_set_color_surface(ctx, i);
+      if (sub_ctx->surf[i] != surf) {
+         vrend_surface_reference(&sub_ctx->surf[i], surf);
+         vrend_hw_set_color_surface(sub_ctx, i);
       }
    }
 
-   if (old_num > ctx->sub->nr_cbufs) {
-      for (i = ctx->sub->nr_cbufs; i < old_num; i++) {
-         vrend_surface_reference(&ctx->sub->surf[i], NULL);
-         vrend_hw_set_color_surface(ctx, i);
+   if (old_num > sub_ctx->nr_cbufs) {
+      for (i = sub_ctx->nr_cbufs; i < old_num; i++) {
+         vrend_surface_reference(&sub_ctx->surf[i], NULL);
+         vrend_hw_set_color_surface(sub_ctx, i);
       }
    }
 
    /* find a buffer to set fb_height from */
-   if (ctx->sub->nr_cbufs == 0 && !ctx->sub->zsurf) {
+   if (sub_ctx->nr_cbufs == 0 && !sub_ctx->zsurf) {
       new_height = 0;
       new_ibf = false;
-   } else if (ctx->sub->nr_cbufs == 0) {
-      new_height = u_minify(ctx->sub->zsurf->texture->base.height0, ctx->sub->zsurf->val0);
-      new_ibf = ctx->sub->zsurf->texture->y_0_top ? true : false;
+   } else if (sub_ctx->nr_cbufs == 0) {
+      new_height = u_minify(sub_ctx->zsurf->texture->base.height0, sub_ctx->zsurf->val0);
+      new_ibf = sub_ctx->zsurf->texture->y_0_top ? true : false;
    }
    else {
       surf = NULL;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i]) {
-            surf = ctx->sub->surf[i];
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i]) {
+            surf = sub_ctx->surf[i];
             break;
          }
       }
       if (surf == NULL) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, i);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SURFACE, i);
          return;
       }
       new_height = u_minify(surf->texture->base.height0, surf->val0);
@@ -2088,22 +2568,23 @@ void vrend_set_framebuffer_state(struct vrend_context *ctx,
    }
 
    if (new_height != -1) {
-      if (ctx->sub->fb_height != (uint32_t)new_height || ctx->sub->inverted_fbo_content != new_ibf) {
-         ctx->sub->fb_height = new_height;
-         ctx->sub->inverted_fbo_content = new_ibf;
-         ctx->sub->scissor_state_dirty = (1 << 0);
-         ctx->sub->viewport_state_dirty = (1 << 0);
+      if (sub_ctx->fb_height != (uint32_t)new_height || sub_ctx->inverted_fbo_content != new_ibf) {
+         sub_ctx->fb_height = new_height;
+         sub_ctx->inverted_fbo_content = new_ibf;
+         sub_ctx->viewport_state_dirty = (1 << 0);
       }
    }
 
-   vrend_hw_emit_framebuffer_state(ctx);
+   vrend_hw_emit_framebuffer_state(sub_ctx);
 
-   if (ctx->sub->nr_cbufs > 0 || ctx->sub->zsurf) {
+   if (sub_ctx->nr_cbufs > 0 || sub_ctx->zsurf) {
       status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
       if (status != GL_FRAMEBUFFER_COMPLETE)
-         fprintf(stderr,"failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
+         vrend_printf("failed to complete framebuffer 0x%x %s\n", status, ctx->debug_name);
    }
-   ctx->sub->shader_dirty = true;
+
+   sub_ctx->shader_dirty = true;
+   sub_ctx->blend_state_dirty = true;
 }
 
 void vrend_set_framebuffer_state_no_attach(UNUSED struct vrend_context *ctx,
@@ -2140,7 +2621,7 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
 
    if (num_viewports > PIPE_MAX_VIEWPORTS ||
        start_slot > (PIPE_MAX_VIEWPORTS - num_viewports)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_viewports);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_viewports);
       return;
    }
 
@@ -2153,46 +2634,46 @@ void vrend_set_viewport_states(struct vrend_context *ctx,
       x = state[i].translate[0] - state[i].scale[0];
       y = state[i].translate[1] - state[i].scale[1];
 
-      near_val = state[i].translate[2] - state[i].scale[2];
-      far_val = near_val + (state[i].scale[2] * 2.0);
+      if (!ctx->sub->rs_state.clip_halfz) {
+         near_val = state[i].translate[2] - state[i].scale[2];
+         far_val = near_val + (state[i].scale[2] * 2.0);
+      } else {
+         near_val = state[i].translate[2];
+         far_val = state[i].scale[2] + state[i].translate[2];
+      }
 
       if (ctx->sub->vps[idx].cur_x != x ||
           ctx->sub->vps[idx].cur_y != y ||
           ctx->sub->vps[idx].width != width ||
-          ctx->sub->vps[idx].height != height) {
-         ctx->sub->viewport_state_dirty |= (1 << idx);
+          ctx->sub->vps[idx].height != height ||
+          ctx->sub->vps[idx].near_val != near_val ||
+          ctx->sub->vps[idx].far_val != far_val ||
+          (!(ctx->sub->viewport_state_initialized &= (1 << idx)))) {
          ctx->sub->vps[idx].cur_x = x;
          ctx->sub->vps[idx].cur_y = y;
          ctx->sub->vps[idx].width = width;
          ctx->sub->vps[idx].height = height;
+         ctx->sub->vps[idx].near_val = near_val;
+         ctx->sub->vps[idx].far_val = far_val;
+         ctx->sub->viewport_state_dirty |= (1 << idx);
       }
 
       if (idx == 0) {
          if (ctx->sub->viewport_is_negative != viewport_is_negative)
             ctx->sub->viewport_is_negative = viewport_is_negative;
-
-         ctx->sub->depth_scale = fabsf(far_val - near_val);
-         ctx->sub->depth_transform = near_val;
       }
+   }
+}
 
-      if (ctx->sub->vps[idx].near_val != near_val ||
-          ctx->sub->vps[idx].far_val != far_val) {
-         ctx->sub->vps[idx].near_val = near_val;
-         ctx->sub->vps[idx].far_val = far_val;
-
-         if (vrend_state.use_gles) {
-            if (near_val < 0.0f || far_val < 0.0f ||
-                near_val > 1.0f || far_val > 1.0f || idx) {
-               report_gles_warn(ctx, GLES_WARN_DEPTH_RANGE, 0);
-            }
-
-            /* Best effort despite the warning, gles will clamp. */
-            glDepthRangef(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-         } else if (idx && has_feature(feat_viewport_array))
-            glDepthRangeIndexed(idx, ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-         else
-            glDepthRange(ctx->sub->vps[idx].near_val, ctx->sub->vps[idx].far_val);
-      }
+static void update_int_sign_masks(enum pipe_format fmt, int i,
+                                  uint32_t *signed_mask,
+                                  uint32_t *unsigned_mask)  {
+   if (vrend_state.use_integer &&
+       util_format_is_pure_integer(fmt)) {
+      if (util_format_is_pure_uint(fmt))
+         (*unsigned_mask) |= (1 << i);
+      else
+         (*signed_mask) |= (1 << i);
    }
 }
 
@@ -2225,44 +2706,51 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
       }
 
       type = GL_FALSE;
-      if (desc->channel[0].type == UTIL_FORMAT_TYPE_FLOAT) {
-         if (desc->channel[0].size == 32)
-            type = GL_FLOAT;
-         else if (desc->channel[0].size == 64)
-            type = GL_DOUBLE;
-         else if (desc->channel[0].size == 16)
-            type = GL_HALF_FLOAT;
-      } else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-                 desc->channel[0].size == 8)
-         type = GL_UNSIGNED_BYTE;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED &&
-               desc->channel[0].size == 8)
-         type = GL_BYTE;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-               desc->channel[0].size == 16)
-         type = GL_UNSIGNED_SHORT;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED &&
-               desc->channel[0].size == 16)
-         type = GL_SHORT;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_UNSIGNED &&
-               desc->channel[0].size == 32)
-         type = GL_UNSIGNED_INT;
-      else if (desc->channel[0].type == UTIL_FORMAT_TYPE_SIGNED &&
-               desc->channel[0].size == 32)
-         type = GL_INT;
-      else if (elements[i].src_format == PIPE_FORMAT_R10G10B10A2_SSCALED ||
-               elements[i].src_format == PIPE_FORMAT_R10G10B10A2_SNORM ||
-               elements[i].src_format == PIPE_FORMAT_B10G10R10A2_SNORM)
-         type = GL_INT_2_10_10_10_REV;
-      else if (elements[i].src_format == PIPE_FORMAT_R10G10B10A2_USCALED ||
-               elements[i].src_format == PIPE_FORMAT_R10G10B10A2_UNORM ||
-               elements[i].src_format == PIPE_FORMAT_B10G10R10A2_UNORM)
-         type = GL_UNSIGNED_INT_2_10_10_10_REV;
-      else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT)
-         type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+      switch (desc->channel[0].type) {
+      case UTIL_FORMAT_TYPE_FLOAT:
+         switch (desc->channel[0].size) {
+         case 16: type = GL_HALF_FLOAT; break;
+         case 32: type = GL_FLOAT; break;
+         case 64: type = GL_DOUBLE; break;
+         }
+         break;
+      case UTIL_FORMAT_TYPE_UNSIGNED:
+         switch (desc->channel[0].size) {
+         case 8: type = GL_UNSIGNED_BYTE; break;
+         case 16: type = GL_UNSIGNED_SHORT; break;
+         case 32: type = GL_UNSIGNED_INT; break;
+         }
+         break;
+      case UTIL_FORMAT_TYPE_SIGNED:
+         switch (desc->channel[0].size) {
+         case 8: type = GL_BYTE; break;
+         case 16: type = GL_SHORT; break;
+         case 32: type = GL_INT; break;
+         }
+         break;
+      }
+      if (type == GL_FALSE) {
+         switch (elements[i].src_format) {
+         case PIPE_FORMAT_R10G10B10A2_SSCALED:
+         case PIPE_FORMAT_R10G10B10A2_SNORM:
+         case PIPE_FORMAT_B10G10R10A2_SNORM:
+            type = GL_INT_2_10_10_10_REV;
+            break;
+         case PIPE_FORMAT_R10G10B10A2_USCALED:
+         case PIPE_FORMAT_R10G10B10A2_UNORM:
+         case PIPE_FORMAT_B10G10R10A2_UNORM:
+            type = GL_UNSIGNED_INT_2_10_10_10_REV;
+            break;
+         case PIPE_FORMAT_R11G11B10_FLOAT:
+            type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+            break;
+         default:
+            ;
+         }
+      }
 
       if (type == GL_FALSE) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_VERTEX_FORMAT, elements[i].src_format);
          FREE(v);
          return EINVAL;
       }
@@ -2284,8 +2772,12 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
       for (i = 0; i < num_elements; i++) {
          struct vrend_vertex_element *ve = &v->elements[i];
 
-         if (util_format_is_pure_integer(ve->base.src_format))
+         if (util_format_is_pure_integer(ve->base.src_format)) {
+            update_int_sign_masks(ve->base.src_format, i,
+                                  &v->signed_int_bitmask,
+                                  &v->unsigned_int_bitmask);
             glVertexAttribIFormat(i, ve->nr_chan, ve->type, ve->base.src_offset);
+         }
          else
             glVertexAttribFormat(i, ve->nr_chan, ve->type, ve->norm, ve->base.src_offset);
          glVertexAttribBinding(i, ve->base.vertex_buffer_index);
@@ -2293,7 +2785,7 @@ int vrend_create_vertex_elements_state(struct vrend_context *ctx,
          glEnableVertexAttribArray(i);
       }
    }
-   ret_handle = vrend_renderer_object_insert(ctx, v, sizeof(struct vrend_vertex_element), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, v, handle,
                                              VIRGL_OBJECT_VERTEX_ELEMENTS);
    if (!ret_handle) {
       FREE(v);
@@ -2313,7 +2805,7 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
    }
    v = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_VERTEX_ELEMENTS);
    if (!v) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
@@ -2324,23 +2816,25 @@ void vrend_bind_vertex_elements_state(struct vrend_context *ctx,
 
 void vrend_set_constants(struct vrend_context *ctx,
                          uint32_t shader,
-                         UNUSED uint32_t index,
                          uint32_t num_constant,
-                         float *data)
+                         const float *data)
 {
    struct vrend_constants *consts;
-   uint i;
 
    consts = &ctx->sub->consts[shader];
    ctx->sub->const_dirty[shader] = true;
 
-   consts->consts = realloc(consts->consts, num_constant * sizeof(float));
-   if (!consts->consts)
-      return;
+   /* avoid reallocations by only growing the buffer */
+   if (consts->num_allocated_consts < num_constant) {
+      free(consts->consts);
+      consts->consts = malloc(num_constant * sizeof(float));
+      if (!consts->consts)
+         return;
+      consts->num_allocated_consts = num_constant;
+   }
 
+   memcpy(consts->consts, data, num_constant * sizeof(unsigned int));
    consts->num_consts = num_constant;
-   for (i = 0; i < num_constant; i++)
-      consts->consts[i] = ((unsigned int *)data)[i];
 }
 
 void vrend_set_uniform_buffer(struct vrend_context *ctx,
@@ -2355,24 +2849,27 @@ void vrend_set_uniform_buffer(struct vrend_context *ctx,
    if (!has_feature(feat_ubo))
       return;
 
+   struct pipe_constant_buffer *cbs = &ctx->sub->cbs[shader][index];
+   const uint32_t mask = 1u << index;
+
    if (res_handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
 
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
          return;
       }
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->cbs[shader][index].buffer, res);
-      ctx->sub->cbs[shader][index].buffer_offset = offset;
-      ctx->sub->cbs[shader][index].buffer_size = length;
-
-      ctx->sub->const_bufs_used_mask[shader] |= (1 << index);
+      cbs->buffer = (struct pipe_resource *)res;
+      cbs->buffer_offset = offset;
+      cbs->buffer_size = length;
+      ctx->sub->const_bufs_used_mask[shader] |= mask;
    } else {
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->cbs[shader][index].buffer, NULL);
-      ctx->sub->cbs[shader][index].buffer_offset = 0;
-      ctx->sub->cbs[shader][index].buffer_size = 0;
-      ctx->sub->const_bufs_used_mask[shader] &= ~(1 << index);
+      cbs->buffer = NULL;
+      cbs->buffer_offset = 0;
+      cbs->buffer_size = 0;
+      ctx->sub->const_bufs_used_mask[shader] &= ~mask;
    }
+   ctx->sub->const_bufs_dirty[shader] |= mask;
 }
 
 void vrend_set_index_buffer(struct vrend_context *ctx,
@@ -2390,7 +2887,7 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
          if (!res) {
             vrend_resource_reference((struct vrend_resource **)&ctx->sub->ib.buffer, NULL);
             ctx->sub->index_buffer_res_id = 0;
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
             return;
          }
          vrend_resource_reference((struct vrend_resource **)&ctx->sub->ib.buffer, res);
@@ -2403,33 +2900,34 @@ void vrend_set_index_buffer(struct vrend_context *ctx,
 }
 
 void vrend_set_single_vbo(struct vrend_context *ctx,
-                          int index,
+                          uint32_t index,
                           uint32_t stride,
                           uint32_t buffer_offset,
                           uint32_t res_handle)
 {
    struct vrend_resource *res;
+   struct vrend_vertex_buffer *vbo = &ctx->sub->vbo[index];
 
-   if (ctx->sub->vbo[index].stride != stride ||
-       ctx->sub->vbo[index].buffer_offset != buffer_offset ||
-       ctx->sub->vbo_res_ids[index] != res_handle)
+   if (vbo->base.stride != stride ||
+       vbo->base.buffer_offset != buffer_offset ||
+       vbo->res_id != res_handle)
       ctx->sub->vbo_dirty = true;
 
-   ctx->sub->vbo[index].stride = stride;
-   ctx->sub->vbo[index].buffer_offset = buffer_offset;
+   vbo->base.stride = stride;
+   vbo->base.buffer_offset = buffer_offset;
 
    if (res_handle == 0) {
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[index].buffer, NULL);
-      ctx->sub->vbo_res_ids[index] = 0;
-   } else if (ctx->sub->vbo_res_ids[index] != res_handle) {
+      vrend_resource_reference((struct vrend_resource **)&vbo->base.buffer, NULL);
+      vbo->res_id = 0;
+   } else if (vbo->res_id != res_handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
-         ctx->sub->vbo_res_ids[index] = 0;
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+         vbo->res_id = 0;
          return;
       }
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[index].buffer, res);
-      ctx->sub->vbo_res_ids[index] = res_handle;
+      vrend_resource_reference((struct vrend_resource **)&vbo->base.buffer, res);
+      vbo->res_id = res_handle;
    }
 }
 
@@ -2446,8 +2944,8 @@ void vrend_set_num_vbo(struct vrend_context *ctx,
       ctx->sub->vbo_dirty = true;
 
    for (i = num_vbo; i < old_num; i++) {
-      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[i].buffer, NULL);
-      ctx->sub->vbo_res_ids[i] = 0;
+      vrend_resource_reference((struct vrend_resource **)&ctx->sub->vbo[i].base.buffer, NULL);
+      ctx->sub->vbo[i].res_id = 0;
    }
 
 }
@@ -2464,7 +2962,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
       view = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SAMPLER_VIEW);
       if (!view) {
          ctx->sub->views[shader_type].views[index] = NULL;
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
          return;
       }
       if (ctx->sub->views[shader_type].views[index] == view) {
@@ -2475,58 +2973,62 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
       if (!tex) {
          return;
       }
-      if (!view->texture->is_buffer) {
-         glBindTexture(view->target, view->id);
 
-         if (util_format_is_depth_or_stencil(view->format)) {
-            if (vrend_state.use_core_profile == false) {
-               /* setting depth texture mode is deprecated in core profile */
-               if (view->depth_texture_mode != GL_RED) {
-                  glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
-                  view->depth_texture_mode = GL_RED;
+      ctx->sub->sampler_views_dirty[shader_type] |= 1u << index;
+
+      if (!has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+         if (view->texture->id == view->id) {
+            glBindTexture(view->target, view->id);
+
+            if (util_format_is_depth_or_stencil(view->format)) {
+               if (vrend_state.use_core_profile == false) {
+                  /* setting depth texture mode is deprecated in core profile */
+                  if (view->depth_texture_mode != GL_RED) {
+                     glTexParameteri(view->texture->target, GL_DEPTH_TEXTURE_MODE, GL_RED);
+                     view->depth_texture_mode = GL_RED;
+                  }
+               }
+               if (has_feature(feat_stencil_texturing)) {
+                  const struct util_format_description *desc = util_format_description(view->format);
+                  if (!util_format_has_depth(desc)) {
+                     glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+                  } else {
+                     glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+                  }
                }
             }
-            if (has_feature(feat_stencil_texturing)) {
-               const struct util_format_description *desc = util_format_description(view->format);
-               if (!util_format_has_depth(desc)) {
-                  glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
-               } else {
-                  glTexParameteri(view->texture->target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
-               }
-            }
-         }
 
-         if (view->cur_base != (view->val1 & 0xff)) {
-            view->cur_base = view->val1 & 0xff;
-            glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, view->cur_base);
-         }
-         if (view->cur_max != ((view->val1 >> 8) & 0xff)) {
-            view->cur_max = (view->val1 >> 8) & 0xff;
-            glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, view->cur_max);
-         }
-         if (view->cur_swizzle_r != view->gl_swizzle_r) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R, view->gl_swizzle_r);
-            view->cur_swizzle_r = view->gl_swizzle_r;
-         }
-         if (view->cur_swizzle_g != view->gl_swizzle_g) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_G, view->gl_swizzle_g);
-            view->cur_swizzle_g = view->gl_swizzle_g;
-         }
-         if (view->cur_swizzle_b != view->gl_swizzle_b) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_B, view->gl_swizzle_b);
-            view->cur_swizzle_b = view->gl_swizzle_b;
-         }
-         if (view->cur_swizzle_a != view->gl_swizzle_a) {
-            glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_A, view->gl_swizzle_a);
-            view->cur_swizzle_a = view->gl_swizzle_a;
-         }
-         if (view->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(view->format)) {
-            if (has_feature(feat_samplers))
-               ctx->sub->sampler_state_dirty = true;
-            else if (has_feature(feat_texture_srgb_decode)) {
-               glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
-                               view->srgb_decode);
-               view->cur_srgb_decode = view->srgb_decode;
+            GLuint base_level = view->val1 & 0xff;
+            GLuint max_level = (view->val1 >> 8) & 0xff;
+
+            if (tex->cur_base != base_level) {
+               glTexParameteri(view->texture->target, GL_TEXTURE_BASE_LEVEL, base_level);
+               tex->cur_base = base_level;
+            }
+            if (tex->cur_max != max_level) {
+               glTexParameteri(view->texture->target, GL_TEXTURE_MAX_LEVEL, max_level);
+               tex->cur_max = max_level;
+            }
+            if (memcmp(tex->cur_swizzle, view->gl_swizzle, 4 * sizeof(GLint))) {
+               if (vrend_state.use_gles) {
+                  for (unsigned int i = 0; i < 4; ++i) {
+                     if (tex->cur_swizzle[i] != view->gl_swizzle[i]) {
+                         glTexParameteri(view->texture->target, GL_TEXTURE_SWIZZLE_R + i, view->gl_swizzle[i]);
+                     }
+                  }
+               } else
+                  glTexParameteriv(view->texture->target, GL_TEXTURE_SWIZZLE_RGBA, view->gl_swizzle);
+               memcpy(tex->cur_swizzle, view->gl_swizzle, 4 * sizeof(GLint));
+            }
+
+            if (tex->cur_srgb_decode != view->srgb_decode && util_format_is_srgb(tex->base.base.format)) {
+               if (has_feature(feat_samplers))
+                  ctx->sub->sampler_views_dirty[shader_type] |= (1u << index);
+               else if (has_feature(feat_texture_srgb_decode)) {
+                  glTexParameteri(view->texture->target, GL_TEXTURE_SRGB_DECODE_EXT,
+                                  view->srgb_decode);
+                  tex->cur_srgb_decode = view->srgb_decode;
+               }
             }
          }
       } else {
@@ -2556,7 +3058,7 @@ void vrend_set_single_sampler_view(struct vrend_context *ctx,
 void vrend_set_num_sampler_views(struct vrend_context *ctx,
                                  uint32_t shader_type,
                                  uint32_t start_slot,
-                                 int num_sampler_views)
+                                 uint32_t num_sampler_views)
 {
    int last_slot = start_slot + num_sampler_views;
    int i;
@@ -2569,7 +3071,7 @@ void vrend_set_num_sampler_views(struct vrend_context *ctx,
 
 void vrend_set_single_image_view(struct vrend_context *ctx,
                                  uint32_t shader_type,
-                                 int index,
+                                 uint32_t index,
                                  uint32_t format, uint32_t access,
                                  uint32_t layer_offset, uint32_t level_size,
                                  uint32_t handle)
@@ -2577,13 +3079,13 @@ void vrend_set_single_image_view(struct vrend_context *ctx,
    struct vrend_image_view *iview = &ctx->sub->image_views[shader_type][index];
    struct vrend_resource *res;
 
-   if (!has_feature(feat_images))
-      return;
-
    if (handle) {
+      if (!has_feature(feat_images))
+         return;
+
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
          return;
       }
       iview->texture = res;
@@ -2591,17 +3093,17 @@ void vrend_set_single_image_view(struct vrend_context *ctx,
       iview->access = access;
       iview->u.buf.offset = layer_offset;
       iview->u.buf.size = level_size;
-      ctx->sub->images_used_mask[shader_type] |= (1 << index);
+      ctx->sub->images_used_mask[shader_type] |= (1u << index);
    } else {
       iview->texture = NULL;
       iview->format = 0;
-      ctx->sub->images_used_mask[shader_type] &= ~(1 << index);
+      ctx->sub->images_used_mask[shader_type] &= ~(1u << index);
    }
 }
 
 void vrend_set_single_ssbo(struct vrend_context *ctx,
                            uint32_t shader_type,
-                           int index,
+                           uint32_t index,
                            uint32_t offset, uint32_t length,
                            uint32_t handle)
 {
@@ -2614,18 +3116,47 @@ void vrend_set_single_ssbo(struct vrend_context *ctx,
    if (handle) {
       res = vrend_renderer_ctx_res_lookup(ctx, handle);
       if (!res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
          return;
       }
       ssbo->res = res;
       ssbo->buffer_offset = offset;
       ssbo->buffer_size = length;
-      ctx->sub->ssbo_used_mask[shader_type] |= (1 << index);
+      ctx->sub->ssbo_used_mask[shader_type] |= (1u << index);
    } else {
       ssbo->res = 0;
       ssbo->buffer_offset = 0;
       ssbo->buffer_size = 0;
-      ctx->sub->ssbo_used_mask[shader_type] &= ~(1 << index);
+      ctx->sub->ssbo_used_mask[shader_type] &= ~(1u << index);
+   }
+}
+
+void vrend_set_single_abo(struct vrend_context *ctx,
+                          uint32_t index,
+                          uint32_t offset, uint32_t length,
+                          uint32_t handle)
+{
+   struct vrend_abo *abo = &ctx->sub->abo[index];
+   struct vrend_resource *res;
+
+   if (!has_feature(feat_atomic_counters))
+      return;
+
+   if (handle) {
+      res = vrend_renderer_ctx_res_lookup(ctx, handle);
+      if (!res) {
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, handle);
+         return;
+      }
+      abo->res = res;
+      abo->buffer_offset = offset;
+      abo->buffer_size = length;
+      ctx->sub->abo_used_mask |= (1u << index);
+   } else {
+      abo->res = 0;
+      abo->buffer_offset = 0;
+      abo->buffer_size = 0;
+      ctx->sub->abo_used_mask &= ~(1u << index);
    }
 }
 
@@ -2663,6 +3194,8 @@ void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
          if (has_feature(feat_ssbo_barrier))
             gl_barrier |= GL_SHADER_STORAGE_BARRIER_BIT;
       }
+      if (has_feature(feat_qbo) && (flags & PIPE_BARRIER_QUERY_BUFFER))
+         gl_barrier |= GL_QUERY_BUFFER_BARRIER_BIT;
    }
    glMemoryBarrier(gl_barrier);
 }
@@ -2670,11 +3203,10 @@ void vrend_memory_barrier(UNUSED struct vrend_context *ctx,
 void vrend_texture_barrier(UNUSED struct vrend_context *ctx,
                            unsigned flags)
 {
-   if (!has_feature(feat_texture_barrier))
-      return;
-
-   if (flags == PIPE_TEXTURE_BARRIER_SAMPLER)
+   if (has_feature(feat_texture_barrier) && (flags & PIPE_TEXTURE_BARRIER_SAMPLER))
       glTextureBarrier();
+   if (has_feature(feat_blend_equation_advanced) && (flags & PIPE_TEXTURE_BARRIER_FRAMEBUFFER))
+      glBlendBarrierKHR();
 }
 
 static void vrend_destroy_shader_object(void *obj_ptr)
@@ -2684,79 +3216,153 @@ static void vrend_destroy_shader_object(void *obj_ptr)
    vrend_shader_state_reference(&state, NULL);
 }
 
-static inline void vrend_fill_shader_key(struct vrend_context *ctx,
-                                         unsigned type,
+static inline bool can_emulate_logicop(enum pipe_logicop op)
+{
+   if (has_feature(feat_framebuffer_fetch_non_coherent) ||
+       has_feature(feat_framebuffer_fetch))
+      return true;
+
+   /* These ops don't need to read back from the framebuffer */
+   switch (op) {
+   case PIPE_LOGICOP_CLEAR:
+   case PIPE_LOGICOP_COPY:
+   case PIPE_LOGICOP_SET:
+   case PIPE_LOGICOP_COPY_INVERTED:
+      return true;
+   default:
+      return false;
+   }
+}
+
+
+static inline void vrend_fill_shader_key(struct vrend_sub_context *sub_ctx,
+                                         struct vrend_shader_selector *sel,
                                          struct vrend_shader_key *key)
 {
+   unsigned type = sel->type;
+
    if (vrend_state.use_core_profile == true) {
       int i;
       bool add_alpha_test = true;
       key->cbufs_are_a8_bitmask = 0;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (!ctx->sub->surf[i])
+      // Only use integer info when drawing to avoid stale info.
+      if (vrend_state.use_integer && sub_ctx->drawing) {
+         key->attrib_signed_int_bitmask = sub_ctx->ve->signed_int_bitmask;
+         key->attrib_unsigned_int_bitmask = sub_ctx->ve->unsigned_int_bitmask;
+      }
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (!sub_ctx->surf[i])
             continue;
-         if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format))
+         if (vrend_format_is_emulated_alpha(sub_ctx->surf[i]->format))
             key->cbufs_are_a8_bitmask |= (1 << i);
-         if (util_format_is_pure_integer(ctx->sub->surf[i]->format))
+         if (util_format_is_pure_integer(sub_ctx->surf[i]->format)) {
             add_alpha_test = false;
+            update_int_sign_masks(sub_ctx->surf[i]->format, i,
+                                  &key->cbufs_signed_int_bitmask,
+                                  &key->cbufs_unsigned_int_bitmask);
+         }
+         key->surface_component_bits[i] = util_format_get_component_bits(sub_ctx->surf[i]->format, UTIL_FORMAT_COLORSPACE_RGB, 0);
       }
       if (add_alpha_test) {
-         key->add_alpha_test = ctx->sub->dsa_state.alpha.enabled;
-         key->alpha_test = ctx->sub->dsa_state.alpha.func;
-         key->alpha_ref_val = ctx->sub->dsa_state.alpha.ref_value;
+         key->add_alpha_test = sub_ctx->dsa_state.alpha.enabled;
+         key->alpha_test = sub_ctx->dsa_state.alpha.func;
       }
 
-      key->pstipple_tex = ctx->sub->rs_state.poly_stipple_enable;
-      key->color_two_side = ctx->sub->rs_state.light_twoside;
+      key->pstipple_tex = sub_ctx->rs_state.poly_stipple_enable;
+      key->color_two_side = sub_ctx->rs_state.light_twoside;
 
-      key->clip_plane_enable = ctx->sub->rs_state.clip_plane_enable;
-      key->flatshade = ctx->sub->rs_state.flatshade ? true : false;
+      key->clip_plane_enable = sub_ctx->rs_state.clip_plane_enable;
+      key->flatshade = sub_ctx->rs_state.flatshade ? true : false;
    } else {
       key->add_alpha_test = 0;
       key->pstipple_tex = 0;
    }
-   key->invert_fs_origin = !ctx->sub->inverted_fbo_content;
-   key->coord_replace = ctx->sub->rs_state.point_quad_rasterization ? ctx->sub->rs_state.sprite_coord_enable : 0;
 
-   if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
+   if (type == PIPE_SHADER_FRAGMENT && vrend_state.use_gles && can_emulate_logicop(sub_ctx->blend_state.logicop_func)) {
+      key->fs_logicop_enabled = sub_ctx->blend_state.logicop_enable;
+      key->fs_logicop_func = sub_ctx->blend_state.logicop_func;
+      key->fs_logicop_emulate_coherent = !has_feature(feat_framebuffer_fetch_non_coherent);
+   }
+
+   key->invert_fs_origin = !sub_ctx->inverted_fbo_content;
+
+   if (type == PIPE_SHADER_FRAGMENT)
+      key->fs_swizzle_output_rgb_to_bgr = sub_ctx->swizzle_output_rgb_to_bgr;
+
+   if (sub_ctx->shaders[PIPE_SHADER_GEOMETRY])
       key->gs_present = true;
-   if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
+   if (sub_ctx->shaders[PIPE_SHADER_TESS_CTRL])
       key->tcs_present = true;
-   if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
+   if (sub_ctx->shaders[PIPE_SHADER_TESS_EVAL])
       key->tes_present = true;
 
    int prev_type = -1;
 
-   switch (type) {
-   case PIPE_SHADER_GEOMETRY:
-      if (key->tcs_present || key->tes_present)
-	 prev_type = PIPE_SHADER_TESS_EVAL;
-      else
-	 prev_type = PIPE_SHADER_VERTEX;
-      break;
-   case PIPE_SHADER_FRAGMENT:
-      if (key->gs_present)
-	 prev_type = PIPE_SHADER_GEOMETRY;
-      else if (key->tcs_present || key->tes_present)
-	 prev_type = PIPE_SHADER_TESS_EVAL;
-      else
-	 prev_type = PIPE_SHADER_VERTEX;
-      break;
-   case PIPE_SHADER_TESS_EVAL:
-      prev_type = PIPE_SHADER_TESS_CTRL;
-      break;
-   case PIPE_SHADER_TESS_CTRL:
-      prev_type = PIPE_SHADER_VERTEX;
-      break;
-   default:
-      break;
+   /* Gallium sends and binds the shaders in the reverse order, so if an
+    * old shader is still bound we should ignore the "previous" (as in
+    * execution order) shader when the key is evaluated, unless the currently
+    * bound shader selector is actually refers to the current shader. */
+   if (sub_ctx->shaders[type] == sel) {
+      switch (type) {
+      case PIPE_SHADER_GEOMETRY:
+         if (key->tcs_present || key->tes_present)
+            prev_type = PIPE_SHADER_TESS_EVAL;
+         else
+            prev_type = PIPE_SHADER_VERTEX;
+         break;
+      case PIPE_SHADER_FRAGMENT:
+         if (key->gs_present)
+            prev_type = PIPE_SHADER_GEOMETRY;
+         else if (key->tcs_present || key->tes_present)
+            prev_type = PIPE_SHADER_TESS_EVAL;
+         else
+            prev_type = PIPE_SHADER_VERTEX;
+         break;
+      case PIPE_SHADER_TESS_EVAL:
+         if (key->tcs_present)
+            prev_type = PIPE_SHADER_TESS_CTRL;
+         else
+            prev_type = PIPE_SHADER_VERTEX;
+         break;
+      case PIPE_SHADER_TESS_CTRL:
+         prev_type = PIPE_SHADER_VERTEX;
+         break;
+      default:
+         break;
+      }
    }
-   if (prev_type != -1 && ctx->sub->shaders[prev_type]) {
-      key->prev_stage_pervertex_out = ctx->sub->shaders[prev_type]->sinfo.has_pervertex_out;
-      key->prev_stage_num_clip_out = ctx->sub->shaders[prev_type]->sinfo.num_clip_out;
-      key->prev_stage_num_cull_out = ctx->sub->shaders[prev_type]->sinfo.num_cull_out;
-      key->num_indirect_generic_inputs = ctx->sub->shaders[prev_type]->sinfo.num_indirect_generic_outputs;
-      key->num_indirect_patch_inputs = ctx->sub->shaders[prev_type]->sinfo.num_indirect_patch_outputs;
+
+   if (prev_type != -1 && sub_ctx->shaders[prev_type]) {
+      key->prev_stage_num_clip_out = sub_ctx->shaders[prev_type]->sinfo.num_clip_out;
+      key->prev_stage_num_cull_out = sub_ctx->shaders[prev_type]->sinfo.num_cull_out;
+      key->num_indirect_generic_inputs = sub_ctx->shaders[prev_type]->sinfo.num_indirect_generic_outputs;
+      key->num_indirect_patch_inputs = sub_ctx->shaders[prev_type]->sinfo.num_indirect_patch_outputs;
+      key->num_prev_generic_and_patch_outputs = sub_ctx->shaders[prev_type]->sinfo.num_generic_and_patch_outputs;
+      key->guest_sent_io_arrays = sub_ctx->shaders[prev_type]->sinfo.guest_sent_io_arrays;
+
+      memcpy(key->prev_stage_generic_and_patch_outputs_layout,
+             sub_ctx->shaders[prev_type]->sinfo.generic_outputs_layout,
+             64 * sizeof (struct vrend_layout_info));
+      key->force_invariant_inputs = sub_ctx->shaders[prev_type]->sinfo.invariant_outputs;
+   }
+
+   // Only use coord_replace if frag shader receives GL_POINTS
+   if (type == PIPE_SHADER_FRAGMENT) {
+      int fs_prim_mode = sub_ctx->prim_mode; // inherit draw-call's mode
+      switch (prev_type) {
+         case PIPE_SHADER_TESS_EVAL:
+            if (sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode)
+               fs_prim_mode = PIPE_PRIM_POINTS;
+            break;
+         case PIPE_SHADER_GEOMETRY:
+            fs_prim_mode = sub_ctx->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim;
+            break;
+      }
+      key->fs_prim_is_points = (fs_prim_mode == PIPE_PRIM_POINTS);
+      key->coord_replace = sub_ctx->rs_state.point_quad_rasterization
+         && key->fs_prim_is_points
+         ? sub_ctx->rs_state.sprite_coord_enable
+         : 0x0;
    }
 
    int next_type = -1;
@@ -2766,11 +3372,16 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
        next_type = PIPE_SHADER_TESS_CTRL;
      else if (key->gs_present)
        next_type = PIPE_SHADER_GEOMETRY;
-     else
-       next_type = PIPE_SHADER_FRAGMENT;
+     else if (key->tes_present) {
+        if (!vrend_state.use_gles)
+           next_type = PIPE_SHADER_TESS_EVAL;
+        else
+           next_type = PIPE_SHADER_TESS_CTRL;
+     } else
+        next_type = PIPE_SHADER_FRAGMENT;
      break;
    case PIPE_SHADER_TESS_CTRL:
-     next_type = PIPE_SHADER_TESS_EVAL;
+      next_type = PIPE_SHADER_TESS_EVAL;
      break;
    case PIPE_SHADER_GEOMETRY:
      next_type = PIPE_SHADER_FRAGMENT;
@@ -2784,9 +3395,19 @@ static inline void vrend_fill_shader_key(struct vrend_context *ctx,
      break;
    }
 
-   if (next_type != -1 && ctx->sub->shaders[next_type]) {
-      key->num_indirect_generic_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_generic_inputs;
-      key->num_indirect_patch_outputs = ctx->sub->shaders[next_type]->sinfo.num_indirect_patch_inputs;
+   if (next_type != -1 && sub_ctx->shaders[next_type]) {
+      key->next_stage_pervertex_in = sub_ctx->shaders[next_type]->sinfo.has_pervertex_in;
+      key->num_indirect_generic_outputs = sub_ctx->shaders[next_type]->sinfo.num_indirect_generic_inputs;
+      key->num_indirect_patch_outputs = sub_ctx->shaders[next_type]->sinfo.num_indirect_patch_inputs;
+      key->generic_outputs_expected_mask = sub_ctx->shaders[next_type]->sinfo.generic_inputs_emitted_mask;
+   }
+
+   if (type != PIPE_SHADER_FRAGMENT &&
+       sub_ctx->shaders[PIPE_SHADER_FRAGMENT]) {
+      struct vrend_shader *fs =
+	      sub_ctx->shaders[PIPE_SHADER_FRAGMENT]->current;
+      key->compiled_fs_uid = fs->uid;
+      key->fs_info = &fs->sel->sinfo;
    }
 }
 
@@ -2806,37 +3427,42 @@ static inline int conv_shader_type(int type)
 
 static int vrend_shader_create(struct vrend_context *ctx,
                                struct vrend_shader *shader,
-                               struct vrend_shader_key key)
+                               struct vrend_shader_key *key)
 {
-
-   if (!shader->sel->tokens) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
-      return -1;
-   }
+   static uint32_t uid;
 
    shader->id = glCreateShader(conv_shader_type(shader->sel->type));
-   shader->compiled_fs_id = 0;
-   shader->glsl_prog = vrend_convert_shader(&ctx->shader_cfg, shader->sel->tokens, shader->sel->req_local_mem, &key, &shader->sel->sinfo);
-   if (!shader->glsl_prog) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, 0);
+   shader->uid = ++uid;
+
+   if (shader->sel->tokens) {
+      bool ret = vrend_convert_shader(ctx, &ctx->shader_cfg, shader->sel->tokens,
+                                      shader->sel->req_local_mem, key, &shader->sel->sinfo, &shader->glsl_strings);
+      if (!ret) {
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
+         glDeleteShader(shader->id);
+         return -1;
+      }
+   } else if (!ctx->shader_cfg.use_gles && shader->sel->type != TGSI_PROCESSOR_TESS_CTRL) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_SHADER, shader->sel->type);
       glDeleteShader(shader->id);
       return -1;
    }
-   shader->key = key;
+
+   shader->key = *key;
    if (1) {//shader->sel->type == PIPE_SHADER_FRAGMENT || shader->sel->type == PIPE_SHADER_GEOMETRY) {
       bool ret;
 
-      ret = vrend_compile_shader(ctx, shader);
+      ret = vrend_compile_shader(ctx->sub, shader);
       if (ret == false) {
          glDeleteShader(shader->id);
-         free(shader->glsl_prog);
+         strarray_free(&shader->glsl_strings, true);
          return -1;
       }
    }
    return 0;
 }
 
-static int vrend_shader_select(struct vrend_context *ctx,
+static int vrend_shader_select(struct vrend_sub_context *sub_ctx,
                                struct vrend_shader_selector *sel,
                                bool *dirty)
 {
@@ -2845,13 +3471,14 @@ static int vrend_shader_select(struct vrend_context *ctx,
    int r;
 
    memset(&key, 0, sizeof(key));
-   vrend_fill_shader_key(ctx, sel->type, &key);
+   vrend_fill_shader_key(sub_ctx, sel, &key);
 
    if (sel->current && !memcmp(&sel->current->key, &key, sizeof(key)))
       return 0;
 
    if (sel->num_shaders > 1) {
-      struct vrend_shader *p = sel->current, *c = p->next_variant;
+      struct vrend_shader *p = sel->current;
+      struct vrend_shader *c = p->next_variant;
       while (c && memcmp(&c->key, &key, sizeof(key)) != 0) {
          p = c;
          c = c->next_variant;
@@ -2866,8 +3493,9 @@ static int vrend_shader_select(struct vrend_context *ctx,
       shader = CALLOC_STRUCT(vrend_shader);
       shader->sel = sel;
       list_inithead(&shader->programs);
+      strarray_alloc(&shader->glsl_strings, SHADER_MAX_STRINGS);
 
-      r = vrend_shader_create(ctx, shader, key);
+      r = vrend_shader_create(sub_ctx->parent, shader, &key);
       if (r) {
          sel->current = NULL;
          FREE(shader);
@@ -2883,8 +3511,7 @@ static int vrend_shader_select(struct vrend_context *ctx,
    return 0;
 }
 
-static void *vrend_create_shader_state(UNUSED struct vrend_context *ctx,
-                                       const struct pipe_stream_output_info *so_info,
+static void *vrend_create_shader_state(const struct pipe_stream_output_info *so_info,
                                        uint32_t req_local_mem,
                                        unsigned pipe_shader_type)
 {
@@ -2909,7 +3536,7 @@ static int vrend_finish_shader(struct vrend_context *ctx,
 
    sel->tokens = tgsi_dup_tokens(tokens);
 
-   r = vrend_shader_select(ctx, sel, NULL);
+   r = vrend_shader_select(ctx->sub, sel, NULL);
    if (r) {
       return EINVAL;
    }
@@ -2932,17 +3559,17 @@ int vrend_create_shader(struct vrend_context *ctx,
    if (type > PIPE_SHADER_COMPUTE)
       return EINVAL;
 
-   if (!has_feature(feat_geometry_shader) &&
-       type == PIPE_SHADER_GEOMETRY)
+   if (type == PIPE_SHADER_GEOMETRY &&
+       !has_feature(feat_geometry_shader))
       return EINVAL;
 
-   if (!has_feature(feat_tessellation) &&
-       (type == PIPE_SHADER_TESS_CTRL ||
-        type == PIPE_SHADER_TESS_EVAL))
-      return EINVAL;
+   if ((type == PIPE_SHADER_TESS_CTRL ||
+        type == PIPE_SHADER_TESS_EVAL) &&
+       !has_feature(feat_tessellation))
+       return EINVAL;
 
-   if (!has_feature(feat_compute_shader) &&
-       type == PIPE_SHADER_COMPUTE)
+   if (type == PIPE_SHADER_COMPUTE &&
+       !has_feature(feat_compute_shader))
       return EINVAL;
 
    if (offlen & VIRGL_OBJ_SHADER_OFFSET_CONT)
@@ -2950,17 +3577,19 @@ int vrend_create_shader(struct vrend_context *ctx,
    else if (((offlen + 3) / 4) > pkt_length)
       long_shader = true;
 
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
    /* if we have an in progress one - don't allow a new shader
       of that type or a different handle. */
-   if (ctx->sub->long_shader_in_progress_handle[type]) {
+   if (sub_ctx->long_shader_in_progress_handle[type]) {
       if (new_shader == true)
          return EINVAL;
-      if (handle != ctx->sub->long_shader_in_progress_handle[type])
+      if (handle != sub_ctx->long_shader_in_progress_handle[type])
          return EINVAL;
    }
 
    if (new_shader) {
-      sel = vrend_create_shader_state(ctx, so_info, req_local_mem, type);
+      sel = vrend_create_shader_state(so_info, req_local_mem, type);
      if (sel == NULL)
        return ENOMEM;
 
@@ -2973,20 +3602,20 @@ int vrend_create_shader(struct vrend_context *ctx,
         }
         memcpy(sel->tmp_buf, shd_text, pkt_length * 4);
         sel->buf_offset = pkt_length * 4;
-        ctx->sub->long_shader_in_progress_handle[type] = handle;
+        sub_ctx->long_shader_in_progress_handle[type] = handle;
      } else
         finished = true;
    } else {
-      sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
+      sel = vrend_object_lookup(sub_ctx->object_hash, handle, VIRGL_OBJECT_SHADER);
       if (!sel) {
-         fprintf(stderr, "got continuation without original shader %d\n", handle);
+         vrend_printf( "got continuation without original shader %d\n", handle);
          ret = EINVAL;
          goto error;
       }
 
       offlen &= ~VIRGL_OBJ_SHADER_OFFSET_CONT;
       if (offlen != sel->buf_offset) {
-         fprintf(stderr, "Got mismatched shader continuation %d vs %d\n",
+         vrend_printf( "Got mismatched shader continuation %d vs %d\n",
                  offlen, sel->buf_offset);
          ret = EINVAL;
          goto error;
@@ -3001,7 +3630,7 @@ int vrend_create_shader(struct vrend_context *ctx,
           }
 
       if ((pkt_length * 4 + sel->buf_offset) > sel->buf_len) {
-         fprintf(stderr, "Got too large shader continuation %d vs %d\n",
+         vrend_printf( "Got too large shader continuation %d vs %d\n",
                  pkt_length * 4 + sel->buf_offset, sel->buf_len);
          ret = EINVAL;
          goto error;
@@ -3019,14 +3648,21 @@ int vrend_create_shader(struct vrend_context *ctx,
    if (finished) {
       struct tgsi_token *tokens;
 
+      /* check for null termination */
+      uint32_t last_chunk_offset = sel->buf_offset ? sel->buf_offset : pkt_length * 4;
+      if (last_chunk_offset < 4 || !memchr(shd_text + last_chunk_offset - 4, '\0', 4)) {
+         ret = EINVAL;
+         goto error;
+      }
+
       tokens = calloc(num_tokens + 10, sizeof(struct tgsi_token));
       if (!tokens) {
          ret = ENOMEM;
          goto error;
       }
 
-      if (vrend_dump_shaders)
-         fprintf(stderr,"shader\n%s\n", shd_text);
+      VREND_DEBUG(dbg_shader_tgsi, ctx, "shader\n%s\n", shd_text);
+
       if (!tgsi_text_translate((const char *)shd_text, tokens, num_tokens + 10)) {
          free(tokens);
          ret = EINVAL;
@@ -3042,11 +3678,11 @@ int vrend_create_shader(struct vrend_context *ctx,
          sel->tmp_buf = NULL;
       }
       free(tokens);
-      ctx->sub->long_shader_in_progress_handle[type] = 0;
+      sub_ctx->long_shader_in_progress_handle[type] = 0;
    }
 
    if (new_shader) {
-      ret_handle = vrend_renderer_object_insert(ctx, sel, sizeof(*sel), handle, VIRGL_OBJECT_SHADER);
+      ret_handle = vrend_renderer_object_insert(ctx, sel, handle, VIRGL_OBJECT_SHADER);
       if (ret_handle == 0) {
          ret = ENOMEM;
          goto error;
@@ -3072,31 +3708,33 @@ void vrend_bind_shader(struct vrend_context *ctx,
    if (type > PIPE_SHADER_COMPUTE)
       return;
 
+   struct vrend_sub_context *sub_ctx = ctx->sub;
+
    if (handle == 0) {
       if (type == PIPE_SHADER_COMPUTE)
-         ctx->sub->cs_shader_dirty = true;
+         sub_ctx->cs_shader_dirty = true;
       else
-         ctx->sub->shader_dirty = true;
-      vrend_shader_state_reference(&ctx->sub->shaders[type], NULL);
+         sub_ctx->shader_dirty = true;
+      vrend_shader_state_reference(&sub_ctx->shaders[type], NULL);
       return;
    }
 
-   sel = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_SHADER);
+   sel = vrend_object_lookup(sub_ctx->object_hash, handle, VIRGL_OBJECT_SHADER);
    if (!sel)
       return;
 
    if (sel->type != type)
       return;
 
-   if (ctx->sub->shaders[sel->type] != sel) {
+   if (sub_ctx->shaders[sel->type] != sel) {
       if (type == PIPE_SHADER_COMPUTE)
-         ctx->sub->cs_shader_dirty = true;
+         sub_ctx->cs_shader_dirty = true;
       else
-         ctx->sub->shader_dirty = true;
-      ctx->sub->prog_ids[sel->type] = 0;
+         sub_ctx->shader_dirty = true;
+      sub_ctx->prog_ids[sel->type] = 0;
    }
 
-   vrend_shader_state_reference(&ctx->sub->shaders[sel->type], sel);
+   vrend_shader_state_reference(&sub_ctx->shaders[sel->type], sel);
 }
 
 void vrend_clear(struct vrend_context *ctx,
@@ -3105,6 +3743,7 @@ void vrend_clear(struct vrend_context *ctx,
                  double depth, unsigned stencil)
 {
    GLbitfield bits = 0;
+   struct vrend_sub_context *sub_ctx = ctx->sub;
 
    if (ctx->in_error)
       return;
@@ -3112,20 +3751,20 @@ void vrend_clear(struct vrend_context *ctx,
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
 
-   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
+   vrend_update_frontface_state(sub_ctx);
+   if (sub_ctx->stencil_state_dirty)
+      vrend_update_stencil_state(sub_ctx);
+   if (sub_ctx->scissor_state_dirty)
+      vrend_update_scissor_state(sub_ctx);
+   if (sub_ctx->viewport_state_dirty)
+      vrend_update_viewport_state(sub_ctx);
 
-   vrend_update_frontface_state(ctx);
-   if (ctx->sub->stencil_state_dirty)
-      vrend_update_stencil_state(ctx);
-   if (ctx->sub->scissor_state_dirty)
-      vrend_update_scissor_state(ctx);
-   if (ctx->sub->viewport_state_dirty)
-      vrend_update_viewport_state(ctx);
+   vrend_use_program(sub_ctx, 0);
 
-   vrend_use_program(ctx, 0);
+   glDisable(GL_SCISSOR_TEST);
 
    if (buffers & PIPE_CLEAR_COLOR) {
-      if (ctx->sub->nr_cbufs && ctx->sub->surf[0] && vrend_format_is_emulated_alpha(ctx->sub->surf[0]->format)) {
+      if (sub_ctx->nr_cbufs && sub_ctx->surf[0] && vrend_format_is_emulated_alpha(sub_ctx->surf[0]->format)) {
          glClearColor(color->f[3], 0.0, 0.0, 0.0);
       } else {
          glClearColor(color->f[0], color->f[1], color->f[2], color->f[3]);
@@ -3134,7 +3773,7 @@ void vrend_clear(struct vrend_context *ctx,
       /* This function implements Gallium's full clear callback (st->pipe->clear) on the host. This
          callback requires no color component be masked. We must unmask all components before
          calling glClear* and restore the previous colormask afterwards, as Gallium expects. */
-      if (ctx->sub->hw_blend_state.independent_blend_enable &&
+      if (sub_ctx->hw_blend_state.independent_blend_enable &&
           has_feature(feat_indep_blend)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
@@ -3149,7 +3788,7 @@ void vrend_clear(struct vrend_context *ctx,
       if (vrend_state.use_gles) {
          if (0.0f < depth && depth > 1.0f) {
             // Only warn, it is clamped by the function.
-            report_gles_warn(ctx, GLES_WARN_DEPTH_CLEAR, 0);
+            report_gles_warn(ctx, GLES_WARN_DEPTH_CLEAR);
          }
          glClearDepthf(depth);
       } else {
@@ -3162,24 +3801,24 @@ void vrend_clear(struct vrend_context *ctx,
       glClearStencil(stencil);
    }
 
-   if (ctx->sub->hw_rs_state.rasterizer_discard)
+   if (sub_ctx->hw_rs_state.rasterizer_discard)
        glDisable(GL_RASTERIZER_DISCARD);
 
    if (buffers & PIPE_CLEAR_COLOR) {
       uint32_t mask = 0;
       int i;
-      for (i = 0; i < ctx->sub->nr_cbufs; i++) {
-         if (ctx->sub->surf[i])
+      for (i = 0; i < sub_ctx->nr_cbufs; i++) {
+         if (sub_ctx->surf[i])
             mask |= (1 << i);
       }
       if (mask != (buffers >> 2)) {
          mask = buffers >> 2;
          while (mask) {
             i = u_bit_scan(&mask);
-            if (i < PIPE_MAX_COLOR_BUFS && ctx->sub->surf[i] && util_format_is_pure_uint(ctx->sub->surf[i] && ctx->sub->surf[i]->format))
+            if (i < PIPE_MAX_COLOR_BUFS && sub_ctx->surf[i] && util_format_is_pure_uint(sub_ctx->surf[i] && sub_ctx->surf[i]->format))
                glClearBufferuiv(GL_COLOR,
                                 i, (GLuint *)color);
-            else if (i < PIPE_MAX_COLOR_BUFS && ctx->sub->surf[i] && util_format_is_pure_sint(ctx->sub->surf[i] && ctx->sub->surf[i]->format))
+            else if (i < PIPE_MAX_COLOR_BUFS && sub_ctx->surf[i] && util_format_is_pure_sint(sub_ctx->surf[i] && sub_ctx->surf[i]->format))
                glClearBufferiv(GL_COLOR,
                                 i, (GLint *)color);
             else
@@ -3202,93 +3841,131 @@ void vrend_clear(struct vrend_context *ctx,
     * get here is because the guest cleared all those states but gallium
     * didn't forward them before calling the clear command
     */
-   if (ctx->sub->hw_rs_state.rasterizer_discard)
+   if (sub_ctx->hw_rs_state.rasterizer_discard)
        glEnable(GL_RASTERIZER_DISCARD);
 
    if (buffers & PIPE_CLEAR_DEPTH) {
-      if (!ctx->sub->dsa_state.depth.writemask)
+      if (!sub_ctx->dsa_state.depth.writemask)
          glDepthMask(GL_FALSE);
    }
 
    /* Restore previous stencil buffer write masks for both front and back faces */
    if (buffers & PIPE_CLEAR_STENCIL) {
-      glStencilMaskSeparate(GL_FRONT, ctx->sub->dsa_state.stencil[0].writemask);
-      glStencilMaskSeparate(GL_BACK, ctx->sub->dsa_state.stencil[1].writemask);
+      glStencilMaskSeparate(GL_FRONT, sub_ctx->dsa_state.stencil[0].writemask);
+      glStencilMaskSeparate(GL_BACK, sub_ctx->dsa_state.stencil[1].writemask);
    }
 
    /* Restore previous colormask */
    if (buffers & PIPE_CLEAR_COLOR) {
-      if (ctx->sub->hw_blend_state.independent_blend_enable &&
+      if (sub_ctx->hw_blend_state.independent_blend_enable &&
           has_feature(feat_indep_blend)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
-            struct pipe_blend_state *blend = &ctx->sub->hw_blend_state;
+            struct pipe_blend_state *blend = &sub_ctx->hw_blend_state;
             glColorMaskIndexedEXT(i, blend->rt[i].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                                   blend->rt[i].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                                   blend->rt[i].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
                                   blend->rt[i].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
          }
       } else {
-         glColorMask(ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
-                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
-                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
-                     ctx->sub->hw_blend_state.rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
+         glColorMask(sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
+                     sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
+                     sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
+                     sub_ctx->hw_blend_state.rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
       }
    }
-}
-
-static void vrend_update_scissor_state(struct vrend_context *ctx)
-{
-   struct pipe_scissor_state *ss;
-   struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
-   GLint y;
-   GLuint idx;
-   unsigned mask = ctx->sub->scissor_state_dirty;
-
-   if (state->scissor)
+   if (sub_ctx->hw_rs_state.scissor)
       glEnable(GL_SCISSOR_TEST);
    else
       glDisable(GL_SCISSOR_TEST);
+}
+
+void vrend_clear_texture(struct vrend_context* ctx,
+                         uint32_t handle, uint32_t level,
+                         const struct pipe_box *box,
+                         const void * data)
+{
+   GLenum format, type;
+   struct vrend_resource *res;
+
+   if (handle)
+      res = vrend_renderer_ctx_res_lookup(ctx, handle);
+   else {
+      vrend_printf( "cannot find resource for handle %d\n", handle);
+      return;
+   }
+
+   enum virgl_formats fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+   format = tex_conv_table[fmt].glformat;
+   type = tex_conv_table[fmt].gltype;
+
+   if (vrend_state.use_gles) {
+      glClearTexSubImageEXT(res->id, level,
+                            box->x, box->y, box->z,
+                            box->width, box->height, box->depth,
+                            format, type, data);
+   } else {
+      glClearTexSubImage(res->id, level,
+                         box->x, box->y, box->z,
+                         box->width, box->height, box->depth,
+                         format, type, data);
+   }
+}
+
+static void vrend_update_scissor_state(struct vrend_sub_context *sub_ctx)
+{
+   struct pipe_scissor_state *ss;
+   GLint y;
+   GLuint idx;
+   unsigned mask = sub_ctx->scissor_state_dirty;
 
    while (mask) {
       idx = u_bit_scan(&mask);
       if (idx >= PIPE_MAX_VIEWPORTS) {
-         vrend_report_buffer_error(ctx, 0);
+         vrend_report_buffer_error(sub_ctx->parent, 0);
          break;
       }
-      ss = &ctx->sub->ss[idx];
-      if (ctx->sub->viewport_is_negative)
-         y = ss->miny;
-      else
-         y = ss->miny;
+      ss = &sub_ctx->ss[idx];
+      y = ss->miny;
 
       if (idx > 0 && has_feature(feat_viewport_array))
          glScissorIndexed(idx, ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
       else
          glScissor(ss->minx, y, ss->maxx - ss->minx, ss->maxy - ss->miny);
    }
-   ctx->sub->scissor_state_dirty = 0;
+   sub_ctx->scissor_state_dirty = 0;
 }
 
-static void vrend_update_viewport_state(struct vrend_context *ctx)
+static void vrend_update_viewport_state(struct vrend_sub_context *sub_ctx)
 {
    GLint cy;
-   unsigned mask = ctx->sub->viewport_state_dirty;
+   unsigned mask = sub_ctx->viewport_state_dirty;
    int idx;
    while (mask) {
       idx = u_bit_scan(&mask);
 
-      if (ctx->sub->viewport_is_negative)
-         cy = ctx->sub->vps[idx].cur_y - ctx->sub->vps[idx].height;
+      if (sub_ctx->viewport_is_negative)
+         cy = sub_ctx->vps[idx].cur_y - sub_ctx->vps[idx].height;
       else
-         cy = ctx->sub->vps[idx].cur_y;
+         cy = sub_ctx->vps[idx].cur_y;
       if (idx > 0 && has_feature(feat_viewport_array))
-         glViewportIndexedf(idx, ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+         glViewportIndexedf(idx, sub_ctx->vps[idx].cur_x, cy, sub_ctx->vps[idx].width, sub_ctx->vps[idx].height);
       else
-         glViewport(ctx->sub->vps[idx].cur_x, cy, ctx->sub->vps[idx].width, ctx->sub->vps[idx].height);
+         glViewport(sub_ctx->vps[idx].cur_x, cy, sub_ctx->vps[idx].width, sub_ctx->vps[idx].height);
+
+      if (idx && has_feature(feat_viewport_array))
+         if (vrend_state.use_gles) {
+            glDepthRangeIndexedfOES(idx, sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
+         } else
+            glDepthRangeIndexed(idx, sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
+      else
+         if (vrend_state.use_gles)
+            glDepthRangefOES(sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
+         else
+            glDepthRange(sub_ctx->vps[idx].near_val, sub_ctx->vps[idx].far_val);
    }
 
-   ctx->sub->viewport_state_dirty = 0;
+   sub_ctx->viewport_state_dirty = 0;
 }
 
 static GLenum get_gs_xfb_mode(GLenum mode)
@@ -3301,7 +3978,7 @@ static GLenum get_gs_xfb_mode(GLenum mode)
    case GL_TRIANGLE_STRIP:
       return GL_TRIANGLES;
    default:
-      fprintf(stderr, "illegal gs transform feedback mode %d\n", mode);
+      vrend_printf( "illegal gs transform feedback mode %d\n", mode);
       return GL_POINTS;
    }
 }
@@ -3317,7 +3994,7 @@ static GLenum get_tess_xfb_mode(int mode, bool is_point_mode)
    case GL_LINES:
       return GL_LINES;
    default:
-      fprintf(stderr, "illegal gs transform feedback mode %d\n", mode);
+      vrend_printf( "illegal gs transform feedback mode %d\n", mode);
       return GL_POINTS;
    }
 }
@@ -3339,7 +4016,7 @@ static GLenum get_xfb_mode(GLenum mode)
    case GL_LINE_STRIP:
       return GL_LINES;
    default:
-      fprintf(stderr, "failed to translate TFB %d\n", mode);
+      vrend_printf( "failed to translate TFB %d\n", mode);
       return GL_POINTS;
    }
 }
@@ -3347,14 +4024,12 @@ static GLenum get_xfb_mode(GLenum mode)
 static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
                                           struct vrend_vertex_element_array *va)
 {
-   uint32_t num_enable;
    uint32_t enable_bitmask;
    uint32_t disable_bitmask;
    int i;
 
-   num_enable = va->count;
    enable_bitmask = 0;
-   disable_bitmask = ~((1ull << num_enable) - 1);
+   disable_bitmask = ~((1ull << va->count) - 1);
    for (i = 0; i < (int)va->count; i++) {
       struct vrend_vertex_element *ve = &va->elements[i];
       int vbo_index = ve->base.vertex_buffer_index;
@@ -3363,13 +4038,12 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
 
       if (i >= ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs) {
          /* XYZZY: debug this? */
-         num_enable = ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs;
          break;
       }
-      res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].buffer;
+      res = (struct vrend_resource *)ctx->sub->vbo[vbo_index].base.buffer;
 
       if (!res) {
-         fprintf(stderr,"cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
+         vrend_printf("cannot find vbo buf %d %d %d\n", i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
          continue;
       }
 
@@ -3381,10 +4055,9 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
          } else loc = -1;
 
          if (loc == -1) {
-            fprintf(stderr,"%s: cannot find loc %d %d %d\n", ctx->debug_name, i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
-            num_enable--;
+            vrend_printf("%s: cannot find loc %d %d %d\n", ctx->debug_name, i, va->count, ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs);
             if (i == 0) {
-               fprintf(stderr,"%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
+               vrend_printf("%s: shader probably didn't compile - skipping rendering\n", ctx->debug_name);
                return;
             }
             continue;
@@ -3392,16 +4065,18 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
       }
 
       if (ve->type == GL_FALSE) {
-         fprintf(stderr,"failed to translate vertex type - skipping render\n");
+         vrend_printf("failed to translate vertex type - skipping render\n");
          return;
       }
 
       glBindBuffer(GL_ARRAY_BUFFER, res->id);
 
-      if (ctx->sub->vbo[vbo_index].stride == 0) {
+      struct vrend_vertex_buffer *vbo = &ctx->sub->vbo[vbo_index];
+
+      if (vbo->base.stride == 0) {
          void *data;
          /* for 0 stride we are kinda screwed */
-         data = glMapBufferRange(GL_ARRAY_BUFFER, ctx->sub->vbo[vbo_index].buffer_offset, ve->nr_chan * sizeof(GLfloat), GL_MAP_READ_BIT);
+         data = glMapBufferRange(GL_ARRAY_BUFFER, vbo->base.buffer_offset, ve->nr_chan * sizeof(GLfloat), GL_MAP_READ_BIT);
 
          switch (ve->nr_chan) {
          case 1:
@@ -3423,9 +4098,9 @@ static void vrend_draw_bind_vertex_legacy(struct vrend_context *ctx,
       } else {
          enable_bitmask |= (1 << loc);
          if (util_format_is_pure_integer(ve->base.src_format)) {
-            glVertexAttribIPointer(loc, ve->nr_chan, ve->type, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
+            glVertexAttribIPointer(loc, ve->nr_chan, ve->type, vbo->base.stride, (void *)(unsigned long)(ve->base.src_offset + vbo->base.buffer_offset));
          } else {
-            glVertexAttribPointer(loc, ve->nr_chan, ve->type, ve->norm, ctx->sub->vbo[vbo_index].stride, (void *)(unsigned long)(ve->base.src_offset + ctx->sub->vbo[vbo_index].buffer_offset));
+            glVertexAttribPointer(loc, ve->nr_chan, ve->type, ve->norm, vbo->base.stride, (void *)(unsigned long)(ve->base.src_offset + vbo->base.buffer_offset));
          }
          glVertexAttribDivisorARB(loc, ve->base.instance_divisor);
       }
@@ -3457,144 +4132,168 @@ static void vrend_draw_bind_vertex_binding(struct vrend_context *ctx,
    glBindVertexArray(va->id);
 
    if (ctx->sub->vbo_dirty) {
-      for (i = 0; i < ctx->sub->num_vbos; i++) {
-         struct vrend_resource *res = (struct vrend_resource *)ctx->sub->vbo[i].buffer;
-         if (!res)
+      struct vrend_vertex_buffer *vbo = &ctx->sub->vbo[0];
+
+      if (has_feature(feat_bind_vertex_buffers)) {
+         GLsizei count = MAX2(ctx->sub->num_vbos, ctx->sub->old_num_vbos);
+
+         GLuint buffers[PIPE_MAX_ATTRIBS];
+         GLintptr offsets[PIPE_MAX_ATTRIBS];
+         GLsizei strides[PIPE_MAX_ATTRIBS];
+
+         for (i = 0; i < ctx->sub->num_vbos; i++) {
+            struct vrend_resource *res = (struct vrend_resource *)vbo[i].base.buffer;
+            if (res) {
+               buffers[i] = res->id;
+               offsets[i] = vbo[i].base.buffer_offset;
+               strides[i] = vbo[i].base.stride;
+            } else {
+               buffers[i] = 0;
+               offsets[i] = 0;
+               strides[i] = 0;
+            }
+         }
+
+         for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++) {
+            buffers[i] = 0;
+            offsets[i] = 0;
+            strides[i] = 0;
+         }
+
+         glBindVertexBuffers(0, count, buffers, offsets, strides);
+      } else {
+         for (i = 0; i < ctx->sub->num_vbos; i++) {
+            struct vrend_resource *res = (struct vrend_resource *)vbo[i].base.buffer;
+            if (res)
+               glBindVertexBuffer(i, res->id, vbo[i].base.buffer_offset, vbo[i].base.stride);
+            else
+               glBindVertexBuffer(i, 0, 0, 0);
+         }
+         for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++)
             glBindVertexBuffer(i, 0, 0, 0);
-         else
-            glBindVertexBuffer(i,
-                               res->id,
-                               ctx->sub->vbo[i].buffer_offset,
-                               ctx->sub->vbo[i].stride);
       }
-      for (i = ctx->sub->num_vbos; i < ctx->sub->old_num_vbos; i++) {
-         glBindVertexBuffer(i, 0, 0, 0);
-      }
+
       ctx->sub->vbo_dirty = false;
    }
 }
 
-static void vrend_draw_bind_samplers_shader(struct vrend_context *ctx,
-                                            int shader_type,
-                                            int *sampler_id)
+static int vrend_draw_bind_samplers_shader(struct vrend_sub_context *sub_ctx,
+                                           int shader_type,
+                                           int next_sampler_id)
 {
    int index = 0;
-   for (int i = 0; i < ctx->sub->views[shader_type].num_views; i++) {
-      struct vrend_sampler_view *tview = ctx->sub->views[shader_type].views[i];
 
-      if (!tview)
-         continue;
+   uint32_t dirty = sub_ctx->sampler_views_dirty[shader_type];
 
-      if (!(ctx->sub->prog->samplers_used_mask[shader_type] & (1 << i)))
-         continue;
+   uint32_t mask = sub_ctx->prog->samplers_used_mask[shader_type];
 
-      if (ctx->sub->prog->samp_locs[shader_type])
-         glUniform1i(ctx->sub->prog->samp_locs[shader_type][index], *sampler_id);
+   struct vrend_shader_view *sviews = &sub_ctx->views[shader_type];
 
-      if (ctx->sub->prog->shadow_samp_mask[shader_type] & (1 << i)) {
-         glUniform4f(ctx->sub->prog->shadow_samp_mask_locs[shader_type][index],
-                     (tview->gl_swizzle_r == GL_ZERO || tview->gl_swizzle_r == GL_ONE) ? 0.0 : 1.0,
-                     (tview->gl_swizzle_g == GL_ZERO || tview->gl_swizzle_g == GL_ONE) ? 0.0 : 1.0,
-                     (tview->gl_swizzle_b == GL_ZERO || tview->gl_swizzle_b == GL_ONE) ? 0.0 : 1.0,
-                     (tview->gl_swizzle_a == GL_ZERO || tview->gl_swizzle_a == GL_ONE) ? 0.0 : 1.0);
-         glUniform4f(ctx->sub->prog->shadow_samp_add_locs[shader_type][index],
-                     tview->gl_swizzle_r == GL_ONE ? 1.0 : 0.0,
-                     tview->gl_swizzle_g == GL_ONE ? 1.0 : 0.0,
-                     tview->gl_swizzle_b == GL_ONE ? 1.0 : 0.0,
-                     tview->gl_swizzle_a == GL_ONE ? 1.0 : 0.0);
-      }
+   while (mask) {
+      int i = u_bit_scan(&mask);
 
-      glActiveTexture(GL_TEXTURE0 + *sampler_id);
-      if (tview->texture) {
-         GLuint id;
-         struct vrend_resource *texture = tview->texture;
-         GLenum target = tview->target;
+      if (!(dirty & (1 << i)))
+          continue;
 
-         if (texture->is_buffer) {
-            id = texture->tbo_tex_id;
-            target = GL_TEXTURE_BUFFER;
-         } else
-            id = tview->id;
-
-         glBindTexture(target, id);
-         if (ctx->sub->views[shader_type].old_ids[i] != id || ctx->sub->sampler_state_dirty) {
-            vrend_apply_sampler_state(ctx, texture, shader_type, i, *sampler_id, tview->srgb_decode);
-            ctx->sub->views[shader_type].old_ids[i] = id;
+      struct vrend_sampler_view *tview = sviews->views[i];
+      if (tview) {
+         if (sub_ctx->prog->shadow_samp_mask[shader_type] & (1 << i)) {
+            glUniform4f(sub_ctx->prog->shadow_samp_mask_locs[shader_type][index],
+                        (tview->gl_swizzle[0] == GL_ZERO || tview->gl_swizzle[0] == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle[1] == GL_ZERO || tview->gl_swizzle[1] == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle[2] == GL_ZERO || tview->gl_swizzle[2] == GL_ONE) ? 0.0 : 1.0,
+                        (tview->gl_swizzle[3] == GL_ZERO || tview->gl_swizzle[3] == GL_ONE) ? 0.0 : 1.0);
+            glUniform4f(sub_ctx->prog->shadow_samp_add_locs[shader_type][index],
+                        tview->gl_swizzle[0] == GL_ONE ? 1.0 : 0.0,
+                        tview->gl_swizzle[1] == GL_ONE ? 1.0 : 0.0,
+                        tview->gl_swizzle[2] == GL_ONE ? 1.0 : 0.0,
+                        tview->gl_swizzle[3] == GL_ONE ? 1.0 : 0.0);
          }
-         if (ctx->sub->rs_state.point_quad_rasterization) {
-            if (vrend_state.use_core_profile == false) {
-               if (ctx->sub->rs_state.sprite_coord_enable & (1 << i))
-                  glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_TRUE);
-               else
-                  glTexEnvi(GL_POINT_SPRITE_ARB, GL_COORD_REPLACE_ARB, GL_FALSE);
+
+         if (tview->texture) {
+            GLuint id = tview->id;
+            struct vrend_resource *texture = tview->texture;
+            GLenum target = tview->target;
+
+            debug_texture(__func__, tview->texture);
+
+            if (has_bit(tview->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+               id = texture->tbo_tex_id;
+               target = GL_TEXTURE_BUFFER;
             }
+
+            glActiveTexture(GL_TEXTURE0 + next_sampler_id);
+            glBindTexture(target, id);
+
+            if (sviews->old_ids[i] != id ||
+                sub_ctx->sampler_views_dirty[shader_type] & (1 << i)) {
+               vrend_apply_sampler_state(sub_ctx, texture, shader_type, i,
+                                         next_sampler_id, tview);
+               sviews->old_ids[i] = id;
+            }
+            dirty &= ~(1 << i);
          }
-         (*sampler_id)++;
       }
+      next_sampler_id++;
       index++;
    }
+   sub_ctx->sampler_views_dirty[shader_type] = dirty;
+
+   return next_sampler_id;
 }
 
-static void vrend_draw_bind_ubo_shader(struct vrend_context *ctx,
-                                       int shader_type, int *ubo_id)
+static int vrend_draw_bind_ubo_shader(struct vrend_sub_context *sub_ctx,
+                                      int shader_type, int next_ubo_id)
 {
-   uint32_t mask;
-   int shader_ubo_idx;
+   uint32_t mask, dirty, update;
    struct pipe_constant_buffer *cb;
    struct vrend_resource *res;
-   struct vrend_shader_info* sinfo;
 
    if (!has_feature(feat_ubo))
-      return;
+      return next_ubo_id;
 
-   if (!ctx->sub->const_bufs_used_mask[shader_type])
-      return;
+   mask = sub_ctx->prog->ubo_used_mask[shader_type];
+   dirty = sub_ctx->const_bufs_dirty[shader_type];
+   update = dirty & sub_ctx->const_bufs_used_mask[shader_type];
 
-   if (!ctx->sub->prog->ubo_locs[shader_type])
-      return;
+   if (!update)
+      return next_ubo_id + util_bitcount(mask);
 
-   sinfo = &ctx->sub->prog->ss[shader_type]->sel->sinfo;
-
-   mask = ctx->sub->const_bufs_used_mask[shader_type];
    while (mask) {
       /* The const_bufs_used_mask stores the gallium uniform buffer indices */
       int i = u_bit_scan(&mask);
 
-      /* The cbs array is indexed using the gallium uniform buffer index */
-      cb = &ctx->sub->cbs[shader_type][i];
-      res = (struct vrend_resource *)cb->buffer;
+      if (update & (1 << i)) {
+         /* The cbs array is indexed using the gallium uniform buffer index */
+         cb = &sub_ctx->cbs[shader_type][i];
+         res = (struct vrend_resource *)cb->buffer;
 
-      /* Find the index of the uniform buffer in the array of shader ubo data */
-      for (shader_ubo_idx = 0; shader_ubo_idx < sinfo->num_ubos; shader_ubo_idx++) {
-         if (sinfo->ubo_idx[shader_ubo_idx] == i)
-            break;
+         glBindBufferRange(GL_UNIFORM_BUFFER, next_ubo_id, res->id,
+                           cb->buffer_offset, cb->buffer_size);
+         dirty &= ~(1 << i);
       }
-      if (shader_ubo_idx == sinfo->num_ubos)
-         continue;
-
-      glBindBufferRange(GL_UNIFORM_BUFFER, *ubo_id, res->id,
-                        cb->buffer_offset, cb->buffer_size);
-      /* The ubo_locs array is indexed using the shader ubo index */
-      glUniformBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ubo_locs[shader_type][shader_ubo_idx], *ubo_id);
-      (*ubo_id)++;
+      next_ubo_id++;
    }
+   sub_ctx->const_bufs_dirty[shader_type] = dirty;
+
+   return next_ubo_id;
 }
 
-static void vrend_draw_bind_const_shader(struct vrend_context *ctx,
+static void vrend_draw_bind_const_shader(struct vrend_sub_context *sub_ctx,
                                          int shader_type, bool new_program)
 {
-   if (ctx->sub->consts[shader_type].consts &&
-       ctx->sub->prog->const_locs[shader_type] &&
-       (ctx->sub->const_dirty[shader_type] || new_program)) {
-      for (int i = 0; i < ctx->sub->shaders[shader_type]->sinfo.num_consts; i++) {
-         if (ctx->sub->prog->const_locs[shader_type][i] != -1)
-            glUniform4uiv(ctx->sub->prog->const_locs[shader_type][i], 1, &ctx->sub->consts[shader_type].consts[i * 4]);
-      }
-      ctx->sub->const_dirty[shader_type] = false;
+   if (sub_ctx->consts[shader_type].consts &&
+       sub_ctx->shaders[shader_type] &&
+       (sub_ctx->prog->const_location[shader_type] != -1) &&
+       (sub_ctx->const_dirty[shader_type] || new_program)) {
+      glUniform4uiv(sub_ctx->prog->const_location[shader_type],
+            sub_ctx->shaders[shader_type]->sinfo.num_consts,
+            sub_ctx->consts[shader_type].consts);
+      sub_ctx->const_dirty[shader_type] = false;
    }
 }
 
-static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_type)
+static void vrend_draw_bind_ssbo_shader(struct vrend_sub_context *sub_ctx, int shader_type)
 {
    uint32_t mask;
    struct vrend_ssbo *ssbo;
@@ -3604,54 +4303,76 @@ static void vrend_draw_bind_ssbo_shader(struct vrend_context *ctx, int shader_ty
    if (!has_feature(feat_ssbo))
       return;
 
-   if (!ctx->sub->prog->ssbo_locs[shader_type])
+   if (!sub_ctx->prog->ssbo_locs[shader_type])
       return;
 
-   if (!ctx->sub->ssbo_used_mask[shader_type])
+   if (!sub_ctx->ssbo_used_mask[shader_type])
       return;
 
-   mask = ctx->sub->ssbo_used_mask[shader_type];
+   mask = sub_ctx->ssbo_used_mask[shader_type];
    while (mask) {
       i = u_bit_scan(&mask);
 
-      ssbo = &ctx->sub->ssbo[shader_type][i];
+      ssbo = &sub_ctx->ssbo[shader_type][i];
       res = (struct vrend_resource *)ssbo->res;
       glBindBufferRange(GL_SHADER_STORAGE_BUFFER, i, res->id,
                         ssbo->buffer_offset, ssbo->buffer_size);
-      if (ctx->sub->prog->ssbo_locs[shader_type][i] != GL_INVALID_INDEX) {
+      if (sub_ctx->prog->ssbo_locs[shader_type][i] != GL_INVALID_INDEX) {
          if (!vrend_state.use_gles)
-            glShaderStorageBlockBinding(ctx->sub->prog->id, ctx->sub->prog->ssbo_locs[shader_type][i], i);
+            glShaderStorageBlockBinding(sub_ctx->prog->id, sub_ctx->prog->ssbo_locs[shader_type][i], i);
          else
             debug_printf("glShaderStorageBlockBinding not supported on gles \n");
       }
    }
 }
 
-static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_type)
+static void vrend_draw_bind_abo_shader(struct vrend_sub_context *sub_ctx)
+{
+   uint32_t mask;
+   struct vrend_abo *abo;
+   struct vrend_resource *res;
+   int i;
+
+   if (!has_feature(feat_atomic_counters))
+      return;
+
+   mask = sub_ctx->abo_used_mask;
+   while (mask) {
+      i = u_bit_scan(&mask);
+
+      abo = &sub_ctx->abo[i];
+      res = (struct vrend_resource *)abo->res;
+      glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, i, res->id,
+                        abo->buffer_offset, abo->buffer_size);
+   }
+}
+
+static void vrend_draw_bind_images_shader(struct vrend_sub_context *sub_ctx, int shader_type)
 {
    GLenum access;
    GLboolean layered;
    struct vrend_image_view *iview;
    uint32_t mask, tex_id, level, first_layer;
 
+
+   if (!sub_ctx->images_used_mask[shader_type])
+      return;
+
+   if (!sub_ctx->prog->img_locs[shader_type])
+      return;
+
    if (!has_feature(feat_images))
       return;
 
-   if (!ctx->sub->images_used_mask[shader_type])
-      return;
-
-   if (!ctx->sub->prog->img_locs[shader_type])
-      return;
-
-   mask = ctx->sub->images_used_mask[shader_type];
+   mask = sub_ctx->images_used_mask[shader_type];
    while (mask) {
       unsigned i = u_bit_scan(&mask);
 
-      if (!(ctx->sub->prog->images_used_mask[shader_type] & (1 << i)))
+      if (!(sub_ctx->prog->images_used_mask[shader_type] & (1 << i)))
           continue;
-      iview = &ctx->sub->image_views[shader_type][i];
+      iview = &sub_ctx->image_views[shader_type][i];
       tex_id = iview->texture->id;
-      if (iview->texture->is_buffer) {
+      if (has_bit(iview->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
          if (!iview->texture->tbo_tex_id)
             glGenTextures(1, &iview->texture->tbo_tex_id);
 
@@ -3660,7 +4381,10 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
 
          glBindBufferARB(GL_TEXTURE_BUFFER, iview->texture->id);
          glBindTexture(GL_TEXTURE_BUFFER, iview->texture->tbo_tex_id);
-         glTexBuffer(GL_TEXTURE_BUFFER, format, iview->texture->id);
+
+         if (has_feature(feat_arb_or_gles_ext_texture_buffer))
+            glTexBuffer(GL_TEXTURE_BUFFER, format, iview->texture->id);
+
          tex_id = iview->texture->tbo_tex_id;
          level = first_layer = 0;
          layered = GL_TRUE;
@@ -3672,7 +4396,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
       }
 
       if (!vrend_state.use_gles)
-         glUniform1i(ctx->sub->prog->img_locs[shader_type][i], i);
+         glUniform1i(sub_ctx->prog->img_locs[shader_type][i], i);
 
       switch (iview->access) {
       case PIPE_IMAGE_ACCESS_READ:
@@ -3685,7 +4409,7 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
          access = GL_READ_WRITE;
          break;
       default:
-         fprintf(stderr, "Invalid access specified\n");
+         vrend_printf( "Invalid access specified\n");
          return;
       }
 
@@ -3693,23 +4417,162 @@ static void vrend_draw_bind_images_shader(struct vrend_context *ctx, int shader_
    }
 }
 
-static void vrend_draw_bind_objects(struct vrend_context *ctx, bool new_program)
+static void vrend_draw_bind_objects(struct vrend_sub_context *sub_ctx, bool new_program)
 {
-   int ubo_id = 0, sampler_id = 0;
-   for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= ctx->sub->last_shader_idx; shader_type++) {
-      vrend_draw_bind_ubo_shader(ctx, shader_type, &ubo_id);
-      vrend_draw_bind_const_shader(ctx, shader_type, new_program);
-      vrend_draw_bind_samplers_shader(ctx, shader_type, &sampler_id);
-      vrend_draw_bind_images_shader(ctx, shader_type);
-      vrend_draw_bind_ssbo_shader(ctx, shader_type);
+   int next_ubo_id = 0, next_sampler_id = 0;
+   for (int shader_type = PIPE_SHADER_VERTEX; shader_type <= sub_ctx->last_shader_idx; shader_type++) {
+      next_ubo_id = vrend_draw_bind_ubo_shader(sub_ctx, shader_type, next_ubo_id);
+      vrend_draw_bind_const_shader(sub_ctx, shader_type, new_program);
+      next_sampler_id = vrend_draw_bind_samplers_shader(sub_ctx, shader_type,
+                                                        next_sampler_id);
+      vrend_draw_bind_images_shader(sub_ctx, shader_type);
+      vrend_draw_bind_ssbo_shader(sub_ctx, shader_type);
    }
 
-   if (vrend_state.use_core_profile && ctx->sub->prog->fs_stipple_loc != -1) {
-      glActiveTexture(GL_TEXTURE0 + sampler_id);
-      glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
-      glUniform1i(ctx->sub->prog->fs_stipple_loc, sampler_id);
+   vrend_draw_bind_abo_shader(sub_ctx);
+
+   if (vrend_state.use_core_profile && sub_ctx->prog->fs_stipple_loc != -1) {
+      glActiveTexture(GL_TEXTURE0 + next_sampler_id);
+      glBindTexture(GL_TEXTURE_2D, sub_ctx->parent->pstipple_tex_id);
+      glUniform1i(sub_ctx->prog->fs_stipple_loc, next_sampler_id);
    }
-   ctx->sub->sampler_state_dirty = false;
+
+   if (vrend_state.use_core_profile && sub_ctx->prog->fs_alpha_ref_val_loc != -1) {
+      glUniform1f(sub_ctx->prog->fs_alpha_ref_val_loc, sub_ctx->dsa_state.alpha.ref_value);
+   }
+}
+
+static
+void vrend_inject_tcs(struct vrend_sub_context *sub_ctx, int vertices_per_patch)
+{
+   struct pipe_stream_output_info so_info;
+
+   memset(&so_info, 0, sizeof(so_info));
+   struct vrend_shader_selector *sel = vrend_create_shader_state(&so_info,
+                                                                 false, PIPE_SHADER_TESS_CTRL);
+   struct vrend_shader *shader;
+   shader = CALLOC_STRUCT(vrend_shader);
+   vrend_fill_shader_key(sub_ctx, sel, &shader->key);
+
+   shader->sel = sel;
+   list_inithead(&shader->programs);
+   strarray_alloc(&shader->glsl_strings, SHADER_MAX_STRINGS);
+
+   vrend_shader_create_passthrough_tcs(sub_ctx->parent, &sub_ctx->parent->shader_cfg,
+                                       sub_ctx->shaders[PIPE_SHADER_VERTEX]->tokens,
+                                       &shader->key, vrend_state.tess_factors, &sel->sinfo,
+                                       &shader->glsl_strings, vertices_per_patch);
+   // Need to add inject the selected shader to the shader selector and then the code below
+   // can continue
+   sel->tokens = NULL;
+   sel->current = shader;
+   sub_ctx->shaders[PIPE_SHADER_TESS_CTRL] = sel;
+   sub_ctx->shaders[PIPE_SHADER_TESS_CTRL]->num_shaders = 1;
+
+   shader->id = glCreateShader(conv_shader_type(shader->sel->type));
+   vrend_compile_shader(sub_ctx, shader);
+}
+
+
+static bool
+vrend_select_program(struct vrend_sub_context *sub_ctx, const struct pipe_draw_info *info)
+{
+   struct vrend_linked_shader_program *prog;
+   bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
+   bool dual_src = util_blend_state_is_dual(&sub_ctx->blend_state, 0);
+   bool new_program = false;
+
+   struct vrend_shader_selector **shaders = sub_ctx->shaders;
+
+   sub_ctx->shader_dirty = false;
+
+   if (!shaders[PIPE_SHADER_VERTEX] || !shaders[PIPE_SHADER_FRAGMENT]) {
+      vrend_printf("dropping rendering due to missing shaders: %s\n", sub_ctx->parent->debug_name);
+      return false;
+   }
+
+   // For some GPU, we'd like to use integer variable in generated GLSL if
+   // the input buffers are integer formats. But we actually don't know the
+   // buffer formats when the shader is created, we only know it here.
+   // Set it to true so the underlying code knows to use the buffer formats
+   // now.
+   sub_ctx->drawing = true;
+   vrend_shader_select(sub_ctx, shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+   sub_ctx->drawing = false;
+
+   if (shaders[PIPE_SHADER_TESS_CTRL] && shaders[PIPE_SHADER_TESS_CTRL]->tokens)
+      vrend_shader_select(sub_ctx, shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
+   else if (vrend_state.use_gles && shaders[PIPE_SHADER_TESS_EVAL]) {
+      VREND_DEBUG(dbg_shader, sub_ctx->parent, "Need to inject a TCS\n");
+      vrend_inject_tcs(sub_ctx, info->vertices_per_patch);
+
+      vrend_shader_select(sub_ctx, shaders[PIPE_SHADER_VERTEX], &vs_dirty);
+   }
+
+   if (shaders[PIPE_SHADER_TESS_EVAL])
+      vrend_shader_select(sub_ctx, shaders[PIPE_SHADER_TESS_EVAL], &tes_dirty);
+   if (shaders[PIPE_SHADER_GEOMETRY])
+      vrend_shader_select(sub_ctx, shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
+   vrend_shader_select(sub_ctx, shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
+
+   if (!shaders[PIPE_SHADER_VERTEX]->current ||
+       !shaders[PIPE_SHADER_FRAGMENT]->current ||
+       (shaders[PIPE_SHADER_GEOMETRY] && !shaders[PIPE_SHADER_GEOMETRY]->current) ||
+       (shaders[PIPE_SHADER_TESS_CTRL] && !shaders[PIPE_SHADER_TESS_CTRL]->current) ||
+       (shaders[PIPE_SHADER_TESS_EVAL] && !shaders[PIPE_SHADER_TESS_EVAL]->current)) {
+      vrend_printf( "failure to compile shader variants: %s\n", sub_ctx->parent->debug_name);
+      return false;
+   }
+
+   GLuint vs_id = shaders[PIPE_SHADER_VERTEX]->current->id;
+   GLuint fs_id = shaders[PIPE_SHADER_FRAGMENT]->current->id;
+   GLuint gs_id = shaders[PIPE_SHADER_GEOMETRY] ? shaders[PIPE_SHADER_GEOMETRY]->current->id : 0;
+   GLuint tcs_id = shaders[PIPE_SHADER_TESS_CTRL] ? shaders[PIPE_SHADER_TESS_CTRL]->current->id : 0;
+   GLuint tes_id = shaders[PIPE_SHADER_TESS_EVAL] ? shaders[PIPE_SHADER_TESS_EVAL]->current->id : 0;
+
+   bool same_prog = sub_ctx->prog &&
+                    vs_id == sub_ctx->prog_ids[PIPE_SHADER_VERTEX] &&
+                    fs_id == sub_ctx->prog_ids[PIPE_SHADER_FRAGMENT] &&
+                    gs_id == sub_ctx->prog_ids[PIPE_SHADER_GEOMETRY] &&
+                    tcs_id == sub_ctx->prog_ids[PIPE_SHADER_TESS_CTRL] &&
+                    tes_id == sub_ctx->prog_ids[PIPE_SHADER_TESS_EVAL] &&
+                    sub_ctx->prog->dual_src_linked == dual_src;
+
+   if (!same_prog) {
+      prog = lookup_shader_program(sub_ctx, vs_id, fs_id, gs_id, tcs_id, tes_id, dual_src);
+      if (!prog) {
+         prog = add_shader_program(sub_ctx,
+                                   sub_ctx->shaders[PIPE_SHADER_VERTEX]->current,
+                                   sub_ctx->shaders[PIPE_SHADER_FRAGMENT]->current,
+                                   gs_id ? sub_ctx->shaders[PIPE_SHADER_GEOMETRY]->current : NULL,
+                                   tcs_id ? sub_ctx->shaders[PIPE_SHADER_TESS_CTRL]->current : NULL,
+                                   tes_id ? sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->current : NULL);
+         if (!prog)
+            return false;
+      }
+
+      sub_ctx->last_shader_idx = sub_ctx->shaders[PIPE_SHADER_TESS_EVAL] ? PIPE_SHADER_TESS_EVAL : (sub_ctx->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
+   } else
+      prog = sub_ctx->prog;
+   if (sub_ctx->prog != prog) {
+      new_program = true;
+      sub_ctx->prog_ids[PIPE_SHADER_VERTEX] = vs_id;
+      sub_ctx->prog_ids[PIPE_SHADER_FRAGMENT] = fs_id;
+      sub_ctx->prog_ids[PIPE_SHADER_GEOMETRY] = gs_id;
+      sub_ctx->prog_ids[PIPE_SHADER_TESS_CTRL] = tcs_id;
+      sub_ctx->prog_ids[PIPE_SHADER_TESS_EVAL] = tes_id;
+      sub_ctx->prog_ids[PIPE_SHADER_COMPUTE] = 0;
+      sub_ctx->prog = prog;
+
+      /* mark all constbufs and sampler views as dirty */
+      for (int stage = PIPE_SHADER_VERTEX; stage <= PIPE_SHADER_FRAGMENT; stage++) {
+         sub_ctx->const_bufs_dirty[stage] = ~0;
+         sub_ctx->sampler_views_dirty[stage] = ~0;
+      }
+
+      prog->ref_context = sub_ctx;
+   }
+   return new_program;
 }
 
 int vrend_draw_vbo(struct vrend_context *ctx,
@@ -3720,6 +4583,8 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    int i;
    bool new_program = false;
    struct vrend_resource *indirect_res = NULL;
+   struct vrend_resource *indirect_params_res = NULL;
+   struct vrend_sub_context *sub_ctx = ctx->sub;
 
    if (ctx->in_error)
       return 0;
@@ -3730,168 +4595,112 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    if (info->start_instance && !has_feature(feat_base_instance))
       return EINVAL;
 
+   if (info->indirect.draw_count > 1 && !has_feature(feat_multi_draw_indirect))
+      return EINVAL;
+
    if (indirect_handle) {
       if (!has_feature(feat_indirect_draw))
          return EINVAL;
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
       if (!indirect_res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
          return 0;
       }
    }
 
    /* this must be zero until we support the feature */
    if (indirect_draw_count_handle) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
-      return 0;
+      if (!has_feature(feat_indirect_params))
+         return EINVAL;
+
+      indirect_params_res = vrend_renderer_ctx_res_lookup(ctx, indirect_draw_count_handle);
+      if (!indirect_params_res){
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_draw_count_handle);
+         return 0;
+      }
    }
 
    if (ctx->ctx_switch_pending)
       vrend_finish_context_switch(ctx);
 
-   vrend_update_frontface_state(ctx);
+   vrend_update_frontface_state(sub_ctx);
    if (ctx->sub->stencil_state_dirty)
-      vrend_update_stencil_state(ctx);
+      vrend_update_stencil_state(sub_ctx);
    if (ctx->sub->scissor_state_dirty)
-      vrend_update_scissor_state(ctx);
+      vrend_update_scissor_state(sub_ctx);
 
    if (ctx->sub->viewport_state_dirty)
-      vrend_update_viewport_state(ctx);
+      vrend_update_viewport_state(sub_ctx);
 
-   vrend_patch_blend_state(ctx);
+   if (ctx->sub->blend_state_dirty)
+      vrend_patch_blend_state(sub_ctx);
 
-   if (ctx->sub->shader_dirty) {
-      struct vrend_linked_shader_program *prog;
-      bool fs_dirty, vs_dirty, gs_dirty, tcs_dirty, tes_dirty;
-      bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
-      bool same_prog;
-      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX] || !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]) {
-         fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
-         return 0;
-      }
+   // enable primitive-mode-dependent shader variants
+   if (sub_ctx->prim_mode != (int)info->mode) {
+      // Only refresh shader program when switching in/out of GL_POINTS primitive mode
+      if (sub_ctx->prim_mode == PIPE_PRIM_POINTS
+          || (int)info->mode == PIPE_PRIM_POINTS)
+         sub_ctx->shader_dirty = true;
 
-      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_FRAGMENT], &fs_dirty);
-      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_VERTEX], &vs_dirty);
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_GEOMETRY], &gs_dirty);
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_CTRL], &tcs_dirty);
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
-         vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_TESS_EVAL], &tes_dirty);
-
-      if (!ctx->sub->shaders[PIPE_SHADER_VERTEX]->current ||
-          !ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current ||
-          (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && !ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current) ||
-          (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && !ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current) ||
-          (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && !ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current)) {
-         fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
-         return 0;
-      }
-      same_prog = true;
-      if (ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_VERTEX])
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT])
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] && ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY])
-         same_prog = false;
-      if (ctx->sub->prog && ctx->sub->prog->dual_src_linked != dual_src)
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] && ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL])
-         same_prog = false;
-      if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] && ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL])
-         same_prog = false;
-
-      if (!same_prog) {
-         prog = lookup_shader_program(ctx,
-                                      ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id,
-                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id,
-                                      ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id : 0,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id : 0,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id : 0,
-                                      dual_src);
-         if (!prog) {
-            prog = add_shader_program(ctx,
-                                      ctx->sub->shaders[PIPE_SHADER_VERTEX]->current,
-                                      ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current,
-                                      ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current : NULL,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_CTRL] ? ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current : NULL,
-                                      ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current : NULL);
-            if (!prog)
-               return 0;
-         }
-
-         ctx->sub->last_shader_idx = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL] ? PIPE_SHADER_TESS_EVAL : (ctx->sub->shaders[PIPE_SHADER_GEOMETRY] ? PIPE_SHADER_GEOMETRY : PIPE_SHADER_FRAGMENT);
-      } else
-         prog = ctx->sub->prog;
-      if (ctx->sub->prog != prog) {
-         new_program = true;
-         ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = ctx->sub->shaders[PIPE_SHADER_VERTEX]->current->id;
-         ctx->sub->prog_ids[PIPE_SHADER_FRAGMENT] = ctx->sub->shaders[PIPE_SHADER_FRAGMENT]->current->id;
-         if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-            ctx->sub->prog_ids[PIPE_SHADER_GEOMETRY] = ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->current->id;
-         if (ctx->sub->shaders[PIPE_SHADER_TESS_CTRL])
-            ctx->sub->prog_ids[PIPE_SHADER_TESS_CTRL] = ctx->sub->shaders[PIPE_SHADER_TESS_CTRL]->current->id;
-         if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
-            ctx->sub->prog_ids[PIPE_SHADER_TESS_EVAL] = ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->current->id;
-         ctx->sub->prog = prog;
-      }
+      sub_ctx->prim_mode = (int)info->mode;
    }
-   if (!ctx->sub->prog) {
-      fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+
+   if (sub_ctx->shader_dirty || sub_ctx->swizzle_output_rgb_to_bgr)
+      new_program = vrend_select_program(sub_ctx, info);
+
+   if (!sub_ctx->prog) {
+      vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
       return 0;
    }
-   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ctx->sub->fb_id);
 
-   vrend_use_program(ctx, ctx->sub->prog->id);
+   vrend_use_program(sub_ctx, sub_ctx->prog->id);
 
-   vrend_draw_bind_objects(ctx, new_program);
+   vrend_draw_bind_objects(sub_ctx, new_program);
 
-   if (!ctx->sub->ve) {
-      fprintf(stderr,"illegal VE setup - skipping renderering\n");
+   if (!sub_ctx->ve) {
+      vrend_printf("illegal VE setup - skipping renderering\n");
       return 0;
    }
-   glUniform1f(ctx->sub->prog->vs_ws_adjust_loc, ctx->sub->viewport_is_negative ? -1.0 : 1.0);
+   float viewport_neg_val = sub_ctx->viewport_is_negative ? -1.0 : 1.0;
+   if (sub_ctx->prog->viewport_neg_val != viewport_neg_val) {
+      glUniform1f(sub_ctx->prog->vs_ws_adjust_loc, viewport_neg_val);
+      sub_ctx->prog->viewport_neg_val = viewport_neg_val;
+   }
 
-   if (ctx->sub->rs_state.clip_plane_enable) {
+   if (sub_ctx->rs_state.clip_plane_enable) {
       for (i = 0 ; i < 8; i++) {
-         glUniform4fv(ctx->sub->prog->clip_locs[i], 1, (const GLfloat *)&ctx->sub->ucp_state.ucp[i]);
+         glUniform4fv(sub_ctx->prog->clip_locs[i], 1, (const GLfloat *)&sub_ctx->ucp_state.ucp[i]);
       }
    }
 
    if (has_feature(feat_gles31_vertex_attrib_binding))
-      vrend_draw_bind_vertex_binding(ctx, ctx->sub->ve);
+      vrend_draw_bind_vertex_binding(ctx, sub_ctx->ve);
    else
-      vrend_draw_bind_vertex_legacy(ctx, ctx->sub->ve);
-
-   for (i = 0 ; i < ctx->sub->prog->ss[PIPE_SHADER_VERTEX]->sel->sinfo.num_inputs; i++) {
-      struct vrend_vertex_element_array *va = ctx->sub->ve;
-      struct vrend_vertex_element *ve = &va->elements[i];
-      int vbo_index = ve->base.vertex_buffer_index;
-      if (!ctx->sub->vbo[vbo_index].buffer) {
-         fprintf(stderr, "VBO missing vertex buffer\n");
-         return 0;
-      }
-   }
+      vrend_draw_bind_vertex_legacy(ctx, sub_ctx->ve);
 
    if (info->indexed) {
-      struct vrend_resource *res = (struct vrend_resource *)ctx->sub->ib.buffer;
+      struct vrend_resource *res = (struct vrend_resource *)sub_ctx->ib.buffer;
+      if (!res) {
+         vrend_printf( "VBO missing indexed array buffer\n");
+         return 0;
+      }
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, res->id);
    } else
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-   if (ctx->sub->current_so) {
-      if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
-         if (ctx->sub->shaders[PIPE_SHADER_GEOMETRY])
-            glBeginTransformFeedback(get_gs_xfb_mode(ctx->sub->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim));
-	 else if (ctx->sub->shaders[PIPE_SHADER_TESS_EVAL])
-            glBeginTransformFeedback(get_tess_xfb_mode(ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_prim,
-						       ctx->sub->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode));
+   if (sub_ctx->current_so) {
+      if (sub_ctx->current_so->xfb_state == XFB_STATE_STARTED_NEED_BEGIN) {
+         if (sub_ctx->shaders[PIPE_SHADER_GEOMETRY])
+            glBeginTransformFeedback(get_gs_xfb_mode(sub_ctx->shaders[PIPE_SHADER_GEOMETRY]->sinfo.gs_out_prim));
+     else if (sub_ctx->shaders[PIPE_SHADER_TESS_EVAL])
+            glBeginTransformFeedback(get_tess_xfb_mode(sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_prim,
+                               sub_ctx->shaders[PIPE_SHADER_TESS_EVAL]->sinfo.tes_point_mode));
          else
             glBeginTransformFeedback(get_xfb_mode(info->mode));
-         ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
-      } else if (ctx->sub->current_so->xfb_state == XFB_STATE_PAUSED) {
+         sub_ctx->current_so->xfb_state = XFB_STATE_STARTED;
+      } else if (sub_ctx->current_so->xfb_state == XFB_STATE_PAUSED) {
          glResumeTransformFeedback();
-         ctx->sub->current_so->xfb_state = XFB_STATE_STARTED;
+         sub_ctx->current_so->xfb_state = XFB_STATE_STARTED;
       }
    }
 
@@ -3908,14 +4717,42 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    }
 
    if (has_feature(feat_indirect_draw)) {
-      if (indirect_res)
-         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, indirect_res->id);
-      else
-         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+      GLint buf = indirect_res ? indirect_res->id : 0;
+      if (sub_ctx->draw_indirect_buffer != buf) {
+         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buf);
+         sub_ctx->draw_indirect_buffer = buf;
+      }
+
+      if (has_feature(feat_indirect_params)) {
+         GLint buf = indirect_params_res ? indirect_params_res->id : 0;
+         if (sub_ctx->draw_indirect_params_buffer != buf) {
+            glBindBuffer(GL_PARAMETER_BUFFER_ARB, buf);
+            sub_ctx->draw_indirect_params_buffer = buf;
+         }
+      }
    }
 
    if (info->vertices_per_patch && has_feature(feat_tessellation))
       glPatchParameteri(GL_PATCH_VERTICES, info->vertices_per_patch);
+
+   /* If the host support blend_equation_advanced but not fbfetch,
+    * the guest driver will not lower the equation to fbfetch so we need to set up the renderer to
+    * accept those blend equations.
+    * When we transmit the blend mode through alpha_src_factor, alpha_dst_factor is always 0.
+    */
+   uint32_t blend_mask_shader = sub_ctx->shaders[PIPE_SHADER_FRAGMENT]->sinfo.fs_blend_equation_advanced;
+   uint32_t blend_mode = sub_ctx->blend_state.rt[0].alpha_src_factor;
+   uint32_t alpha_dst_factor = sub_ctx->blend_state.rt[0].alpha_dst_factor;
+   bool use_advanced_blending = !has_feature(feat_framebuffer_fetch) &&
+                                 has_feature(feat_blend_equation_advanced) &&
+                                 blend_mask_shader != 0 &&
+                                 blend_mode != 0 &&
+                                 alpha_dst_factor == 0;
+   if(use_advanced_blending) {
+      GLenum blend = translate_blend_func_advanced(blend_mode);
+      glBlendEquation(blend);
+      glEnable(GL_BLEND);
+   }
 
    /* set the vertex state up now on a delay */
    if (!info->indexed) {
@@ -3923,9 +4760,15 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       int count = cso ? cso : info->count;
       int start = cso ? 0 : info->start;
 
-      if (indirect_handle)
-         glDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset);
-      else if (info->instance_count <= 1)
+      if (indirect_handle) {
+         if (indirect_params_res)
+            glMultiDrawArraysIndirectCountARB(mode, (GLvoid const *)(unsigned long)info->indirect.offset,
+                                              info->indirect.indirect_draw_count_offset, info->indirect.draw_count, info->indirect.stride);
+         else if (info->indirect.draw_count > 1)
+            glMultiDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset, info->indirect.draw_count, info->indirect.stride);
+         else
+            glDrawArraysIndirect(mode, (GLvoid const *)(unsigned long)info->indirect.offset);
+      } else if (info->instance_count <= 1)
          glDrawArrays(mode, start, count);
       else if (info->start_instance)
          glDrawArraysInstancedBaseInstance(mode, start, count, info->instance_count, info->start_instance);
@@ -3934,7 +4777,7 @@ int vrend_draw_vbo(struct vrend_context *ctx,
    } else {
       GLenum elsz;
       GLenum mode = info->mode;
-      switch (ctx->sub->ib.index_size) {
+      switch (sub_ctx->ib.index_size) {
       case 1:
          elsz = GL_UNSIGNED_BYTE;
          break;
@@ -3947,21 +4790,27 @@ int vrend_draw_vbo(struct vrend_context *ctx,
          break;
       }
 
-      if (indirect_handle)
-         glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
-      else if (info->index_bias) {
-         if (info->instance_count > 1)
-            glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count, info->index_bias);
-         else if (info->min_index != 0 || info->max_index != (unsigned)-1)
-            glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
+      if (indirect_handle) {
+         if (indirect_params_res)
+            glMultiDrawElementsIndirectCountARB(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset,
+                                                info->indirect.indirect_draw_count_offset, info->indirect.draw_count, info->indirect.stride);
+         else if (info->indirect.draw_count > 1)
+            glMultiDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset, info->indirect.draw_count, info->indirect.stride);
          else
-            glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->index_bias);
+            glDrawElementsIndirect(mode, elsz, (GLvoid const *)(unsigned long)info->indirect.offset);
+      } else if (info->index_bias) {
+         if (info->instance_count > 1)
+            glDrawElementsInstancedBaseVertex(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->instance_count, info->index_bias);
+         else if (info->min_index != 0 || info->max_index != (unsigned)-1)
+            glDrawRangeElementsBaseVertex(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->index_bias);
+         else
+            glDrawElementsBaseVertex(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->index_bias);
       } else if (info->instance_count > 1) {
-         glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset, info->instance_count);
+         glDrawElementsInstancedARB(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset, info->instance_count);
       } else if (info->min_index != 0 || info->max_index != (unsigned)-1)
-         glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
+         glDrawRangeElements(mode, info->min_index, info->max_index, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset);
       else
-         glDrawElements(mode, info->count, elsz, (void *)(unsigned long)ctx->sub->ib.offset);
+         glDrawElements(mode, info->count, elsz, (void *)(unsigned long)sub_ctx->ib.offset);
    }
 
    if (info->primitive_restart) {
@@ -3974,10 +4823,10 @@ int vrend_draw_vbo(struct vrend_context *ctx,
       }
    }
 
-   if (ctx->sub->current_so && has_feature(feat_transform_feedback2)) {
-      if (ctx->sub->current_so->xfb_state == XFB_STATE_STARTED) {
+   if (sub_ctx->current_so && has_feature(feat_transform_feedback2)) {
+      if (sub_ctx->current_so->xfb_state == XFB_STATE_STARTED) {
          glPauseTransformFeedback();
-         ctx->sub->current_so->xfb_state = XFB_STATE_PAUSED;
+         sub_ctx->current_so->xfb_state = XFB_STATE_PAUSED;
       }
    }
    return 0;
@@ -3995,53 +4844,63 @@ void vrend_launch_grid(struct vrend_context *ctx,
    if (!has_feature(feat_compute_shader))
       return;
 
-   if (ctx->sub->cs_shader_dirty) {
+    struct vrend_sub_context *sub_ctx = ctx->sub;
+
+   if (sub_ctx->cs_shader_dirty) {
       struct vrend_linked_shader_program *prog;
-      bool same_prog, cs_dirty;
-      if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]) {
-         fprintf(stderr,"dropping rendering due to missing shaders: %s\n", ctx->debug_name);
+      bool cs_dirty;
+
+      sub_ctx->cs_shader_dirty = false;
+
+      if (!sub_ctx->shaders[PIPE_SHADER_COMPUTE]) {
+         vrend_printf("dropping rendering due to missing shaders: %s\n", ctx->debug_name);
          return;
       }
 
-      vrend_shader_select(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE], &cs_dirty);
-      if (!ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current) {
-         fprintf(stderr, "failure to compile shader variants: %s\n", ctx->debug_name);
+      vrend_shader_select(sub_ctx, sub_ctx->shaders[PIPE_SHADER_COMPUTE], &cs_dirty);
+      if (!sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current) {
+         vrend_printf( "failure to compile shader variants: %s\n", ctx->debug_name);
          return;
       }
-      same_prog = true;
-      if (ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)ctx->sub->prog_ids[PIPE_SHADER_COMPUTE])
- same_prog = false;
-      if (!same_prog) {
-         prog = lookup_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id);
+      if (sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current->id != (GLuint)sub_ctx->prog_ids[PIPE_SHADER_COMPUTE]) {
+         prog = lookup_cs_shader_program(ctx, sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current->id);
          if (!prog) {
-            prog = add_cs_shader_program(ctx, ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current);
+            prog = add_cs_shader_program(ctx, sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current);
             if (!prog)
                return;
          }
       } else
-         prog = ctx->sub->prog;
+         prog = sub_ctx->prog;
 
-      if (ctx->sub->prog != prog) {
+      if (sub_ctx->prog != prog) {
          new_program = true;
-         ctx->sub->prog_ids[PIPE_SHADER_VERTEX] = -1;
-         ctx->sub->prog_ids[PIPE_SHADER_COMPUTE] = ctx->sub->shaders[PIPE_SHADER_COMPUTE]->current->id;
-         ctx->sub->prog = prog;
+         sub_ctx->prog_ids[PIPE_SHADER_VERTEX] = 0;
+         sub_ctx->prog_ids[PIPE_SHADER_COMPUTE] = sub_ctx->shaders[PIPE_SHADER_COMPUTE]->current->id;
+         sub_ctx->prog = prog;
+         prog->ref_context = sub_ctx;
       }
-      ctx->sub->shader_dirty = true;
+      sub_ctx->shader_dirty = true;
    }
-   vrend_use_program(ctx, ctx->sub->prog->id);
 
-   int sampler_id = 0, ubo_id = 0;
-   vrend_draw_bind_ubo_shader(ctx, PIPE_SHADER_COMPUTE, &ubo_id);
-   vrend_draw_bind_const_shader(ctx, PIPE_SHADER_COMPUTE, new_program);
-   vrend_draw_bind_samplers_shader(ctx, PIPE_SHADER_COMPUTE, &sampler_id);
-   vrend_draw_bind_images_shader(ctx, PIPE_SHADER_COMPUTE);
-   vrend_draw_bind_ssbo_shader(ctx, PIPE_SHADER_COMPUTE);
+   if (!sub_ctx->prog) {
+      vrend_printf("%s: Skipping compute shader execution due to missing shaders: %s\n",
+                   __func__, ctx->debug_name);
+      return;
+   }
+
+   vrend_use_program(sub_ctx, sub_ctx->prog->id);
+
+   vrend_draw_bind_ubo_shader(sub_ctx, PIPE_SHADER_COMPUTE, 0);
+   vrend_draw_bind_const_shader(sub_ctx, PIPE_SHADER_COMPUTE, new_program);
+   vrend_draw_bind_samplers_shader(sub_ctx, PIPE_SHADER_COMPUTE, 0);
+   vrend_draw_bind_images_shader(sub_ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_ssbo_shader(sub_ctx, PIPE_SHADER_COMPUTE);
+   vrend_draw_bind_abo_shader(sub_ctx);
 
    if (indirect_handle) {
       indirect_res = vrend_renderer_ctx_res_lookup(ctx, indirect_handle);
       if (!indirect_res) {
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
+         vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, indirect_handle);
          return;
       }
    }
@@ -4189,14 +5048,15 @@ static inline bool is_const_blend(int blend_factor)
            blend_factor == PIPE_BLENDFACTOR_INV_CONST_ALPHA);
 }
 
-static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_state *state)
+static void vrend_hw_emit_blend(struct vrend_sub_context *sub_ctx, struct pipe_blend_state *state)
 {
-   if (state->logicop_enable != ctx->sub->hw_blend_state.logicop_enable) {
-      ctx->sub->hw_blend_state.logicop_enable = state->logicop_enable;
+   if (state->logicop_enable != sub_ctx->hw_blend_state.logicop_enable) {
+      sub_ctx->hw_blend_state.logicop_enable = state->logicop_enable;
       if (vrend_state.use_gles) {
-         if (state->logicop_enable) {
-            report_gles_warn(ctx, GLES_WARN_LOGIC_OP, 0);
-         }
+         if (can_emulate_logicop(state->logicop_func))
+            sub_ctx->shader_dirty = true;
+         else
+            report_gles_warn(sub_ctx->parent, GLES_WARN_LOGIC_OP);
       } else if (state->logicop_enable) {
          glEnable(GL_COLOR_LOGIC_OP);
          glLogicOp(translate_logicop(state->logicop_func));
@@ -4214,9 +5074,9 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
 
          if (state->rt[i].blend_enable) {
-            bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, i);
+            bool dual_src = util_blend_state_is_dual(&sub_ctx->blend_state, i);
             if (dual_src && !has_feature(feat_dual_src_blend)) {
-               fprintf(stderr, "dual src blend requested but not supported for rt %d\n", i);
+               vrend_printf( "dual src blend requested but not supported for rt %d\n", i);
                continue;
             }
 
@@ -4230,8 +5090,8 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
          } else
             glDisableIndexedEXT(GL_BLEND, i);
 
-         if (state->rt[i].colormask != ctx->sub->hw_blend_state.rt[i].colormask) {
-            ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
+         if (state->rt[i].colormask != sub_ctx->hw_blend_state.rt[i].colormask) {
+            sub_ctx->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
             glColorMaskIndexedEXT(i, state->rt[i].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                                   state->rt[i].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                                   state->rt[i].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
@@ -4240,9 +5100,9 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
       }
    } else {
       if (state->rt[0].blend_enable) {
-         bool dual_src = util_blend_state_is_dual(&ctx->sub->blend_state, 0);
+         bool dual_src = util_blend_state_is_dual(&sub_ctx->blend_state, 0);
          if (dual_src && !has_feature(feat_dual_src_blend)) {
-            fprintf(stderr, "dual src blend requested but not supported for rt 0\n");
+            vrend_printf( "dual src blend requested but not supported for rt 0\n");
          }
          glBlendFuncSeparate(translate_blend_factor(state->rt[0].rgb_src_factor),
                              translate_blend_factor(state->rt[0].rgb_dst_factor),
@@ -4250,22 +5110,24 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
                              translate_blend_factor(state->rt[0].alpha_dst_factor));
          glBlendEquationSeparate(translate_blend_func(state->rt[0].rgb_func),
                                  translate_blend_func(state->rt[0].alpha_func));
-         vrend_blend_enable(ctx, true);
+         glEnable(GL_BLEND);
       }
       else
-         vrend_blend_enable(ctx, false);
+         glDisable(GL_BLEND);
 
-      if (state->rt[0].colormask != ctx->sub->hw_blend_state.rt[0].colormask) {
+      if (state->rt[0].colormask != sub_ctx->hw_blend_state.rt[0].colormask ||
+          (sub_ctx->hw_blend_state.independent_blend_enable &&
+           !state->independent_blend_enable)) {
          int i;
          for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)
-            ctx->sub->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
+            sub_ctx->hw_blend_state.rt[i].colormask = state->rt[i].colormask;
          glColorMask(state->rt[0].colormask & PIPE_MASK_R ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_G ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_B ? GL_TRUE : GL_FALSE,
                      state->rt[0].colormask & PIPE_MASK_A ? GL_TRUE : GL_FALSE);
       }
    }
-   ctx->sub->hw_blend_state.independent_blend_enable = state->independent_blend_enable;
+   sub_ctx->hw_blend_state.independent_blend_enable = state->independent_blend_enable;
 
    if (has_feature(feat_multisample)) {
       if (state->alpha_to_coverage)
@@ -4292,20 +5154,22 @@ static void vrend_hw_emit_blend(struct vrend_context *ctx, struct pipe_blend_sta
    b) patching colormask/blendcolor/blendfactors for A8/A16 format
    emulation using GL_R8/GL_R16.
 */
-static void vrend_patch_blend_state(struct vrend_context *ctx)
+static void vrend_patch_blend_state(struct vrend_sub_context *sub_ctx)
 {
-   struct pipe_blend_state new_state = ctx->sub->blend_state;
-   struct pipe_blend_state *state = &ctx->sub->blend_state;
+   struct pipe_blend_state new_state = sub_ctx->blend_state;
+   struct pipe_blend_state *state = &sub_ctx->blend_state;
    bool swizzle_blend_color = false;
-   struct pipe_blend_color blend_color = ctx->sub->blend_color;
+   struct pipe_blend_color blend_color = sub_ctx->blend_color;
    int i;
 
-   if (ctx->sub->nr_cbufs == 0)
+   if (sub_ctx->nr_cbufs == 0) {
+      sub_ctx->blend_state_dirty = false;
       return;
+   }
 
    for (i = 0; i < (state->independent_blend_enable ? PIPE_MAX_COLOR_BUFS : 1); i++) {
-      if (i < ctx->sub->nr_cbufs && ctx->sub->surf[i]) {
-         if (vrend_format_is_emulated_alpha(ctx->sub->surf[i]->format)) {
+      if (i < sub_ctx->nr_cbufs && sub_ctx->surf[i]) {
+         if (vrend_format_is_emulated_alpha(sub_ctx->surf[i]->format)) {
             if (state->rt[i].blend_enable) {
                new_state.rt[i].rgb_src_factor = conv_a8_blend(state->rt[i].alpha_src_factor);
                new_state.rt[i].rgb_dst_factor = conv_a8_blend(state->rt[i].alpha_dst_factor);
@@ -4319,7 +5183,7 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
                 is_const_blend(new_state.rt[i].rgb_dst_factor)) {
                swizzle_blend_color = true;
             }
-         } else if (!util_format_has_alpha(ctx->sub->surf[i]->format)) {
+         } else if (!util_format_has_alpha(sub_ctx->surf[i]->format)) {
             if (!(is_dst_blend(state->rt[i].rgb_src_factor) ||
                   is_dst_blend(state->rt[i].rgb_dst_factor) ||
                   is_dst_blend(state->rt[i].alpha_src_factor) ||
@@ -4333,7 +5197,7 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
       }
    }
 
-   vrend_hw_emit_blend(ctx, &new_state);
+   vrend_hw_emit_blend(sub_ctx, &new_state);
 
    if (swizzle_blend_color) {
       blend_color.color[0] = blend_color.color[3];
@@ -4346,6 +5210,8 @@ static void vrend_patch_blend_state(struct vrend_context *ctx)
                 blend_color.color[1],
                 blend_color.color[2],
                 blend_color.color[3]);
+
+   sub_ctx->blend_state_dirty = false;
 }
 
 void vrend_object_bind_blend(struct vrend_context *ctx,
@@ -4355,19 +5221,19 @@ void vrend_object_bind_blend(struct vrend_context *ctx,
 
    if (handle == 0) {
       memset(&ctx->sub->blend_state, 0, sizeof(ctx->sub->blend_state));
-      vrend_blend_enable(ctx, false);
+      glDisable(GL_BLEND);
       return;
    }
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_BLEND);
    if (!state) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
    ctx->sub->shader_dirty = true;
    ctx->sub->blend_state = *state;
 
-   vrend_hw_emit_blend(ctx, &ctx->sub->blend_state);
+   ctx->sub->blend_state_dirty = true;
 }
 
 static void vrend_hw_emit_dsa(struct vrend_context *ctx)
@@ -4409,7 +5275,7 @@ void vrend_object_bind_dsa(struct vrend_context *ctx,
 
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_DSA);
    if (!state) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
@@ -4423,41 +5289,41 @@ void vrend_object_bind_dsa(struct vrend_context *ctx,
    vrend_hw_emit_dsa(ctx);
 }
 
-static void vrend_update_frontface_state(struct vrend_context *ctx)
+static void vrend_update_frontface_state(struct vrend_sub_context *sub_ctx)
 {
-   struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
+   struct pipe_rasterizer_state *state = &sub_ctx->rs_state;
    int front_ccw = state->front_ccw;
 
-   front_ccw ^= (ctx->sub->inverted_fbo_content ? 0 : 1);
+   front_ccw ^= (sub_ctx->inverted_fbo_content ? 0 : 1);
    if (front_ccw)
       glFrontFace(GL_CCW);
    else
       glFrontFace(GL_CW);
 }
 
-void vrend_update_stencil_state(struct vrend_context *ctx)
+void vrend_update_stencil_state(struct vrend_sub_context *sub_ctx)
 {
-   struct pipe_depth_stencil_alpha_state *state = ctx->sub->dsa;
+   struct pipe_depth_stencil_alpha_state *state = sub_ctx->dsa;
    int i;
    if (!state)
       return;
 
    if (!state->stencil[1].enabled) {
       if (state->stencil[0].enabled) {
-         vrend_stencil_test_enable(ctx, true);
+         vrend_stencil_test_enable(sub_ctx, true);
 
          glStencilOp(translate_stencil_op(state->stencil[0].fail_op),
                      translate_stencil_op(state->stencil[0].zfail_op),
                      translate_stencil_op(state->stencil[0].zpass_op));
 
          glStencilFunc(GL_NEVER + state->stencil[0].func,
-                       ctx->sub->stencil_refs[0],
+                       sub_ctx->stencil_refs[0],
                        state->stencil[0].valuemask);
          glStencilMask(state->stencil[0].writemask);
       } else
-         vrend_stencil_test_enable(ctx, false);
+         vrend_stencil_test_enable(sub_ctx, false);
    } else {
-      vrend_stencil_test_enable(ctx, true);
+      vrend_stencil_test_enable(sub_ctx, true);
 
       for (i = 0; i < 2; i++) {
          GLenum face = (i == 1) ? GL_BACK : GL_FRONT;
@@ -4467,12 +5333,12 @@ void vrend_update_stencil_state(struct vrend_context *ctx)
                              translate_stencil_op(state->stencil[i].zpass_op));
 
          glStencilFuncSeparate(face, GL_NEVER + state->stencil[i].func,
-                               ctx->sub->stencil_refs[i],
+                               sub_ctx->stencil_refs[i],
                                state->stencil[i].valuemask);
          glStencilMaskSeparate(face, state->stencil[i].writemask);
       }
    }
-   ctx->sub->stencil_state_dirty = false;
+   sub_ctx->stencil_state_dirty = false;
 }
 
 static inline GLenum translate_fill(uint32_t mode)
@@ -4495,14 +5361,11 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    struct pipe_rasterizer_state *state = &ctx->sub->rs_state;
    int i;
 
-   if (vrend_state.use_gles) {
-      if (!state->depth_clip) {
-         report_gles_warn(ctx, GLES_WARN_DEPTH_CLIP, 0);
-      }
-   } else if (state->depth_clip) {
-      glDisable(GL_DEPTH_CLAMP);
-   } else {
-      glEnable(GL_DEPTH_CLAMP);
+   if (has_feature(feat_depth_clamp)) {
+      if (state->depth_clip)
+         glDisable(GL_DEPTH_CLAMP);
+      else
+         glEnable(GL_DEPTH_CLAMP);
    }
 
    if (vrend_state.use_gles) {
@@ -4510,7 +5373,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       if (!state->point_size_per_vertex &&
           state->point_size != 1.0f &&
           state->point_size != 0.0f) {
-         report_gles_warn(ctx, GLES_WARN_POINT_SIZE, 0);
+         report_gles_warn(ctx, GLES_WARN_POINT_SIZE);
       }
    } else if (state->point_size_per_vertex) {
       glEnable(GL_PROGRAM_POINT_SIZE);
@@ -4534,10 +5397,10 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles == true) {
       if (translate_fill(state->fill_front) != GL_FILL) {
-         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE, 0);
+         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE);
       }
       if (translate_fill(state->fill_back) != GL_FILL) {
-         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE, 0);
+         report_gles_warn(ctx, GLES_WARN_POLYGON_MODE);
       }
    } else if (vrend_state.use_core_profile == false) {
       glPolygonMode(GL_FRONT, translate_fill(state->fill_front));
@@ -4545,7 +5408,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
    } else if (state->fill_front == state->fill_back) {
       glPolygonMode(GL_FRONT_AND_BACK, translate_fill(state->fill_front));
    } else
-      report_core_warn(ctx, CORE_PROFILE_WARN_POLYGON_MODE, 0);
+      report_core_warn(ctx, CORE_PROFILE_WARN_POLYGON_MODE);
 
    if (state->offset_tri) {
       glEnable(GL_POLYGON_OFFSET_FILL);
@@ -4555,7 +5418,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->offset_line) {
-         report_gles_warn(ctx, GLES_WARN_OFFSET_LINE, 0);
+         report_gles_warn(ctx, GLES_WARN_OFFSET_LINE);
       }
    } else if (state->offset_line) {
       glEnable(GL_POLYGON_OFFSET_LINE);
@@ -4565,7 +5428,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->offset_point) {
-         report_gles_warn(ctx, GLES_WARN_OFFSET_POINT, 0);
+         report_gles_warn(ctx, GLES_WARN_OFFSET_POINT);
       }
    } else if (state->offset_point) {
       glEnable(GL_POLYGON_OFFSET_POINT);
@@ -4585,11 +5448,22 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
       }
    }
 
+   if (state->clip_halfz != ctx->sub->hw_rs_state.clip_halfz) {
+       if (has_feature(feat_clip_control)) {
+          /* We only need to handle clip_halfz here, the bottom_edge_rule is
+           * already handled via Gallium */
+          GLenum depthrule = state->clip_halfz ? GL_ZERO_TO_ONE : GL_NEGATIVE_ONE_TO_ONE;
+          glClipControl(GL_LOWER_LEFT, depthrule);
+          ctx->sub->hw_rs_state.clip_halfz = state->clip_halfz;
+       } else {
+          vrend_printf("No clip control supported\n");
+       }
+   }
    if (state->flatshade_first != ctx->sub->hw_rs_state.flatshade_first) {
       ctx->sub->hw_rs_state.flatshade_first = state->flatshade_first;
       if (vrend_state.use_gles) {
          if (state->flatshade_first) {
-            report_gles_warn(ctx, GLES_WARN_FLATSHADE_FIRST, 0);
+            report_gles_warn(ctx, GLES_WARN_FLATSHADE_FIRST);
          }
       } else if (state->flatshade_first) {
          glProvokingVertexEXT(GL_FIRST_VERTEX_CONVENTION_EXT);
@@ -4641,7 +5515,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glCullFace(GL_FRONT_AND_BACK);
          break;
       default:
-         fprintf(stderr, "unhandled cull-face: %x\n", state->cull_face);
+         vrend_printf( "unhandled cull-face: %x\n", state->cull_face);
       }
       glEnable(GL_CULL_FACE);
    } else
@@ -4672,15 +5546,15 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glDisable(GL_LINE_STIPPLE);
    } else if (state->line_stipple_enable) {
       if (vrend_state.use_gles)
-         report_core_warn(ctx, GLES_WARN_STIPPLE, 0);
+         report_core_warn(ctx, GLES_WARN_STIPPLE);
       else
-         report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE, 0);
+         report_core_warn(ctx, CORE_PROFILE_WARN_STIPPLE);
    }
 
 
    if (vrend_state.use_gles) {
       if (state->line_smooth) {
-         report_gles_warn(ctx, GLES_WARN_LINE_SMOOTH, 0);
+         report_gles_warn(ctx, GLES_WARN_LINE_SMOOTH);
       }
    } else if (state->line_smooth) {
       glEnable(GL_LINE_SMOOTH);
@@ -4690,7 +5564,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
 
    if (vrend_state.use_gles) {
       if (state->poly_smooth) {
-         report_gles_warn(ctx, GLES_WARN_POLY_SMOOTH, 0);
+         report_gles_warn(ctx, GLES_WARN_POLY_SMOOTH);
       }
    } else if (state->poly_smooth) {
       glEnable(GL_POLYGON_SMOOTH);
@@ -4710,7 +5584,7 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
          glClampColor(GL_CLAMP_FRAGMENT_COLOR_ARB, GL_FALSE);
    } else {
       if (state->clamp_vertex_color || state->clamp_fragment_color)
-         report_core_warn(ctx, CORE_PROFILE_WARN_CLAMP, 0);
+         report_core_warn(ctx, CORE_PROFILE_WARN_CLAMP);
    }
 
    if (has_feature(feat_multisample)) {
@@ -4736,6 +5610,13 @@ static void vrend_hw_emit_rs(struct vrend_context *ctx)
             glDisable(GL_SAMPLE_SHADING);
       }
    }
+
+   if (state->scissor)
+      glEnable(GL_SCISSOR_TEST);
+   else
+      glDisable(GL_SCISSOR_TEST);
+   ctx->sub->hw_rs_state.scissor = state->scissor;
+
 }
 
 void vrend_object_bind_rasterizer(struct vrend_context *ctx,
@@ -4751,12 +5632,11 @@ void vrend_object_bind_rasterizer(struct vrend_context *ctx,
    state = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_RASTERIZER);
 
    if (!state) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handle);
       return;
    }
 
    ctx->sub->rs_state = *state;
-   ctx->sub->scissor_state_dirty = (1 << 0);
    ctx->sub->shader_dirty = true;
    vrend_hw_emit_rs(ctx);
 }
@@ -4765,24 +5645,25 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
                                uint32_t shader_type,
                                uint32_t start_slot,
                                uint32_t num_states,
-                               uint32_t *handles)
+                               const uint32_t *handles)
 {
    uint32_t i;
    struct vrend_sampler_state *state;
 
    if (shader_type >= PIPE_SHADER_TYPES) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, shader_type);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, shader_type);
       return;
    }
 
    if (num_states > PIPE_MAX_SAMPLERS ||
        start_slot > (PIPE_MAX_SAMPLERS - num_states)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_states);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, num_states);
       return;
    }
 
    ctx->sub->num_sampler_states[shader_type] = num_states;
 
+   uint32_t dirty = 0;
    for (i = 0; i < num_states; i++) {
       if (handles[i] == 0)
          state = NULL;
@@ -4790,33 +5671,58 @@ void vrend_bind_sampler_states(struct vrend_context *ctx,
          state = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_SAMPLER_STATE);
 
       ctx->sub->sampler_state[shader_type][i + start_slot] = state;
+      dirty |= 1 << (start_slot + i);
    }
-   ctx->sub->sampler_state_dirty = true;
+   ctx->sub->sampler_views_dirty[shader_type] |= dirty;
 }
 
-static void vrend_apply_sampler_state(struct vrend_context *ctx,
+static bool get_swizzled_border_color(enum virgl_formats fmt,
+                                      union pipe_color_union *in_border_color,
+                                      union pipe_color_union *out_border_color)
+{
+   const struct vrend_format_table *fmt_entry = vrend_get_format_table_entry(fmt);
+   if (vrend_state.use_gles &&
+       (fmt_entry->flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE) &&
+       (fmt_entry->bindings & VIRGL_BIND_PREFER_EMULATED_BGRA)) {
+      for (int i = 0; i < 4; ++i) {
+         int swz = fmt_entry->swizzle[i];
+         switch (swz) {
+         case PIPE_SWIZZLE_ZERO: out_border_color->ui[i] = 0;
+            break;
+         case PIPE_SWIZZLE_ONE: out_border_color->ui[i] = 1;
+            break;
+         default:
+            out_border_color->ui[i] = in_border_color->ui[swz];
+         }
+      }
+      return true;
+   }
+   return false;
+}
+
+static void vrend_apply_sampler_state(struct vrend_sub_context *sub_ctx,
                                       struct vrend_resource *res,
                                       uint32_t shader_type,
                                       int id,
                                       int sampler_id,
-                                      uint32_t srgb_decode)
+                                      struct vrend_sampler_view *tview)
 {
    struct vrend_texture *tex = (struct vrend_texture *)res;
-   struct vrend_sampler_state *vstate = ctx->sub->sampler_state[shader_type][id];
+   struct vrend_sampler_state *vstate = sub_ctx->sampler_state[shader_type][id];
    struct pipe_sampler_state *state = &vstate->base;
    bool set_all = false;
    GLenum target = tex->base.target;
 
    if (!state) {
-      fprintf(stderr, "cannot find sampler state for %d %d\n", shader_type, id);
+      vrend_printf( "cannot find sampler state for %d %d\n", shader_type, id);
       return;
    }
-   if (res->base.nr_samples > 1) {
+   if (res->base.nr_samples > 0) {
       tex->state = *state;
       return;
    }
 
-   if (tex->base.is_buffer) {
+   if (has_bit(tex->base.storage_bits, VREND_STORAGE_GL_BUFFER)) {
       tex->state = *state;
       return;
    }
@@ -4826,19 +5732,22 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
     * the sampler to use the red channel and not the alpha one
     * by swizzling the GL_TEXTURE_BORDER_COLOR parameter.
     */
-   bool is_emulated_alpha = vrend_format_is_emulated_alpha(res->base.format);
+   bool is_emulated_alpha = vrend_format_is_emulated_alpha(tview->format);
    if (has_feature(feat_samplers)) {
+      int sampler = vstate->ids[tview->srgb_decode == GL_SKIP_DECODE_EXT ? 0 : 1];
       if (is_emulated_alpha) {
          union pipe_color_union border_color;
          border_color = state->border_color;
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
-         glSamplerParameterIuiv(vstate->id, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+         apply_sampler_border_color(sampler, border_color.ui);
+      } else {
+         union pipe_color_union border_color;
+         if (get_swizzled_border_color(tview->format, &state->border_color, &border_color))
+            apply_sampler_border_color(sampler, border_color.ui);
       }
-      glBindSampler(sampler_id, vstate->id);
-      if (has_feature(feat_texture_srgb_decode))
-         glSamplerParameteri(vstate->id, GL_TEXTURE_SRGB_DECODE_EXT,
-                             srgb_decode);
+
+      glBindSampler(sampler_id, sampler);
       return;
    }
 
@@ -4863,9 +5772,8 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          glTexParameterf(target, GL_TEXTURE_MAX_LOD, state->max_lod);
       if (tex->state.lod_bias != state->lod_bias || set_all) {
          if (vrend_state.use_gles) {
-            if (state->lod_bias) {
-               report_gles_warn(ctx, GLES_WARN_LOD_BIAS, 0);
-            }
+            if (state->lod_bias)
+               report_gles_warn(sub_ctx->parent, GLES_WARN_LOD_BIAS);
          } else {
             glTexParameterf(target, GL_TEXTURE_LOD_BIAS, state->lod_bias);
          }
@@ -4899,8 +5807,14 @@ static void vrend_apply_sampler_state(struct vrend_context *ctx,
          border_color.ui[0] = border_color.ui[3];
          border_color.ui[3] = 0;
          glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, border_color.ui);
-      } else
-         glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);
+      } else {
+         union pipe_color_union border_color;
+         if (get_swizzled_border_color(tview->format, &state->border_color, &border_color))
+            glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, border_color.ui);
+         else
+            glTexParameterIuiv(target, GL_TEXTURE_BORDER_COLOR, state->border_color.ui);
+      }
+
    }
    tex->state = *state;
 }
@@ -4911,7 +5825,7 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    case PIPE_TEXTURE_1D:
       return GL_TEXTURE_1D;
    case PIPE_TEXTURE_2D:
-      return (nr_samples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+      return (nr_samples > 0) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
    case PIPE_TEXTURE_3D:
       return GL_TEXTURE_3D;
    case PIPE_TEXTURE_RECT:
@@ -4922,7 +5836,7 @@ static GLenum tgsitargettogltarget(const enum pipe_texture_target target, int nr
    case PIPE_TEXTURE_1D_ARRAY:
       return GL_TEXTURE_1D_ARRAY;
    case PIPE_TEXTURE_2D_ARRAY:
-      return (nr_samples > 1) ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+      return (nr_samples > 0) ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
    case PIPE_TEXTURE_CUBE_ARRAY:
       return GL_TEXTURE_CUBE_MAP_ARRAY;
    case PIPE_BUFFER:
@@ -4949,55 +5863,95 @@ static void vrend_free_sync_thread(void)
    pipe_mutex_destroy(vrend_state.fence_mutex);
 }
 
-#ifdef HAVE_EVENTFD
-static ssize_t
-write_full(int fd, const void *ptr, size_t count)
+static void free_fence_locked(struct vrend_fence *fence)
 {
-   const char *buf = ptr;
-   ssize_t ret = 0;
-   ssize_t total = 0;
-
-   while (count) {
-      ret = write(fd, buf, count);
-      if (ret < 0) {
-         if (errno == EINTR)
-            continue;
-         break;
-      }
-      count -= ret;
-      buf += ret;
-      total += ret;
+   list_del(&fence->fences);
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      virgl_egl_fence_destroy(egl, fence->eglsyncobj);
+   } else
+#endif
+   {
+      glDeleteSync(fence->glsyncobj);
    }
-   return total;
+   free(fence);
+}
+
+static void vrend_free_fences(void)
+{
+   struct vrend_fence *fence, *stor;
+
+   /* this is called after vrend_free_sync_thread */
+   assert(!vrend_state.sync_thread);
+
+   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences)
+      free_fence_locked(fence);
+   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_wait_list, fences)
+      free_fence_locked(fence);
+}
+
+static void vrend_free_fences_for_context(struct vrend_context *ctx)
+{
+   struct vrend_fence *fence, *stor;
+
+   if (vrend_state.sync_thread) {
+      pipe_mutex_lock(vrend_state.fence_mutex);
+      LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
+         if (fence->ctx == ctx)
+            free_fence_locked(fence);
+      }
+      LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_wait_list, fences) {
+         if (fence->ctx == ctx)
+            free_fence_locked(fence);
+      }
+      if (vrend_state.fence_waiting) {
+         /* mark the fence invalid as the sync thread is still waiting on it */
+         vrend_state.fence_waiting->ctx = NULL;
+      }
+      pipe_mutex_unlock(vrend_state.fence_mutex);
+   } else {
+      LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
+         if (fence->ctx == ctx)
+            free_fence_locked(fence);
+      }
+   }
+}
+
+static bool do_wait(struct vrend_fence *fence, bool can_block)
+{
+   bool done = false;
+   int timeout = can_block ? 1000000000 : 0;
+
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      do {
+         done = virgl_egl_client_wait_fence(egl, fence->eglsyncobj, timeout);
+      } while (!done && can_block);
+      return done;
+   }
+#endif
+
+   do {
+      GLenum glret = glClientWaitSync(fence->glsyncobj, 0, timeout);
+      if (glret == GL_WAIT_FAILED) {
+         vrend_printf( "wait sync failed: illegal fence object %p\n", fence->glsyncobj);
+      }
+      done = glret != GL_TIMEOUT_EXPIRED;
+   } while (!done && can_block);
+
+   return done;
 }
 
 static void wait_sync(struct vrend_fence *fence)
 {
-   GLenum glret;
-   ssize_t n;
-   uint64_t value = 1;
-
-   do {
-      glret = glClientWaitSync(fence->syncobj, 0, 1000000000);
-
-      switch (glret) {
-      case GL_WAIT_FAILED:
-         fprintf(stderr, "wait sync failed: illegal fence object %p\n", fence->syncobj);
-         break;
-      case GL_ALREADY_SIGNALED:
-      case GL_CONDITION_SATISFIED:
-         break;
-      default:
-         break;
-      }
-   } while (glret == GL_TIMEOUT_EXPIRED);
+   do_wait(fence, /* can_block */ true);
 
    pipe_mutex_lock(vrend_state.fence_mutex);
    list_addtail(&fence->fences, &vrend_state.fence_list);
+   vrend_state.fence_waiting = NULL;
    pipe_mutex_unlock(vrend_state.fence_mutex);
 
-   n = write_full(vrend_state.eventfd, &value, sizeof(value));
-   if (n != sizeof(value)) {
+   if (write_eventfd(vrend_state.eventfd, 1)) {
       perror("failed to write to eventfd\n");
    }
 }
@@ -5009,12 +5963,12 @@ static int thread_sync(UNUSED void *arg)
 
 
    pipe_mutex_lock(vrend_state.fence_mutex);
-   vrend_clicbs->make_current(0, gl_context);
+   vrend_clicbs->make_current(gl_context);
 
    while (!vrend_state.stop_sync_thread) {
       if (LIST_IS_EMPTY(&vrend_state.fence_wait_list) &&
           pipe_condvar_wait(vrend_state.fence_cond, vrend_state.fence_mutex) != 0) {
-         fprintf(stderr, "error while waiting on condition\n");
+         vrend_printf( "error while waiting on condition\n");
          break;
       }
 
@@ -5022,13 +5976,14 @@ static int thread_sync(UNUSED void *arg)
          if (vrend_state.stop_sync_thread)
             break;
          list_del(&fence->fences);
+         vrend_state.fence_waiting = fence;
          pipe_mutex_unlock(vrend_state.fence_mutex);
          wait_sync(fence);
          pipe_mutex_lock(vrend_state.fence_mutex);
       }
    }
 
-   vrend_clicbs->make_current(0, 0);
+   vrend_clicbs->make_current(0);
    vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
    pipe_mutex_unlock(vrend_state.fence_mutex);
    return 0;
@@ -5038,9 +5993,6 @@ static void vrend_renderer_use_threaded_sync(void)
 {
    struct virgl_gl_ctx_param ctx_params;
 
-   if (getenv("VIRGL_DISABLE_MT"))
-      return;
-
    ctx_params.shared = true;
    ctx_params.major_ver = vrend_state.gl_major_ver;
    ctx_params.minor_ver = vrend_state.gl_minor_ver;
@@ -5049,13 +6001,13 @@ static void vrend_renderer_use_threaded_sync(void)
 
    vrend_state.sync_context = vrend_clicbs->create_gl_context(0, &ctx_params);
    if (vrend_state.sync_context == NULL) {
-      fprintf(stderr, "failed to create sync opengl context\n");
+      vrend_printf( "failed to create sync opengl context\n");
       return;
    }
 
-   vrend_state.eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+   vrend_state.eventfd = create_eventfd(0);
    if (vrend_state.eventfd == -1) {
-      fprintf(stderr, "Failed to create eventfd\n");
+      vrend_printf( "Failed to create eventfd\n");
       vrend_clicbs->destroy_gl_context(vrend_state.sync_context);
       return;
    }
@@ -5072,11 +6024,6 @@ static void vrend_renderer_use_threaded_sync(void)
       pipe_mutex_destroy(vrend_state.fence_mutex);
    }
 }
-#else
-static void vrend_renderer_use_threaded_sync(void)
-{
-}
-#endif
 
 static void vrend_debug_cb(UNUSED GLenum source, GLenum type, UNUSED GLuint id,
                            UNUSED GLenum severity, UNUSED GLsizei length,
@@ -5086,21 +6033,108 @@ static void vrend_debug_cb(UNUSED GLenum source, GLenum type, UNUSED GLuint id,
       return;
    }
 
-   fprintf(stderr, "ERROR: %s\n", message);
+   vrend_printf( "ERROR: %s\n", message);
 }
 
-int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
+static void vrend_pipe_resource_unref(struct pipe_resource *pres,
+                                      UNUSED void *data)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   if (vrend_state.finishing || pipe_reference(&res->base.reference, NULL))
+      vrend_renderer_resource_destroy(res);
+}
+
+static void vrend_pipe_resource_attach_iov(struct pipe_resource *pres,
+                                           const struct iovec *iov,
+                                           int iov_count,
+                                           UNUSED void *data)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   res->iov = iov;
+   res->num_iovs = iov_count;
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      vrend_write_to_iovec(res->iov, res->num_iovs, 0,
+            res->ptr, res->base.width0);
+   }
+}
+
+static void vrend_pipe_resource_detach_iov(struct pipe_resource *pres,
+                                           UNUSED void *data)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      vrend_read_from_iovec(res->iov, res->num_iovs, 0,
+            res->ptr, res->base.width0);
+   }
+
+   res->iov = NULL;
+   res->num_iovs = 0;
+}
+
+static enum virgl_resource_fd_type vrend_pipe_resource_export_fd(UNUSED struct pipe_resource *pres,
+                                                                 UNUSED int *fd,
+                                                                 UNUSED void *data)
+{
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+   if (res->storage_bits & VREND_STORAGE_GBM_BUFFER) {
+      int ret = virgl_gbm_export_fd(gbm->device,
+                                    gbm_bo_get_handle(res->gbm_bo).u32, fd);
+      if (!ret)
+         return VIRGL_RESOURCE_FD_DMABUF;
+   }
+#endif
+
+   return VIRGL_RESOURCE_FD_INVALID;
+}
+
+const struct virgl_resource_pipe_callbacks *
+vrend_renderer_get_pipe_callbacks(void)
+{
+   static const struct virgl_resource_pipe_callbacks callbacks = {
+      .unref = vrend_pipe_resource_unref,
+      .attach_iov = vrend_pipe_resource_attach_iov,
+      .detach_iov = vrend_pipe_resource_detach_iov,
+      .export_fd = vrend_pipe_resource_export_fd,
+   };
+
+   return &callbacks;
+}
+
+static bool use_integer() {
+   if (getenv("VIRGL_USE_INTEGER"))
+      return true;
+
+   const char * a = (const char *) glGetString(GL_VENDOR);
+   if (!a)
+       return false;
+   if (strcmp(a, "ARM") == 0)
+      return true;
+   return false;
+}
+
+int vrend_renderer_init(const struct vrend_if_cbs *cbs, uint32_t flags)
 {
    bool gles;
    int gl_ver;
    virgl_gl_context gl_context;
    struct virgl_gl_ctx_param ctx_params;
 
-   if (!vrend_state.inited) {
-      vrend_state.inited = true;
-      vrend_object_init_resource_table();
-      vrend_clicbs = cbs;
-   }
+   vrend_clicbs = cbs;
+
+   /* Give some defaults to be able to run the tests */
+   vrend_state.max_texture_2d_size =
+         vrend_state.max_texture_3d_size =
+         vrend_state.max_texture_cube_size = 16384;
+
+#ifndef NDEBUG
+   vrend_init_debug_flags();
+#endif
 
    ctx_params.shared = false;
    for (uint32_t i = 0; i < ARRAY_SIZE(gl_versions); i++) {
@@ -5112,11 +6146,11 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
          break;
    }
 
-   vrend_clicbs->make_current(0, gl_context);
+   vrend_clicbs->make_current(gl_context);
    gl_ver = epoxy_gl_version();
 
    /* enable error output as early as possible */
-   if (vrend_use_debug_cb && epoxy_has_gl_extension("GL_KHR_debug")) {
+   if (vrend_debug(NULL, dbg_khr) && epoxy_has_gl_extension("GL_KHR_debug")) {
       glDebugMessageCallback(vrend_debug_cb, NULL);
       glEnable(GL_DEBUG_OUTPUT);
       glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -5130,29 +6164,32 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    vrend_state.gl_minor_ver = gl_ver % 10;
 
    if (gles) {
-      fprintf(stderr, "gl_version %d - es profile enabled\n", gl_ver);
+      vrend_printf( "gl_version %d - es profile enabled\n", gl_ver);
       vrend_state.use_gles = true;
       /* for now, makes the rest of the code use the most GLES 3.x like path */
       vrend_state.use_core_profile = 1;
    } else if (gl_ver > 30 && !epoxy_has_gl_extension("GL_ARB_compatibility")) {
-      fprintf(stderr, "gl_version %d - core profile enabled\n", gl_ver);
+      vrend_printf( "gl_version %d - core profile enabled\n", gl_ver);
       vrend_state.use_core_profile = 1;
    } else {
-      fprintf(stderr, "gl_version %d - compat profile\n", gl_ver);
+      vrend_printf( "gl_version %d - compat profile\n", gl_ver);
    }
+
+   vrend_state.use_integer = use_integer();
 
    init_features(gles ? 0 : gl_ver,
                  gles ? gl_ver : 0);
+
+   vrend_state.features[feat_srgb_write_control] &= vrend_winsys_has_gl_colorspace();
 
    glGetIntegerv(GL_MAX_DRAW_BUFFERS, (GLint *) &vrend_state.max_draw_buffers);
 
    if (!has_feature(feat_arb_robustness) &&
        !has_feature(feat_gles_khr_robustness)) {
-      fprintf(stderr,"WARNING: running without ARB/KHR robustness in place may crash\n");
+      vrend_printf("WARNING: running without ARB/KHR robustness in place may crash\n");
    }
 
    /* callbacks for when we are cleaning up the object table */
-   vrend_resource_set_destroy_callback(vrend_destroy_resource_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_QUERY, vrend_destroy_query_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SURFACE, vrend_destroy_surface_object);
    vrend_object_set_destroy_callback(VIRGL_OBJECT_SHADER, vrend_destroy_shader_object);
@@ -5166,6 +6203,7 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
       glDisable(GL_DEBUG_OUTPUT);
    }
 
+   vrend_state.bgra_srgb_emulation_loaded = false;
    vrend_build_format_list_common();
 
    if (vrend_state.use_gles) {
@@ -5185,14 +6223,20 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
    list_inithead(&vrend_state.fence_list);
    list_inithead(&vrend_state.fence_wait_list);
    list_inithead(&vrend_state.waiting_query_list);
-   list_inithead(&vrend_state.active_ctx_list);
    /* create 0 context */
-   vrend_renderer_context_create_internal(0, 0, NULL);
+   vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
 
    vrend_state.eventfd = -1;
    if (flags & VREND_USE_THREAD_SYNC) {
       vrend_renderer_use_threaded_sync();
    }
+   if (flags & VREND_USE_EXTERNAL_BLOB)
+      vrend_state.use_external_blob = true;
+
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_gles)
+      vrend_state.use_egl_fence = virgl_egl_supports_fences(egl);
+#endif
 
    return 0;
 }
@@ -5200,28 +6244,30 @@ int vrend_renderer_init(struct vrend_if_cbs *cbs, uint32_t flags)
 void
 vrend_renderer_fini(void)
 {
-   if (!vrend_state.inited)
-      return;
+   vrend_state.finishing = true;
 
-   vrend_free_sync_thread();
    if (vrend_state.eventfd != -1) {
       close(vrend_state.eventfd);
       vrend_state.eventfd = -1;
    }
 
-   vrend_decode_reset(false);
-   vrend_object_fini_resource_table();
-   vrend_decode_reset(true);
+   vrend_free_fences();
+   vrend_blitter_fini();
+
+   vrend_destroy_context(vrend_state.ctx0);
 
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
-   vrend_state.inited = false;
+
+   vrend_state.finishing = false;
 }
 
 static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 {
    int i, j;
    struct vrend_streamout_object *obj, *tmp;
+
+   vrend_clicbs->make_current(sub->gl_context);
 
    if (sub->fb_id)
       glDeleteFramebuffers(1, &sub->fb_id);
@@ -5256,6 +6302,9 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_TESS_EVAL], NULL);
    vrend_shader_state_reference(&sub->shaders[PIPE_SHADER_COMPUTE], NULL);
 
+   if (sub->prog)
+      sub->prog->ref_context = NULL;
+
    vrend_free_programs(sub);
    for (i = 0; i < PIPE_SHADER_TYPES; i++) {
       free(sub->consts[i].consts);
@@ -5285,11 +6334,12 @@ static void vrend_destroy_sub_context(struct vrend_sub_context *sub)
 
 }
 
-bool vrend_destroy_context(struct vrend_context *ctx)
+void vrend_destroy_context(struct vrend_context *ctx)
 {
    bool switch_0 = (ctx == vrend_state.current_ctx);
    struct vrend_context *cur = vrend_state.current_ctx;
    struct vrend_sub_context *sub, *tmp;
+   struct vrend_untyped_resource *untyped_res, *untyped_res_tmp;
    if (switch_0) {
       vrend_state.current_ctx = NULL;
       vrend_state.current_hw_ctx = NULL;
@@ -5300,6 +6350,7 @@ bool vrend_destroy_context(struct vrend_context *ctx)
          glDeleteTextures(1, &ctx->pstipple_tex_id);
       ctx->pstip_inited = false;
    }
+   vrend_clicbs->make_current(ctx->sub->gl_context);
    /* reset references on framebuffers */
    vrend_set_framebuffer_state(ctx, 0, NULL, 0);
 
@@ -5315,20 +6366,21 @@ bool vrend_destroy_context(struct vrend_context *ctx)
 
    vrend_set_index_buffer(ctx, 0, 0, 0);
 
-   vrend_renderer_force_ctx_0();
    LIST_FOR_EACH_ENTRY_SAFE(sub, tmp, &ctx->sub_ctxs, head)
       vrend_destroy_sub_context(sub);
+   if(ctx->ctx_id)
+      vrend_renderer_force_ctx_0();
 
-   vrend_object_fini_ctx_table(ctx->res_hash);
+   vrend_free_fences_for_context(ctx);
 
-   list_del(&ctx->ctx_entry);
+   LIST_FOR_EACH_ENTRY_SAFE(untyped_res, untyped_res_tmp, &ctx->untyped_resources, head)
+      free(untyped_res);
+   vrend_ctx_resource_fini_table(ctx->res_hash);
 
    FREE(ctx);
 
    if (!switch_0 && cur)
       vrend_hw_switch_context(cur, true);
-
-   return switch_0;
 }
 
 struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *debug_name)
@@ -5339,173 +6391,420 @@ struct vrend_context *vrend_create_context(int id, uint32_t nlen, const char *de
       return NULL;
 
    if (nlen && debug_name) {
-      strncpy(grctx->debug_name, debug_name, 64);
+      strncpy(grctx->debug_name, debug_name,
+	      nlen < sizeof(grctx->debug_name) - 1 ?
+	      nlen : sizeof(grctx->debug_name) - 1);
+      grctx->debug_name[sizeof(grctx->debug_name) - 1] = 0;
    }
+
+   VREND_DEBUG(dbg_caller, grctx, "create context\n");
 
    grctx->ctx_id = id;
 
    list_inithead(&grctx->sub_ctxs);
+   list_inithead(&grctx->vrend_resources);
    list_inithead(&grctx->active_nontimer_query_list);
 
-   grctx->res_hash = vrend_object_init_ctx_table();
+   grctx->res_hash = vrend_ctx_resource_init_table();
+   list_inithead(&grctx->untyped_resources);
 
    grctx->shader_cfg.use_gles = vrend_state.use_gles;
    grctx->shader_cfg.use_core_profile = vrend_state.use_core_profile;
    grctx->shader_cfg.use_explicit_locations = vrend_state.use_explicit_locations;
    grctx->shader_cfg.max_draw_buffers = vrend_state.max_draw_buffers;
+   grctx->shader_cfg.has_arrays_of_arrays = has_feature(feat_arrays_of_arrays);
+   grctx->shader_cfg.has_gpu_shader5 = has_feature(feat_gpu_shader5);
+   grctx->shader_cfg.has_es31_compat = has_feature(feat_gles31_compatibility);
+   grctx->shader_cfg.has_conservative_depth = has_feature(feat_conservative_depth);
+   grctx->shader_cfg.use_integer = vrend_state.use_integer;
+   grctx->shader_cfg.has_dual_src_blend = has_feature(feat_dual_src_blend);
+
    vrend_renderer_create_sub_ctx(grctx, 0);
    vrend_renderer_set_sub_ctx(grctx, 0);
 
    vrender_get_glsl_version(&grctx->shader_cfg.glsl_version);
 
-   list_addtail(&grctx->ctx_entry, &vrend_state.active_ctx_list);
+   if (!grctx->ctx_id)
+      grctx->fence_retire = vrend_clicbs->ctx0_fence_retire;
+
    return grctx;
 }
 
-int vrend_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
-                                       int num_iovs)
+static int check_resource_valid(const struct vrend_renderer_resource_create_args *args,
+                                char errmsg[256])
 {
-   struct vrend_resource *res;
-
-   res = vrend_resource_lookup(res_handle, 0);
-   if (!res)
-      return EINVAL;
-
-   if (res->iov)
-      return 0;
-
-   /* work out size and max resource size */
-   res->iov = iov;
-   res->num_iovs = num_iovs;
-   return 0;
-}
-
-void vrend_renderer_resource_detach_iov(int res_handle,
-                                        struct iovec **iov_p,
-                                        int *num_iovs_p)
-{
-   struct vrend_resource *res;
-   res = vrend_resource_lookup(res_handle, 0);
-   if (!res) {
-      return;
-   }
-   if (iov_p)
-      *iov_p = res->iov;
-   if (num_iovs_p)
-      *num_iovs_p = res->num_iovs;
-
-   res->iov = NULL;
-   res->num_iovs = 0;
-}
-
-static int check_resource_valid(struct vrend_renderer_resource_create_args *args)
-{
-   /* do not accept handle 0 */
-   if (args->handle == 0)
-      return -1;
-
    /* limit the target */
-   if (args->target >= PIPE_MAX_TEXTURE_TYPES)
+   if (args->target >= PIPE_MAX_TEXTURE_TYPES) {
+      snprintf(errmsg, 256, "Invalid texture target %d (>= %d)",
+               args->target, PIPE_MAX_TEXTURE_TYPES);
       return -1;
+   }
 
-   if (args->format >= VIRGL_FORMAT_MAX)
+   if (args->format >= VIRGL_FORMAT_MAX) {
+      snprintf(errmsg, 256, "Invalid texture format %d (>=%d)",
+               args->format, VIRGL_FORMAT_MAX);
       return -1;
+   }
+
+   bool format_can_texture_storage = has_feature(feat_texture_storage) &&
+         (tex_conv_table[args->format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
 
    /* only texture 2d and 2d array can have multiple samples */
-   if (args->nr_samples > 1) {
-      if (!has_feature(feat_texture_multisample))
+   if (args->nr_samples > 0) {
+      if (!has_feature(feat_texture_multisample)) {
+         snprintf(errmsg, 256, "Multisample textures not supported");
          return -1;
+      }
 
-      if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_2D_ARRAY)
+      if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_2D_ARRAY) {
+         snprintf(errmsg, 256, "Multisample textures not 2D (target:%d)", args->target);
          return -1;
+      }
       /* multisample can't have miplevels */
-      if (args->last_level > 0)
+      if (args->last_level > 0) {
+         snprintf(errmsg, 256, "Multisample textures don't support mipmaps");
          return -1;
+      }
+      if (!format_can_texture_storage && vrend_state.use_gles) {
+         snprintf(errmsg, 256, "Unsupported multisample texture format %d", args->format);
+         return -1;
+      }
    }
 
    if (args->last_level > 0) {
       /* buffer and rect textures can't have mipmaps */
-      if (args->target == PIPE_BUFFER || args->target == PIPE_TEXTURE_RECT)
+      if (args->target == PIPE_BUFFER) {
+         snprintf(errmsg, 256, "Buffers don't support mipmaps");
          return -1;
-      if (args->last_level > (floor(log2(MAX2(args->width, args->height))) + 1))
-         return -1;
-   }
-   if (args->flags != 0 && args->flags != VIRGL_RESOURCE_Y_0_TOP)
-      return -1;
+      }
 
-   if (args->flags & VIRGL_RESOURCE_Y_0_TOP)
-      if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_RECT)
+      if (args->target == PIPE_TEXTURE_RECT) {
+         snprintf(errmsg, 256, "RECT textures don't support mipmaps");
          return -1;
+      }
+
+      if (args->last_level > (floor(log2(MAX2(args->width, args->height))) + 1)) {
+         snprintf(errmsg, 256, "Mipmap levels %d too large for texture size (%d, %d)",
+                  args->last_level, args->width, args->height);
+         return -1;
+      }
+   }
+
+   if (args->flags != 0) {
+      uint32_t supported_mask = VIRGL_RESOURCE_Y_0_TOP | VIRGL_RESOURCE_FLAG_MAP_PERSISTENT
+                                | VIRGL_RESOURCE_FLAG_MAP_COHERENT;
+
+      if (args->flags & ~supported_mask) {
+         snprintf(errmsg, 256, "Resource flags 0x%x not supported", args->flags);
+         return -1;
+      }
+   }
+
+   if (args->flags & VIRGL_RESOURCE_Y_0_TOP) {
+      if (args->target != PIPE_TEXTURE_2D && args->target != PIPE_TEXTURE_RECT) {
+         snprintf(errmsg, 256, "VIRGL_RESOURCE_Y_0_TOP only supported for 2D or RECT textures");
+         return -1;
+      }
+   }
 
    /* array size for array textures only */
    if (args->target == PIPE_TEXTURE_CUBE) {
-      if (args->array_size != 6)
+      if (args->array_size != 6) {
+         snprintf(errmsg, 256, "Cube map: unexpected array size %d", args->array_size);
          return -1;
+      }
    } else if (args->target == PIPE_TEXTURE_CUBE_ARRAY) {
-      if (!has_feature(feat_cube_map_array))
+      if (!has_feature(feat_cube_map_array)) {
+         snprintf(errmsg, 256, "Cube map arrays not supported");
          return -1;
-      if (args->array_size % 6)
+      }
+      if (args->array_size % 6) {
+         snprintf(errmsg, 256, "Cube map array: unexpected array size %d", args->array_size);
          return -1;
+      }
    } else if (args->array_size > 1) {
       if (args->target != PIPE_TEXTURE_2D_ARRAY &&
-          args->target != PIPE_TEXTURE_1D_ARRAY)
+          args->target != PIPE_TEXTURE_1D_ARRAY) {
+         snprintf(errmsg, 256, "Texture target %d can't be an array ", args->target);
          return -1;
+      }
 
-      if (!has_feature(feat_texture_array))
+      if (!has_feature(feat_texture_array)) {
+         snprintf(errmsg, 256, "Texture arrays are not supported");
          return -1;
+      }
+   }
+
+   if (args->target != PIPE_BUFFER && !args->width) {
+      snprintf(errmsg, 256, "Texture width must be >0");
+      return -1;
    }
 
    if (args->bind == 0 ||
        args->bind == VIRGL_BIND_CUSTOM ||
+       args->bind == VIRGL_BIND_STAGING ||
        args->bind == VIRGL_BIND_INDEX_BUFFER ||
        args->bind == VIRGL_BIND_STREAM_OUTPUT ||
        args->bind == VIRGL_BIND_VERTEX_BUFFER ||
        args->bind == VIRGL_BIND_CONSTANT_BUFFER ||
+       args->bind == VIRGL_BIND_QUERY_BUFFER ||
+       args->bind == VIRGL_BIND_COMMAND_ARGS ||
        args->bind == VIRGL_BIND_SHADER_BUFFER) {
-      if (args->target != PIPE_BUFFER)
+      if (args->target != PIPE_BUFFER) {
+         snprintf(errmsg, 256, "Buffer bind flags requre the buffer target but this is target %d", args->target);
          return -1;
-      if (args->height != 1 || args->depth != 1)
+      }
+      if (args->height != 1 || args->depth != 1) {
+         snprintf(errmsg, 256, "Buffer target: Got height=%u, depth=%u, expect (1,1)", args->height, args->depth);
          return -1;
+      }
+      if (args->bind == VIRGL_BIND_QUERY_BUFFER && !has_feature(feat_qbo)) {
+         snprintf(errmsg, 256, "Query buffers are not supported");
+         return -1;
+      }
+      if (args->bind == VIRGL_BIND_COMMAND_ARGS && !has_feature(feat_indirect_draw)) {
+         snprintf(errmsg, 256, "Command args buffer requested but indirect draw is not supported");
+         return -1;
+      }
    } else {
       if (!((args->bind & VIRGL_BIND_SAMPLER_VIEW) ||
             (args->bind & VIRGL_BIND_DEPTH_STENCIL) ||
             (args->bind & VIRGL_BIND_RENDER_TARGET) ||
-            (args->bind & VIRGL_BIND_CURSOR)))
+            (args->bind & VIRGL_BIND_CURSOR) ||
+            (args->bind & VIRGL_BIND_SHARED) ||
+            (args->bind & VIRGL_BIND_LINEAR))) {
+         snprintf(errmsg, 256, "Invalid texture bind flags 0x%x", args->bind);
          return -1;
+      }
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+      if (!virgl_gbm_gpu_import_required(args->bind)) {
+         return 0;
+      }
+#endif
 
       if (args->target == PIPE_TEXTURE_2D ||
           args->target == PIPE_TEXTURE_RECT ||
           args->target == PIPE_TEXTURE_CUBE ||
           args->target == PIPE_TEXTURE_2D_ARRAY ||
           args->target == PIPE_TEXTURE_CUBE_ARRAY) {
-         if (args->depth != 1)
+         if (args->depth != 1) {
+            snprintf(errmsg, 256, "2D texture target with depth=%u != 1", args->depth);
             return -1;
+         }
+         if (format_can_texture_storage && !args->height) {
+            snprintf(errmsg, 256, "2D Texture storage requires non-zero height");
+            return -1;
+         }
       }
       if (args->target == PIPE_TEXTURE_1D ||
           args->target == PIPE_TEXTURE_1D_ARRAY) {
-         if (args->height != 1 || args->depth != 1)
+         if (args->height != 1 || args->depth != 1) {
+            snprintf(errmsg, 256, "Got height=%u, depth=%u, expect (1,1)",
+                     args->height, args->depth);
             return -1;
+         }
+         if (args->width > vrend_state.max_texture_2d_size) {
+            snprintf(errmsg, 256, "1D Texture width (%u) exceeds supported value (%u)",
+                     args->width, vrend_state.max_texture_2d_size);
+            return -1;
+         }
+      }
+
+      if (args->target == PIPE_TEXTURE_2D ||
+          args->target == PIPE_TEXTURE_RECT ||
+          args->target == PIPE_TEXTURE_2D_ARRAY) {
+         if (args->width > vrend_state.max_texture_2d_size ||
+             args->height > vrend_state.max_texture_2d_size) {
+            snprintf(errmsg, 256, "2D Texture size components (%u, %u) exceeds supported value (%u)",
+                     args->width, args->height, vrend_state.max_texture_2d_size);
+            return -1;
+         }
+      }
+
+      if (args->target == PIPE_TEXTURE_3D) {
+         if (format_can_texture_storage &&
+             (!args->height || !args->depth)) {
+            snprintf(errmsg, 256, "Texture storage expects non-zero height (%u) and depth (%u)",
+                     args->height, args->depth);
+            return -1;
+         }
+         if (args->width > vrend_state.max_texture_3d_size ||
+             args->height > vrend_state.max_texture_3d_size ||
+             args->depth > vrend_state.max_texture_3d_size) {
+            snprintf(errmsg, 256, "3D Texture sizes (%u, %u, %u) exceeds supported value (%u)",
+                     args->width, args->height, args->depth,
+                     vrend_state.max_texture_3d_size);
+            return -1;
+         }
+      }
+      if (args->target == PIPE_TEXTURE_2D_ARRAY ||
+          args->target == PIPE_TEXTURE_CUBE_ARRAY ||
+          args->target == PIPE_TEXTURE_1D_ARRAY) {
+         if (format_can_texture_storage &&
+             !args->array_size) {
+            snprintf(errmsg, 256, "Texture arrays require a non-zero arrays size "
+                                  "when allocated with glTexStorage");
+            return -1;
+         }
+      }
+      if (args->target == PIPE_TEXTURE_CUBE ||
+          args->target == PIPE_TEXTURE_CUBE_ARRAY) {
+         if (args->width != args->height) {
+            snprintf(errmsg, 256, "Cube maps require width (%u) == height (%u)",
+                     args->width, args->height);
+            return -1;
+         }
+         if (args->width > vrend_state.max_texture_cube_size) {
+            snprintf(errmsg, 256, "Cube maps size (%u) exceeds supported value (%u)",
+                     args->width, vrend_state.max_texture_cube_size);
+            return -1;
+         }
       }
    }
    return 0;
 }
 
-static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width)
+static void vrend_create_buffer(struct vrend_resource *gr, uint32_t width, uint32_t flags)
 {
+
+   GLbitfield buffer_storage_flags = 0;
+   if (flags & VIRGL_RESOURCE_FLAG_MAP_PERSISTENT) {
+      buffer_storage_flags |= GL_MAP_PERSISTENT_BIT;
+      /* Gallium's storage_flags_to_buffer_flags seems to drop some information, but we have to
+       * satisfy the following:
+       *
+       * "If flags contains GL_MAP_PERSISTENT_BIT, it must also contain at least one of
+       *  GL_MAP_READ_BIT or GL_MAP_WRITE_BIT."
+       */
+      buffer_storage_flags |= GL_MAP_READ_BIT | GL_MAP_WRITE_BIT;
+   }
+   if (flags & VIRGL_RESOURCE_FLAG_MAP_COHERENT)
+      buffer_storage_flags |= GL_MAP_COHERENT_BIT;
+
+   gr->storage_bits |= VREND_STORAGE_GL_BUFFER;
    glGenBuffersARB(1, &gr->id);
    glBindBufferARB(gr->target, gr->id);
-   glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
-   gr->is_buffer = true;
+
+   if (buffer_storage_flags) {
+      if (has_feature(feat_arb_buffer_storage)) {
+         glBufferStorage(gr->target, width, NULL, buffer_storage_flags);
+         gr->map_info = vrend_state.inferred_gl_caching_type;
+      }
+#ifdef ENABLE_MINIGBM_ALLOCATION
+      else if (has_feature(feat_memory_object_fd) && has_feature(feat_memory_object)) {
+         GLuint memobj = 0;
+         int fd = -1;
+	 int ret;
+
+         /* Could use VK too. */
+         struct gbm_bo *bo = gbm_bo_create(gbm->device, width, 1,
+                                           GBM_FORMAT_R8, GBM_BO_USE_LINEAR);
+         if (!bo) {
+            vrend_printf("Failed to allocate emulated GL buffer backing storage");
+            return;
+         }
+
+         ret = virgl_gbm_export_fd(gbm->device, gbm_bo_get_handle(bo).u32, &fd);
+         if (ret || fd < 0) {
+            vrend_printf("Failed to get file descriptor\n");
+            return;
+         }
+
+         glCreateMemoryObjectsEXT(1, &memobj);
+         glImportMemoryFdEXT(memobj, width, GL_HANDLE_TYPE_OPAQUE_FD_EXT, fd);
+         glBufferStorageMemEXT(gr->target, width, memobj, 0);
+         gr->gbm_bo = bo;
+         gr->memobj = memobj;
+         gr->storage_bits |= VREND_STORAGE_GBM_BUFFER | VREND_STORAGE_GL_MEMOBJ;
+
+         if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
+            gr->map_info = VIRGL_RENDERER_MAP_CACHE_CACHED;
+         else
+            gr->map_info = VIRGL_RENDERER_MAP_CACHE_WC;
+      }
+#endif
+      else {
+         vrend_printf("Missing buffer storage and interop extensions\n");
+         return;
+      }
+
+      gr->storage_bits |= VREND_STORAGE_GL_IMMUTABLE;
+      gr->buffer_storage_flags = buffer_storage_flags;
+      gr->size = width;
+   } else
+      glBufferData(gr->target, width, NULL, GL_STREAM_DRAW);
+
+   glBindBufferARB(gr->target, 0);
+}
+
+static int
+vrend_resource_alloc_buffer(struct vrend_resource *gr, uint32_t flags)
+{
+   const uint32_t bind = gr->base.bind;
+   const uint32_t size = gr->base.width0;
+
+   if (bind == VIRGL_BIND_CUSTOM) {
+      /* use iovec directly when attached */
+      gr->storage_bits |= VREND_STORAGE_HOST_SYSTEM_MEMORY;
+      gr->ptr = malloc(size);
+      if (!gr->ptr)
+         return -ENOMEM;
+   } else if (bind == VIRGL_BIND_STAGING) {
+     /* staging buffers only use guest memory -- nothing to do. */
+   } else if (bind == VIRGL_BIND_INDEX_BUFFER) {
+      gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind == VIRGL_BIND_STREAM_OUTPUT) {
+      gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind == VIRGL_BIND_VERTEX_BUFFER) {
+      gr->target = GL_ARRAY_BUFFER_ARB;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind == VIRGL_BIND_CONSTANT_BUFFER) {
+      gr->target = GL_UNIFORM_BUFFER;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind == VIRGL_BIND_QUERY_BUFFER) {
+      gr->target = GL_QUERY_BUFFER;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind == VIRGL_BIND_COMMAND_ARGS) {
+      gr->target = GL_DRAW_INDIRECT_BUFFER;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind == 0 || bind == VIRGL_BIND_SHADER_BUFFER) {
+      gr->target = GL_ARRAY_BUFFER_ARB;
+      vrend_create_buffer(gr, size, flags);
+   } else if (bind & VIRGL_BIND_SAMPLER_VIEW) {
+      /*
+    * On Desktop we use GL_ARB_texture_buffer_object on GLES we use
+    * GL_EXT_texture_buffer (it is in the ANDRIOD extension pack).
+    */
+#if GL_TEXTURE_BUFFER != GL_TEXTURE_BUFFER_EXT
+#error "GL_TEXTURE_BUFFER enums differ, they shouldn't."
+#endif
+
+   /* need to check GL version here */
+      if (has_feature(feat_arb_or_gles_ext_texture_buffer)) {
+         gr->target = GL_TEXTURE_BUFFER;
+      } else {
+         gr->target = GL_PIXEL_PACK_BUFFER_ARB;
+      }
+      vrend_create_buffer(gr, size, flags);
+   } else {
+      vrend_printf("%s: Illegal buffer binding flags 0x%x\n", __func__, bind);
+      return -EINVAL;
+   }
+
+   return 0;
 }
 
 static inline void
-vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *args,
+vrend_renderer_resource_copy_args(const struct vrend_renderer_resource_create_args *args,
                                   struct vrend_resource *gr)
 {
    assert(gr);
    assert(args);
 
-   gr->handle = args->handle;
+   gr->base.bind = args->bind;
    gr->base.width0 = args->width;
    gr->base.height0 = args->height;
    gr->base.depth0 = args->depth;
@@ -5516,25 +6815,120 @@ vrend_renderer_resource_copy_args(struct vrend_renderer_resource_create_args *ar
    gr->base.array_size = args->array_size;
 }
 
-static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
-                                                    void *image_oes)
+/*
+ * When GBM allocation is enabled, this function creates a GBM buffer and
+ * EGL image given certain flags.
+ */
+static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
+{
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   uint32_t gbm_flags = virgl_gbm_convert_flags(gr->base.bind);
+   uint32_t gbm_format = 0;
+   if (virgl_gbm_convert_format(&format, &gbm_format))
+      return;
+
+   if (gr->base.depth0 != 1 || gr->base.last_level != 0 || gr->base.nr_samples != 0)
+      return;
+
+   if (!gbm || !gbm->device || !gbm_format || !gbm_flags)
+      return;
+
+   if (!virgl_gbm_external_allocation_preferred(gr->base.bind))
+      return;
+
+   if (!gbm_device_is_format_supported(gbm->device, gbm_format, gbm_flags))
+      return;
+
+   struct gbm_bo *bo = gbm_bo_create(gbm->device, gr->base.width0, gr->base.height0,
+                                     gbm_format, gbm_flags);
+   if (!bo)
+      return;
+
+   gr->gbm_bo = bo;
+   gr->storage_bits |= VREND_STORAGE_GBM_BUFFER;
+   /* This is true so far, but maybe gbm_bo_get_caching_type is needed in the future. */
+   if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
+      gr->map_info = VIRGL_RENDERER_MAP_CACHE_CACHED;
+   else
+      gr->map_info = VIRGL_RENDERER_MAP_CACHE_WC;
+
+   if (!virgl_gbm_gpu_import_required(gr->base.bind))
+      return;
+
+   gr->egl_image = virgl_egl_image_from_gbm_bo(egl, bo);
+   if (!gr->egl_image) {
+      gr->gbm_bo = NULL;
+      gbm_bo_destroy(bo);
+   }
+
+   gr->storage_bits |= VREND_STORAGE_EGL_IMAGE;
+
+#else
+   (void)format;
+   (void)gr;
+#endif
+}
+
+static enum virgl_formats vrend_resource_fixup_emulated_bgra(struct vrend_resource *gr,
+                                                             bool imported)
+{
+   const struct pipe_resource *pr = &gr->base;
+   const enum virgl_formats format = pr->format;
+   const bool format_can_texture_storage = has_feature(feat_texture_storage) &&
+         (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
+
+   /* On GLES there is no support for glTexImage*DMultisample and
+    * BGRA surfaces are also unlikely to support glTexStorage2DMultisample
+    * so we try to emulate here
+    */
+   if (vrend_state.use_gles && pr->nr_samples > 0 && !format_can_texture_storage) {
+      VREND_DEBUG(dbg_tex, NULL, "Apply VIRGL_BIND_PREFER_EMULATED_BGRA because GLES+MS+noTS\n");
+      gr->base.bind |= VIRGL_BIND_PREFER_EMULATED_BGRA;
+   }
+
+   if (imported && !has_feature(feat_egl_image_storage))
+      gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (virgl_gbm_external_allocation_preferred(gr->base.bind) &&
+       !has_feature(feat_egl_image_storage))
+      gr->base.bind &= ~VIRGL_BIND_PREFER_EMULATED_BGRA;
+#endif
+
+   return vrend_format_replace_emulated(gr->base.bind, format);
+}
+
+static int vrend_resource_alloc_texture(struct vrend_resource *gr,
+                                        enum virgl_formats format,
+                                        void *image_oes)
 {
    uint level;
    GLenum internalformat, glformat, gltype;
    struct vrend_texture *gt = (struct vrend_texture *)gr;
    struct pipe_resource *pr = &gr->base;
-   assert(pr->width0 > 0);
 
-   bool format_can_texture_storage = has_feature(feat_texture_storage) &&
-                              (tex_conv_table[pr->format].bindings & VIRGL_BIND_CAN_TEXTURE_STORAGE);
+   const bool format_can_texture_storage = has_feature(feat_texture_storage) &&
+        (tex_conv_table[format].flags & VIRGL_TEXTURE_CAN_TEXTURE_STORAGE);
+
+   if (format_can_texture_storage)
+      gr->storage_bits |= VREND_STORAGE_GL_IMMUTABLE;
+
+   if (!image_oes) {
+      vrend_resource_gbm_init(gr, format);
+      if (gr->gbm_bo && !has_bit(gr->storage_bits, VREND_STORAGE_EGL_IMAGE))
+         return 0;
+
+      image_oes = gr->egl_image;
+   }
 
    gr->target = tgsitargettogltarget(pr->target, pr->nr_samples);
+   gr->storage_bits |= VREND_STORAGE_GL_TEXTURE;
 
    /* ugly workaround for texture rectangle missing on GLES */
    if (vrend_state.use_gles && gr->target == GL_TEXTURE_RECTANGLE_NV) {
       /* for some guests this is the only usage of rect */
       if (pr->width0 != 1 || pr->height0 != 1) {
-         report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT, 0);
+         report_gles_warn(NULL, GLES_WARN_TEXTURE_RECT);
       }
       gr->target = GL_TEXTURE_2D;
    }
@@ -5552,102 +6946,110 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
    glGenTextures(1, &gr->id);
    glBindTexture(gr->target, gr->id);
 
-   internalformat = tex_conv_table[pr->format].internalformat;
-   glformat = tex_conv_table[pr->format].glformat;
-   gltype = tex_conv_table[pr->format].gltype;
-
-   if (internalformat == 0) {
-      fprintf(stderr,"unknown format is %d\n", pr->format);
-      FREE(gt);
-      return EINVAL;
-   }
+   debug_texture(__func__, gr);
 
    if (image_oes) {
-      if (epoxy_has_gl_extension("GL_OES_EGL_image_external")) {
+      if (has_bit(gr->storage_bits, VREND_STORAGE_GL_IMMUTABLE) &&
+          has_feature(feat_egl_image_storage)) {
+         glEGLImageTargetTexStorageEXT(gr->target, (GLeglImageOES) image_oes, NULL);
+      } else if (has_feature(feat_egl_image_external)) {
+         gr->storage_bits &= ~VREND_STORAGE_GL_IMMUTABLE;
          glEGLImageTargetTexture2DOES(gr->target, (GLeglImageOES) image_oes);
       } else {
-         fprintf(stderr, "missing GL_OES_EGL_image_external extension\n");
-	 FREE(gr);
-	 return EINVAL;
-      }
-   } else if (pr->nr_samples > 1) {
-      if (vrend_state.use_gles || has_feature(feat_texture_storage)) {
-         if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
-            glTexStorage2DMultisample(gr->target, pr->nr_samples,
-                                      internalformat, pr->width0, pr->height0,
-                                      GL_TRUE);
-         } else {
-            glTexStorage3DMultisample(gr->target, pr->nr_samples,
-                                      internalformat, pr->width0, pr->height0, pr->array_size,
-                                      GL_TRUE);
-         }
-      } else {
-         if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
-            glTexImage2DMultisample(gr->target, pr->nr_samples,
-                                    internalformat, pr->width0, pr->height0,
-                                    GL_TRUE);
-         } else {
-            glTexImage3DMultisample(gr->target, pr->nr_samples,
-                                    internalformat, pr->width0, pr->height0, pr->array_size,
-                                    GL_TRUE);
-         }
-      }
-   } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
-         int i;
-         if (format_can_texture_storage)
-            glTexStorage2D(GL_TEXTURE_CUBE_MAP, pr->last_level + 1, internalformat, pr->width0, pr->height0);
-         else {
-            for (i = 0; i < 6; i++) {
-               GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
-               for (level = 0; level <= pr->last_level; level++) {
-                  unsigned mwidth = u_minify(pr->width0, level);
-                  unsigned mheight = u_minify(pr->height0, level);
-
-                  glTexImage2D(ctarget, level, internalformat, mwidth, mheight, 0, glformat,
-                               gltype, NULL);
-               }
-            }
-         }
-   } else if (gr->target == GL_TEXTURE_3D ||
-              gr->target == GL_TEXTURE_2D_ARRAY ||
-              gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
-      if (format_can_texture_storage) {
-         unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
-                                   pr->array_size : pr->depth0;
-         glTexStorage3D(gr->target, pr->last_level + 1, internalformat, pr->width0, pr->height0, depth_param);
-      } else {
-         for (level = 0; level <= pr->last_level; level++) {
-            unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
-                                      pr->array_size : u_minify(pr->depth0, level);
-            unsigned mwidth = u_minify(pr->width0, level);
-            unsigned mheight = u_minify(pr->height0, level);
-            glTexImage3D(gr->target, level, internalformat, mwidth, mheight,
-                         depth_param, 0, glformat, gltype, NULL);
-         }
-      }
-   } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
-      report_gles_missing_func(NULL, "glTexImage1D");
-   } else if (gr->target == GL_TEXTURE_1D) {
-      if (format_can_texture_storage) {
-         glTexStorage1D(gr->target, pr->last_level + 1, internalformat, pr->width0);
-      } else {
-         for (level = 0; level <= pr->last_level; level++) {
-            unsigned mwidth = u_minify(pr->width0, level);
-            glTexImage1D(gr->target, level, internalformat, mwidth, 0,
-                         glformat, gltype, NULL);
-         }
+         vrend_printf( "missing GL_OES_EGL_image_external extensions\n");
+         glBindTexture(gr->target, 0);
+         return EINVAL;
       }
    } else {
-      if (format_can_texture_storage)
-         glTexStorage2D(gr->target, pr->last_level + 1, internalformat, pr->width0,
-                        gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : pr->height0);
-      else {
-         for (level = 0; level <= pr->last_level; level++) {
-            unsigned mwidth = u_minify(pr->width0, level);
-            unsigned mheight = u_minify(pr->height0, level);
-            glTexImage2D(gr->target, level, internalformat, mwidth,
-                         gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : mheight,
-                         0, glformat, gltype, NULL);
+      internalformat = tex_conv_table[format].internalformat;
+      glformat = tex_conv_table[format].glformat;
+      gltype = tex_conv_table[format].gltype;
+
+      if (internalformat == 0) {
+         vrend_printf("unknown format is %d\n", pr->format);
+         glBindTexture(gr->target, 0);
+         return EINVAL;
+      }
+
+      if (pr->nr_samples > 0) {
+         if (format_can_texture_storage) {
+            if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+               glTexStorage2DMultisample(gr->target, pr->nr_samples,
+                                         internalformat, pr->width0, pr->height0,
+                                         GL_TRUE);
+            } else {
+               glTexStorage3DMultisample(gr->target, pr->nr_samples,
+                                         internalformat, pr->width0, pr->height0, pr->array_size,
+                                         GL_TRUE);
+            }
+         } else {
+            if (gr->target == GL_TEXTURE_2D_MULTISAMPLE) {
+               glTexImage2DMultisample(gr->target, pr->nr_samples,
+                                       internalformat, pr->width0, pr->height0,
+                                       GL_TRUE);
+            } else {
+               glTexImage3DMultisample(gr->target, pr->nr_samples,
+                                       internalformat, pr->width0, pr->height0, pr->array_size,
+                                       GL_TRUE);
+            }
+         }
+      } else if (gr->target == GL_TEXTURE_CUBE_MAP) {
+            int i;
+            if (format_can_texture_storage)
+               glTexStorage2D(GL_TEXTURE_CUBE_MAP, pr->last_level + 1, internalformat, pr->width0, pr->height0);
+            else {
+               for (i = 0; i < 6; i++) {
+                  GLenum ctarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + i;
+                  for (level = 0; level <= pr->last_level; level++) {
+                     unsigned mwidth = u_minify(pr->width0, level);
+                     unsigned mheight = u_minify(pr->height0, level);
+
+                     glTexImage2D(ctarget, level, internalformat, mwidth, mheight, 0, glformat,
+                                  gltype, NULL);
+                  }
+               }
+            }
+      } else if (gr->target == GL_TEXTURE_3D ||
+                 gr->target == GL_TEXTURE_2D_ARRAY ||
+                 gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) {
+         if (format_can_texture_storage) {
+            unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
+                                      pr->array_size : pr->depth0;
+            glTexStorage3D(gr->target, pr->last_level + 1, internalformat, pr->width0, pr->height0, depth_param);
+         } else {
+            for (level = 0; level <= pr->last_level; level++) {
+               unsigned depth_param = (gr->target == GL_TEXTURE_2D_ARRAY || gr->target == GL_TEXTURE_CUBE_MAP_ARRAY) ?
+                                         pr->array_size : u_minify(pr->depth0, level);
+               unsigned mwidth = u_minify(pr->width0, level);
+               unsigned mheight = u_minify(pr->height0, level);
+               glTexImage3D(gr->target, level, internalformat, mwidth, mheight,
+                            depth_param, 0, glformat, gltype, NULL);
+            }
+         }
+      } else if (gr->target == GL_TEXTURE_1D && vrend_state.use_gles) {
+         report_gles_missing_func(NULL, "glTexImage1D");
+      } else if (gr->target == GL_TEXTURE_1D) {
+         if (format_can_texture_storage) {
+            glTexStorage1D(gr->target, pr->last_level + 1, internalformat, pr->width0);
+         } else {
+            for (level = 0; level <= pr->last_level; level++) {
+               unsigned mwidth = u_minify(pr->width0, level);
+               glTexImage1D(gr->target, level, internalformat, mwidth, 0,
+                            glformat, gltype, NULL);
+            }
+         }
+      } else {
+         if (format_can_texture_storage)
+            glTexStorage2D(gr->target, pr->last_level + 1, internalformat, pr->width0,
+                           gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : pr->height0);
+         else {
+            for (level = 0; level <= pr->last_level; level++) {
+               unsigned mwidth = u_minify(pr->width0, level);
+               unsigned mheight = u_minify(pr->height0, level);
+               glTexImage2D(gr->target, level, internalformat, mwidth,
+                            gr->target == GL_TEXTURE_1D_ARRAY ? pr->array_size : mheight,
+                            0, glformat, gltype, NULL);
+            }
          }
       }
    }
@@ -5657,133 +7059,116 @@ static int vrend_renderer_resource_allocate_texture(struct vrend_resource *gr,
       glTexParameteri(gr->target, GL_TEXTURE_MAX_LEVEL, pr->last_level);
    }
 
+   glBindTexture(gr->target, 0);
+
+   if (image_oes && gr->gbm_bo) {
+#ifdef ENABLE_MINIGBM_ALLOCATION
+      if (!has_bit(gr->storage_bits, VREND_STORAGE_GL_BUFFER) &&
+            !vrend_format_can_texture_view(gr->base.format)) {
+         for (int i = 0; i < gbm_bo_get_plane_count(gr->gbm_bo); i++) {
+            gr->aux_plane_egl_image[i] =
+                  virgl_egl_aux_plane_image_from_gbm_bo(egl, gr->gbm_bo, i);
+         }
+      }
+#endif
+   }
+
    gt->state.max_lod = -1;
+   gt->cur_swizzle[0] = gt->cur_swizzle[1] = gt->cur_swizzle[2] = gt->cur_swizzle[3] = -1;
+   gt->cur_base = -1;
+   gt->cur_max = 10000;
    return 0;
 }
 
-int vrend_renderer_resource_create(struct vrend_renderer_resource_create_args *args, struct iovec *iov, uint32_t num_iovs, void *image_oes)
+static struct vrend_resource *
+vrend_resource_create(const struct vrend_renderer_resource_create_args *args)
 {
    struct vrend_resource *gr;
    int ret;
+   char error_string[256];
 
-   ret = check_resource_valid(args);
-   if (ret)
-      return EINVAL;
+   ret = check_resource_valid(args, error_string);
+   if (ret) {
+      vrend_printf("%s, Illegal resource parameters, error: %s\n", __func__, error_string);
+      return NULL;
+   }
 
    gr = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
    if (!gr)
-      return ENOMEM;
+      return NULL;
 
    vrend_renderer_resource_copy_args(args, gr);
-   gr->iov = iov;
-   gr->num_iovs = num_iovs;
+   gr->storage_bits = VREND_STORAGE_GUEST_MEMORY;
 
    if (args->flags & VIRGL_RESOURCE_Y_0_TOP)
       gr->y_0_top = true;
 
    pipe_reference_init(&gr->base.reference, 1);
 
-   if (args->bind == VIRGL_BIND_CUSTOM) {
-      /* custom should only be for buffers */
-      gr->ptr = malloc(args->width);
-      if (!gr->ptr) {
-         FREE(gr);
-         return ENOMEM;
-      }
-   } else if (args->bind == VIRGL_BIND_INDEX_BUFFER) {
-      gr->target = GL_ELEMENT_ARRAY_BUFFER_ARB;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_STREAM_OUTPUT) {
-      gr->target = GL_TRANSFORM_FEEDBACK_BUFFER;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_VERTEX_BUFFER) {
-      gr->target = GL_ARRAY_BUFFER_ARB;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->bind == VIRGL_BIND_CONSTANT_BUFFER) {
-      gr->target = GL_UNIFORM_BUFFER;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && (args->bind == 0 || args->bind == VIRGL_BIND_SHADER_BUFFER)) {
-      gr->target = GL_ARRAY_BUFFER_ARB;
-      vrend_create_buffer(gr, args->width);
-   } else if (args->target == PIPE_BUFFER && (args->bind & VIRGL_BIND_SAMPLER_VIEW)) {
-      /*
-       * On Desktop we use GL_ARB_texture_buffer_object on GLES we use
-       * GL_EXT_texture_buffer (it is in the ANDRIOD extension pack).
-       */
-#if GL_TEXTURE_BUFFER != GL_TEXTURE_BUFFER_EXT
-#error "GL_TEXTURE_BUFFER enums differ, they shouldn't."
-#endif
-
-      /* need to check GL version here */
-      if (has_feature(feat_arb_or_gles_ext_texture_buffer)) {
-         gr->target = GL_TEXTURE_BUFFER;
-      } else {
-         gr->target = GL_PIXEL_PACK_BUFFER_ARB;
-      }
-      vrend_create_buffer(gr, args->width);
-   } else {
-      int r = vrend_renderer_resource_allocate_texture(gr, image_oes);
-      if (r)
-         return r;
-   }
-
-   ret = vrend_resource_insert(gr, args->handle);
-   if (ret == 0) {
-      vrend_renderer_resource_destroy(gr, true);
-      return ENOMEM;
-   }
-   return 0;
+   return gr;
 }
 
-void vrend_renderer_resource_destroy(struct vrend_resource *res, bool remove)
+struct pipe_resource *
+vrend_renderer_resource_create(const struct vrend_renderer_resource_create_args *args,
+                               void *image_oes)
 {
-   if (res->readback_fb_id)
-      glDeleteFramebuffers(1, &res->readback_fb_id);
+   struct vrend_resource *gr;
+   int ret;
 
-   if (res->ptr)
-      free(res->ptr);
-   if (res->id) {
-      if (res->is_buffer) {
-         glDeleteBuffers(1, &res->id);
-         if (res->tbo_tex_id)
-            glDeleteTextures(1, &res->tbo_tex_id);
-      } else
-         glDeleteTextures(1, &res->id);
+   gr = vrend_resource_create(args);
+   if (!gr)
+      return NULL;
+
+   if (args->target == PIPE_BUFFER) {
+      ret = vrend_resource_alloc_buffer(gr, args->flags);
+   } else {
+      const enum virgl_formats format =
+         vrend_resource_fixup_emulated_bgra(gr, image_oes);
+      ret = vrend_resource_alloc_texture(gr, format, image_oes);
    }
 
-   if (res->handle && remove)
-      vrend_resource_remove(res->handle);
+   if (ret) {
+      FREE(gr);
+      return NULL;
+   }
+
+   return &gr->base;
+}
+
+void vrend_renderer_resource_destroy(struct vrend_resource *res)
+{
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_TEXTURE)) {
+      glDeleteTextures(1, &res->id);
+   } else if (has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+      glDeleteBuffers(1, &res->id);
+      if (res->tbo_tex_id)
+         glDeleteTextures(1, &res->tbo_tex_id);
+   } else if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      free(res->ptr);
+   }
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_MEMOBJ)) {
+      glDeleteMemoryObjectsEXT(1, &res->memobj);
+   }
+
+#if HAVE_EPOXY_EGL_H
+   if (res->egl_image) {
+      virgl_egl_image_destroy(egl, res->egl_image);
+      for (unsigned i = 0; i < ARRAY_SIZE(res->aux_plane_egl_image); i++) {
+         if (res->aux_plane_egl_image[i]) {
+            virgl_egl_image_destroy(egl, res->aux_plane_egl_image[i]);
+         }
+      }
+   }
+#endif
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (res->gbm_bo)
+      gbm_bo_destroy(res->gbm_bo);
+#endif
+
    free(res);
 }
 
-static void vrend_destroy_resource_object(void *obj_ptr)
-{
-   struct vrend_resource *res = obj_ptr;
-
-   if (pipe_reference(&res->base.reference, NULL))
-       vrend_renderer_resource_destroy(res, false);
-}
-
-void vrend_renderer_resource_unref(uint32_t res_handle)
-{
-   struct vrend_resource *res;
-   struct vrend_context *ctx;
-
-   res = vrend_resource_lookup(res_handle, 0);
-   if (!res)
-      return;
-
-   /* find in all contexts and detach also */
-
-   /* remove from any contexts */
-   LIST_FOR_EACH_ENTRY(ctx, &vrend_state.active_ctx_list, ctx_entry) {
-      vrend_renderer_detach_res_ctx_p(ctx, res->handle);
-   }
-
-   vrend_resource_remove(res->handle);
-}
-
-static int use_sub_data = 0;
 struct virgl_sub_upload_data {
    GLenum target;
    struct pipe_box *box;
@@ -5808,22 +7193,22 @@ static void vrend_scale_depth(void *ptr, int size, float scale_val)
    }
 }
 
-static void read_transfer_data(struct pipe_resource *res,
-                               struct iovec *iov,
+static void read_transfer_data(const struct iovec *iov,
                                unsigned int num_iovs,
                                char *data,
-                               uint32_t src_stride,
-                               struct pipe_box *box,
-                               uint32_t level,
+                               enum virgl_formats format,
                                uint64_t offset,
+                               uint32_t src_stride,
+                               uint32_t src_layer_stride,
+                               struct pipe_box *box,
                                bool invert)
 {
-   int blsize = util_format_get_blocksize(res->format);
+   int blsize = util_format_get_blocksize(format);
    uint32_t size = vrend_get_iovec_size(iov, num_iovs);
-   uint32_t send_size = util_format_get_nblocks(res->format, box->width,
+   uint32_t send_size = util_format_get_nblocks(format, box->width,
                                               box->height) * blsize * box->depth;
-   uint32_t bwx = util_format_get_nblocksx(res->format, box->width) * blsize;
-   int32_t bh = util_format_get_nblocksy(res->format, box->height);
+   uint32_t bwx = util_format_get_nblocksx(format, box->width) * blsize;
+   int32_t bh = util_format_get_nblocksy(format, box->height);
    int d, h;
 
    if ((send_size == size || bh == 1) && !invert && box->depth == 1)
@@ -5831,7 +7216,7 @@ static void read_transfer_data(struct pipe_resource *res,
    else {
       if (invert) {
          for (d = 0; d < box->depth; d++) {
-            uint32_t myoffset = offset + d * src_stride * u_minify(res->height0, level);
+            uint32_t myoffset = offset + d * src_layer_stride;
             for (h = bh - 1; h >= 0; h--) {
                void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -5840,7 +7225,7 @@ static void read_transfer_data(struct pipe_resource *res,
          }
       } else {
          for (d = 0; d < box->depth; d++) {
-            uint32_t myoffset = offset + d * src_stride * u_minify(res->height0, level);
+            uint32_t myoffset = offset + d * src_layer_stride;
             for (h = 0; h < bh; h++) {
                void *ptr = data + (h * bwx) + d * (bh * bwx);
                vrend_read_from_iovec(iov, num_iovs, myoffset, ptr, bwx);
@@ -5852,7 +7237,7 @@ static void read_transfer_data(struct pipe_resource *res,
 }
 
 static void write_transfer_data(struct pipe_resource *res,
-                                struct iovec *iov,
+                                const struct iovec *iov,
                                 unsigned num_iovs,
                                 char *data,
                                 uint32_t dst_stride,
@@ -5893,6 +7278,12 @@ static void write_transfer_data(struct pipe_resource *res,
    }
 }
 
+static bool check_transfer_iovec(struct vrend_resource *res,
+                                 const struct vrend_transfer_info *info)
+{
+   return (info->iovec && info->iovec_cnt) || res->iov;
+}
+
 static bool check_transfer_bounds(struct vrend_resource *res,
                                   const struct vrend_transfer_info *info)
 {
@@ -5905,7 +7296,7 @@ static bool check_transfer_bounds(struct vrend_resource *res,
       return false;
    /* these will catch bad y/z/w/d with 1D textures etc */
    lwidth = u_minify(res->base.width0, info->level);
-   if (info->box->width > lwidth)
+   if (info->box->width > lwidth || info->box->width < 0)
       return false;
    if (info->box->x > lwidth)
       return false;
@@ -5913,7 +7304,7 @@ static bool check_transfer_bounds(struct vrend_resource *res,
       return false;
 
    lheight = u_minify(res->base.height0, info->level);
-   if (info->box->height > lheight)
+   if (info->box->height > lheight || info->box->height < 0)
       return false;
    if (info->box->y > lheight)
       return false;
@@ -5922,7 +7313,7 @@ static bool check_transfer_bounds(struct vrend_resource *res,
 
    if (res->base.target == PIPE_TEXTURE_3D) {
       int ldepth = u_minify(res->base.depth0, info->level);
-      if (info->box->depth > ldepth)
+      if (info->box->depth > ldepth || info->box->depth < 0)
          return false;
       if (info->box->z > ldepth)
          return false;
@@ -5940,89 +7331,159 @@ static bool check_transfer_bounds(struct vrend_resource *res,
    return true;
 }
 
+/* Calculate the size of the memory needed to hold all the data of a
+ * transfer for particular stride values.
+ */
+static uint64_t vrend_transfer_size(struct vrend_resource *vres,
+                                    const struct vrend_transfer_info *info,
+                                    uint32_t stride, uint32_t layer_stride)
+{
+   struct pipe_resource *pres = &vres->base;
+   struct pipe_box *box = info->box;
+   uint64_t size;
+   /* For purposes of size calculation, assume that invalid dimension values
+    * correspond to 1.
+    */
+   int w = box->width > 0 ? box->width : 1;
+   int h = box->height > 0 ? box->height : 1;
+   int d = box->depth > 0 ? box->depth : 1;
+   int nblocksx = util_format_get_nblocksx(pres->format, w);
+   int nblocksy = util_format_get_nblocksy(pres->format, h);
+
+   /* Calculate the box size, not including the last layer. The last layer
+    * is the only one which may be incomplete, and is the only layer for
+    * non 3d/2d-array formats.
+    */
+   size = (d - 1) * layer_stride;
+   /* Calculate the size of the last (or only) layer, not including the last
+    * block row. The last block row is the only one which may be incomplete and
+    * is the only block row for non 2d/1d-array formats.
+    */
+   size += (nblocksy - 1) * stride;
+   /* Calculate the size of the the last (or only) block row. */
+   size += nblocksx * util_format_get_blocksize(pres->format);
+
+   return size;
+}
+
 static bool check_iov_bounds(struct vrend_resource *res,
                              const struct vrend_transfer_info *info,
-                             struct iovec *iov, int num_iovs)
+                             const struct iovec *iov, int num_iovs)
 {
-   GLuint send_size;
+   GLuint transfer_size;
    GLuint iovsize = vrend_get_iovec_size(iov, num_iovs);
    GLuint valid_stride, valid_layer_stride;
 
-   /* validate the send size */
-   valid_stride = util_format_get_stride(res->base.format, info->box->width);
+   /* If the transfer specifies a stride, verify that it's at least as large as
+    * the minimum required for the transfer. If no stride is specified use the
+    * image stride for the specified level.
+    */
    if (info->stride) {
-      /* only validate passed in stride for boxes with height */
-      if (info->box->height > 1) {
-         if (info->stride < valid_stride)
-            return false;
-         valid_stride = info->stride;
-      }
-   }
-
-   valid_layer_stride = util_format_get_2d_size(res->base.format, valid_stride,
-                                                info->box->height);
-
-   /* layer stride only makes sense for 3d,cube and arrays */
-   if (info->layer_stride) {
-      if ((res->base.target != PIPE_TEXTURE_3D &&
-           res->base.target != PIPE_TEXTURE_CUBE &&
-           res->base.target != PIPE_TEXTURE_1D_ARRAY &&
-           res->base.target != PIPE_TEXTURE_2D_ARRAY &&
-           res->base.target != PIPE_TEXTURE_CUBE_ARRAY))
+      GLuint min_stride = util_format_get_stride(res->base.format, info->box->width);
+      if (info->stride < min_stride)
          return false;
-
-      /* only validate passed in layer_stride for boxes with depth */
-      if (info->box->depth > 1) {
-         if (info->layer_stride < valid_layer_stride)
-            return false;
-         valid_layer_stride = info->layer_stride;
-      }
+      valid_stride = info->stride;
+   } else {
+      valid_stride = util_format_get_stride(res->base.format,
+                                            u_minify(res->base.width0, info->level));
    }
 
-   send_size = valid_layer_stride * info->box->depth;
+   /* If the transfer specifies a layer_stride, verify that it's at least as
+    * large as the minimum required for the transfer. If no layer_stride is
+    * specified use the image layer_stride for the specified level.
+    */
+   if (info->layer_stride) {
+      GLuint min_layer_stride = util_format_get_2d_size(res->base.format,
+                                                        valid_stride,
+                                                        info->box->height);
+      if (info->layer_stride < min_layer_stride)
+         return false;
+      valid_layer_stride = info->layer_stride;
+   } else {
+      valid_layer_stride =
+         util_format_get_2d_size(res->base.format, valid_stride,
+                                 u_minify(res->base.height0, info->level));
+   }
+
+   /* Calculate the size required for the transferred data, based on the
+    * calculated or provided strides, and ensure that the iov, starting at the
+    * specified offset, is able to hold at least that size.
+    */
+   transfer_size = vrend_transfer_size(res, info,
+                                       valid_stride,
+                                       valid_layer_stride);
    if (iovsize < info->offset)
       return false;
-   if (iovsize < send_size)
+   if (iovsize < transfer_size)
       return false;
-   if (iovsize < info->offset + send_size)
+   if (iovsize < info->offset + transfer_size)
       return false;
 
    return true;
 }
 
+static void get_current_texture(GLenum target, GLint* tex) {
+   switch (target) {
+#define GET_TEXTURE(a) \
+   case GL_TEXTURE_ ## a: \
+      glGetIntegerv(GL_TEXTURE_BINDING_ ## a, tex); return
+   GET_TEXTURE(1D);
+   GET_TEXTURE(2D);
+   GET_TEXTURE(3D);
+   GET_TEXTURE(1D_ARRAY);
+   GET_TEXTURE(2D_ARRAY);
+   GET_TEXTURE(RECTANGLE);
+   GET_TEXTURE(CUBE_MAP);
+   GET_TEXTURE(CUBE_MAP_ARRAY);
+   GET_TEXTURE(BUFFER);
+   GET_TEXTURE(2D_MULTISAMPLE);
+   GET_TEXTURE(2D_MULTISAMPLE_ARRAY);
+#undef GET_TEXTURE
+   default:
+      vrend_printf("Unknown texture target %x\n", target);
+   }
+}
+
 static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                              struct vrend_resource *res,
-                                             struct iovec *iov, int num_iovs,
+                                             const struct iovec *iov, int num_iovs,
                                              const struct vrend_transfer_info *info)
 {
    void *data;
 
-   if (res->target == 0 && res->ptr) {
-      vrend_read_from_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, info->box->width);
+   if ((is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
+       has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) && res->iov) {
+      return vrend_copy_iovec(iov, num_iovs, info->offset,
+                              res->iov, res->num_iovs, info->box->x,
+                              info->box->width, res->ptr);
+   }
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      assert(!res->iov);
+      vrend_read_from_iovec(iov, num_iovs, info->offset,
+                            res->ptr + info->box->x, info->box->width);
       return 0;
    }
-   if (res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
-       res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
-       res->target == GL_ARRAY_BUFFER_ARB ||
-       res->target == GL_TEXTURE_BUFFER ||
-       res->target == GL_UNIFORM_BUFFER) {
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+      GLuint map_flags = GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT;
       struct virgl_sub_upload_data d;
       d.box = info->box;
       d.target = res->target;
 
+      if (!info->synchronized)
+         map_flags |= GL_MAP_UNSYNCHRONIZED_BIT;
+
       glBindBufferARB(res->target, res->id);
-      if (use_sub_data == 1) {
-         vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
+      data = glMapBufferRange(res->target, info->box->x, info->box->width, map_flags);
+      if (data == NULL) {
+	 vrend_printf("map failed for element buffer\n");
+	 vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
       } else {
-         data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_WRITE_BIT);
-         if (data == NULL) {
-            fprintf(stderr,"map failed for element buffer\n");
-            vrend_read_from_iovec_cb(iov, num_iovs, info->offset, info->box->width, &iov_buffer_upload, &d);
-         } else {
-            vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
-            glUnmapBuffer(res->target);
-         }
+	 vrend_read_from_iovec(iov, num_iovs, info->offset, data, info->box->width);
+	 glUnmapBuffer(res->target);
       }
+      glBindBufferARB(res->target, 0);
    } else {
       GLenum glformat;
       GLenum gltype;
@@ -6034,38 +7495,55 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
       float depth_scale;
       GLuint send_size = 0;
       uint32_t stride = info->stride;
+      uint32_t layer_stride = info->layer_stride;
 
-      vrend_use_program(ctx, 0);
+      if (ctx)
+         vrend_use_program(ctx->sub, 0);
+      else
+         glUseProgram(0);
 
       if (!stride)
          stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level)) * elsize;
+
+      if (!layer_stride)
+         layer_stride = util_format_get_2d_size(res->base.format, stride,
+                                                u_minify(res->base.height0, info->level));
 
       compressed = util_format_is_compressed(res->base.format);
       if (num_iovs > 1 || compressed) {
          need_temp = true;
       }
 
-      if (vrend_state.use_core_profile == true && (res->y_0_top || (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM))) {
+      if (vrend_state.use_core_profile == true &&
+          (res->y_0_top || (res->base.format == VIRGL_FORMAT_Z24X8_UNORM))) {
          need_temp = true;
          if (res->y_0_top)
             invert = true;
       }
 
+      send_size = util_format_get_nblocks(res->base.format, info->box->width,
+                                          info->box->height) * elsize;
+      if (res->target == GL_TEXTURE_3D ||
+          res->target == GL_TEXTURE_2D_ARRAY ||
+          res->target == GL_TEXTURE_CUBE_MAP_ARRAY)
+          send_size *= info->box->depth;
+
       if (need_temp) {
-         send_size = util_format_get_nblocks(res->base.format, info->box->width,
-                                             info->box->height) * elsize * info->box->depth;
          data = malloc(send_size);
          if (!data)
             return ENOMEM;
-         read_transfer_data(&res->base, iov, num_iovs, data, stride,
-                            info->box, info->level, info->offset, invert);
+         read_transfer_data(iov, num_iovs, data, res->base.format, info->offset,
+                            stride, layer_stride, info->box, invert);
       } else {
+         if (send_size > iov[0].iov_len - info->offset)
+            return EINVAL;
          data = (char*)iov[0].iov_base + info->offset;
       }
 
-      if (stride && !need_temp) {
+      if (!need_temp) {
+         assert(stride);
          glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / elsize);
-         glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, u_minify(res->base.height0, info->level));
+         glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, layer_stride / stride);
       } else
          glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
@@ -6092,34 +7570,33 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
 
       if ((!vrend_state.use_core_profile) && (res->y_0_top)) {
          GLuint buffers;
+         GLuint fb_id;
 
-         if (res->readback_fb_id == 0 || (int)res->readback_fb_level != info->level) {
-            GLuint fb_id;
-            if (res->readback_fb_id)
-               glDeleteFramebuffers(1, &res->readback_fb_id);
+         glGenFramebuffers(1, &fb_id);
+         glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+         vrend_fb_bind_texture(res, 0, info->level, 0);
 
-            glGenFramebuffers(1, &fb_id);
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb_id);
-            vrend_fb_bind_texture(res, 0, info->level, 0);
-
-            res->readback_fb_id = fb_id;
-            res->readback_fb_level = info->level;
-         } else {
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
-         }
-
-         buffers = GL_COLOR_ATTACHMENT0_EXT;
+         buffers = GL_COLOR_ATTACHMENT0;
          glDrawBuffers(1, &buffers);
-         vrend_blend_enable(ctx, false);
-         vrend_depth_test_enable(ctx, false);
-         vrend_alpha_test_enable(ctx, false);
-         vrend_stencil_test_enable(ctx, false);
+         glDisable(GL_BLEND);
+         if (ctx) {
+            vrend_depth_test_enable(ctx, false);
+            vrend_alpha_test_enable(ctx, false);
+            vrend_stencil_test_enable(ctx->sub, false);
+         } else {
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_ALPHA_TEST);
+            glDisable(GL_STENCIL_TEST);
+         }
          glPixelZoom(1.0f, res->y_0_top ? -1.0f : 1.0f);
          glWindowPos2i(info->box->x, res->y_0_top ? (int)res->base.height0 - info->box->y : info->box->y);
          glDrawPixels(info->box->width, info->box->height, glformat, gltype,
                       data);
+         glDeleteFramebuffers(1, &fb_id);
       } else {
          uint32_t comp_size;
+         GLint old_tex = 0;
+         get_current_texture(res->target, &old_tex);
          glBindTexture(res->target, res->id);
 
          if (compressed) {
@@ -6149,7 +7626,7 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                                ((info->box->z * level_height + y) * stride + x * elsize);
          }
 
-         if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+         if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
             /* we get values from the guest as 24-bit scaled integers
                but we give them to the host GL and it interprets them
                as 32-bit scaled integers, so we need to scale them here */
@@ -6203,10 +7680,11 @@ static int vrend_renderer_transfer_write_iov(struct vrend_context *ctx,
                                glformat, gltype, data);
             }
          }
-         if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+         if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
             if (!vrend_state.use_core_profile)
                glPixelTransferf(GL_DEPTH_SCALE, 1.0);
          }
+         glBindTexture(res->target, old_tex);
       }
 
       if (stride && !need_temp) {
@@ -6234,9 +7712,8 @@ static uint32_t vrend_get_texture_depth(struct vrend_resource *res, uint32_t lev
    return depth;
 }
 
-static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
-                                           struct vrend_resource *res,
-                                           struct iovec *iov, int num_iovs,
+static int vrend_transfer_send_getteximage(struct vrend_resource *res,
+                                           const struct iovec *iov, int num_iovs,
                                            const struct vrend_transfer_info *info)
 {
    GLenum format, type;
@@ -6279,6 +7756,8 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       break;
    }
 
+   GLint old_tex = 0;
+   get_current_texture(res->target, &old_tex);
    glBindTexture(res->target, res->id);
    if (res->target == GL_TEXTURE_CUBE_MAP) {
       target = GL_TEXTURE_CUBE_MAP_POSITIVE_X + info->box->z;
@@ -6289,7 +7768,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       if (has_feature(feat_arb_robustness)) {
          glGetnCompressedTexImageARB(target, info->level, tex_size, data);
       } else if (vrend_state.use_gles) {
-         report_gles_missing_func(ctx, "glGetCompressedTexImage");
+         report_gles_missing_func(NULL, "glGetCompressedTexImage");
       } else {
          glGetCompressedTexImage(target, info->level, data);
       }
@@ -6297,7 +7776,7 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
       if (has_feature(feat_arb_robustness)) {
          glGetnTexImageARB(target, info->level, format, type, tex_size, data);
       } else if (vrend_state.use_gles) {
-         report_gles_missing_func(ctx, "glGetTexImage");
+         report_gles_missing_func(NULL, "glGetTexImage");
       } else {
          glGetTexImage(target, info->level, format, type, data);
       }
@@ -6309,17 +7788,41 @@ static int vrend_transfer_send_getteximage(struct vrend_context *ctx,
                        info->stride, info->box, info->level, info->offset,
                        false);
    free(data);
+   glBindTexture(res->target, old_tex);
    return 0;
+}
+
+static void do_readpixels(struct vrend_resource *res,
+                          int idx, uint32_t level, uint32_t layer,
+                          GLint x, GLint y,
+                          GLsizei width, GLsizei height,
+                          GLenum format, GLenum type,
+                          GLsizei bufSize, void *data)
+{
+   GLuint fb_id;
+
+   glGenFramebuffers(1, &fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+
+   vrend_fb_bind_texture(res, idx, level, layer);
+
+   if (has_feature(feat_arb_robustness))
+      glReadnPixelsARB(x, y, width, height, format, type, bufSize, data);
+   else if (has_feature(feat_gles_khr_robustness))
+      glReadnPixelsKHR(x, y, width, height, format, type, bufSize, data);
+   else
+      glReadPixels(x, y, width, height, format, type, data);
+
+   glDeleteFramebuffers(1, &fb_id);
 }
 
 static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
                                           struct vrend_resource *res,
-                                          struct iovec *iov, int num_iovs,
+                                          const struct iovec *iov, int num_iovs,
                                           const struct vrend_transfer_info *info)
 {
    char *myptr = (char*)iov[0].iov_base + info->offset;
    int need_temp = 0;
-   GLuint fb_id;
    char *data;
    bool actually_invert, separate_invert = false;
    GLenum format, type;
@@ -6329,17 +7832,37 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    int elsize = util_format_get_blocksize(res->base.format);
    float depth_scale;
    int row_stride = info->stride / elsize;
+   GLint old_fbo;
 
-   vrend_use_program(ctx, 0);
+   if (ctx)
+      vrend_use_program(ctx->sub, 0);
+   else
+      glUseProgram(0);
 
-   format = tex_conv_table[res->base.format].glformat;
-   type = tex_conv_table[res->base.format].gltype;
+   /* If the emubgra tweak is active then reading back the BGRA format emulated
+    * by swizzling a RGBA format will take a performance hit because mesa will
+    * manually swizzling the RGBA data. This can be avoided by setting the
+    * tweak bgraswz that does this swizzling already on the GPU when blitting
+    * or rendering to an emulated BGRA surface and reading back the data as
+    * RGBA. The check whether we are on gles and emugbra is active is done
+    * in vrend_format_replace_emulated, so no need to repeat the test here */
+   enum virgl_formats fmt = res->base.format;
+   if (vrend_get_tweak_is_active(&ctx->sub->tweaks,
+                                 virgl_tweak_gles_brga_apply_dest_swizzle))
+      fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+
+   format = tex_conv_table[fmt].glformat;
+   type = tex_conv_table[fmt].gltype;
    /* if we are asked to invert and reading from a front then don't */
 
    actually_invert = res->y_0_top;
 
    if (actually_invert && !has_feature(feat_mesa_invert))
       separate_invert = true;
+
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   glPixelStorei(GL_PACK_SWAP_BYTES, 1);
+#endif
 
    if (num_iovs > 1 || separate_invert)
       need_temp = 1;
@@ -6348,7 +7871,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       send_size = util_format_get_nblocks(res->base.format, info->box->width, info->box->height) * info->box->depth * util_format_get_blocksize(res->base.format);
       data = malloc(send_size);
       if (!data) {
-         fprintf(stderr,"malloc failed %d\n", send_size);
+         vrend_printf("malloc failed %d\n", send_size);
          return ENOMEM;
       }
    } else {
@@ -6358,22 +7881,8 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
          row_stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, info->level));
    }
 
-   if (res->readback_fb_id == 0 || (int)res->readback_fb_level != info->level ||
-       (int)res->readback_fb_z != info->box->z) {
+   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &old_fbo);
 
-      if (res->readback_fb_id)
-         glDeleteFramebuffers(1, &res->readback_fb_id);
-
-      glGenFramebuffers(1, &fb_id);
-      glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb_id);
-
-      vrend_fb_bind_texture(res, 0, info->level, info->box->z);
-
-      res->readback_fb_id = fb_id;
-      res->readback_fb_level = info->level;
-      res->readback_fb_z = info->box->z;
-   } else
-      glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
    if (actually_invert)
       y1 = h - info->box->y - info->box->height;
    else
@@ -6381,8 +7890,6 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
 
    if (has_feature(feat_mesa_invert) && actually_invert)
       glPixelStorei(GL_PACK_INVERT_MESA, 1);
-   if (!vrend_format_is_ds(res->base.format))
-      glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
    if (!need_temp && row_stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, row_stride);
 
@@ -6402,7 +7909,7 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
       break;
    }
 
-   if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+   if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
       /* we get values from the guest as 24-bit scaled integers
          but we give them to the host GL and it interprets them
          as 32-bit scaled integers, so we need to scale them here */
@@ -6429,25 +7936,21 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
           type != GL_INT && type != GL_FLOAT) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &imp);
          if (imp != (GLint)type) {
-            fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_TYPE is not expected native type 0x%x != imp 0x%x\n", type, imp);
+            vrend_printf( "GL_IMPLEMENTATION_COLOR_READ_TYPE is not expected native type 0x%x != imp 0x%x\n", type, imp);
          }
       }
       if (format != GL_RGBA && format != GL_RGBA_INTEGER) {
          glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &imp);
          if (imp != (GLint)format) {
-            fprintf(stderr, "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
+            vrend_printf( "GL_IMPLEMENTATION_COLOR_READ_FORMAT is not expected native format 0x%x != imp 0x%x\n", format, imp);
          }
       }
    }
 
-   if (has_feature(feat_arb_robustness))
-      glReadnPixelsARB(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
-   else if (has_feature(feat_gles_khr_robustness))
-      glReadnPixelsKHR(info->box->x, y1, info->box->width, info->box->height, format, type, send_size, data);
-   else
-      glReadPixels(info->box->x, y1, info->box->width, info->box->height, format, type, data);
+   do_readpixels(res, 0, info->level, info->box->z, info->box->x, y1,
+                 info->box->width, info->box->height, format, type, send_size, data);
 
-   if (res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+   if (res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
       if (!vrend_state.use_core_profile)
          glPixelTransferf(GL_DEPTH_SCALE, 1.0);
       else
@@ -6458,18 +7961,25 @@ static int vrend_transfer_send_readpixels(struct vrend_context *ctx,
    if (!need_temp && row_stride)
       glPixelStorei(GL_PACK_ROW_LENGTH, 0);
    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+#ifdef PIPE_ARCH_BIG_ENDIAN
+   glPixelStorei(GL_PACK_SWAP_BYTES, 0);
+#endif
+
    if (need_temp) {
       write_transfer_data(&res->base, iov, num_iovs, data,
                           info->stride, info->box, info->level, info->offset,
                           separate_invert);
       free(data);
    }
+
+   glBindFramebuffer(GL_FRAMEBUFFER, old_fbo);
+
    return 0;
 }
 
-static int vrend_transfer_send_readonly(UNUSED struct vrend_context *ctx,
-                                        struct vrend_resource *res,
-                                        struct iovec *iov, int num_iovs,
+static int vrend_transfer_send_readonly(struct vrend_resource *res,
+                                        const struct iovec *iov, int num_iovs,
                                         UNUSED const struct vrend_transfer_info *info)
 {
    bool same_iov = true;
@@ -6496,137 +8006,246 @@ static int vrend_transfer_send_readonly(UNUSED struct vrend_context *ctx,
       return 0;
    }
 
-   /* Fallback to getteximage, will probably fail on GLES. */
    return -1;
 }
 
 static int vrend_renderer_transfer_send_iov(struct vrend_context *ctx,
-                                            struct vrend_resource *res,
-                                            struct iovec *iov, int num_iovs,
+					    struct vrend_resource *res,
+                                            const struct iovec *iov, int num_iovs,
                                             const struct vrend_transfer_info *info)
 {
-   if (res->target == 0 && res->ptr) {
-      uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
-      vrend_write_to_iovec(iov, num_iovs, info->offset, res->ptr + info->box->x, send_size);
+   if (is_only_bit(res->storage_bits, VREND_STORAGE_GUEST_MEMORY) ||
+       (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY) && res->iov)) {
+      return vrend_copy_iovec(res->iov, res->num_iovs, info->box->x,
+                              iov, num_iovs, info->offset,
+                              info->box->width, res->ptr);
+   }
+
+   if (has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      assert(!res->iov);
+      vrend_write_to_iovec(iov, num_iovs, info->offset,
+                           res->ptr + info->box->x, info->box->width);
       return 0;
    }
 
-   if (res->target == GL_ELEMENT_ARRAY_BUFFER_ARB ||
-       res->target == GL_ARRAY_BUFFER_ARB ||
-       res->target == GL_TRANSFORM_FEEDBACK_BUFFER ||
-       res->target == GL_TEXTURE_BUFFER ||
-       res->target == GL_UNIFORM_BUFFER) {
+   if (has_bit(res->storage_bits, VREND_STORAGE_GL_BUFFER)) {
       uint32_t send_size = info->box->width * util_format_get_blocksize(res->base.format);
       void *data;
 
       glBindBufferARB(res->target, res->id);
       data = glMapBufferRange(res->target, info->box->x, info->box->width, GL_MAP_READ_BIT);
       if (!data)
-         fprintf(stderr,"unable to open buffer for reading %d\n", res->target);
+         vrend_printf("unable to open buffer for reading %d\n", res->target);
       else
          vrend_write_to_iovec(iov, num_iovs, info->offset, data, send_size);
       glUnmapBuffer(res->target);
+      glBindBufferARB(res->target, 0);
    } else {
       int ret = -1;
       bool can_readpixels = true;
 
       can_readpixels = vrend_format_can_render(res->base.format) || vrend_format_is_ds(res->base.format);
 
-      if (can_readpixels) {
+      if (can_readpixels)
          ret = vrend_transfer_send_readpixels(ctx, res, iov, num_iovs, info);
-      } else {
-         ret = vrend_transfer_send_readonly(ctx, res, iov, num_iovs, info);
-      }
 
       /* Can hit this on a non-error path as well. */
-      if (ret != 0) {
-         ret = vrend_transfer_send_getteximage(ctx, res, iov, num_iovs, info);
+      if (ret) {
+         if (!vrend_state.use_gles)
+            ret = vrend_transfer_send_getteximage(res, iov, num_iovs, info);
+         else
+            ret = vrend_transfer_send_readonly(res, iov, num_iovs, info);
       }
+
       return ret;
    }
    return 0;
 }
 
-int vrend_renderer_transfer_iov(const struct vrend_transfer_info *info,
-                                int transfer_mode)
+static int vrend_renderer_transfer_internal(struct vrend_context *ctx,
+                                            struct vrend_resource *res,
+                                            const struct vrend_transfer_info *info,
+                                            int transfer_mode)
 {
-   struct vrend_resource *res;
-   struct vrend_context *ctx;
-   struct iovec *iov;
+   const struct iovec *iov;
    int num_iovs;
 
    if (!info->box)
       return EINVAL;
 
-   ctx = vrend_lookup_renderer_ctx(info->ctx_id);
-   if (!ctx)
-      return EINVAL;
+   vrend_hw_switch_context(ctx, true);
 
-   if (info->ctx_id == 0)
-      res = vrend_resource_lookup(info->handle, 0);
-   else
-      res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
-
-   if (!res) {
-      if (info->ctx_id)
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
-      return EINVAL;
-   }
-
-   iov = info->iovec;
-   num_iovs = info->iovec_cnt;
-
-   if (res->iov && (!iov || num_iovs == 0)) {
+   assert(check_transfer_iovec(res, info));
+   if (info->iovec && info->iovec_cnt) {
+      iov = info->iovec;
+      num_iovs = info->iovec_cnt;
+   } else {
       iov = res->iov;
       num_iovs = res->num_iovs;
    }
 
-   if (!iov) {
-      if (info->ctx_id)
-         report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (res->gbm_bo && (transfer_mode == VIRGL_TRANSFER_TO_HOST ||
+                       !has_bit(res->storage_bits, VREND_STORAGE_EGL_IMAGE))) {
+      assert(!info->synchronized);
+      return virgl_gbm_transfer(res->gbm_bo, transfer_mode, iov, num_iovs, info);
+   }
+#endif
+
+   if (!check_transfer_bounds(res, info)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
       return EINVAL;
    }
 
-   if (!check_transfer_bounds(res, info))
+   if (!check_iov_bounds(res, info, iov, num_iovs)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_TRANSFER_IOV_BOUNDS, res->id);
       return EINVAL;
+   }
 
-   if (!check_iov_bounds(res, info, iov, num_iovs))
-      return EINVAL;
+   switch (transfer_mode) {
+   case VIRGL_TRANSFER_TO_HOST:
+      return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs, info);
+   case VIRGL_TRANSFER_FROM_HOST:
+      return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs, info);
 
-   vrend_hw_switch_context(vrend_lookup_renderer_ctx(0), true);
-
-   if (transfer_mode == VREND_TRANSFER_WRITE)
-      return vrend_renderer_transfer_write_iov(ctx, res, iov, num_iovs,
-                                               info);
-   else
-      return vrend_renderer_transfer_send_iov(ctx, res, iov, num_iovs,
-                                              info);
+   default:
+      assert(0);
+   }
+   return 0;
 }
 
-int vrend_transfer_inline_write(struct vrend_context *ctx,
-                                struct vrend_transfer_info *info,
-                                UNUSED unsigned usage)
+int vrend_renderer_transfer_iov(struct vrend_context *ctx,
+                                uint32_t dst_handle,
+                                const struct vrend_transfer_info *info,
+                                int transfer_mode)
 {
    struct vrend_resource *res;
 
-   res = vrend_renderer_ctx_res_lookup(ctx, info->handle);
+   res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
+   if (!res || !check_transfer_iovec(res, info)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      return EINVAL;
+   }
+
+   return vrend_renderer_transfer_internal(ctx, res, info,
+                                           transfer_mode);
+}
+
+int vrend_renderer_transfer_pipe(struct pipe_resource *pres,
+                                 const struct vrend_transfer_info *info,
+                                 int transfer_mode)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!check_transfer_iovec(res, info))
+      return EINVAL;
+
+   return vrend_renderer_transfer_internal(vrend_state.ctx0, res, info,
+                                           transfer_mode);
+}
+
+int vrend_transfer_inline_write(struct vrend_context *ctx,
+                                uint32_t dst_handle,
+                                const struct vrend_transfer_info *info)
+{
+   struct vrend_resource *res;
+
+   res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
       return EINVAL;
    }
 
    if (!check_transfer_bounds(res, info)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, dst_handle);
       return EINVAL;
    }
 
    if (!check_iov_bounds(res, info, info->iovec, info->iovec_cnt)) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, info->handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, dst_handle);
       return EINVAL;
    }
 
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (res->gbm_bo) {
+      assert(!info->synchronized);
+      return virgl_gbm_transfer(res->gbm_bo,
+                                VIRGL_TRANSFER_TO_HOST,
+                                info->iovec,
+                                info->iovec_cnt,
+                                info);
+   }
+#endif
+
    return vrend_renderer_transfer_write_iov(ctx, res, info->iovec, info->iovec_cnt, info);
 
+}
+
+int vrend_renderer_copy_transfer3d(struct vrend_context *ctx,
+                                   uint32_t dst_handle,
+                                   uint32_t src_handle,
+                                   const struct vrend_transfer_info *info)
+{
+   struct vrend_resource *src_res, *dst_res;
+
+   src_res = vrend_renderer_ctx_res_lookup(ctx, src_handle);
+   dst_res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
+
+   if (!src_res) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      return EINVAL;
+   }
+
+   if (!dst_res) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      return EINVAL;
+   }
+
+   if (!src_res->iov) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      return EINVAL;
+   }
+
+   if (!check_transfer_bounds(dst_res, info)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, dst_handle);
+      return EINVAL;
+   }
+
+   if (!check_iov_bounds(dst_res, info, src_res->iov, src_res->num_iovs)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_CMD_BUFFER, dst_handle);
+      return EINVAL;
+   }
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (dst_res->gbm_bo) {
+      bool use_gbm = true;
+
+      /* The guest uses copy transfers against busy resources to avoid
+       * waiting.  The host GL driver is usually smart enough to avoid
+       * blocking by putting the data in a staging buffer and doing a
+       * pipelined copy.  But when there is a GBM bo, we can only do that when
+       * VREND_STORAGE_GL_IMMUTABLE is set because it implies that the
+       * internal format is known and is known to be compatible with the
+       * subsequence glTexSubImage2D.  Otherwise, we glFinish and use GBM.
+       */
+      if (info->synchronized) {
+         if (has_bit(dst_res->storage_bits, VREND_STORAGE_GL_IMMUTABLE))
+            use_gbm = false;
+         else
+            glFinish();
+      }
+
+      if (use_gbm) {
+         return virgl_gbm_transfer(dst_res->gbm_bo,
+                                   VIRGL_TRANSFER_TO_HOST,
+                                   src_res->iov,
+                                   src_res->num_iovs,
+                                   info);
+      }
+   }
+#endif
+
+  return vrend_renderer_transfer_write_iov(ctx, dst_res, src_res->iov,
+                                           src_res->num_iovs, info);
 }
 
 void vrend_set_stencil_ref(struct vrend_context *ctx,
@@ -6672,7 +8291,7 @@ void vrend_set_polygon_stipple(struct vrend_context *ctx,
                                struct pipe_poly_stipple *ps)
 {
    if (vrend_state.use_core_profile) {
-      static const unsigned bit31 = 1 << 31;
+      static const unsigned bit31 = 1u << 31;
       GLubyte *stip = calloc(1, 1024);
       int i, j;
 
@@ -6694,6 +8313,7 @@ void vrend_set_polygon_stipple(struct vrend_context *ctx,
       glBindTexture(GL_TEXTURE_2D, ctx->pstipple_tex_id);
       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 32, 32,
                       GL_RED, GL_UNSIGNED_BYTE, stip);
+      glBindTexture(GL_TEXTURE_2D, 0);
 
       free(stip);
       return;
@@ -6738,8 +8358,12 @@ void vrend_set_min_samples(struct vrend_context *ctx, unsigned min_samples)
 void vrend_set_tess_state(UNUSED struct vrend_context *ctx, const float tess_factors[6])
 {
    if (has_feature(feat_tessellation)) {
-      glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
-      glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
+      if (!vrend_state.use_gles) {
+         glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, tess_factors);
+         glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, &tess_factors[4]);
+      } else {
+         memcpy(vrend_state.tess_factors, tess_factors, 6 * sizeof (float));
+      }
    }
 }
 
@@ -6748,7 +8372,9 @@ static void vrend_hw_emit_streamout_targets(UNUSED struct vrend_context *ctx, st
    uint i;
 
    for (i = 0; i < so_obj->num_targets; i++) {
-      if (so_obj->so_targets[i]->buffer_offset || so_obj->so_targets[i]->buffer_size < so_obj->so_targets[i]->buffer->base.width0)
+      if (!so_obj->so_targets[i])
+         glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, 0);
+      else if (so_obj->so_targets[i]->buffer_offset || so_obj->so_targets[i]->buffer_size < so_obj->so_targets[i]->buffer->base.width0)
          glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, i, so_obj->so_targets[i]->buffer->id, so_obj->so_targets[i]->buffer_offset, so_obj->so_targets[i]->buffer_size);
       else
          glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, i, so_obj->so_targets[i]->buffer->id);
@@ -6791,9 +8417,11 @@ void vrend_set_streamout_targets(struct vrend_context *ctx,
       obj->num_targets = num_targets;
       for (i = 0; i < num_targets; i++) {
          obj->handles[i] = handles[i];
+         if (handles[i] == 0)
+            continue;
          target = vrend_object_lookup(ctx->sub->object_hash, handles[i], VIRGL_OBJECT_STREAMOUT_TARGET);
          if (!target) {
-            report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
+            vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_HANDLE, handles[i]);
             free(obj);
             return;
          }
@@ -6832,7 +8460,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
                                          const struct pipe_box *src_box)
 {
    char *tptr;
-   uint32_t total_size, src_stride, dst_stride;
+   uint32_t total_size, src_stride, dst_stride, src_layer_stride;
    GLenum glformat, gltype;
    int elsize = util_format_get_blocksize(dst_res->base.format);
    int compressed = util_format_is_compressed(dst_res->base.format);
@@ -6845,7 +8473,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
       cube_slice = 6;
 
    if (src_res->base.format != dst_res->base.format) {
-      fprintf(stderr, "copy fallback failed due to mismatched formats %d %d\n", src_res->base.format, dst_res->base.format);
+      vrend_printf( "copy fallback failed due to mismatched formats %d %d\n", src_res->base.format, dst_res->base.format);
       return;
    }
 
@@ -6881,8 +8509,12 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
 
       src_stride = util_format_get_nblocksx(src_res->base.format,
                                             u_minify(src_res->base.width0, src_level)) * elsize;
-      read_transfer_data(&src_res->base, src_res->iov, src_res->num_iovs, tptr,
-                         src_stride, &box, src_level, src_offset, false);
+      src_layer_stride = util_format_get_2d_size(src_res->base.format,
+                                                 src_stride,
+                                                 u_minify(src_res->base.height0, src_level));
+      read_transfer_data(src_res->iov, src_res->num_iovs, tptr,
+                         src_res->base.format, src_offset,
+                         src_stride, src_layer_stride, &box, false);
       /* When on GLES sync the iov that backs the dst resource because
        * we might need it in a chain copy A->B, B->C */
       write_transfer_data(&dst_res->base, dst_res->iov, dst_res->num_iovs, tptr,
@@ -6890,7 +8522,7 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
       /* we get values from the guest as 24-bit scaled integers
          but we give them to the host GL and it interprets them
          as 32-bit scaled integers, so we need to scale them here */
-      if (dst_res->base.format == (enum pipe_format)VIRGL_FORMAT_Z24X8_UNORM) {
+      if (dst_res->base.format == VIRGL_FORMAT_Z24X8_UNORM) {
          float depth_scale = 256.0;
          vrend_scale_depth(tptr, total_size, depth_scale);
       }
@@ -6986,20 +8618,38 @@ static void vrend_resource_copy_fallback(struct vrend_resource *src_res,
 
    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
    free(tptr);
+   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+static inline
+GLenum translate_gles_emulation_texture_target(GLenum target)
+{
+   switch (target) {
+   case GL_TEXTURE_1D:
+   case GL_TEXTURE_RECTANGLE: return GL_TEXTURE_2D;
+   case GL_TEXTURE_1D_ARRAY: return GL_TEXTURE_2D_ARRAY;
+   default: return target;
+   }
+}
 
 static inline void
 vrend_copy_sub_image(struct vrend_resource* src_res, struct vrend_resource * dst_res,
                      uint32_t src_level, const struct pipe_box *src_box,
                      uint32_t dst_level, uint32_t dstx, uint32_t dsty, uint32_t dstz)
 {
-   glCopyImageSubData(src_res->id,
-                      tgsitargettogltarget(src_res->base.target, src_res->base.nr_samples),
-                      src_level, src_box->x, src_box->y, src_box->z,
-                      dst_res->id,
-                      tgsitargettogltarget(dst_res->base.target, dst_res->base.nr_samples),
-                      dst_level, dstx, dsty, dstz,
+
+   GLenum src_target = tgsitargettogltarget(src_res->base.target, src_res->base.nr_samples);
+   GLenum dst_target = tgsitargettogltarget(dst_res->base.target, dst_res->base.nr_samples);
+
+   if (vrend_state.use_gles) {
+      src_target = translate_gles_emulation_texture_target(src_target);
+      dst_target = translate_gles_emulation_texture_target(dst_target);
+   }
+
+   glCopyImageSubData(src_res->id, src_target, src_level,
+                      src_box->x, src_box->y, src_box->z,
+                      dst_res->id, dst_target, dst_level,
+                      dstx, dsty, dstz,
                       src_box->width, src_box->height,src_box->depth);
 }
 
@@ -7021,16 +8671,27 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
    dst_res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
 
    if (!src_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
       return;
    }
    if (!dst_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
       return;
    }
 
+   VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: From %s ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d "
+                                   "To %s ms:%d [%d, %d, %d]\n",
+                                   util_format_name(src_res->base.format), src_res->base.nr_samples,
+                                   src_box->x, src_box->y, src_box->z,
+                                   src_box->width, src_box->height, src_box->depth,
+                                   src_level,
+                                   util_format_name(dst_res->base.format), dst_res->base.nr_samples,
+                                   dstx, dsty, dstz);
+
    if (src_res->base.target == PIPE_BUFFER && dst_res->base.target == PIPE_BUFFER) {
       /* do a buffer copy */
+      VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: buffer copy %d+%d\n",
+                  src_box->x, src_box->width);
       vrend_resource_buffer_copy(ctx, src_res, dst_res, dstx,
                                  src_box->x, src_box->width);
       return;
@@ -7039,6 +8700,7 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
    if (has_feature(feat_copy_image) &&
        format_is_copy_compatible(src_res->base.format,dst_res->base.format, true) &&
        src_res->base.nr_samples == dst_res->base.nr_samples) {
+      VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: use glCopyImageSubData\n");
       vrend_copy_sub_image(src_res, dst_res, src_level, src_box,
                            dst_level, dstx, dsty, dstz);
       return;
@@ -7046,20 +8708,23 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
 
    if (!vrend_format_can_render(src_res->base.format) ||
        !vrend_format_can_render(dst_res->base.format)) {
+      VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: use resource_copy_fallback\n");
       vrend_resource_copy_fallback(src_res, dst_res, dst_level, dstx,
                                    dsty, dstz, src_level, src_box);
       return;
    }
 
-   glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[0]);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+   VREND_DEBUG(dbg_copy_resource, ctx, "COPY_REGION: use glBlitFramebuffer\n");
+
    /* clean out fb ids */
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
-                             GL_TEXTURE_2D, 0, 0);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                          GL_TEXTURE_2D, 0, 0);
    vrend_fb_bind_texture(src_res, 0, src_level, src_box->z);
 
-   glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[1]);
-   glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
-                             GL_TEXTURE_2D, 0, 0);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                          GL_TEXTURE_2D, 0, 0);
    vrend_fb_bind_texture(dst_res, 0, dst_level, dstz);
    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
 
@@ -7092,6 +8757,49 @@ void vrend_renderer_resource_copy_region(struct vrend_context *ctx,
                      dy2,
                      glmask, GL_NEAREST);
 
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+
+   if (ctx->sub->rs_state.scissor)
+      glEnable(GL_SCISSOR_TEST);
+}
+
+static GLuint vrend_make_view(struct vrend_resource *res, enum virgl_formats format)
+{
+   GLuint view_id;
+   glGenTextures(1, &view_id);
+#ifndef NDEBUG
+   enum virgl_formats src_fmt = vrend_format_replace_emulated(res->base.bind, res->base.format);
+#endif
+   enum virgl_formats dst_fmt = vrend_format_replace_emulated(res->base.bind, format);
+
+   GLenum fmt = tex_conv_table[dst_fmt].internalformat;
+
+   /* If the format doesn't support TextureStorage it is not immutable, so no TextureView*/
+   if (!has_bit(res->storage_bits, VREND_STORAGE_GL_IMMUTABLE))
+      return res->id;
+
+   VREND_DEBUG(dbg_blit, NULL, "Create texture view from %s%s as %s%s\n",
+               util_format_name(res->base.format),
+               res->base.format != src_fmt ? "(emulated)" : "",
+               util_format_name(format),
+               format != dst_fmt ? "(emulated)" : "");
+
+   if (vrend_state.use_gles) {
+      assert(res->target != GL_TEXTURE_RECTANGLE_NV);
+      assert(res->target != GL_TEXTURE_1D);
+      assert(res->target != GL_TEXTURE_1D_ARRAY);
+   }
+
+   glTextureView(view_id, res->target, res->id, fmt, 0, res->base.last_level + 1,
+                 0, res->base.array_size);
+   return view_id;
 }
 
 static void vrend_renderer_blit_int(struct vrend_context *ctx,
@@ -7105,8 +8813,11 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
    int n_layers = 1, i;
    bool use_gl = false;
    bool make_intermediate_copy = false;
+   bool skip_dest_swizzle = false;
    GLuint intermediate_fbo = 0;
    struct vrend_resource *intermediate_copy = 0;
+
+   GLuint blitter_views[2] = {src_res->id, dst_res->id};
 
    filter = convert_mag_filter(info->filter);
 
@@ -7116,10 +8827,6 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       use_gl = true;
    if (!vrend_format_can_render(dst_res->base.format) &&
        !vrend_format_is_ds(dst_res->base.format))
-      use_gl = true;
-
-   if (util_format_is_srgb(src_res->base.format) &&
-       !util_format_is_srgb(dst_res->base.format))
       use_gl = true;
 
    /* different depth formats */
@@ -7139,7 +8846,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
 
    /* for scaled MS blits we either need extensions or hand roll */
    if (info->mask & PIPE_MASK_RGBA &&
-       src_res->base.nr_samples > 1 &&
+       src_res->base.nr_samples > 0 &&
        src_res->base.nr_samples != dst_res->base.nr_samples &&
        (info->src.box.width != info->dst.box.width ||
         info->src.box.height != info->dst.box.height)) {
@@ -7148,28 +8855,6 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       else
          use_gl = true;
    }
-
-   /* for 3D mipmapped blits - hand roll time */
-   if (info->src.box.depth != info->dst.box.depth)
-      use_gl = true;
-
-   if (vrend_format_needs_swizzle(info->dst.format) ||
-       vrend_format_needs_swizzle(info->src.format))
-      use_gl = true;
-
-   if (use_gl) {
-      vrend_renderer_blit_gl(ctx, src_res, dst_res, info,
-                             has_feature(feat_texture_srgb_decode));
-      vrend_clicbs->make_current(0, ctx->sub->gl_context);
-      return;
-   }
-
-   if (info->mask & PIPE_MASK_Z)
-      glmask |= GL_DEPTH_BUFFER_BIT;
-   if (info->mask & PIPE_MASK_S)
-      glmask |= GL_STENCIL_BUFFER_BIT;
-   if (info->mask & PIPE_MASK_RGBA)
-      glmask |= GL_COLOR_BUFFER_BIT;
 
    if (!dst_res->y_0_top) {
       dst_y1 = info->dst.box.y + info->dst.box.height;
@@ -7187,12 +8872,72 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       src_y2 = src_res->base.height0 - info->src.box.y;
    }
 
+   /* GLES generally doesn't support blitting to a multi-sample FB, and also not
+    * from a multi-sample FB where the regions are not exatly the same or the
+    * source and target format are different. For
+    * downsampling DS blits to zero samples we solve this by doing two blits */
+   if (vrend_state.use_gles &&
+       ((dst_res->base.nr_samples > 0) ||
+        ((info->mask & PIPE_MASK_RGBA) &&
+         (src_res->base.nr_samples > 0) &&
+         (info->src.box.x != info->dst.box.x ||
+          info->src.box.width != info->dst.box.width ||
+          dst_y1 != src_y1 || dst_y2 != src_y2 ||
+          info->src.format != info->dst.format))
+        )
+       ) {
+      VREND_DEBUG(dbg_blit, ctx, "Use GL fallback because dst:ms:%d src:ms:%d (%d %d %d %d) -> (%d %d %d %d)\n",
+                  dst_res->base.nr_samples, src_res->base.nr_samples, info->src.box.x, info->src.box.x + info->src.box.width,
+                  src_y1, src_y2, info->dst.box.x, info->dst.box.x + info->dst.box.width, dst_y1, dst_y2);
+      use_gl = true;
+   }
+
+   /* for 3D mipmapped blits - hand roll time */
+   if (info->src.box.depth != info->dst.box.depth)
+      use_gl = true;
+
+   if (vrend_blit_needs_swizzle(vrend_format_replace_emulated(dst_res->base.bind, info->dst.format),
+                                vrend_format_replace_emulated(src_res->base.bind, info->src.format))) {
+      use_gl = true;
+
+      if (vrend_state.use_gles &&
+          (dst_res->base.bind & VIRGL_BIND_PREFER_EMULATED_BGRA) &&
+          !vrend_get_tweak_is_active(&ctx->sub->tweaks, virgl_tweak_gles_brga_apply_dest_swizzle)) {
+         skip_dest_swizzle = true;
+      }
+   }
+
+   if (has_feature(feat_texture_view))
+      blitter_views[0] = vrend_make_view(src_res, info->src.format);
+
+   if ((dst_res->base.format != info->dst.format) && has_feature(feat_texture_view))
+      blitter_views[1] = vrend_make_view(dst_res, info->dst.format);
+
+
+   if (use_gl) {
+      VREND_DEBUG(dbg_blit, ctx, "BLIT_INT: use GL fallback\n");
+      vrend_renderer_blit_gl(ctx, src_res, dst_res, blitter_views, info,
+                             has_feature(feat_texture_srgb_decode),
+                             has_feature(feat_srgb_write_control),
+                             skip_dest_swizzle);
+      vrend_sync_make_current(ctx->sub->gl_context);
+      goto cleanup;
+   }
+
+   if (info->mask & PIPE_MASK_Z)
+      glmask |= GL_DEPTH_BUFFER_BIT;
+   if (info->mask & PIPE_MASK_S)
+      glmask |= GL_STENCIL_BUFFER_BIT;
+   if (info->mask & PIPE_MASK_RGBA)
+      glmask |= GL_COLOR_BUFFER_BIT;
+
+
    if (info->scissor_enable) {
       glScissor(info->scissor.minx, info->scissor.miny, info->scissor.maxx - info->scissor.minx, info->scissor.maxy - info->scissor.miny);
+      ctx->sub->scissor_state_dirty = (1 << 0);
       glEnable(GL_SCISSOR_TEST);
    } else
       glDisable(GL_SCISSOR_TEST);
-   ctx->sub->scissor_state_dirty = (1 << 0);
 
    /* An GLES GL_INVALID_OPERATION is generated if one wants to blit from a
     * multi-sample fbo to a non multi-sample fbo and the source and destination
@@ -7206,7 +8951,7 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
     */
    if (vrend_state.use_gles &&
        (info->mask & PIPE_MASK_ZS) &&
-       ((src_res->base.nr_samples > 1) &&
+       ((src_res->base.nr_samples > 0) &&
         (src_res->base.nr_samples != dst_res->base.nr_samples)) &&
         ((info->src.box.x != info->dst.box.x) ||
          (src_y1 != dst_y1) ||
@@ -7222,13 +8967,15 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       args.width = src_res->base.width0;
       args.height = src_res->base.height0;
       args.depth = src_res->base.depth0;
-      args.format = src_res->base.format;
+      args.format = info->src.format;
       args.target = src_res->base.target;
       args.last_level = src_res->base.last_level;
       args.array_size = src_res->base.array_size;
       intermediate_copy = (struct vrend_resource *)CALLOC_STRUCT(vrend_texture);
       vrend_renderer_resource_copy_args(&args, intermediate_copy);
-      vrend_renderer_resource_allocate_texture(intermediate_copy, NULL);
+      /* this is PIPE_MASK_ZS and bgra fixup is not needed */
+      MAYBE_UNUSED int r = vrend_resource_alloc_texture(intermediate_copy, args.format, NULL);
+      assert(!r);
 
       glGenFramebuffers(1, &intermediate_fbo);
    } else {
@@ -7239,32 +8986,32 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
       intermediate_copy = src_res;
    }
 
-   glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[0]);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
    if (info->mask & PIPE_MASK_RGBA)
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
-                                GL_TEXTURE_2D, 0, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                             GL_TEXTURE_2D, 0, 0);
    else
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
-                                GL_TEXTURE_2D, 0, 0);
-   glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[1]);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_2D, 0, 0);
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
    if (info->mask & PIPE_MASK_RGBA)
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT,
-                                GL_TEXTURE_2D, 0, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                             GL_TEXTURE_2D, 0, 0);
    else if (info->mask & (PIPE_MASK_Z | PIPE_MASK_S))
-      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
-                                GL_TEXTURE_2D, 0, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             GL_TEXTURE_2D, 0, 0);
    if (info->src.box.depth == info->dst.box.depth)
       n_layers = info->dst.box.depth;
    for (i = 0; i < n_layers; i++) {
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[0]);
-      vrend_fb_bind_texture(src_res, 0, info->src.level, info->src.box.z + i);
+      glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+      vrend_fb_bind_texture_id(src_res, blitter_views[0], 0, info->src.level, info->src.box.z + i);
 
       if (make_intermediate_copy) {
          int level_width = u_minify(src_res->base.width0, info->src.level);
          int level_height = u_minify(src_res->base.width0, info->src.level);
-         glBindFramebuffer(GL_FRAMEBUFFER_EXT, intermediate_fbo);
-         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0,
-                                   GL_TEXTURE_2D, 0, 0);
+         glBindFramebuffer(GL_FRAMEBUFFER, intermediate_fbo);
+         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                GL_TEXTURE_2D, 0, 0);
          vrend_fb_bind_texture(intermediate_copy, 0, info->src.level, info->src.box.z + i);
 
          glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediate_fbo);
@@ -7274,12 +9021,13 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                            glmask, filter);
       }
 
-      glBindFramebuffer(GL_FRAMEBUFFER_EXT, ctx->sub->blit_fb_ids[1]);
-      vrend_fb_bind_texture(dst_res, 0, info->dst.level, info->dst.box.z + i);
+      glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+      vrend_fb_bind_texture_id(dst_res, blitter_views[1], 0, info->dst.level, info->dst.box.z + i);
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
 
-      if (!vrend_state.use_gles) {
-         if (util_format_is_srgb(dst_res->base.format))
+      if (has_feature(feat_srgb_write_control)) {
+         if (util_format_is_srgb(info->dst.format) ||
+             util_format_is_srgb(info->src.format))
             glEnable(GL_FRAMEBUFFER_SRGB);
          else
             glDisable(GL_FRAMEBUFFER_SRGB);
@@ -7298,10 +9046,43 @@ static void vrend_renderer_blit_int(struct vrend_context *ctx,
                         glmask, filter);
    }
 
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[1]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                          GL_TEXTURE_2D, 0, 0);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->blit_fb_ids[0]);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                          GL_TEXTURE_2D, 0, 0);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                          GL_TEXTURE_2D, 0, 0);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, ctx->sub->fb_id);
+
+   if (has_feature(feat_srgb_write_control)) {
+      if (ctx->sub->framebuffer_srgb_enabled)
+         glEnable(GL_FRAMEBUFFER_SRGB);
+      else
+         glDisable(GL_FRAMEBUFFER_SRGB);
+   }
+
    if (make_intermediate_copy) {
-      vrend_renderer_resource_destroy(intermediate_copy, false);
+      vrend_renderer_resource_destroy(intermediate_copy);
       glDeleteFramebuffers(1, &intermediate_fbo);
    }
+
+   if (ctx->sub->rs_state.scissor)
+      glEnable(GL_SCISSOR_TEST);
+   else
+      glDisable(GL_SCISSOR_TEST);
+
+cleanup:
+   if (blitter_views[0] != src_res->id)
+      glDeleteTextures(1, &blitter_views[0]);
+
+   if (blitter_views[1] != dst_res->id)
+      glDeleteTextures(1, &blitter_views[1]);
 }
 
 void vrend_renderer_blit(struct vrend_context *ctx,
@@ -7313,19 +9094,47 @@ void vrend_renderer_blit(struct vrend_context *ctx,
    dst_res = vrend_renderer_ctx_res_lookup(ctx, dst_handle);
 
    if (!src_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, src_handle);
       return;
    }
    if (!dst_res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, dst_handle);
       return;
    }
 
    if (ctx->in_error)
       return;
 
+   if (!info->src.format || info->src.format >= VIRGL_FORMAT_MAX) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->src.format);
+      return;
+   }
+
+   if (!info->dst.format || info->dst.format >= VIRGL_FORMAT_MAX) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_FORMAT, info->dst.format);
+      return;
+   }
+
    if (info->render_condition_enable == false)
       vrend_pause_render_condition(ctx, true);
+
+   VREND_DEBUG(dbg_blit, ctx, "BLIT: rc:%d scissor:%d filter:%d alpha:%d mask:0x%x\n"
+                                   "  From %s(%s) ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n"
+                                   "  To   %s(%s) ms:%d [%d, %d, %d]+[%d, %d, %d] lvl:%d\n",
+                                   info->render_condition_enable, info->scissor_enable,
+                                   info->filter, info->alpha_blend, info->mask,
+                                   util_format_name(src_res->base.format),
+                                   util_format_name(info->src.format),
+                                   src_res->base.nr_samples,
+                                   info->src.box.x, info->src.box.y, info->src.box.z,
+                                   info->src.box.width, info->src.box.height, info->src.box.depth,
+                                   info->src.level,
+                                   util_format_name(dst_res->base.format),
+                                   util_format_name(info->dst.format),
+                                   dst_res->base.nr_samples,
+                                   info->dst.box.x, info->dst.box.y, info->dst.box.z,
+                                   info->dst.box.width, info->dst.box.height, info->dst.box.depth,
+                                   info->dst.level);
 
    /* The Gallium blit function can be called for a general blit that may
     * scale, convert the data, and apply some rander states, or it is called via
@@ -7334,19 +9143,21 @@ void vrend_renderer_blit(struct vrend_context *ctx,
     * to resource_copy_region, in this case and if no render states etx need
     * to be applied, forward the call to glCopyImageSubData, otherwise do a
     * normal blit. */
-   if (has_feature(feat_copy_image) && !info->render_condition_enable &&
-       (src_res->base.format != dst_res->base.format) &&
+   if (has_feature(feat_copy_image) &&
+       (!info->render_condition_enable || !ctx->sub->cond_render_gl_mode) &&
        format_is_copy_compatible(info->src.format,info->dst.format, false) &&
        !info->scissor_enable && (info->filter == PIPE_TEX_FILTER_NEAREST) &&
        !info->alpha_blend && (info->mask == PIPE_MASK_RGBA) &&
-       (src_res->base.nr_samples == dst_res->base.nr_samples) &&
+       src_res->base.nr_samples == dst_res->base.nr_samples &&
        info->src.box.width == info->dst.box.width &&
        info->src.box.height == info->dst.box.height &&
        info->src.box.depth == info->dst.box.depth) {
+      VREND_DEBUG(dbg_blit, ctx,  "  Use glCopyImageSubData\n");
       vrend_copy_sub_image(src_res, dst_res, info->src.level, &info->src.box,
                            info->dst.level, info->dst.box.x, info->dst.box.y,
                            info->dst.box.z);
    } else {
+      VREND_DEBUG(dbg_blit, ctx, "  Use blit_int\n");
       vrend_renderer_blit_int(ctx, src_res, dst_res, info);
    }
 
@@ -7354,20 +9165,43 @@ void vrend_renderer_blit(struct vrend_context *ctx,
       vrend_pause_render_condition(ctx, false);
 }
 
-int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
+void vrend_renderer_set_fence_retire(struct vrend_context *ctx,
+                                     vrend_context_fence_retire retire,
+                                     void *retire_data)
+{
+   assert(ctx->ctx_id);
+   ctx->fence_retire = retire;
+   ctx->fence_retire_data = retire_data;
+}
+
+int vrend_renderer_create_fence(struct vrend_context *ctx,
+                                uint32_t flags,
+                                void *fence_cookie)
 {
    struct vrend_fence *fence;
+
+   if (!ctx)
+      return EINVAL;
 
    fence = malloc(sizeof(struct vrend_fence));
    if (!fence)
       return ENOMEM;
 
-   fence->ctx_id = ctx_id;
-   fence->fence_id = client_fence_id;
-   fence->syncobj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+   fence->ctx = ctx;
+   fence->flags = flags;
+   fence->fence_cookie = fence_cookie;
+
+#ifdef HAVE_EPOXY_EGL_H
+   if (vrend_state.use_egl_fence) {
+      fence->eglsyncobj = virgl_egl_fence_create(egl);
+   } else
+#endif
+   {
+      fence->glsyncobj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+   }
    glFlush();
 
-   if (fence->syncobj == NULL)
+   if (fence->glsyncobj == NULL)
       goto fail;
 
    if (vrend_state.sync_thread) {
@@ -7380,64 +9214,89 @@ int vrend_renderer_create_fence(int client_fence_id, uint32_t ctx_id)
    return 0;
 
  fail:
-   fprintf(stderr, "failed to create fence sync object\n");
+   vrend_printf( "failed to create fence sync object\n");
    free(fence);
    return ENOMEM;
 }
 
-static void free_fence_locked(struct vrend_fence *fence)
-{
-   list_del(&fence->fences);
-   glDeleteSync(fence->syncobj);
-   free(fence);
-}
+static void vrend_renderer_check_queries(void);
 
-static void flush_eventfd(int fd)
+static bool need_fence_retire_signal_locked(struct vrend_fence *fence)
 {
-    ssize_t len;
-    uint64_t value;
-    do {
-       len = read(fd, &value, sizeof(value));
-    } while ((len == -1 && errno == EINTR) || len == sizeof(value));
+   struct vrend_fence *next;
+
+   /* last fence */
+   if (fence->fences.next == &vrend_state.fence_list)
+      return true;
+
+   /* next fence belongs to a different context */
+   next = LIST_ENTRY(struct vrend_fence, fence->fences.next, fences);
+   if (next->ctx != fence->ctx)
+      return true;
+
+   /* not mergeable */
+   if (!(fence->flags & VIRGL_RENDERER_FENCE_FLAG_MERGEABLE))
+      return true;
+
+   return false;
 }
 
 void vrend_renderer_check_fences(void)
 {
+   struct list_head retired_fences;
    struct vrend_fence *fence, *stor;
-   uint32_t latest_id = 0;
-   GLenum glret;
 
-   if (!vrend_state.inited)
-      return;
+   list_inithead(&retired_fences);
 
    if (vrend_state.sync_thread) {
       flush_eventfd(vrend_state.eventfd);
       pipe_mutex_lock(vrend_state.fence_mutex);
       LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-         if (fence->fence_id > latest_id)
-            latest_id = fence->fence_id;
-         free_fence_locked(fence);
+         /* vrend_free_fences_for_context might have marked the fence invalid
+          * by setting fence->ctx to NULL
+          */
+         if (!fence->ctx) {
+            free_fence_locked(fence);
+            continue;
+         }
+
+         if (need_fence_retire_signal_locked(fence)) {
+            list_del(&fence->fences);
+            list_addtail(&fence->fences, &retired_fences);
+         } else {
+            free_fence_locked(fence);
+         }
       }
       pipe_mutex_unlock(vrend_state.fence_mutex);
    } else {
       vrend_renderer_force_ctx_0();
 
       LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-         glret = glClientWaitSync(fence->syncobj, 0, 0);
-         if (glret == GL_ALREADY_SIGNALED){
-            latest_id = fence->fence_id;
-            free_fence_locked(fence);
-         }
-         /* don't bother checking any subsequent ones */
-         else if (glret == GL_TIMEOUT_EXPIRED) {
+         if (do_wait(fence, /* can_block */ false)) {
+            if (need_fence_retire_signal_locked(fence)) {
+               list_del(&fence->fences);
+               list_addtail(&fence->fences, &retired_fences);
+            } else {
+               free_fence_locked(fence);
+            }
+         } else {
+            /* don't bother checking any subsequent ones */
             break;
          }
       }
    }
 
-   if (latest_id == 0)
+   if (LIST_IS_EMPTY(&retired_fences))
       return;
-   vrend_clicbs->write_fence(latest_id);
+
+   vrend_renderer_check_queries();
+
+   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &retired_fences, fences) {
+      struct vrend_context *ctx = fence->ctx;
+      ctx->fence_retire(fence->fence_cookie, ctx->fence_retire_data);
+
+      free_fence_locked(fence);
+   }
 }
 
 static bool vrend_get_one_query_result(GLuint query_id, bool use_64, uint64_t *result)
@@ -7461,38 +9320,66 @@ static bool vrend_get_one_query_result(GLuint query_id, bool use_64, uint64_t *r
    return true;
 }
 
+static inline void
+vrend_update_oq_samples_multiplier(struct vrend_context *ctx)
+{
+   if (!vrend_state.current_ctx->sub->fake_occlusion_query_samples_passed_multiplier) {
+      uint32_t multiplier = 0;
+      bool tweaked = vrend_get_tweak_is_active_with_params(vrend_get_context_tweaks(ctx),
+                                                           virgl_tweak_gles_tf3_samples_passes_multiplier, &multiplier);
+      vrend_state.current_ctx->sub->fake_occlusion_query_samples_passed_multiplier =
+            tweaked ? multiplier: fake_occlusion_query_samples_passed_default;
+   }
+}
+
+
 static bool vrend_check_query(struct vrend_query *query)
 {
-   uint64_t result;
-   struct virgl_host_query_state *state;
+   struct virgl_host_query_state state;
    bool ret;
 
-   ret = vrend_get_one_query_result(query->id, vrend_is_timer_query(query->gltype), &result);
+   state.result_size = vrend_is_timer_query(query->gltype) ? 8 : 4;
+   ret = vrend_get_one_query_result(query->id, state.result_size == 8,
+         &state.result);
    if (ret == false)
       return false;
 
-   state = (struct virgl_host_query_state *)query->res->ptr;
-   state->result = result;
-   state->query_state = VIRGL_QUERY_STATE_DONE;
+   /* We got a boolean, but the client wanted the actual number of samples
+    * blow the number up so that the client doesn't think it was just one pixel
+    * and discards an object that might be bigger */
+   if (query->fake_samples_passed) {
+      vrend_update_oq_samples_multiplier(vrend_state.current_ctx);
+      state.result *=  vrend_state.current_ctx->sub->fake_occlusion_query_samples_passed_multiplier;
+   }
+
+   state.query_state = VIRGL_QUERY_STATE_DONE;
+
+   if (query->res->iov) {
+      vrend_write_to_iovec(query->res->iov, query->res->num_iovs, 0,
+            (const void *) &state, sizeof(state));
+   } else {
+      *((struct virgl_host_query_state *) query->res->ptr) = state;
+   }
+
    return true;
 }
 
-void vrend_renderer_check_queries(void)
+static void vrend_renderer_check_queries(void)
 {
    struct vrend_query *query, *stor;
 
-   if (!vrend_state.inited)
-      return;
-
    LIST_FOR_EACH_ENTRY_SAFE(query, stor, &vrend_state.waiting_query_list, waiting_queries) {
-      vrend_hw_switch_context(vrend_lookup_renderer_ctx(query->ctx_id), true);
-      if (vrend_check_query(query))
+      if (!vrend_hw_switch_context(query->ctx, true) ||
+	  vrend_check_query(query))
          list_delinit(&query->waiting_queries);
    }
 }
 
 bool vrend_hw_switch_context(struct vrend_context *ctx, bool now)
 {
+   if (!ctx)
+      return false;
+
    if (ctx == vrend_state.current_ctx && ctx->ctx_switch_pending == false)
       return true;
 
@@ -7519,7 +9406,7 @@ static void vrend_finish_context_switch(struct vrend_context *ctx)
 
    vrend_state.current_hw_ctx = ctx;
 
-   vrend_clicbs->make_current(0, ctx->sub->gl_context);
+   vrend_clicbs->make_current(ctx->sub->gl_context);
 }
 
 void
@@ -7529,9 +9416,9 @@ vrend_renderer_object_destroy(struct vrend_context *ctx, uint32_t handle)
 }
 
 uint32_t vrend_renderer_object_insert(struct vrend_context *ctx, void *data,
-                                      uint32_t size, uint32_t handle, enum virgl_object_type type)
+                                      uint32_t handle, enum virgl_object_type type)
 {
-   return vrend_object_insert(ctx->sub->object_hash, data, size, handle, type);
+   return vrend_object_insert(ctx->sub->object_hash, data, handle, type);
 }
 
 int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
@@ -7541,9 +9428,24 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    struct vrend_query *q;
    struct vrend_resource *res;
    uint32_t ret_handle;
+   bool fake_samples_passed = false;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
-   if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+   if (!res || !has_bit(res->storage_bits, VREND_STORAGE_HOST_SYSTEM_MEMORY)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      return EINVAL;
+   }
+
+   /* If we don't have ARB_occlusion_query, at least try to fake GL_SAMPLES_PASSED
+    * by using GL_ANY_SAMPLES_PASSED (i.e. EXT_occlusion_query_boolean) */
+   if (!has_feature(feat_occlusion_query) && query_type == PIPE_QUERY_OCCLUSION_COUNTER) {
+      VREND_DEBUG(dbg_query, ctx, "GL_SAMPLES_PASSED not supported will try GL_ANY_SAMPLES_PASSED\n");
+      query_type = PIPE_QUERY_OCCLUSION_PREDICATE;
+      fake_samples_passed = true;
+   }
+
+   if (query_type == PIPE_QUERY_OCCLUSION_PREDICATE &&
+       !has_feature(feat_occlusion_query_boolean)) {
+      vrend_report_context_error(ctx, VIRGL_ERROR_GL_ANY_SAMPLES_PASSED, res_handle);
       return EINVAL;
    }
 
@@ -7554,7 +9456,8 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
    list_inithead(&q->waiting_queries);
    q->type = query_type;
    q->index = query_index;
-   q->ctx_id = ctx->ctx_id;
+   q->ctx = ctx;
+   q->fake_samples_passed = fake_samples_passed;
 
    vrend_resource_reference(&q->res, res);
 
@@ -7563,12 +9466,19 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       q->gltype = GL_SAMPLES_PASSED_ARB;
       break;
    case PIPE_QUERY_OCCLUSION_PREDICATE:
-      q->gltype = GL_ANY_SAMPLES_PASSED;
-      break;
+      if (has_feature(feat_occlusion_query_boolean)) {
+         q->gltype = GL_ANY_SAMPLES_PASSED;
+         break;
+      } else
+         return EINVAL;
    case PIPE_QUERY_TIMESTAMP:
+      if (!has_feature(feat_timer_query))
+         return EINVAL;
       q->gltype = GL_TIMESTAMP;
       break;
    case PIPE_QUERY_TIME_ELAPSED:
+      if (!has_feature(feat_timer_query))
+         return EINVAL;
       q->gltype = GL_TIME_ELAPSED;
       break;
    case PIPE_QUERY_PRIMITIVES_GENERATED:
@@ -7591,13 +9501,13 @@ int vrend_create_query(struct vrend_context *ctx, uint32_t handle,
       q->gltype = GL_TRANSFORM_FEEDBACK_OVERFLOW_ARB;
       break;
    default:
-      fprintf(stderr,"unknown query object received %d\n", q->type);
+      vrend_printf("unknown query object received %d\n", q->type);
       break;
    }
 
    glGenQueries(1, &q->id);
 
-   ret_handle = vrend_renderer_object_insert(ctx, q, sizeof(struct vrend_query), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, q, handle,
                                              VIRGL_OBJECT_QUERY);
    if (!ret_handle) {
       FREE(q);
@@ -7631,6 +9541,8 @@ int vrend_begin_query(struct vrend_context *ctx, uint32_t handle)
    if (q->index > 0 && !has_feature(feat_transform_feedback3))
       return EINVAL;
 
+   list_delinit(&q->waiting_queries);
+
    if (q->gltype == GL_TIMESTAMP)
       return 0;
 
@@ -7652,8 +9564,8 @@ int vrend_end_query(struct vrend_context *ctx, uint32_t handle)
       return EINVAL;
 
    if (vrend_is_timer_query(q->gltype)) {
-      if (vrend_state.use_gles && q->gltype == GL_TIMESTAMP) {
-         report_gles_warn(ctx, GLES_WARN_TIMESTAMP, 0);
+      if (q->gltype == GL_TIMESTAMP && !has_feature(feat_timer_query)) {
+         report_gles_warn(ctx, GLES_WARN_TIMESTAMP);
       } else if (q->gltype == GL_TIMESTAMP) {
          glQueryCounter(q->id, q->gltype);
       } else {
@@ -7681,8 +9593,108 @@ void vrend_get_query_result(struct vrend_context *ctx, uint32_t handle,
       return;
 
    ret = vrend_check_query(q);
-   if (ret == false)
+   if (ret) {
+      list_delinit(&q->waiting_queries);
+   } else if (LIST_IS_EMPTY(&q->waiting_queries)) {
       list_addtail(&q->waiting_queries, &vrend_state.waiting_query_list);
+   }
+}
+
+#define COPY_QUERY_RESULT_TO_BUFFER(resid, offset, pvalue, size, multiplier) \
+    glBindBuffer(GL_QUERY_BUFFER, resid); \
+    value *= multiplier; \
+    void* buf = glMapBufferRange(GL_QUERY_BUFFER, offset, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT); \
+    if (buf) memcpy(buf, &value, size); \
+    glUnmapBuffer(GL_QUERY_BUFFER);
+
+static inline void *buffer_offset(intptr_t i)
+{
+   return (void *)i;
+}
+
+void vrend_get_query_result_qbo(struct vrend_context *ctx, uint32_t handle,
+                                uint32_t qbo_handle,
+                                uint32_t wait, uint32_t result_type, uint32_t offset,
+                                int32_t index)
+{
+  struct vrend_query *q;
+  struct vrend_resource *res;
+
+  if (!has_feature(feat_qbo))
+     return;
+
+  q = vrend_object_lookup(ctx->sub->object_hash, handle, VIRGL_OBJECT_QUERY);
+  if (!q)
+     return;
+
+  res = vrend_renderer_ctx_res_lookup(ctx, qbo_handle);
+  if (!res) {
+     vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, qbo_handle);
+     return;
+  }
+
+  VREND_DEBUG(dbg_query, ctx, "Get query result from Query:%d\n", q->id);
+
+  GLenum qtype;
+
+  if (index == -1)
+     qtype = GL_QUERY_RESULT_AVAILABLE;
+  else
+     qtype = wait ? GL_QUERY_RESULT : GL_QUERY_RESULT_NO_WAIT;
+
+  if (!q->fake_samples_passed) {
+     glBindBuffer(GL_QUERY_BUFFER, res->id);
+     switch ((enum pipe_query_value_type)result_type) {
+     case PIPE_QUERY_TYPE_I32:
+        glGetQueryObjectiv(q->id, qtype, buffer_offset(offset));
+        break;
+     case PIPE_QUERY_TYPE_U32:
+        glGetQueryObjectuiv(q->id, qtype, buffer_offset(offset));
+        break;
+     case PIPE_QUERY_TYPE_I64:
+        glGetQueryObjecti64v(q->id, qtype, buffer_offset(offset));
+        break;
+     case PIPE_QUERY_TYPE_U64:
+        glGetQueryObjectui64v(q->id, qtype, buffer_offset(offset));
+        break;
+     }
+  } else {
+     VREND_DEBUG(dbg_query, ctx, "Was emulating GL_PIXELS_PASSED by GL_ANY_PIXELS_PASSED, artifically upscaling the result\n");
+     /* The application expects a sample count but we have only a boolean
+      * so we blow the result up by 1/10 of the screen space to make sure the
+      * app doesn't think only one sample passed. */
+     vrend_update_oq_samples_multiplier(ctx);
+     switch ((enum pipe_query_value_type)result_type) {
+     case PIPE_QUERY_TYPE_I32: {
+        GLint value;
+        glGetQueryObjectiv(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 4, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     case PIPE_QUERY_TYPE_U32: {
+        GLuint value;
+        glGetQueryObjectuiv(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 4, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     case PIPE_QUERY_TYPE_I64: {
+        GLint64 value;
+        glGetQueryObjecti64v(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 8, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     case PIPE_QUERY_TYPE_U64: {
+        GLuint64 value;
+        glGetQueryObjectui64v(q->id, qtype, &value);
+        COPY_QUERY_RESULT_TO_BUFFER(q->id, offset, value, 8, ctx->sub->fake_occlusion_query_samples_passed_multiplier);
+        break;
+     }
+     }
+
+
+  }
+
+  glBindBuffer(GL_QUERY_BUFFER, 0);
 }
 
 static void vrend_pause_render_condition(struct vrend_context *ctx, bool pause)
@@ -7744,7 +9756,7 @@ void vrend_render_condition(struct vrend_context *ctx,
       glmode = condition ? GL_QUERY_BY_REGION_NO_WAIT_INVERTED : GL_QUERY_BY_REGION_NO_WAIT;
       break;
    default:
-      fprintf(stderr, "unhandled condition %x\n", mode);
+      vrend_printf( "unhandled condition %x\n", mode);
    }
 
    ctx->sub->cond_render_q_id = q->id;
@@ -7766,7 +9778,7 @@ int vrend_create_so_target(struct vrend_context *ctx,
    int ret_handle;
    res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
    if (!res) {
-      report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_handle);
       return EINVAL;
    }
 
@@ -7781,7 +9793,7 @@ int vrend_create_so_target(struct vrend_context *ctx,
    target->sub_ctx = ctx->sub;
    vrend_resource_reference(&target->buffer, res);
 
-   ret_handle = vrend_renderer_object_insert(ctx, target, sizeof(*target), handle,
+   ret_handle = vrend_renderer_object_insert(ctx, target, handle,
                                              VIRGL_OBJECT_STREAMOUT_TARGET);
    if (ret_handle == 0) {
       FREE(target);
@@ -7794,7 +9806,7 @@ static void vrender_get_glsl_version(int *glsl_version)
 {
    int major_local, minor_local;
    const GLubyte *version_str;
-   int c;
+   MAYBE_UNUSED int c;
    int version;
 
    version_str = glGetString(GL_SHADING_LANGUAGE_VERSION);
@@ -7833,17 +9845,46 @@ static void vrend_fill_caps_glsl_version(int gl_ver, int gles_ver,
          caps->v1.glsl_level = 140;
       else if (gl_ver == 32)
          caps->v1.glsl_level = 150;
-      else if (gl_ver == 33)
-         caps->v1.glsl_level = 330;
-      else if (gl_ver == 40)
-         caps->v1.glsl_level = 400;
-      else if (gl_ver == 41)
-         caps->v1.glsl_level = 410;
-      else if (gl_ver == 42)
-         caps->v1.glsl_level = 420;
-      else if (gl_ver >= 43)
-         caps->v1.glsl_level = 430;
+      else if (gl_ver >= 33)
+         caps->v1.glsl_level = 10 * gl_ver;
    }
+
+   if (caps->v1.glsl_level < 400) {
+      if (has_feature(feat_tessellation) &&
+          has_feature(feat_geometry_shader) &&
+          has_feature(feat_gpu_shader5)) {
+         /* This is probably a lie, but Gallium enables
+          * OES_geometry_shader and ARB_gpu_shader5
+          * based on this value, apart from that it doesn't
+          * seem to be a crucial value */
+         caps->v1.glsl_level = 400;
+
+         /* Let's lie a bit more */
+         if (has_feature(feat_separate_shader_objects)) {
+            caps->v1.glsl_level = 410;
+
+            /* Compute shaders require GLSL 4.30 unless the shader explicitely
+             * specifies GL_ARB_compute_shader as required. However, on OpenGL ES
+             * they are already supported with version 3.10, so if we already
+             * advertise a feature level of 410, just lie a bit more to make
+             * compute shaders available to GL programs that don't specify the
+             * extension within the shaders. */
+            if (has_feature(feat_compute_shader))
+               caps->v1.glsl_level =  430;
+         }
+      }
+   }
+   vrend_printf("GLSL feature level %d\n", caps->v1.glsl_level);
+}
+
+static void set_format_bit(struct virgl_supported_format_mask *mask, enum virgl_formats fmt)
+{
+   assert(fmt < VIRGL_FORMAT_MAX);
+   unsigned val = (unsigned)fmt;
+   unsigned idx = val / 32;
+   unsigned bit = val % 32;
+   assert(idx < ARRAY_SIZE(mask->bitmask));
+   mask->bitmask[idx] |= 1u << bit;
 }
 
 /*
@@ -7881,15 +9922,11 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
                             (1 << PIPE_PRIM_TRIANGLES_ADJACENCY) |
                             (1 << PIPE_PRIM_TRIANGLE_STRIP_ADJACENCY);
    }
-   if (caps->v1.glsl_level >= 400)
+   if (caps->v1.glsl_level >= 400 || has_feature(feat_tessellation))
       caps->v1.prim_mask |= (1 << PIPE_PRIM_PATCHES);
 
-   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev")) {
-      int val = VIRGL_FORMAT_R11G11B10_FLOAT;
-      uint32_t offset = val / 32;
-      uint32_t index = val % 32;
-      caps->v1.vertexbuffer.bitmask[offset] |= (1 << index);
-   }
+   if (epoxy_has_gl_extension("GL_ARB_vertex_type_10f_11f_11f_rev"))
+      set_format_bit(&caps->v1.vertexbuffer, VIRGL_FORMAT_R11G11B10_FLOAT);
 
    if (has_feature(feat_nv_conditional_render) ||
        has_feature(feat_gl_conditional_render))
@@ -7903,18 +9940,19 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
 
    if (has_feature(feat_ubo)) {
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &max);
-      vrend_state.max_uniform_blocks = max;
       caps->v1.max_uniform_blocks = max + 1;
    }
 
+   if (has_feature(feat_depth_clamp))
+      caps->v1.bset.depth_clip_disable = 1;
+
    if (gl_ver >= 32) {
       caps->v1.bset.fragment_coord_conventions = 1;
-      caps->v1.bset.depth_clip_disable = 1;
       caps->v1.bset.seamless_cube_map = 1;
    } else {
       if (epoxy_has_gl_extension("GL_ARB_fragment_coord_conventions"))
          caps->v1.bset.fragment_coord_conventions = 1;
-      if (epoxy_has_gl_extension("GL_ARB_seamless_cube_map"))
+      if (epoxy_has_gl_extension("GL_ARB_seamless_cube_map") || gles_ver >= 30)
          caps->v1.bset.seamless_cube_map = 1;
    }
 
@@ -7940,12 +9978,12 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
    if (has_feature(feat_cube_map_array))
       caps->v1.bset.cube_map_array = 1;
 
-   if (gl_ver >= 40) {
+   if (has_feature(feat_texture_query_lod))
       caps->v1.bset.texture_query_lod = 1;
+
+   if (gl_ver >= 40) {
       caps->v1.bset.has_fp64 = 1;
    } else {
-      if (epoxy_has_gl_extension("GL_ARB_texture_query_lod"))
-         caps->v1.bset.texture_query_lod = 1;
       /* need gpu shader 5 for bitfield insert */
       if (epoxy_has_gl_extension("GL_ARB_gpu_shader_fp64") &&
           epoxy_has_gl_extension("GL_ARB_gpu_shader5"))
@@ -7966,7 +10004,7 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
       caps->v1.bset.has_cull = 1;
       caps->v1.bset.derivative_control = 1;
    } else {
-     if (epoxy_has_gl_extension("GL_ARB_cull_distance"))
+     if (has_feature(feat_cull_distance))
         caps->v1.bset.has_cull = 1;
      if (epoxy_has_gl_extension("GL_ARB_derivative_control"))
 	caps->v1.bset.derivative_control = 1;
@@ -7979,7 +10017,8 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
      caps->v1.bset.transform_feedback_overflow_query = 1;
 
    if (epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp") ||
-       epoxy_has_gl_extension("GL_ARB_texture_mirror_clamp_to_edge")) {
+       epoxy_has_gl_extension("GL_ARB_texture_mirror_clamp_to_edge") ||
+       epoxy_has_gl_extension("GL_EXT_texture_mirror_clamp_to_edge")) {
       caps->v1.bset.mirror_clamp = true;
    }
 
@@ -8040,14 +10079,13 @@ static void vrend_renderer_fill_caps_v1(int gl_ver, int gles_ver, union virgl_ca
 
    /* All of the formats are common. */
    for (i = 0; i < VIRGL_FORMAT_MAX; i++) {
-      uint32_t offset = i / 32;
-      uint32_t index = i % 32;
-
-      if (tex_conv_table[i].internalformat != 0) {
-         if (vrend_format_can_sample(i)) {
-            caps->v1.sampler.bitmask[offset] |= (1 << index);
-            if (vrend_format_can_render(i))
-               caps->v1.render.bitmask[offset] |= (1 << index);
+      enum virgl_formats fmt = (enum virgl_formats)i;
+      if (tex_conv_table[i].internalformat != 0 || fmt == VIRGL_FORMAT_YV12 ||
+          fmt == VIRGL_FORMAT_NV12) {
+         if (vrend_format_can_sample(fmt)) {
+            set_format_bit(&caps->v1.sampler, fmt);
+            if (vrend_format_can_render(fmt))
+               set_format_bit(&caps->v1.render, fmt);
          }
       }
    }
@@ -8063,6 +10101,14 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 {
    GLint max;
    GLfloat range[2];
+   uint32_t video_memory;
+
+   /* Count this up when you add a feature flag that is used to set a CAP in
+    * the guest that was set unconditionally before. Then check that flag and
+    * this value to avoid regressions when a guest with a new mesa version is
+    * run on an old virgl host. Use it also to indicate non-cap fixes on the
+    * host that help enable features in the guest. */
+   caps->v2.host_feature_check_version = 4;
 
    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, range);
    caps->v2.min_aliased_point_size = range[0];
@@ -8084,7 +10130,12 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &caps->v2.max_texture_lod_bias);
    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, (GLint*)&caps->v2.max_vertex_attribs);
-   glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+
+   if (gl_ver >= 32 || (vrend_state.use_gles && gl_ver >= 30))
+      glGetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, &max);
+   else
+      max = 64; // minimum required value
+
    caps->v2.max_vertex_outputs = max / 4;
 
    glGetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, &caps->v2.min_texel_offset);
@@ -8095,6 +10146,12 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
    glGetIntegerv(GL_MAX_TEXTURE_SIZE, (GLint*)&caps->v2.max_texture_2d_size);
    glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, (GLint*)&caps->v2.max_texture_3d_size);
    glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, (GLint*)&caps->v2.max_texture_cube_size);
+   vrend_state.max_texture_2d_size = caps->v2.max_texture_2d_size;
+   vrend_state.max_texture_3d_size = caps->v2.max_texture_3d_size;
+   vrend_state.max_texture_cube_size = caps->v2.max_texture_cube_size;
+   VREND_DEBUG(dbg_features, NULL, "Texture limits: 2D:%u 3D:%u Cube:%u\n",
+               vrend_state.max_texture_2d_size, vrend_state.max_texture_3d_size,
+               vrend_state.max_texture_cube_size);
 
    if (has_feature(feat_geometry_shader)) {
       glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, (GLint*)&caps->v2.max_geom_output_vertices);
@@ -8112,7 +10169,7 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
        glGetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, &caps->v2.max_texture_gather_offset);
    }
 
-   if (gl_ver >= 43) {
+   if (has_feature(feat_texture_buffer_range)) {
       glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, (GLint*)&caps->v2.texture_buffer_offset_alignment);
    }
 
@@ -8127,6 +10184,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       if (max > PIPE_MAX_SHADER_BUFFERS)
          max = PIPE_MAX_SHADER_BUFFERS;
       caps->v2.max_shader_buffer_frag_compute = max;
+      glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS,
+                    (GLint*)&caps->v2.max_combined_shader_buffers);
    }
 
    if (has_feature(feat_images)) {
@@ -8139,18 +10198,24 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
          max = PIPE_MAX_SHADER_IMAGES;
       caps->v2.max_shader_image_frag_compute = max;
 
-      glGetIntegerv(GL_MAX_IMAGE_SAMPLES, (GLint*)&caps->v2.max_image_samples);
+      if (gl_ver > 0) /* Seems GLES doesn't support multisample images */
+         glGetIntegerv(GL_MAX_IMAGE_SAMPLES, (GLint*)&caps->v2.max_image_samples);
    }
 
    if (has_feature(feat_storage_multisample))
       caps->v1.max_samples = vrend_renderer_query_multisample_caps(caps->v1.max_samples, &caps->v2);
 
-   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES | VIRGL_CAP_TGSI_PRECISE;
+   caps->v2.capability_bits |= VIRGL_CAP_TGSI_INVARIANT | VIRGL_CAP_SET_MIN_SAMPLES |
+                               VIRGL_CAP_TGSI_PRECISE | VIRGL_CAP_APP_TWEAK_SUPPORT;
 
+   /* If attribute isn't supported, assume 2048 which is the minimum allowed
+      by the specification. */
    if (gl_ver >= 44 || gles_ver >= 31)
       glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, (GLint*)&caps->v2.max_vertex_attrib_stride);
+   else
+      caps->v2.max_vertex_attrib_stride = 2048;
 
-   if (has_feature(feat_compute_shader)) {
+   if (has_feature(feat_compute_shader) && (vrend_state.use_gles || gl_ver >= 33)) {
       glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, (GLint*)&caps->v2.max_compute_work_group_invocations);
       glGetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, (GLint*)&caps->v2.max_compute_shared_memory_size);
       glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, (GLint*)&caps->v2.max_compute_grid_size[0]);
@@ -8161,6 +10226,47 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
       glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, (GLint*)&caps->v2.max_compute_block_size[2]);
 
       caps->v2.capability_bits |= VIRGL_CAP_COMPUTE_SHADER;
+   }
+
+   if (has_feature(feat_atomic_counters)) {
+      glGetIntegerv(GL_MAX_VERTEX_ATOMIC_COUNTERS,
+                    (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_VERTEX));
+      glGetIntegerv(GL_MAX_VERTEX_ATOMIC_COUNTER_BUFFERS,
+                    (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_VERTEX));
+      glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTERS,
+                    (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_FRAGMENT));
+      glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTER_BUFFERS,
+                    (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_FRAGMENT));
+
+      if (has_feature(feat_geometry_shader)) {
+         glGetIntegerv(GL_MAX_GEOMETRY_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_GEOMETRY));
+         glGetIntegerv(GL_MAX_GEOMETRY_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_GEOMETRY));
+      }
+
+      if (has_feature(feat_tessellation)) {
+         glGetIntegerv(GL_MAX_TESS_CONTROL_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_TESS_CTRL));
+         glGetIntegerv(GL_MAX_TESS_CONTROL_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_TESS_CTRL));
+         glGetIntegerv(GL_MAX_TESS_EVALUATION_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_TESS_EVAL));
+         glGetIntegerv(GL_MAX_TESS_EVALUATION_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_TESS_EVAL));
+      }
+
+      if (has_feature(feat_compute_shader)) {
+         glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTERS,
+                       (GLint*)(caps->v2.max_atomic_counters + PIPE_SHADER_COMPUTE));
+         glGetIntegerv(GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS,
+                       (GLint*)(caps->v2.max_atomic_counter_buffers + PIPE_SHADER_COMPUTE));
+      }
+
+      glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTERS,
+                    (GLint*)&caps->v2.max_combined_atomic_counters);
+      glGetIntegerv(GL_MAX_COMBINED_ATOMIC_COUNTER_BUFFERS,
+                    (GLint*)&caps->v2.max_combined_atomic_counter_buffers);
    }
 
    if (has_feature(feat_fb_no_attach))
@@ -8189,30 +10295,164 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 
    if (has_feature(feat_texture_barrier))
       caps->v2.capability_bits |= VIRGL_CAP_TEXTURE_BARRIER;
+
+   /* If we enable input arrays and don't have enhanced layouts then we
+    * can't support components. */
+   if (has_feature(feat_enhanced_layouts))
+      caps->v2.capability_bits |= VIRGL_CAP_TGSI_COMPONENTS;
+
+   if (has_feature(feat_srgb_write_control))
+      caps->v2.capability_bits |= VIRGL_CAP_SRGB_WRITE_CONTROL;
+
+   if (has_feature(feat_transform_feedback3))
+         caps->v2.capability_bits |= VIRGL_CAP_TRANSFORM_FEEDBACK3;
+   /* Enable feature use just now otherwise we just get a lot noise because
+    * of the caps setting */
+   if (vrend_debug(NULL, dbg_features))
+      vrend_debug_add_flag(dbg_feature_use);
+
+   /* always enable, only indicates that the CMD is supported */
+   caps->v2.capability_bits |= VIRGL_CAP_GUEST_MAY_INIT_LOG;
+
+   if (has_feature(feat_qbo))
+      caps->v2.capability_bits |= VIRGL_CAP_QBO;
+
+   caps->v2.capability_bits |= VIRGL_CAP_TRANSFER;
+
+   if (vrend_check_framebuffer_mixed_color_attachements())
+      caps->v2.capability_bits |= VIRGL_CAP_FBO_MIXED_COLOR_FORMATS;
+
+   /* We want to expose ARB_gpu_shader_fp64 when running on top of ES */
+   if (vrend_state.use_gles) {
+      caps->v2.capability_bits |= VIRGL_CAP_FAKE_FP64;
+      caps->v2.capability_bits |= VIRGL_CAP_BGRA_SRGB_IS_EMULATED;
+   }
+
+   if (has_feature(feat_indirect_draw))
+      caps->v2.capability_bits |= VIRGL_CAP_BIND_COMMAND_ARGS;
+
+   if (has_feature(feat_multi_draw_indirect))
+      caps->v2.capability_bits |= VIRGL_CAP_MULTI_DRAW_INDIRECT;
+
+   if (has_feature(feat_indirect_params))
+      caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_PARAMS;
+
+   for (int i = 0; i < VIRGL_FORMAT_MAX; i++) {
+      enum virgl_formats fmt = (enum virgl_formats)i;
+      if (tex_conv_table[i].internalformat != 0) {
+         if (vrend_format_can_readback(fmt)) {
+            VREND_DEBUG(dbg_features, NULL, "Support readback of %s\n",
+                        util_format_name(fmt));
+            set_format_bit(&caps->v2.supported_readback_formats, fmt);
+         }
+      }
+
+      if (vrend_format_can_scanout(fmt))
+         set_format_bit(&caps->v2.scanout, fmt);
+   }
+
+   if (has_feature(feat_clear_texture))
+      caps->v2.capability_bits |= VIRGL_CAP_CLEAR_TEXTURE;
+
+   if (has_feature(feat_clip_control))
+      caps->v2.capability_bits |= VIRGL_CAP_CLIP_HALFZ;
+
+   if (epoxy_has_gl_extension("GL_KHR_texture_compression_astc_sliced_3d"))
+      caps->v2.capability_bits |= VIRGL_CAP_3D_ASTC;
+
+   caps->v2.capability_bits |= VIRGL_CAP_INDIRECT_INPUT_ADDR;
+
+   caps->v2.capability_bits |= VIRGL_CAP_COPY_TRANSFER;
+
+
+   if (has_feature(feat_arb_buffer_storage) && !vrend_state.use_external_blob) {
+      const char *vendor = (const char *)glGetString(GL_VENDOR);
+      const char *renderer = (const char*)glGetString(GL_RENDERER);
+      bool is_mesa = ((strstr(renderer, "Mesa") != NULL) || (strstr(renderer, "DRM") != NULL));
+      /*
+       * Intel GPUs (aside from Atom, which doesn't expose GL4.5) are cache-coherent.
+       * Mesa AMDGPUs use write-combine mappings for coherent/persistent memory (see
+       * RADEON_FLAG_GTT_WC in si_buffer.c/r600_buffer_common.c). For Nvidia, we can guess and
+       * check.  Long term, maybe a GL extension or using VK could replace these heuristics.
+       *
+       * Note Intel VMX ignores the caching type returned from virglrenderer, while AMD SVM and
+       * ARM honor it.
+       */
+      if (is_mesa) {
+         if (strstr(vendor, "Intel") != NULL)
+            vrend_state.inferred_gl_caching_type = VIRGL_RENDERER_MAP_CACHE_CACHED;
+         else if (strstr(vendor, "AMD") != NULL)
+            vrend_state.inferred_gl_caching_type = VIRGL_RENDERER_MAP_CACHE_WC;
+      } else {
+         /* This is an educated guess since things don't explode with VMX + Nvidia. */
+         if (strstr(renderer, "Quadro K2200") != NULL)
+            vrend_state.inferred_gl_caching_type = VIRGL_RENDERER_MAP_CACHE_CACHED;
+      }
+
+      if (vrend_state.inferred_gl_caching_type)
+         caps->v2.capability_bits |= VIRGL_CAP_ARB_BUFFER_STORAGE;
+   }
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (has_feature(feat_memory_object) && has_feature(feat_memory_object_fd)) {
+         if (!strcmp(gbm_device_get_backend_name(gbm->device), "i915"))
+            caps->v2.capability_bits |= VIRGL_CAP_ARB_BUFFER_STORAGE;
+   }
+#endif
+
+   if (has_feature(feat_blend_equation_advanced))
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_BLEND_EQUATION;
+
+#ifdef HAVE_EPOXY_EGL_H
+   if (egl)
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_UNTYPED_RESOURCE;
+#endif
+
+   video_memory = vrend_winsys_query_video_memory();
+   if (video_memory) {
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_VIDEO_MEMORY;
+      caps->v2.max_video_memory = video_memory;
+   }
+
+   if (has_feature(feat_ati_meminfo) || has_feature(feat_nvx_gpu_memory_info)) {
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_MEMINFO;
+   }
+
 }
 
-void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
+void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
                               union virgl_caps *caps)
 {
    int gl_ver, gles_ver;
+   GLenum err;
    bool fill_capset2 = false;
 
    if (!caps)
       return;
 
-   if (set > 2) {
-      caps->max_version = 0;
+   switch (set) {
+   case VIRGL_RENDERER_CAPSET_VIRGL:
+      if (version > VREND_CAPSET_VIRGL_MAX_VERSION)
+         return;
+      memset(caps, 0, sizeof(struct virgl_caps_v1));
+      caps->max_version = VREND_CAPSET_VIRGL_MAX_VERSION;
+      break;
+   case VIRGL_RENDERER_CAPSET_VIRGL2:
+      if (version > VREND_CAPSET_VIRGL2_MAX_VERSION)
+         return;
+      memset(caps, 0, sizeof(*caps));
+      caps->max_version = VREND_CAPSET_VIRGL2_MAX_VERSION;
+      fill_capset2 = true;
+      break;
+   default:
       return;
    }
 
-   if (set == 1) {
-      memset(caps, 0, sizeof(struct virgl_caps_v1));
-      caps->max_version = 1;
-   } else if (set == 2) {
-      memset(caps, 0, sizeof(*caps));
-      caps->max_version = 2;
-      fill_capset2 = true;
-   }
+   /* We don't want to deal with stale error states that the caller might not
+    * have cleaned up propperly, so read the error state until we are okay.
+    */
+   while ((err = glGetError()) != GL_NO_ERROR)
+      vrend_printf("%s: Entering with stale GL error: %d\n", __func__, err);
 
    if (vrend_state.use_gles) {
       gles_ver = epoxy_gl_version();
@@ -8223,6 +10463,8 @@ void vrend_renderer_fill_caps(uint32_t set, UNUSED uint32_t version,
    }
 
    vrend_fill_caps_glsl_version(gl_ver, gles_ver, caps);
+   VREND_DEBUG(dbg_features, NULL, "GLSL support level: %d", caps->v1.glsl_level);
+
    vrend_renderer_fill_caps_v1(gl_ver, gles_ver, caps);
 
    if (!fill_capset2)
@@ -8238,18 +10480,16 @@ GLint64 vrend_renderer_get_timestamp(void)
    return v;
 }
 
-void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, uint32_t *height)
+void *vrend_renderer_get_cursor_contents(struct pipe_resource *pres,
+                                         uint32_t *width,
+                                         uint32_t *height)
 {
+   struct vrend_resource *res = (struct vrend_resource *)pres;
    GLenum format, type;
-   struct vrend_resource *res;
    int blsize;
    char *data, *data2;
    int size;
    uint h;
-
-   res = vrend_resource_lookup(res_handle, 0);
-   if (!res)
-      return NULL;
 
    if (res->base.width0 > 128 || res->base.height0 > 128)
       return NULL;
@@ -8257,10 +10497,12 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
    if (res->target != GL_TEXTURE_2D)
       return NULL;
 
-   if (width)
-      *width = res->base.width0;
-   if (height)
-      *height = res->base.height0;
+   if (!width || !height)
+      return NULL;
+
+   *width = res->base.width0;
+   *height = res->base.height0;
+
    format = tex_conv_table[res->base.format].glformat;
    type = tex_conv_table[res->base.format].gltype;
    blsize = util_format_get_blocksize(res->base.format);
@@ -8278,33 +10520,7 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
       glBindTexture(res->target, res->id);
       glGetnTexImageARB(res->target, 0, format, type, size, data);
    } else if (vrend_state.use_gles) {
-      GLuint fb_id;
-
-      if (res->readback_fb_id == 0 || res->readback_fb_level != 0 || res->readback_fb_z != 0) {
-
-         if (res->readback_fb_id)
-            glDeleteFramebuffers(1, &res->readback_fb_id);
-
-         glGenFramebuffers(1, &fb_id);
-         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb_id);
-
-         vrend_fb_bind_texture(res, 0, 0, 0);
-
-         res->readback_fb_id = fb_id;
-         res->readback_fb_level = 0;
-         res->readback_fb_z = 0;
-      } else {
-         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, res->readback_fb_id);
-      }
-
-      if (has_feature(feat_arb_robustness)) {
-         glReadnPixelsARB(0, 0, *width, *height, format, type, size, data);
-      } else if (has_feature(feat_gles_khr_robustness)) {
-         glReadnPixelsKHR(0, 0, *width, *height, format, type, size, data);
-      } else {
-         glReadPixels(0, 0, *width, *height, format, type, data);
-      }
-
+      do_readpixels(res, 0, 0, 0, 0, 0, *width, *height, format, type, size, data);
    } else {
       glBindTexture(res->target, res->id);
       glGetTexImage(res->target, 0, format, type, data);
@@ -8317,23 +10533,24 @@ void *vrend_renderer_get_cursor_contents(uint32_t res_handle, uint32_t *width, u
       memcpy(data2 + doff, data + soff, res->base.width0 * blsize);
    }
    free(data);
-
+   glBindTexture(res->target, 0);
    return data2;
 }
 
+
 void vrend_renderer_force_ctx_0(void)
 {
-   struct vrend_context *ctx0 = vrend_lookup_renderer_ctx(0);
    vrend_state.current_ctx = NULL;
    vrend_state.current_hw_ctx = NULL;
-   vrend_hw_switch_context(ctx0, true);
-   vrend_clicbs->make_current(0, ctx0->sub->gl_context);
+   vrend_hw_switch_context(vrend_state.ctx0, true);
 }
 
-void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num_iovs,
-                             uint32_t offset, int x, int y, int width, int height)
+void vrend_renderer_get_rect(struct pipe_resource *pres,
+                             const struct iovec *iov, unsigned int num_iovs,
+                             uint32_t offset,
+                             int x, int y, int width, int height)
 {
-   struct vrend_resource *res = vrend_resource_lookup(res_handle, 0);
+   struct vrend_resource *res = (struct vrend_resource *)pres;
    struct vrend_transfer_info transfer_info;
    struct pipe_box box;
    int elsize;
@@ -8352,67 +10569,84 @@ void vrend_renderer_get_rect(int res_handle, struct iovec *iov, unsigned int num
 
    transfer_info.stride = util_format_get_nblocksx(res->base.format, res->base.width0) * elsize;
    transfer_info.offset = offset;
-   transfer_info.handle = res->handle;
    transfer_info.iovec = iov;
    transfer_info.iovec_cnt = num_iovs;
-   vrend_renderer_transfer_iov(&transfer_info, VREND_TRANSFER_READ);
+
+   vrend_renderer_transfer_pipe(pres, &transfer_info,
+                                VIRGL_TRANSFER_FROM_HOST);
 }
 
-void vrend_renderer_attach_res_ctx(int ctx_id, int resource_id)
+void vrend_renderer_attach_res_ctx(struct vrend_context *ctx,
+                                   struct virgl_resource *res)
 {
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-   struct vrend_resource *res;
+   if (!res->pipe_resource) {
+      /* move the last untyped resource from cache to list */
+      if (unlikely(ctx->untyped_resource_cache)) {
+         struct virgl_resource *last = ctx->untyped_resource_cache;
+         struct vrend_untyped_resource *wrapper = malloc(sizeof(*wrapper));
+         if (wrapper) {
+            wrapper->resource = last;
+            list_add(&wrapper->head, &ctx->untyped_resources);
+         } else {
+            vrend_printf("dropping attached resource %d due to OOM\n", last->res_id);
+         }
+      }
 
-   if (!ctx)
+      ctx->untyped_resource_cache = res;
+      /* defer to vrend_renderer_pipe_resource_set_type */
       return;
+   }
 
-   res = vrend_resource_lookup(resource_id, 0);
-   if (!res)
-      return;
-
-   vrend_object_insert_nofree(ctx->res_hash, res, sizeof(*res), resource_id, 1, false);
+   vrend_ctx_resource_insert(ctx->res_hash,
+                             res->res_id,
+                             (struct vrend_resource *)res->pipe_resource);
 }
 
-static void vrend_renderer_detach_res_ctx_p(struct vrend_context *ctx, int res_handle)
+void vrend_renderer_detach_res_ctx(struct vrend_context *ctx,
+                                   struct virgl_resource *res)
 {
-   struct vrend_resource *res;
-   res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
-   if (!res)
-      return;
+   if (!res->pipe_resource) {
+      if (ctx->untyped_resource_cache == res) {
+         ctx->untyped_resource_cache = NULL;
+      } else {
+         struct vrend_untyped_resource *iter;
+         LIST_FOR_EACH_ENTRY(iter, &ctx->untyped_resources, head) {
+            if (iter->resource == res) {
+               list_del(&iter->head);
+               free(iter);
+               break;
+            }
+         }
+      }
 
-   vrend_object_remove(ctx->res_hash, res_handle, 1);
-}
-
-void vrend_renderer_detach_res_ctx(int ctx_id, int res_handle)
-{
-   struct vrend_context *ctx = vrend_lookup_renderer_ctx(ctx_id);
-   if (!ctx)
       return;
-   vrend_renderer_detach_res_ctx_p(ctx, res_handle);
+   }
+
+   vrend_ctx_resource_remove(ctx->res_hash, res->res_id);
 }
 
 static struct vrend_resource *vrend_renderer_ctx_res_lookup(struct vrend_context *ctx, int res_handle)
 {
-   struct vrend_resource *res = vrend_object_lookup(ctx->res_hash, res_handle, 1);
-
-   return res;
+   return vrend_ctx_resource_lookup(ctx->res_hash, res_handle);
 }
 
-int vrend_renderer_resource_get_info(int res_handle,
-                                     struct vrend_renderer_resource_info *info)
+void vrend_context_set_debug_flags(struct vrend_context *ctx, const char *flagstring)
 {
-   struct vrend_resource *res;
-   int elsize;
+   if (vrend_debug_can_override()) {
+      ctx->debug_flags |= vrend_get_debug_flags(flagstring);
+      if (ctx->debug_flags & dbg_features)
+         vrend_debug_add_flag(dbg_feature_use);
+   }
+}
 
-   if (!info)
-      return EINVAL;
-   res = vrend_resource_lookup(res_handle, 0);
-   if (!res)
-      return EINVAL;
+void vrend_renderer_resource_get_info(struct pipe_resource *pres,
+                                      struct vrend_renderer_resource_info *info)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   int elsize;
 
    elsize = util_format_get_blocksize(res->base.format);
 
-   info->handle = res_handle;
    info->tex_id = res->id;
    info->width = res->base.width0;
    info->height = res->base.height0;
@@ -8420,21 +10654,18 @@ int vrend_renderer_resource_get_info(int res_handle,
    info->format = res->base.format;
    info->flags = res->y_0_top ? VIRGL_RESOURCE_Y_0_TOP : 0;
    info->stride = util_format_get_nblocksx(res->base.format, u_minify(res->base.width0, 0)) * elsize;
-
-   return 0;
 }
 
 void vrend_renderer_get_cap_set(uint32_t cap_set, uint32_t *max_ver,
                                 uint32_t *max_size)
 {
    switch (cap_set) {
-   case VREND_CAP_SET:
-      *max_ver = 1;
+   case VIRGL_RENDERER_CAPSET_VIRGL:
+      *max_ver = VREND_CAPSET_VIRGL_MAX_VERSION;
       *max_size = sizeof(struct virgl_caps_v1);
       break;
-   case VREND_CAP_SET2:
-      /* we should never need to increase this - it should be possible to just grow virgl_caps */
-      *max_ver = 2;
+   case VIRGL_RENDERER_CAPSET_VIRGL2:
+      *max_ver = VREND_CAPSET_VIRGL2_MAX_VERSION;
       *max_size = sizeof(struct virgl_caps_v2);
       break;
    default:
@@ -8464,7 +10695,8 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    ctx_params.major_ver = vrend_state.gl_major_ver;
    ctx_params.minor_ver = vrend_state.gl_minor_ver;
    sub->gl_context = vrend_clicbs->create_gl_context(0, &ctx_params);
-   vrend_clicbs->make_current(0, sub->gl_context);
+   sub->parent = ctx;
+   vrend_clicbs->make_current(sub->gl_context);
 
    /* enable if vrend_renderer_init function has done it as well */
    if (has_feature(feat_debug_cb)) {
@@ -8486,9 +10718,12 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    }
 
    glGenFramebuffers(1, &sub->fb_id);
+   glBindFramebuffer(GL_FRAMEBUFFER, sub->fb_id);
    glGenFramebuffers(2, sub->blit_fb_ids);
 
-   list_inithead(&sub->programs);
+   for (int i = 0; i < VREND_PROGRAM_NQUEUES; ++i)
+      list_inithead(&sub->gl_programs[i]);
+   list_inithead(&sub->cs_programs);
    list_inithead(&sub->streamout_list);
 
    sub->object_hash = vrend_object_init_ctx_table();
@@ -8497,7 +10732,23 @@ void vrend_renderer_create_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    list_add(&sub->head, &ctx->sub_ctxs);
    if (sub_ctx_id == 0)
       ctx->sub0 = sub;
+
+   vrend_set_tweak_from_env(&ctx->sub->tweaks);
 }
+
+unsigned vrend_context_has_debug_flag(const struct vrend_context *ctx, enum virgl_debug_flags flag)
+{
+   return ctx && (ctx->debug_flags & flag);
+}
+
+void vrend_print_context_name(const struct vrend_context *ctx)
+{
+   if (ctx)
+      vrend_printf("%s: ", ctx->debug_name);
+   else
+      vrend_printf("HOST: ");
+}
+
 
 void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
 {
@@ -8516,9 +10767,9 @@ void vrend_renderer_destroy_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    if (tofree) {
       if (ctx->sub == tofree) {
          ctx->sub = ctx->sub0;
-         vrend_clicbs->make_current(0, ctx->sub->gl_context);
       }
       vrend_destroy_sub_context(tofree);
+      vrend_clicbs->make_current(ctx->sub->gl_context);
    }
 }
 
@@ -8533,45 +10784,339 @@ void vrend_renderer_set_sub_ctx(struct vrend_context *ctx, int sub_ctx_id)
    LIST_FOR_EACH_ENTRY(sub, &ctx->sub_ctxs, head) {
       if (sub->sub_ctx_id == sub_ctx_id) {
          ctx->sub = sub;
-         vrend_clicbs->make_current(0, sub->gl_context);
+         vrend_clicbs->make_current(sub->gl_context);
          break;
       }
    }
 }
 
-static void vrend_reset_fences(void)
+void vrend_renderer_prepare_reset(void)
 {
-   struct vrend_fence *fence, *stor;
-
-   if (vrend_state.sync_thread)
-      pipe_mutex_lock(vrend_state.fence_mutex);
-
-   LIST_FOR_EACH_ENTRY_SAFE(fence, stor, &vrend_state.fence_list, fences) {
-      free_fence_locked(fence);
-   }
-
-   if (vrend_state.sync_thread)
-      pipe_mutex_unlock(vrend_state.fence_mutex);
+   /* make sure user contexts are no longer accessed */
+   vrend_free_sync_thread();
+   vrend_hw_switch_context(vrend_state.ctx0, true);
 }
 
 void vrend_renderer_reset(void)
 {
-   if (vrend_state.sync_thread) {
-      vrend_free_sync_thread();
-      vrend_state.stop_sync_thread = false;
-   }
-   vrend_reset_fences();
-   vrend_decode_reset(false);
-   vrend_object_fini_resource_table();
-   vrend_decode_reset(true);
-   vrend_object_init_resource_table();
-   vrend_renderer_context_create_internal(0, 0, NULL);
+   vrend_free_fences();
+   vrend_blitter_fini();
+
+   vrend_destroy_context(vrend_state.ctx0);
+
+   vrend_state.ctx0 = vrend_create_context(0, strlen("HOST"), "HOST");
+   /* TODO respawn sync thread */
 }
 
 int vrend_renderer_get_poll_fd(void)
 {
-   if (!vrend_state.inited)
-      return -1;
-
    return vrend_state.eventfd;
+}
+
+int vrend_renderer_export_query(struct pipe_resource *pres,
+                                struct virgl_renderer_export_query *export_query)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+
+#ifdef ENABLE_MINIGBM_ALLOCATION
+   if (res->gbm_bo)
+      return virgl_gbm_export_query(res->gbm_bo, export_query);
+#else
+   (void)res;
+#endif
+
+   /*
+    * Implementations that support eglExportDMABUFImageMESA can also export certain resources.
+    * This is omitted currently since virgl_renderer_get_fd_for_texture supports that use case.
+    */
+   export_query->out_num_fds = 0;
+   export_query->out_fourcc = 0;
+   export_query->out_modifier = DRM_FORMAT_MOD_INVALID;
+   if (export_query->in_export_fds)
+      return -EINVAL;
+
+   return 0;
+}
+
+int vrend_renderer_pipe_resource_create(struct vrend_context *ctx, uint32_t blob_id,
+                                        const struct vrend_renderer_resource_create_args *args)
+{
+   struct vrend_resource *res;
+   res = (struct vrend_resource *)vrend_renderer_resource_create(args, NULL);
+   if (!res)
+      return EINVAL;
+
+   res->blob_id = blob_id;
+   list_addtail(&res->head, &ctx->vrend_resources);
+   return 0;
+}
+
+struct pipe_resource *vrend_get_blob_pipe(struct vrend_context *ctx, uint64_t blob_id)
+{
+   uint32_t id = (uint32_t)blob_id;
+   struct vrend_resource *res, *stor;
+
+   LIST_FOR_EACH_ENTRY_SAFE(res, stor, &ctx->vrend_resources, head) {
+      if (res->blob_id != id)
+         continue;
+
+      list_del(&res->head);
+      /* Set the blob id to zero, since it won't be used anymore */
+      res->blob_id = 0;
+      return &res->base;
+   }
+
+   return NULL;
+}
+
+int
+vrend_renderer_pipe_resource_set_type(struct vrend_context *ctx,
+                                      uint32_t res_id,
+                                      const struct vrend_renderer_resource_set_type_args *args)
+{
+   struct virgl_resource *res = NULL;
+
+   /* look up the untyped resource */
+   if (ctx->untyped_resource_cache &&
+       ctx->untyped_resource_cache->res_id == res_id) {
+      res = ctx->untyped_resource_cache;
+      ctx->untyped_resource_cache = NULL;
+   } else {
+      /* cache miss */
+      struct vrend_untyped_resource *iter;
+      LIST_FOR_EACH_ENTRY(iter, &ctx->untyped_resources, head) {
+         if (iter->resource->res_id == res_id) {
+            res = iter->resource;
+            list_del(&iter->head);
+            free(iter);
+            break;
+         }
+      }
+   }
+
+   /* either a bad res_id or the resource is already typed */
+   if (!res) {
+      if (vrend_renderer_ctx_res_lookup(ctx, res_id))
+         return 0;
+
+      vrend_report_context_error(ctx, VIRGL_ERROR_CTX_ILLEGAL_RESOURCE, res_id);
+      return EINVAL;
+   }
+
+   /* resource is still untyped */
+   if (!res->pipe_resource) {
+#ifdef HAVE_EPOXY_EGL_H
+      const struct vrend_renderer_resource_create_args create_args = {
+         .target = PIPE_TEXTURE_2D,
+         .format = args->format,
+         .bind = args->bind,
+         .width = args->width,
+         .height = args->height,
+         .depth = 1,
+         .array_size = 1,
+         .last_level = 0,
+         .nr_samples = 0,
+         .flags = 0,
+      };
+      int plane_fds[VIRGL_GBM_MAX_PLANES];
+      struct vrend_resource *gr;
+      uint32_t virgl_format;
+      uint32_t drm_format;
+      int ret;
+
+      if (res->fd_type != VIRGL_RESOURCE_FD_DMABUF)
+         return EINVAL;
+
+      for (uint32_t i = 0; i < args->plane_count; i++)
+         plane_fds[i] = res->fd;
+
+      gr = vrend_resource_create(&create_args);
+      if (!gr)
+         return ENOMEM;
+
+      virgl_format = vrend_resource_fixup_emulated_bgra(gr, true);
+      drm_format = 0;
+      if (virgl_gbm_convert_format(&virgl_format, &drm_format)) {
+         vrend_printf("%s: unsupported format %d\n", __func__, virgl_format);
+         FREE(gr);
+         return EINVAL;
+      }
+
+      gr->egl_image = virgl_egl_image_from_dmabuf(egl,
+                                                  args->width,
+                                                  args->height,
+                                                  drm_format,
+                                                  args->modifier,
+                                                  args->plane_count,
+                                                  plane_fds,
+                                                  args->plane_strides,
+                                                  args->plane_offsets);
+      if (!gr->egl_image) {
+         vrend_printf("%s: failed to create egl image\n", __func__);
+         FREE(gr);
+         return EINVAL;
+      }
+
+      gr->storage_bits |= VREND_STORAGE_EGL_IMAGE;
+
+      ret = vrend_resource_alloc_texture(gr, virgl_format, gr->egl_image);
+      if (ret) {
+         virgl_egl_image_destroy(egl, gr->egl_image);
+         FREE(gr);
+         return ret;
+      }
+
+      /* "promote" the fd to pipe_resource */
+      close(res->fd);
+      res->fd = -1;
+      res->fd_type = VIRGL_RESOURCE_FD_INVALID;
+      res->pipe_resource = &gr->base;
+#else /* HAVE_EPOXY_EGL_H */
+      (void)args;
+      vrend_printf("%s: no EGL support \n", __func__);
+      return EINVAL;
+#endif /* HAVE_EPOXY_EGL_H */
+   }
+
+   vrend_ctx_resource_insert(ctx->res_hash,
+                             res->res_id,
+                             (struct vrend_resource *)res->pipe_resource);
+
+   return 0;
+}
+
+uint32_t vrend_renderer_resource_get_map_info(struct pipe_resource *pres)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   return res->map_info;
+}
+
+int vrend_renderer_resource_map(struct pipe_resource *pres, void **map, uint64_t *out_size)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!has_bits(res->storage_bits, VREND_STORAGE_GL_BUFFER | VREND_STORAGE_GL_IMMUTABLE))
+      return -EINVAL;
+
+   glBindBufferARB(res->target, res->id);
+   *map = glMapBufferRange(res->target, 0, res->size, res->buffer_storage_flags);
+   if (!*map)
+      return -EINVAL;
+
+   glBindBufferARB(res->target, 0);
+   *out_size = res->size;
+   return 0;
+}
+
+int vrend_renderer_resource_unmap(struct pipe_resource *pres)
+{
+   struct vrend_resource *res = (struct vrend_resource *)pres;
+   if (!has_bits(res->storage_bits, VREND_STORAGE_GL_BUFFER | VREND_STORAGE_GL_IMMUTABLE))
+      return -EINVAL;
+
+   glBindBufferARB(res->target, res->id);
+   glUnmapBuffer(res->target);
+   glBindBufferARB(res->target, 0);
+   return 0;
+}
+
+int vrend_renderer_create_ctx0_fence(uint32_t fence_id)
+{
+   void *fence_cookie = (void *)(uintptr_t)fence_id;
+   return vrend_renderer_create_fence(vrend_state.ctx0,
+         VIRGL_RENDERER_FENCE_FLAG_MERGEABLE, fence_cookie);
+}
+
+static bool find_ctx0_fence_locked(struct list_head *fence_list,
+                                   void *fence_cookie,
+                                   bool *seen_first,
+                                   struct vrend_fence **fence)
+{
+   struct vrend_fence *iter;
+
+   LIST_FOR_EACH_ENTRY(iter, fence_list, fences) {
+      /* only consider ctx0 fences */
+      if (iter->ctx != vrend_state.ctx0)
+         continue;
+
+      if (iter->fence_cookie == fence_cookie) {
+         *fence = iter;
+         return true;
+      }
+
+      if (!*seen_first) {
+         if (fence_cookie < iter->fence_cookie)
+            return true;
+         *seen_first = true;
+      }
+   }
+
+   return false;
+}
+
+int vrend_renderer_export_ctx0_fence(uint32_t fence_id, int* out_fd) {
+#ifdef HAVE_EPOXY_EGL_H
+   if (!vrend_state.use_egl_fence) {
+      return -EINVAL;
+   }
+
+   if (vrend_state.sync_thread)
+      pipe_mutex_lock(vrend_state.fence_mutex);
+
+   void *fence_cookie = (void *)(uintptr_t)fence_id;
+   bool seen_first = false;
+   struct vrend_fence *fence = NULL;
+   bool found = find_ctx0_fence_locked(&vrend_state.fence_list,
+                                       fence_cookie,
+                                       &seen_first,
+                                       &fence);
+   if (!found) {
+      found = find_ctx0_fence_locked(&vrend_state.fence_wait_list,
+                                     fence_cookie,
+                                     &seen_first,
+                                     &fence);
+      /* consider signaled when no active ctx0 fence at all */
+      if (!found && !seen_first)
+         found = true;
+   }
+
+   if (vrend_state.sync_thread)
+      pipe_mutex_unlock(vrend_state.fence_mutex);
+
+   if (found) {
+      if (fence)
+         return virgl_egl_export_fence(egl, fence->eglsyncobj, out_fd) ? 0 : -EINVAL;
+      else
+         return virgl_egl_export_signaled_fence(egl, out_fd) ? 0 : -EINVAL;
+   }
+#endif
+   return -EINVAL;
+}
+
+void vrend_renderer_get_meminfo(struct vrend_context *ctx, uint32_t res_handle)
+{
+   struct vrend_resource *res;
+   struct virgl_memory_info *info;
+
+   res = vrend_renderer_ctx_res_lookup(ctx, res_handle);
+
+   info = (struct virgl_memory_info *)res->iov->iov_base;
+
+   if (has_feature(feat_nvx_gpu_memory_info)) {
+         int i;
+         glGetIntegerv(GL_GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX, &i);
+         info->total_device_memory = i;
+         glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &i);
+         info->total_staging_memory = i - info->total_device_memory;
+         glGetIntegerv(GL_GPU_MEMORY_INFO_EVICTION_COUNT_NVX, &i);
+         info->nr_device_memory_evictions = i;
+         glGetIntegerv(GL_GPU_MEMORY_INFO_EVICTED_MEMORY_NVX, &i);
+         info->device_memory_evicted = i;
+      }
+
+   if (has_feature(feat_ati_meminfo)) {
+      int i[4];
+      glGetIntegerv(GL_VBO_FREE_MEMORY_ATI, i);
+      info->avail_device_memory = i[0];
+      info->avail_staging_memory = i[2];
+   }
 }

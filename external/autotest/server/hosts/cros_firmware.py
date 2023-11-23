@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,12 +13,15 @@ fix problems by updating or re-installing the firmware.
 The operations in the module support two distinct use cases:
   * DUTs used for FAFT tests can in some cases have problems with
     corrupted firmware.  The module supplies `FirmwareStatusVerifier`
-    to check for corruption, and supplies `FirmwareRepair` to re-install
-    firmware via servo when needed.
+    to check for corruption, and supplies `FaftFirmwareRepair` to
+    re-install firmware of current faft stable_version via servo
+    when needed.
   * DUTs used for general testing normally should be running a
     designated "stable" firmware version.  This module supplies
     `FirmwareVersionVerifier` to detect and automatically update
-    firmware that is out-of-date from the designated version.
+    firmware that is out-of-date from the designated version. This model
+    also supplys `GeneralFirmwareRepair` to re-install firmware that
+    tied with current stable_version image via servo when needed.
 
 For purposes of the operations in the module, we distinguish three kinds
 of DUT, based on pool assignments:
@@ -34,15 +38,22 @@ of DUT, based on pool assignments:
 
 # pylint: disable=missing-docstring
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 import logging
-import re
 
 import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import hosts
 from autotest_lib.server import afe_utils
 from autotest_lib.server.hosts import repair_utils
+from autotest_lib.server.hosts import cros_constants
+
+from chromite.lib import timeout_util
+import six
 
 
 # _FIRMWARE_REPAIR_POOLS - The set of pools that should be
@@ -55,17 +66,16 @@ _FIRMWARE_REPAIR_POOLS = set(
             type=str).split(','))
 
 
-def _is_firmware_repair_supported(host):
+def _is_firmware_testing_device(host):
     """
-    Check if a host supports firmware repair.
+    check if a host is dedicated for firmware testing.
 
     When this function returns true, the DUT should be managed by
-    `FirmwareStatusVerifier` and `FirmwareRepair`, but not
-    `FirmwareVersionVerifier`.  In general, this applies to DUTs
-    used for firmware testing.
+    `FirmwareStatusVerifier` and `FaftFirmwareRepair`, but not
+    `FirmwareVersionVerifier` and `GeneralFirmwareRepair.
 
     @return A true value if the host should use `FirmwareStatusVerifier`
-            and `FirmwareRepair`; a false value otherwise.
+            and `FaftFirmwareRepair`; a false value otherwise.
     """
     info = host.host_info_store.get()
     return bool(info.pools & _FIRMWARE_REPAIR_POOLS)
@@ -86,7 +96,7 @@ def _is_firmware_update_supported(host):
     @return A true value if the host should use
             `FirmwareVersionVerifier`; a false value otherwise.
     """
-    return not _is_firmware_repair_supported(host)
+    return not _is_firmware_testing_device(host)
 
 
 def _get_available_firmware(host, model):
@@ -103,7 +113,7 @@ def _get_available_firmware(host, model):
 
     # The manifest is a JSON in .model.host.versions.rw
     data = json.loads(result.stdout) or {}
-    key = model if len(data) > 1 else next(data.iterkeys(), '')
+    key = model if len(data) > 1 else next(six.iterkeys(data), '')
     key += '.host.versions.rw'
     for k in key.split('.'):
         data = data.get(k, {})
@@ -119,8 +129,9 @@ class FirmwareStatusVerifier(hosts.Verifier):
     appears that firmware should be re-flashed using servo.
     """
 
+    @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
     def verify(self, host):
-        if not _is_firmware_repair_supported(host):
+        if not _is_firmware_testing_device(host):
             return
         try:
             # Read the AP firmware and dump the sections that we're
@@ -160,17 +171,151 @@ class FirmwareRepair(hosts.RepairAction):
     This repair method only applies to DUTs used for FAFT.
     """
 
-    def repair(self, host):
-        if not _is_firmware_repair_supported(host):
+    def _get_faft_stable_build(self, host):
+        info = host.host_info_store.get()
+        return afe_utils.get_stable_faft_version_v2(info)
+
+    def _get_os_stable_build(self, host):
+        # Use firmware in current stable os build.
+        return host.get_cros_repair_image_name()
+
+    def _run_faft_repair(self, host, build):
+        host.firmware_install(build)
+
+    def _run_general_repair(self, host, build):
+        # As GeneralFirmwareRepair is the last repair action, we expect
+        # stable_version os image is loaded on usbkey during other repair
+        # action runs. And there is also no point to repeat and waste time if
+        # download image to usbkey failed in other repair actions.
+        if host._servo_host.validate_image_usbkey() != build:
+            raise hosts.AutoservRepairError('%s is expected to be preloaded,'
+                      'however it\'s not found on the usbkey' % build,
+                      'image not loaded on usbkey')
+        ec_image, bios_image = host._servo_host.prepare_repair_firmware_image()
+
+        # For EVT device with signed variant exists we skip this repair
+        # as it's hard to decide which image to use if DUT do not boot.
+        info = host.host_info_store.get()
+        phase = info.get_label_value('phase')
+        if 'signed' in bios_image and phase.lower() in ('evt', 'dvt', ''):
             raise hosts.AutoservRepairError(
-                    'Firmware repair is not applicable to host %s.' %
-                    host.hostname, 'not_applicable')
-        repair_utils.require_servo(host)
-        host.firmware_install()
+                    'Could not determine which firmware image to use'
+                    ' due to signed firmware image variant exists but'
+                    ' DUT phase is earlier than PVT or missing; Phase'
+                    ' from inventory: %s' % phase,
+                    'Can not determine variant for EVT device')
+
+        # Before flash firmware we want update the build into health profile.
+        if host.health_profile:
+            host.health_profile.set_firmware_stable_version(build)
+
+        if ec_image:
+            logging.info('Attempting to flash ec firmware...')
+            host.servo.program_ec(ec_image, copy_image=False)
+        if bios_image:
+            logging.info('Attempting to flash bios firmware...')
+            host._servo_host.flash_ap_firmware_via_servo(bios_image)
+
+        logging.info('Cold resetting DUT through servo...')
+        host.servo.get_power_state_controller().reset()
+        host.wait_up(timeout=host.BOOT_TIMEOUT)
+        # flash firmware via servo will turn DUT into dev mode, so disable
+        # dev mode and reset gbb flag here.
+        host.run('/usr/share/vboot/bin/set_gbb_flags.sh 0', ignore_status=True)
+        host.run('crossystem disable_dev_request=1', ignore_status=True)
+        host.reboot()
+
+
+class FaftFirmwareRepair(FirmwareRepair):
+    """
+    Reinstall the firmware for DUTs in faft related pool.
+    """
+
+    def repair(self, host):
+        repair_utils.require_servo(host, ignore_state=True)
+        build = self._get_faft_stable_build(host)
+        if build:
+            self._run_faft_repair(host, build)
+        else:
+            logging.info('Cannot find faft stable_version, falling back to'
+                         ' use firmware on OS stable_version.')
+            build = self._get_os_stable_build(host)
+            if not build:
+                raise hosts.AutoservRepairError(
+                        'Failed to find stable_version from host_info.',
+                        'cannot find stable_version')
+            self._run_general_repair(host, build)
+
+    def _is_applicable(self, host):
+        return _is_firmware_testing_device(host)
 
     @property
     def description(self):
-        return 'Re-install the stable firmware via servo'
+        return 'Re-install the stable firmware(faft) via servo'
+
+
+class GeneralFirmwareRepair(FirmwareRepair):
+    """Reinstall the firmware for non-faft DUTs.
+    We need different RepairAction for non firmware testing DUT because
+    we want only try re-install firmware if all other RepairAction could
+    not restore ssh capability to the DUT.
+    """
+
+    def repair(self, host):
+        repair_utils.require_servo(host, ignore_state=True)
+        build = self._get_os_stable_build(host)
+        if not build:
+            raise hosts.AutoservRepairError(
+                    'Failed to find stable_version from host_info.',
+                    'cannot find stable_version')
+        self._run_general_repair(host, build)
+
+    def _is_applicable(self, host):
+        if _is_firmware_testing_device(host):
+            return False
+        if not host.servo:
+            logging.info(
+                    'The current servo state of %s is not met the'
+                    ' minimum requirement to flash firmware.', host.hostname)
+        # Flash firmware via servo is consider an expansive opertation, so we
+        # want to check repair data from previous repairs to determine if
+        # firmware repair is need.
+        dhp = host.health_profile
+        if not dhp:
+            logging.info('Device health profile is not available, cannot'
+                         ' determine if firmware repair is needed.')
+            return False
+        repair_fail_count = dhp.get_repair_fail_count()
+        if repair_fail_count < 2:
+            # We want to start with a more conservative strategy, so only try
+            # this action on DUTs that failed repair at least twice.
+            # @TODO(xianuowang@) adjust or remove this threshold.
+            logging.info(
+                    'Firmware repair will only applies to DUT that'
+                    ' failed at least two AdminRepair, current fail'
+                    ' count: %s', repair_fail_count)
+            return False
+        flashed_build = dhp.get_firmware_stable_version()
+        candidate_build = self._get_os_stable_build(host)
+        # If we had an success firmware flash in this repair loop,
+        # there is no need to retry flash the same firmware build.
+        if (dhp.get_succeed_repair_action(self.tag) > 0
+                    and flashed_build == candidate_build):
+            logging.info(
+                    'Firmware from %s has been already installed on %s,'
+                    ' no need to retry.', flashed_build, host.hostname)
+            return False
+        if (dhp.get_failed_repair_action(self.tag) > 2
+                    and flashed_build == candidate_build):
+            logging.info(
+                    'Firmware from %s has been attempted and failed 3 '
+                    'times, no need to retry.', flashed_build)
+            return False
+        return True
+
+    @property
+    def description(self):
+        return 'Re-install the stable firmware(non-faft) via servo'
 
 
 class FirmwareVersionVerifier(hosts.Verifier):
@@ -242,6 +387,7 @@ class FirmwareVersionVerifier(hosts.Verifier):
             raise hosts.AutoservVerifyError(
                     message % (version_a, version_b))
 
+    @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
     def verify(self, host):
         # Test 1 - The DUT is not excluded from updates.
         if not _is_firmware_update_supported(host):

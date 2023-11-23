@@ -22,10 +22,14 @@ def repair(machine):
         target = hosts.create_target_machine(machine,
                                              try_lab_servo=True,
                                              try_servo_repair=True)
+
         try:
             # We don't need to collect logs or crash info if we're a
             # testbed since they're not applicable (yet).
-            if isinstance(target, hosts.CrosHost):
+            if (isinstance(target, hosts.CrosHost)
+                and target.is_up_fast()
+                and target.is_up()
+                and target.is_file_system_writable()):
                 # Collect logs before the repair, as it might destroy all
                 # useful logs.
                 local_log_dir = os.path.join(job.resultdir, hostname,

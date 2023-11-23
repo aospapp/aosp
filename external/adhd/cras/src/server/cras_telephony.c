@@ -41,6 +41,12 @@
 	"    <method name=\"SetCallheld\">\n"                                  \
 	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
 	"    </method>\n"                                                      \
+	"    <method name=\"SetCallsetup\">\n"                                 \
+	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"SetCall\">\n"                                      \
+	"      <arg name=\"value\" type=\"i\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                      \
 	"  </interface>\n"                                                     \
 	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"           \
 	"    <method name=\"Introspect\">\n"                                   \
@@ -220,6 +226,46 @@ static DBusHandlerResult handle_set_callheld(DBusConnection *conn,
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult handle_set_callsetup(DBusConnection *conn,
+					      DBusMessage *message, void *arg)
+{
+	struct hfp_slc_handle *handle;
+	DBusHandlerResult rc;
+	int value;
+
+	rc = get_single_arg(message, DBUS_TYPE_INT32, &value);
+	if (rc != DBUS_HANDLER_RESULT_HANDLED)
+		return rc;
+
+	telephony_handle.callsetup = value;
+	handle = cras_hfp_ag_get_active_handle();
+	if (handle)
+		hfp_event_update_callsetup(handle);
+
+	send_empty_reply(conn, message);
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_set_call(DBusConnection *conn,
+					 DBusMessage *message, void *arg)
+{
+	struct hfp_slc_handle *handle;
+	DBusHandlerResult rc;
+	int value;
+
+	rc = get_single_arg(message, DBUS_TYPE_INT32, &value);
+	if (rc != DBUS_HANDLER_RESULT_HANDLED)
+		return rc;
+
+	telephony_handle.call = value;
+	handle = cras_hfp_ag_get_active_handle();
+	if (handle)
+		hfp_event_update_call(handle);
+
+	send_empty_reply(conn, message);
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 /* Handle incoming messages. */
 static DBusHandlerResult
 handle_telephony_message(DBusConnection *conn, DBusMessage *message, void *arg)
@@ -274,6 +320,12 @@ handle_telephony_message(DBusConnection *conn, DBusMessage *message, void *arg)
 	} else if (dbus_message_is_method_call(
 			   message, CRAS_TELEPHONY_INTERFACE, "SetCallheld")) {
 		return handle_set_callheld(conn, message, arg);
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_TELEPHONY_INTERFACE, "SetCallsetup")) {
+		return handle_set_callsetup(conn, message, arg);
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_TELEPHONY_INTERFACE, "SetCall")) {
+		return handle_set_call(conn, message, arg);
 	}
 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;

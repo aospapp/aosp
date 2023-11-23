@@ -28,12 +28,21 @@
 #include "tensorflow/lite/kernels/internal/tensor_ctypes.h"
 #include "tensorflow/lite/kernels/register.h"
 #include "tensorflow/lite/model.h"
+#include "tensorflow/lite/mutable_op_resolver.h"
 #include "tensorflow/lite/op_resolver.h"
 #include "tensorflow/lite/string_util.h"
 
 namespace libtextclassifier3 {
 
+// Creates a TF.Lite Op resolver in default configuration, with ops for
+// Annotator and Actions models.
 std::unique_ptr<tflite::OpResolver> BuildOpResolver();
+
+// Like above, but allows passage of a function that can register additional
+// ops.
+std::unique_ptr<tflite::OpResolver> BuildOpResolver(
+    const std::function<void(tflite::MutableOpResolver*)>& customize_fn);
+
 std::unique_ptr<const tflite::FlatBufferModel> TfLiteModelFromModelSpec(
     const tflite::Model*);
 std::unique_ptr<const tflite::FlatBufferModel> TfLiteModelFromBuffer(

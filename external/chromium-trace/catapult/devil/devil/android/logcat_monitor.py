@@ -13,6 +13,8 @@ import tempfile
 import threading
 import time
 
+import six
+
 from devil.android import decorators
 from devil.android import device_errors
 from devil.android.sdk import adb_wrapper
@@ -23,15 +25,20 @@ logger = logging.getLogger(__name__)
 
 class LogcatMonitor(object):
 
-  _RECORD_ITER_TIMEOUT = 0.2
+  _RECORD_ITER_TIMEOUT = 0.01
   _RECORD_THREAD_JOIN_WAIT = 5.0
   _WAIT_TIME = 0.2
   THREADTIME_RE_FORMAT = (
       r'(?P<date>\S*) +(?P<time>\S*) +(?P<proc_id>%s) +(?P<thread_id>%s) +'
       r'(?P<log_level>%s) +(?P<component>%s) *: +(?P<message>%s)$')
 
-  def __init__(self, adb, clear=True, filter_specs=None, output_file=None,
-               transform_func=None, check_error=True):
+  def __init__(self,
+               adb,
+               clear=True,
+               filter_specs=None,
+               output_file=None,
+               transform_func=None,
+               check_error=True):
     """Create a LogcatMonitor instance.
 
     Args:
@@ -63,7 +70,10 @@ class LogcatMonitor(object):
     return self._output_file
 
   @decorators.WithTimeoutAndRetriesDefaults(10, 0)
-  def WaitFor(self, success_regex, failure_regex=None, timeout=None,
+  def WaitFor(self,
+              success_regex,
+              failure_regex=None,
+              timeout=None,
               retries=None):
     """Wait for a matching logcat line or until a timeout occurs.
 
@@ -94,9 +104,9 @@ class LogcatMonitor(object):
       raise LogcatMonitorCommandError(
           'Must be recording logcat when calling |WaitFor|',
           device_serial=str(self._adb))
-    if isinstance(success_regex, basestring):
+    if isinstance(success_regex, six.string_types):
       success_regex = re.compile(success_regex)
-    if isinstance(failure_regex, basestring):
+    if isinstance(failure_regex, six.string_types):
       failure_regex = re.compile(failure_regex)
 
     logger.debug('Waiting %d seconds for "%s"', timeout, success_regex.pattern)
@@ -118,7 +128,11 @@ class LogcatMonitor(object):
         else:
           time.sleep(self._WAIT_TIME)
 
-  def FindAll(self, message_regex, proc_id=None, thread_id=None, log_level=None,
+  def FindAll(self,
+              message_regex,
+              proc_id=None,
+              thread_id=None,
+              log_level=None,
               component=None):
     """Finds all lines in the logcat that match the provided constraints.
 
@@ -153,8 +167,8 @@ class LogcatMonitor(object):
       component = r'[^\s:]+'
     # pylint: disable=protected-access
     threadtime_re = re.compile(
-        type(self).THREADTIME_RE_FORMAT % (
-            proc_id, thread_id, log_level, component, message_regex))
+        type(self).THREADTIME_RE_FORMAT % (proc_id, thread_id, log_level,
+                                           component, message_regex))
 
     with open(self._record_file.name, 'r') as f:
       for line in f:
@@ -168,6 +182,7 @@ class LogcatMonitor(object):
     Function spawns a thread that records logcat to file and will not die
     until |StopRecording| is called.
     """
+
     def record_to_file():
       # Write the log with line buffering so the consumer sees each individual
       # line.
@@ -207,10 +222,14 @@ class LogcatMonitor(object):
 
     Clears the logcat if |clear| was set in |__init__|.
     """
+    # pylint: disable=unexpected-keyword-arg
     if self._clear:
       self._adb.Logcat(clear=True)
     if not self._record_file:
-      self._record_file = tempfile.NamedTemporaryFile(mode='a', bufsize=1)
+      if six.PY2:
+        self._record_file = tempfile.NamedTemporaryFile(mode='a', bufsize=1)
+      else:
+        self._record_file = tempfile.NamedTemporaryFile(mode='a', buffering=1)
     self._StartRecording()
 
   def Stop(self):
@@ -259,8 +278,7 @@ class LogcatMonitor(object):
     """Closes logcat recording file in case |Close| was never called."""
     with self._record_file_lock:
       if self._record_file:
-        logger.warning(
-            'Need to call |Close| on the logcat monitor when done!')
+        logger.warning('Need to call |Close| on the logcat monitor when done!')
         self._record_file.close()
 
   @property

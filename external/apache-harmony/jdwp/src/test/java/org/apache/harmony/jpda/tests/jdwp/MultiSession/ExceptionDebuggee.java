@@ -39,27 +39,27 @@ public class ExceptionDebuggee extends SyncDebuggee {
     public static void main(String[] args) {
         runDebuggee(ExceptionDebuggee.class);
     }
-    
+
     @Override
     public void run(){
-        
+
         logWriter.println("--> ExceptionDebuggee: STARTED");
         // load and prepare DebuggeeException class
-        DebuggeeException ex = new DebuggeeException("dummy exception");
-        
+        DebuggeeException ex = new DebuggeeException("fake exception");
+
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        
+
         logWriter.println("--> ExceptionDebuggee: Wait for SGNL_CONTINUE...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
         logWriter.println("--> ExceptionDebuggee: SGNL_CONTINUE has been received!");
-        
+
         try {
             // throw caught exception
             throw new DebuggeeException("Caught debuggee exception");
         } catch (DebuggeeException e) {
             logWriter.println("-- ExceptionDebuggee: Exception: \""+e.getMessage()+"\" was thrown");
         }
-        
+
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         logWriter.println("DUMP{" + ex + "}");

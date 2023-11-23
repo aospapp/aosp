@@ -15,10 +15,10 @@
 # Description:
 #   Tests for Dagger's Android and Support library integrations
 
-package(default_visibility = ["//:src"])
-
 load("//:build_defs.bzl", "DOCLINT_HTML_AND_SYNTAX")
 load("//:test_defs.bzl", "GenRobolectricTests")
+
+package(default_visibility = ["//:src"])
 
 GenRobolectricTests(
     name = "android-support-tests",
@@ -29,10 +29,12 @@ GenRobolectricTests(
         "//:dagger_with_compiler",
         "//java/dagger/android",
         "//java/dagger/android/support",
-        "@androidsdk//com.android.support:appcompat-v7-25.0.0",
-        "@androidsdk//com.android.support:support-fragment-25.0.0",
-        "@google_bazel_common//third_party/java/guava",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
+        "//java/dagger/internal/guava:concurrent",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/truth",
+        "@maven//:androidx_appcompat_appcompat",
+        "@maven//:androidx_fragment_fragment",
     ],
 )

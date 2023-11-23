@@ -101,7 +101,7 @@ static int rewrite_checksums;
 static int feature_64bit;
 static int fsck_requested;
 static char *undo_file;
-static int enabling_casefold;
+int enabling_casefold;
 
 int journal_size, journal_flags;
 char *journal_device;
@@ -2029,7 +2029,7 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 	char	*buf, *token, *next, *p, *arg;
 	int	len, hash_alg;
 	int	r_usage = 0;
-	int	encoding = 0;
+	int encoding = 0;
 	char	*encoding_flags = NULL;
 
 	len = strlen(opts);

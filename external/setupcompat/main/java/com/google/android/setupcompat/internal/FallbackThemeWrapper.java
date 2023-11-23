@@ -18,8 +18,8 @@ package com.google.android.setupcompat.internal;
 
 import android.content.Context;
 import android.content.res.Resources.Theme;
-import androidx.annotation.StyleRes;
 import android.view.ContextThemeWrapper;
+import androidx.annotation.StyleRes;
 
 /**
  * Same as {@link ContextThemeWrapper}, but the base context's theme attributes take precedence over

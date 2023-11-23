@@ -25,7 +25,7 @@ mkdir -p $DIR/pyconfig
 cd $DIR
 
 if [ $DIR == "linux_x86_64" ]; then
-  export CC="$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-r365631c/bin/clang"
+  export CC="$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-r399163b/bin/clang"
   export CFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot"
   export LDFLAGS="--sysroot=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/sysroot -B$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/lib/gcc/x86_64-linux/4.8.3 -L$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/lib/gcc/x86_64-linux/4.8.3 -L$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/x86_64-linux/lib64"
 fi
@@ -39,9 +39,16 @@ cd tmp
 ../../../configure
 
 if [ $DIR == "darwin_x86_64" ]; then
+  # getentropy is not safe on <10.12, which we still target
+  sed -ibak "s%#define HAVE_GETENTROPY 1%/* #undef HAVE_GETENTROPY */%" pyconfig.h
   # utimensat and futimens are not safe on <10.13, which we still target
   sed -ibak "s%#define HAVE_UTIMENSAT 1%/* #undef HAVE_UTIMENSAT */%" pyconfig.h
   sed -ibak "s%#define HAVE_FUTIMENS 1%/* #undef HAVE_FUTIMENS */%" pyconfig.h
+  # preadv and pwritev are not safe on <11, which we still target
+  sed -ibak "s%#define HAVE_PREADV 1%/* #undef HAVE_PREADV */%" pyconfig.h
+  sed -ibak "s%#define HAVE_PWRITEV 1%/* #undef HAVE_PWRITEV */%" pyconfig.h
+  # _dyld_shared_cache_contains_path is not safe on <11, which we still target
+  sed -ibak "s%#define HAVE_DYLD_SHARED_CACHE_CONTAINS_PATH 1%/* #undef HAVE_DYLD_SHARED_CACHE_CONTAINS_PATH */%" pyconfig.h
 fi
 
 cp pyconfig.h ../pyconfig/

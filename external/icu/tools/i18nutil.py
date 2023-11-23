@@ -34,5 +34,5 @@ def SwitchToNewTemporaryDirectory():
   tmp_dir = tempfile.mkdtemp('-i18n')
   os.chdir(tmp_dir)
   print('Created temporary directory "%s"...' % tmp_dir)
-
+  return tmp_dir
 

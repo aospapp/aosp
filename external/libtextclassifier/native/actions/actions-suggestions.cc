@@ -17,44 +17,32 @@
 #include "actions/actions-suggestions.h"
 
 #include <memory>
+#include <vector>
 
+#include "utils/base/statusor.h"
+
+#if !defined(TC3_DISABLE_LUA)
 #include "actions/lua-actions.h"
+#endif
+#include "actions/ngram-model.h"
+#include "actions/tflite-sensitive-model.h"
 #include "actions/types.h"
 #include "actions/utils.h"
 #include "actions/zlib-utils.h"
 #include "annotator/collections.h"
 #include "utils/base/logging.h"
-#include "utils/flatbuffers.h"
+#if !defined(TC3_DISABLE_LUA)
 #include "utils/lua-utils.h"
+#endif
 #include "utils/normalization.h"
 #include "utils/optional.h"
 #include "utils/strings/split.h"
 #include "utils/strings/stringpiece.h"
+#include "utils/strings/utf8.h"
 #include "utils/utf8/unicodetext.h"
 #include "tensorflow/lite/string_util.h"
 
 namespace libtextclassifier3 {
-
-const std::string& ActionsSuggestions::kViewCalendarType =
-    *[]() { return new std::string("view_calendar"); }();
-const std::string& ActionsSuggestions::kViewMapType =
-    *[]() { return new std::string("view_map"); }();
-const std::string& ActionsSuggestions::kTrackFlightType =
-    *[]() { return new std::string("track_flight"); }();
-const std::string& ActionsSuggestions::kOpenUrlType =
-    *[]() { return new std::string("open_url"); }();
-const std::string& ActionsSuggestions::kSendSmsType =
-    *[]() { return new std::string("send_sms"); }();
-const std::string& ActionsSuggestions::kCallPhoneType =
-    *[]() { return new std::string("call_phone"); }();
-const std::string& ActionsSuggestions::kSendEmailType =
-    *[]() { return new std::string("send_email"); }();
-const std::string& ActionsSuggestions::kShareLocation =
-    *[]() { return new std::string("share_location"); }();
-
-// Name for a datetime annotation that only includes time but no date.
-const std::string& kTimeAnnotation =
-    *[]() { return new std::string("time"); }();
 
 constexpr float kDefaultFloat = 0.0;
 constexpr bool kDefaultBool = false;
@@ -89,6 +77,36 @@ int NumMessagesToConsider(const Conversation& conversation,
               : max_conversation_history_length);
 }
 
+template <typename T>
+std::vector<T> PadOrTruncateToTargetLength(const std::vector<T>& inputs,
+                                           const int max_length,
+                                           const T pad_value) {
+  if (inputs.size() >= max_length) {
+    return std::vector<T>(inputs.begin(), inputs.begin() + max_length);
+  } else {
+    std::vector<T> result;
+    result.reserve(max_length);
+    result.insert(result.begin(), inputs.begin(), inputs.end());
+    result.insert(result.end(), max_length - inputs.size(), pad_value);
+    return result;
+  }
+}
+
+template <typename T>
+void SetVectorOrScalarAsModelInput(
+    const int param_index, const Variant& param_value,
+    tflite::Interpreter* interpreter,
+    const std::unique_ptr<const TfLiteModelExecutor>& model_executor) {
+  if (param_value.Has<std::vector<T>>()) {
+    model_executor->SetInput<T>(
+        param_index, param_value.ConstRefValue<std::vector<T>>(), interpreter);
+  } else if (param_value.Has<T>()) {
+    model_executor->SetInput<float>(param_index, param_value.Value<T>(),
+                                    interpreter);
+  } else {
+    TC3_LOG(ERROR) << "Variant type error!";
+  }
+}
 }  // namespace
 
 std::unique_ptr<ActionsSuggestions> ActionsSuggestions::FromUnownedBuffer(
@@ -285,7 +303,7 @@ bool ActionsSuggestions::ValidateAndInitialize() {
     }
 
     entity_data_builder_.reset(
-        new ReflectiveFlatbufferBuilder(entity_data_schema_));
+        new MutableFlatbufferBuilder(entity_data_schema_));
   } else {
     entity_data_schema_ = nullptr;
   }
@@ -321,6 +339,7 @@ bool ActionsSuggestions::ValidateAndInitialize() {
     }
   }
 
+#if !defined(TC3_DISABLE_LUA)
   std::string actions_script;
   if (GetUncompressedString(model_->lua_actions_script(),
                             model_->compressed_lua_actions_script(),
@@ -331,6 +350,7 @@ bool ActionsSuggestions::ValidateAndInitialize() {
       return false;
     }
   }
+#endif  // TC3_DISABLE_LUA
 
   if (!(ranker_ = ActionsSuggestionsRanker::CreateActionsSuggestionsRanker(
             model_->ranking_options(), decompressor.get(),
@@ -370,12 +390,20 @@ bool ActionsSuggestions::ValidateAndInitialize() {
 
   // Create low confidence model if specified.
   if (model_->low_confidence_ngram_model() != nullptr) {
-    ngram_model_ = NGramModel::Create(
+    sensitive_model_ = NGramSensitiveModel::Create(
         unilib_, model_->low_confidence_ngram_model(),
         feature_processor_ == nullptr ? nullptr
                                       : feature_processor_->tokenizer());
-    if (ngram_model_ == nullptr) {
+    if (sensitive_model_ == nullptr) {
       TC3_LOG(ERROR) << "Could not create ngram linear regression model.";
+      return false;
+    }
+  }
+  if (model_->low_confidence_tflite_model() != nullptr) {
+    sensitive_model_ =
+        TFLiteSensitiveModel::Create(model_->low_confidence_tflite_model());
+    if (sensitive_model_ == nullptr) {
+      TC3_LOG(ERROR) << "Could not create TFLite sensitive model.";
       return false;
     }
   }
@@ -654,8 +682,17 @@ bool ActionsSuggestions::SetupModelInput(
     return false;
   }
   if (model_->tflite_model_spec()->input_context() >= 0) {
-    model_executor_->SetInput<std::string>(
-        model_->tflite_model_spec()->input_context(), context, interpreter);
+    if (model_->tflite_model_spec()->input_length_to_pad() > 0) {
+      model_executor_->SetInput<std::string>(
+          model_->tflite_model_spec()->input_context(),
+          PadOrTruncateToTargetLength(
+              context, model_->tflite_model_spec()->input_length_to_pad(),
+              std::string("")),
+          interpreter);
+    } else {
+      model_executor_->SetInput<std::string>(
+          model_->tflite_model_spec()->input_context(), context, interpreter);
+    }
   }
   if (model_->tflite_model_spec()->input_context_length() >= 0) {
     model_executor_->SetInput<int>(
@@ -663,8 +700,16 @@ bool ActionsSuggestions::SetupModelInput(
         interpreter);
   }
   if (model_->tflite_model_spec()->input_user_id() >= 0) {
-    model_executor_->SetInput<int>(model_->tflite_model_spec()->input_user_id(),
-                                   user_ids, interpreter);
+    if (model_->tflite_model_spec()->input_length_to_pad() > 0) {
+      model_executor_->SetInput<int>(
+          model_->tflite_model_spec()->input_user_id(),
+          PadOrTruncateToTargetLength(
+              user_ids, model_->tflite_model_spec()->input_length_to_pad(), 0),
+          interpreter);
+    } else {
+      model_executor_->SetInput<int>(
+          model_->tflite_model_spec()->input_user_id(), user_ids, interpreter);
+    }
   }
   if (model_->tflite_model_spec()->input_num_suggestions() >= 0) {
     model_executor_->SetInput<int>(
@@ -710,16 +755,24 @@ bool ActionsSuggestions::SetupModelInput(
       const bool has_value = param_value_it != model_parameters.end();
       switch (param_type) {
         case kTfLiteFloat32:
-          model_executor_->SetInput<float>(
-              param_index,
-              has_value ? param_value_it->second.Value<float>() : kDefaultFloat,
-              interpreter);
+          if (has_value) {
+            SetVectorOrScalarAsModelInput<float>(param_index,
+                                                 param_value_it->second,
+                                                 interpreter, model_executor_);
+          } else {
+            model_executor_->SetInput<float>(param_index, kDefaultFloat,
+                                             interpreter);
+          }
           break;
         case kTfLiteInt32:
-          model_executor_->SetInput<int32_t>(
-              param_index,
-              has_value ? param_value_it->second.Value<int>() : kDefaultInt,
-              interpreter);
+          if (has_value) {
+            SetVectorOrScalarAsModelInput<int32_t>(
+                param_index, param_value_it->second, interpreter,
+                model_executor_);
+          } else {
+            model_executor_->SetInput<int32_t>(param_index, kDefaultInt,
+                                               interpreter);
+          }
           break;
         case kTfLiteInt64:
           model_executor_->SetInput<int64_t>(
@@ -777,7 +830,7 @@ void ActionsSuggestions::PopulateTextReplies(
 
 void ActionsSuggestions::FillSuggestionFromSpecWithEntityData(
     const ActionSuggestionSpec* spec, ActionSuggestion* suggestion) const {
-  std::unique_ptr<ReflectiveFlatbuffer> entity_data =
+  std::unique_ptr<MutableFlatbuffer> entity_data =
       entity_data_builder_ != nullptr ? entity_data_builder_->NewRoot()
                                       : nullptr;
   FillSuggestionFromSpec(spec, entity_data.get(), suggestion);
@@ -806,7 +859,7 @@ void ActionsSuggestions::PopulateIntentTriggering(
 
   if (triggering) {
     ActionSuggestion suggestion;
-    std::unique_ptr<ReflectiveFlatbuffer> entity_data =
+    std::unique_ptr<MutableFlatbuffer> entity_data =
         entity_data_builder_ != nullptr ? entity_data_builder_->NewRoot()
                                         : nullptr;
     FillSuggestionFromSpecWithEntityData(task_spec, &suggestion);
@@ -844,13 +897,12 @@ bool ActionsSuggestions::ReadModelOutput(
       return false;
     }
     response->sensitivity_score = sensitive_topic_score.data()[0];
-    response->output_filtered_sensitivity =
-        (response->sensitivity_score >
-         preconditions_.max_sensitive_topic_score);
+    response->is_sensitive = (response->sensitivity_score >
+                              preconditions_.max_sensitive_topic_score);
   }
 
   // Suppress model outputs.
-  if (response->output_filtered_sensitivity) {
+  if (response->is_sensitive) {
     return true;
   }
 
@@ -881,7 +933,7 @@ bool ActionsSuggestions::ReadModelOutput(
       // Create action from model output.
       ActionSuggestion suggestion;
       suggestion.type = action_type->name()->str();
-      std::unique_ptr<ReflectiveFlatbuffer> entity_data =
+      std::unique_ptr<MutableFlatbuffer> entity_data =
           entity_data_builder_ != nullptr ? entity_data_builder_->NewRoot()
                                           : nullptr;
       FillSuggestionFromSpecWithEntityData(action_type->action(), &suggestion);
@@ -931,6 +983,12 @@ bool ActionsSuggestions::SuggestActionsFromModel(
     ActionsSuggestionsResponse* response,
     std::unique_ptr<tflite::Interpreter>* interpreter) const {
   TC3_CHECK_LE(num_messages, conversation.messages.size());
+
+  if (sensitive_model_ != nullptr &&
+      sensitive_model_->EvalConversation(conversation, num_messages).first) {
+    response->is_sensitive = true;
+    return true;
+  }
 
   if (!model_executor_) {
     return true;
@@ -987,6 +1045,18 @@ bool ActionsSuggestions::SuggestActionsFromModel(
   return ReadModelOutput(interpreter->get(), options, response);
 }
 
+Status ActionsSuggestions::SuggestActionsFromConversationIntentDetection(
+    const Conversation& conversation, const ActionSuggestionOptions& options,
+    std::vector<ActionSuggestion>* actions) const {
+  TC3_ASSIGN_OR_RETURN(
+      std::vector<ActionSuggestion> new_actions,
+      conversation_intent_detection_->SuggestActions(conversation, options));
+  for (auto& action : new_actions) {
+    actions->push_back(std::move(action));
+  }
+  return Status::OK;
+}
+
 AnnotationOptions ActionsSuggestions::AnnotationOptionsForMessage(
     const ConversationMessage& message) const {
   AnnotationOptions options;
@@ -1036,30 +1106,7 @@ Conversation ActionsSuggestions::AnnotateConversation(
     if (message->annotations.empty()) {
       message->annotations = annotator->Annotate(
           message->text, AnnotationOptionsForMessage(*message));
-      for (int i = 0; i < message->annotations.size(); i++) {
-        ClassificationResult* classification =
-            &message->annotations[i].classification.front();
-
-        // Specialize datetime annotation to time annotation if no date
-        // component is present.
-        if (classification->collection == Collections::DateTime() &&
-            classification->datetime_parse_result.IsSet()) {
-          bool has_only_time = true;
-          for (const DatetimeComponent& component :
-               classification->datetime_parse_result.datetime_components) {
-            if (component.component_type !=
-                    DatetimeComponent::ComponentType::UNSPECIFIED &&
-                component.component_type <
-                    DatetimeComponent::ComponentType::HOUR) {
-              has_only_time = false;
-              break;
-            }
-          }
-          if (has_only_time) {
-            classification->collection = kTimeAnnotation;
-          }
-        }
-      }
+      ConvertDatetimeToTime(&message->annotations);
     }
   }
   return annotated_conversation;
@@ -1160,7 +1207,7 @@ void ActionsSuggestions::SuggestActionsFromAnnotation(
         continue;
       }
 
-      std::unique_ptr<ReflectiveFlatbuffer> entity_data =
+      std::unique_ptr<MutableFlatbuffer> entity_data =
           entity_data_builder_ != nullptr ? entity_data_builder_->NewRoot()
                                           : nullptr;
 
@@ -1220,6 +1267,7 @@ std::vector<int> ActionsSuggestions::DeduplicateAnnotations(
   return result;
 }
 
+#if !defined(TC3_DISABLE_LUA)
 bool ActionsSuggestions::SuggestActionsFromLua(
     const Conversation& conversation, const TfLiteModelExecutor* model_executor,
     const tflite::Interpreter* interpreter,
@@ -1238,6 +1286,15 @@ bool ActionsSuggestions::SuggestActionsFromLua(
   }
   return lua_actions->SuggestActions(actions);
 }
+#else
+bool ActionsSuggestions::SuggestActionsFromLua(
+    const Conversation& conversation, const TfLiteModelExecutor* model_executor,
+    const tflite::Interpreter* interpreter,
+    const reflection::Schema* annotation_entity_data_schema,
+    std::vector<ActionSuggestion>* actions) const {
+  return true;
+}
+#endif
 
 bool ActionsSuggestions::GatherActionsSuggestions(
     const Conversation& conversation, const Annotator* annotator,
@@ -1305,10 +1362,7 @@ bool ActionsSuggestions::GatherActionsSuggestions(
 
   std::vector<const UniLib::RegexPattern*> post_check_rules;
   if (preconditions_.suppress_on_low_confidence_input) {
-    if ((ngram_model_ != nullptr &&
-         ngram_model_->EvalConversation(annotated_conversation,
-                                        num_messages)) ||
-        regex_actions_->IsLowConfidenceInput(annotated_conversation,
+    if (regex_actions_->IsLowConfidenceInput(annotated_conversation,
                                              num_messages, &post_check_rules)) {
       response->output_filtered_low_confidence = true;
       return true;
@@ -1322,10 +1376,22 @@ bool ActionsSuggestions::GatherActionsSuggestions(
     return false;
   }
 
+  // SuggestActionsFromModel also detects if the conversation is sensitive,
+  // either by using the old ngram model or the new model.
   // Suppress all predictions if the conversation was deemed sensitive.
-  if (preconditions_.suppress_on_sensitive_topic &&
-      response->output_filtered_sensitivity) {
+  if (preconditions_.suppress_on_sensitive_topic && response->is_sensitive) {
     return true;
+  }
+
+  if (conversation_intent_detection_) {
+    // TODO(zbin): Ensure the deduplication/ranking logic in ranker.cc works.
+    auto actions = SuggestActionsFromConversationIntentDetection(
+        annotated_conversation, options, &response->actions);
+    if (!actions.ok()) {
+      TC3_LOG(ERROR) << "Could not run conversation intent detection: "
+                     << actions.error_message();
+      return false;
+    }
   }
 
   if (!SuggestActionsFromLua(
@@ -1363,6 +1429,21 @@ ActionsSuggestionsResponse ActionsSuggestions::SuggestActions(
     if (conversation.messages[i].reference_time_ms_utc <
         conversation.messages[i - 1].reference_time_ms_utc) {
       TC3_LOG(ERROR) << "Messages are not sorted most recent last.";
+      return response;
+    }
+  }
+
+  // Check that messages are valid utf8.
+  for (const ConversationMessage& message : conversation.messages) {
+    if (message.text.size() > std::numeric_limits<int>::max()) {
+      TC3_LOG(ERROR) << "Rejecting too long input: " << message.text.size();
+      return {};
+    }
+
+    if (!unilib_->IsValidUtf8(UTF8ToUnicodeText(
+            message.text.data(), message.text.size(), /*do_copy=*/false))) {
+      TC3_LOG(ERROR) << "Not valid utf8 provided.";
+      return response;
     }
   }
 
@@ -1395,6 +1476,18 @@ const ActionsModel* ViewActionsModel(const void* buffer, int size) {
     return nullptr;
   }
   return LoadAndVerifyModel(reinterpret_cast<const uint8_t*>(buffer), size);
+}
+
+bool ActionsSuggestions::InitializeConversationIntentDetection(
+    const std::string& serialized_config) {
+  auto conversation_intent_detection =
+      std::make_unique<ConversationIntentDetection>();
+  if (!conversation_intent_detection->Initialize(serialized_config).ok()) {
+    TC3_LOG(ERROR) << "Failed to initialize conversation intent detection.";
+    return false;
+  }
+  conversation_intent_detection_ = std::move(conversation_intent_detection);
+  return true;
 }
 
 }  // namespace libtextclassifier3

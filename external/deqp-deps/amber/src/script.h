@@ -15,6 +15,7 @@
 #ifndef SRC_SCRIPT_H_
 #define SRC_SCRIPT_H_
 
+#include <algorithm>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -29,7 +30,9 @@
 #include "src/engine.h"
 #include "src/format.h"
 #include "src/pipeline.h"
+#include "src/sampler.h"
 #include "src/shader.h"
+#include "src/virtual_file_store.h"
 
 namespace amber {
 
@@ -130,10 +133,39 @@ class Script : public RecipeImpl {
     return buffers_;
   }
 
+  /// Adds |sampler| to the list of known sampler. The |sampler| must have a
+  /// unique name over all samplers in the script.
+  Result AddSampler(std::unique_ptr<Sampler> sampler) {
+    if (name_to_sampler_.count(sampler->GetName()) > 0)
+      return Result("duplicate sampler name provided");
+
+    samplers_.push_back(std::move(sampler));
+    name_to_sampler_[samplers_.back()->GetName()] = samplers_.back().get();
+    return {};
+  }
+
+  /// Retrieves the sampler with |name|, |nullptr| if not found.
+  Sampler* GetSampler(const std::string& name) const {
+    auto it = name_to_sampler_.find(name);
+    return it == name_to_sampler_.end() ? nullptr : it->second;
+  }
+
+  /// Retrieves a list of all samplers.
+  const std::vector<std::unique_ptr<Sampler>>& GetSamplers() const {
+    return samplers_;
+  }
+
   /// Adds |feature| to the list of features that must be supported by the
   /// engine.
   void AddRequiredFeature(const std::string& feature) {
     engine_info_.required_features.push_back(feature);
+  }
+
+  /// Checks if |feature| is in required features
+  bool IsRequiredFeature(const std::string& feature) const {
+    return std::find(engine_info_.required_features.begin(),
+                     engine_info_.required_features.end(),
+                     feature) != engine_info_.required_features.end();
   }
 
   /// Adds |ext| to the list of device extensions that must be supported.
@@ -199,6 +231,22 @@ class Script : public RecipeImpl {
     return it == name_to_type_.end() ? nullptr : it->second.get();
   }
 
+  // Returns the virtual file store.
+  VirtualFileStore* GetVirtualFiles() const { return virtual_files_.get(); }
+
+  /// Adds the virtual file with content |content| to the virtual file path
+  /// |path|. If there's already a virtual file with the given path, an error is
+  /// returned.
+  Result AddVirtualFile(const std::string& path, const std::string& content) {
+    return virtual_files_->Add(path, content);
+  }
+
+  /// Look up the virtual file by path. If the file was found, the content is
+  /// assigned to content.
+  Result GetVirtualFile(const std::string& path, std::string* content) const {
+    return virtual_files_->Get(path, content);
+  }
+
   type::Type* ParseType(const std::string& str);
 
  private:
@@ -212,14 +260,17 @@ class Script : public RecipeImpl {
   std::string spv_env_;
   std::map<std::string, Shader*> name_to_shader_;
   std::map<std::string, Buffer*> name_to_buffer_;
+  std::map<std::string, Sampler*> name_to_sampler_;
   std::map<std::string, Pipeline*> name_to_pipeline_;
   std::map<std::string, std::unique_ptr<type::Type>> name_to_type_;
   std::vector<std::unique_ptr<Shader>> shaders_;
   std::vector<std::unique_ptr<Command>> commands_;
   std::vector<std::unique_ptr<Buffer>> buffers_;
+  std::vector<std::unique_ptr<Sampler>> samplers_;
   std::vector<std::unique_ptr<Pipeline>> pipelines_;
   std::vector<std::unique_ptr<type::Type>> types_;
   std::vector<std::unique_ptr<Format>> formats_;
+  std::unique_ptr<VirtualFileStore> virtual_files_;
 };
 
 }  // namespace amber

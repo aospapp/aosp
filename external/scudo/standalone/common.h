@@ -133,6 +133,8 @@ const char *getEnv(const char *Name);
 
 u64 getMonotonicTime();
 
+u32 getThreadID();
+
 // Our randomness gathering function is limited to 256 bytes to ensure we get
 // as many bytes as requested, and avoid interruptions (on Linux).
 constexpr uptr MaxRandomLength = 256U;
@@ -163,15 +165,45 @@ void *map(void *Addr, uptr Size, const char *Name, uptr Flags = 0,
 void unmap(void *Addr, uptr Size, uptr Flags = 0,
            MapPlatformData *Data = nullptr);
 
+void setMemoryPermission(uptr Addr, uptr Size, uptr Flags,
+                         MapPlatformData *Data = nullptr);
+
 void releasePagesToOS(uptr BaseAddress, uptr Offset, uptr Size,
                       MapPlatformData *Data = nullptr);
 
-// Internal map & unmap fatal error. This must not call map().
-void NORETURN dieOnMapUnmapError(bool OutOfMemory = false);
+// Internal map & unmap fatal error. This must not call map(). SizeIfOOM shall
+// hold the requested size on an out-of-memory error, 0 otherwise.
+void NORETURN dieOnMapUnmapError(uptr SizeIfOOM = 0);
 
 // Logging related functions.
 
 void setAbortMessage(const char *Message);
+
+struct BlockInfo {
+  uptr BlockBegin;
+  uptr BlockSize;
+  uptr RegionBegin;
+  uptr RegionEnd;
+};
+
+enum class Option : u8 {
+  ReleaseInterval,      // Release to OS interval in milliseconds.
+  MemtagTuning,         // Whether to tune tagging for UAF or overflow.
+  ThreadDisableMemInit, // Whether to disable automatic heap initialization and,
+                        // where possible, memory tagging, on this thread.
+  MaxCacheEntriesCount, // Maximum number of blocks that can be cached.
+  MaxCacheEntrySize,    // Maximum size of a block that can be cached.
+  MaxTSDsCount,         // Number of usable TSDs for the shared registry.
+};
+
+constexpr unsigned char PatternFillByte = 0xAB;
+
+enum FillContentsMode {
+  NoFill = 0,
+  ZeroFill = 1,
+  PatternOrZeroFill = 2 // Pattern fill unless the memory is known to be
+                        // zero-initialized already.
+};
 
 } // namespace scudo
 

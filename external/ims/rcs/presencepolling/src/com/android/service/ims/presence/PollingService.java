@@ -209,6 +209,7 @@ public class PollingService extends Service {
             logger.info("Starting CapabilityPolling...");
             mCapabilityPolling = CapabilityPolling.getInstance(this);
             mCapabilityPolling.start();
+            mCapabilityPolling.handleDefaultSubscriptionChanged(mDefaultSubId);
         }
     }
 

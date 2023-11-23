@@ -2,17 +2,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import ast
+from __future__ import print_function
+
 import ctypes
 import logging
 import os
 import pprint
 import re
+import StringIO
 import time
 import uuid
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.common_lib.cros import tpm_utils
 from autotest_lib.server import test
 from autotest_lib.server.cros import vboot_constants as vboot
@@ -20,44 +24,42 @@ from autotest_lib.server.cros.faft.utils.config import Config as FAFTConfig
 from autotest_lib.server.cros.faft.rpc_proxy import RPCProxy
 from autotest_lib.server.cros.faft.utils import mode_switcher
 from autotest_lib.server.cros.faft.utils.faft_checkers import FAFTCheckers
+from autotest_lib.server.cros.power import utils as PowerUtils
 from autotest_lib.server.cros.servo import chrome_base_ec
 from autotest_lib.server.cros.servo import chrome_cr50
 from autotest_lib.server.cros.servo import chrome_ec
 from autotest_lib.server.cros.servo import servo
+from autotest_lib.server.cros.faft import telemetry
+
+# Experimentally tuned time in minutes to wait for partition device nodes on a
+# USB stick to be ready after plugging in the stick.
+PARTITION_TABLE_READINESS_TIMEOUT = 0.1  # minutes
+# Experimentally tuned time in seconds to wait for the first retry of reading
+# the sysfs node of a USB stick's partition device node.
+PARTITION_TABLE_READINESS_FIRST_RETRY_DELAY = 1  # seconds
 
 ConnectionError = mode_switcher.ConnectionError
 
 
-class FAFTBase(test.test):
-    """The base class of FAFT classes.
+class FirmwareTest(test.test):
+    """
+    Base class that sets up helper objects/functions for firmware tests.
 
     It launches the FAFTClient on DUT, such that the test can access its
     firmware functions and interfaces. It also provides some methods to
     handle the reboot mechanism, in order to ensure FAFTClient is still
     connected after reboot.
     @type servo: servo.Servo
-    """
-    def initialize(self, host):
-        """Create a FAFTClient object and install the dependency."""
-
-        self.servo = host.servo
-
-        # Rotate old logs out of the way before test starts, to avoid noise.
-        self.servo.rotate_servod_logs(filename=None)
-        self.servo.initialize_dut()
-
-        self._client = host
-        self.faft_client = RPCProxy(host)
-        self.lockfile = '/usr/local/tmp/faft/lock'
-
-
-class FirmwareTest(FAFTBase):
-    """
-    Base class that sets up helper objects/functions for firmware tests.
+    @type _client: autotest_lib.server.hosts.ssh_host.SSHHost |
+                   autotest_lib.server.hosts.cros_host.CrosHost
 
     TODO: add documentaion as the FAFT rework progresses.
     """
     version = 1
+
+    # Set this to True in test classes that need to boot from the USB stick.
+    # When True, initialize() will raise TestWarn if USB stick is marked bad.
+    NEEDS_SERVO_USB = False
 
     # Mapping of partition number of kernel and rootfs.
     KERNEL_MAP = {'a':'2', 'b':'4', '2':'2', '4':'4', '3':'2', '5':'4'}
@@ -68,6 +70,14 @@ class FirmwareTest(FAFTBase):
     CHROMEOS_MAGIC = "CHROMEOS"
     CORRUPTED_MAGIC = "CORRUPTD"
 
+    # System power states
+    POWER_STATE_S0 = 'S0'
+    POWER_STATE_S0IX = 'S0ix'
+    POWER_STATE_S3 = 'S3'
+    POWER_STATE_S5 = 'S5'
+    POWER_STATE_G3 = 'G3'
+    POWER_STATE_SUSPEND = '|'.join([POWER_STATE_S0IX, POWER_STATE_S3])
+
     # Delay for waiting client to return before EC suspend
     EC_SUSPEND_DELAY = 5
 
@@ -77,21 +87,18 @@ class FirmwareTest(FAFTBase):
     # Delay between closing and opening lid
     LID_DELAY = 1
 
+    # Delay for establishing state after changing PD settings
+    PD_RESYNC_DELAY = 2
+
+    # The default number of power state check retries (each try takes 3 secs)
+    DEFAULT_PWR_RETRIES = 5
+
     # FWMP space constants
     FWMP_CLEARED_EXIT_STATUS = 1
     FWMP_CLEARED_ERROR_MSG = ('CRYPTOHOME_ERROR_FIRMWARE_MANAGEMENT_PARAMETERS'
                               '_INVALID')
 
-    # UARTs that may be captured
-    UARTS = ('cpu', 'cr50', 'ec', 'servo_micro', 'servo_v4', 'usbpd')
-
     _ROOTFS_PARTITION_NUMBER = 3
-
-    _backup_firmware_identity = dict()
-    _backup_kernel_sha = dict()
-    _backup_cgpt_attr = dict()
-    _backup_gbb_flags = None
-    _backup_dev_mode = None
 
     # Class level variable, keep track the states of one time setup.
     # This variable is preserved across tests which inherit this class.
@@ -100,6 +107,11 @@ class FirmwareTest(FAFTBase):
         'reimage': False,
         'usb_check': False,
     }
+
+    # CCD password used by tests.
+    CCD_PASSWORD = 'Password'
+
+    RESPONSE_TIMEOUT = 180
 
     @classmethod
     def check_setup_done(cls, label):
@@ -126,9 +138,28 @@ class FirmwareTest(FAFTBase):
         cls._global_setup_done[label] = False
 
     def initialize(self, host, cmdline_args, ec_wp=None):
-        super(FirmwareTest, self).initialize(host)
+        """Initialize the FirmwareTest.
+
+        This method interacts with the Servo, FAFT RPC client, FAFT Config,
+        Mode Switcher, EC consoles, write-protection, GBB flags, and a lockfile.
+
+        @type host: autotest_lib.server.hosts.CrosHost
+        """
         self.run_id = str(uuid.uuid4())
+        self._client = host
+        self.servo = host.servo
+
+        self.lockfile = '/usr/local/tmp/faft/lock'
+        self._backup_gbb_flags = None
+        self._backup_firmware_identity = dict()
+        self._backup_kernel_sha = dict()
+        self._backup_cgpt_attr = dict()
+        self._backup_dev_mode = None
+        self._restore_power_mode = None
+        self._uart_file_dict = {}
+
         logging.info('FirmwareTest initialize begin (id=%s)', self.run_id)
+
         # Parse arguments from command line
         args = {}
         self.power_control = host.POWER_CONTROL_RPM
@@ -137,19 +168,29 @@ class FirmwareTest(FAFTBase):
             if match:
                 args[match.group(1)] = match.group(2)
 
+        self._no_fw_rollback_check = False
+        if 'no_fw_rollback_check' in args:
+            if 'true' in args['no_fw_rollback_check'].lower():
+                self._no_fw_rollback_check = True
+
         self._no_ec_sync = False
         if 'no_ec_sync' in args:
             if 'true' in args['no_ec_sync'].lower():
                 self._no_ec_sync = True
 
+        self._use_sync_script = global_config.global_config.get_config_value(
+                'CROS', 'enable_fs_sync_script', type=bool, default=False)
+
+        self.servo.initialize_dut()
+        self.faft_client = RPCProxy(host)
         self.faft_config = FAFTConfig(
                 self.faft_client.system.get_platform_name(),
                 self.faft_client.system.get_model_name())
         self.checkers = FAFTCheckers(self)
-        self.switcher = mode_switcher.create_mode_switcher(self)
 
         if self.faft_config.chrome_ec:
             self.ec = chrome_ec.ChromeEC(self.servo)
+        self.switcher = mode_switcher.create_mode_switcher(self)
         # Check for presence of a USBPD console
         if self.faft_config.chrome_usbpd:
             self.usbpd = chrome_ec.ChromeUSBPD(self.servo)
@@ -159,6 +200,18 @@ class FirmwareTest(FAFTBase):
         # Get pdtester console
         self.pdtester = host.pdtester
         self.pdtester_host = host._pdtester_host
+        # Check for presence of a working Cr50 console
+        if self.servo.has_control('cr50_version'):
+            try:
+                # Check that the console works before declaring the cr50 console
+                # connection exists and enabling uart capture.
+                cr50 = chrome_cr50.ChromeCr50(self.servo, self.faft_config)
+                cr50.get_version()
+                self.cr50 = cr50
+            except servo.ControlUnavailableError:
+                logging.warn('cr50 console not supported.')
+            except Exception as e:
+                logging.warn('Ignored unknown cr50 version error: %s', str(e))
 
         if 'power_control' in args:
             self.power_control = args['power_control']
@@ -169,14 +222,24 @@ class FirmwareTest(FAFTBase):
                                       % (host.POWER_CONTROL_VALID_ARGS,
                                          self.power_control))
 
+        if self.NEEDS_SERVO_USB and not host.is_servo_usb_usable():
+            usb_state = host.get_servo_usb_state()
+            raise error.TestWarn(
+                    "Servo USB disk unusable (%s); canceling test." %
+                    usb_state)
+
         if not self.faft_client.system.dev_tpm_present():
             raise error.TestError('/dev/tpm0 does not exist on the client')
+
+        # Initialize servo role to src
+        self.servo.set_servo_v4_role('src')
 
         # Create the BaseEC object. None if not available.
         self.base_ec = chrome_base_ec.create_base_ec(self.servo)
 
-        self._setup_uart_capture()
+        self._record_uart_capture()
         self._record_system_info()
+        self.faft_client.system.set_dev_default_boot()
         self.fw_vboot2 = self.faft_client.system.get_fw_vboot2()
         logging.info('vboot version: %d', 2 if self.fw_vboot2 else 1)
         if self.fw_vboot2:
@@ -194,7 +257,7 @@ class FirmwareTest(FAFTBase):
                         # In this case, try doing a cold_reset instead
                         self.switcher.mode_aware_reboot(reboot_type='cold')
                     else:
-                      raise
+                        raise
 
         # Check flashrom before first use, to avoid xmlrpclib.Fault.
         if not self.faft_client.bios.is_available():
@@ -209,16 +272,89 @@ class FirmwareTest(FAFTBase):
         self._setup_ec_write_protect(ec_wp)
         # See chromium:239034 regarding needing this sync.
         self.blocking_sync()
-        self.servo.rotate_servod_logs('servod.init', self.resultsdir)
         logging.info('FirmwareTest initialize done (id=%s)', self.run_id)
+
+    def stage_build_to_usbkey(self):
+        """Downloads host's build to the USB key attached to servo.
+
+        @return: True if build is verified to be on USB key, False otherwise.
+        """
+        info = self._client.host_info_store.get()
+        if info.build:
+            current_build = self._client._servo_host.validate_image_usbkey()
+            if current_build != info.build:
+                logging.debug('Current build on USB: %s differs from test'
+                              ' build: %s, proceed with download.',
+                              current_build, info.build)
+                try:
+                    self._client.stage_build_to_usb(info.build)
+                    return True
+                except error.AutotestError as e:
+                    logging.warn('Stage build to USB failed, tests that require'
+                                 ' test image on Servo USB may fail: {}'.format(e))
+                    return False
+            else:
+                logging.debug('Current build on USB: %s is same as test'
+                              ' build, skip download.', current_build)
+                return True
+        else:
+            logging.warn('Failed to get build label from the DUT, will use'
+                         ' existing image in Servo USB.')
+            return False
+
+    def run_once(self, *args, **dargs):
+        """Delegates testing to a test method.
+
+        test_name is either the 1st positional argument or a named argument.
+
+        test_name will be mapped to a test method as follows:
+        test_name                     method
+        --------------                -----------
+        <TestClass>                   test
+        <TestClass>.<Case>            test_<Case>
+        <TestClass>.<Case>.<SubCase>  test_<Case>_<SubCase>
+
+        Any arguments not consumed by FirmwareTest are passed to the test method.
+
+        @param test_name: Should be set to NAME in the control file.
+
+        @raise TestError: If test_name wasn't found in args, does not start
+                          with test class, or if the method is not found.
+        """
+        self_name = type(self).__name__
+
+        # Parse and remove test name from args.
+        if 'test_name' in dargs:
+            test_name = dargs.pop('test_name')
+        elif len(args) >= 1:
+            test_name = args[0]
+            args = args[1:]
+        else:
+            raise error.TestError('"%s" class must define run_once, or the'
+                                  ' control file must specify "test_name".' %
+                                  self_name)
+
+        # Check that test_name starts with the test class name.
+        name_parts = test_name.split('.')
+
+        test_class = name_parts.pop(0)
+        if test_class != self_name:
+            raise error.TestError('Class "%s" does not match that found in test'
+                                  ' name "%s"' % (self_name, test_class))
+
+        # Construct and call the test method.
+        method_name = '_'.join(['test'] + name_parts)
+        if not hasattr(self, method_name):
+            raise error.TestError('Method "%s" for testing "%s" not found in'
+                                  ' "%s"' % (method_name, test_name, self_name))
+
+        logging.info('Starting test: "%s"', test_name)
+        utils.cherry_pick_call(getattr(self, method_name), *args, **dargs)
 
     def cleanup(self):
         """Autotest cleanup function."""
         # Unset state checker in case it's set by subclass
         logging.info('FirmwareTest cleaning up (id=%s)', self.run_id)
-
-        # capture servod logs for body of test
-        self.servo.rotate_servod_logs('servod', self.resultsdir)
 
         # Capture UART before doing anything else, so we can guarantee we get
         # some uart results.
@@ -227,30 +363,30 @@ class FirmwareTest(FAFTBase):
         except:
             logging.warn('Failed initial uart capture during cleanup')
 
-        # Discard redundant log messages containing the captured uart text:
-        # ... Servod - DEBUG - servo_server.py:765:get - ec_uart_stream = '...'
-        self.servo.rotate_servod_logs(filename=None)
-
         try:
             self.faft_client.system.is_available()
         except:
             # Remote is not responding. Revive DUT so that subsequent tests
             # don't fail.
             self._restore_routine_from_timeout()
-        self.switcher.restore_mode()
+
+        if hasattr(self, 'switcher'):
+            self.switcher.restore_mode()
+
         self._restore_ec_write_protect()
         self._restore_servo_v4_role()
-        self._restore_gbb_flags()
-        self.faft_client.updater.start_daemon()
-        self.faft_client.updater.cleanup()
-        self._remove_faft_lockfile()
-        self._remove_old_faft_lockfile()
-        self._record_faft_client_log()
-        self.servo.rotate_servod_logs('servod.cleanup', self.resultsdir)
+
+        if hasattr(self, 'faft_client'):
+            self._restore_gbb_flags()
+            self.faft_client.updater.start_daemon()
+            self.faft_client.updater.cleanup()
+            self._remove_faft_lockfile()
+            self._remove_old_faft_lockfile()
+            self._record_faft_client_log()
+            self.faft_client.quit()
 
         # Capture any new uart output, then discard log messages again.
         self._cleanup_uart_capture()
-        self.servo.rotate_servod_logs(filename=None)
 
         super(FirmwareTest, self).cleanup()
         logging.info('FirmwareTest cleanup done (id=%s)', self.run_id)
@@ -275,7 +411,7 @@ class FirmwareTest(FAFTBase):
         system_info.update(self.servo.get_servo_fw_versions())
 
         if hasattr(self, 'cr50'):
-            system_info['cr50_version'] = self.servo.get('cr50_version')
+            system_info['cr50_version'] = self.cr50.get_full_version()
 
         logging.info('System info:\n%s', pprint.pformat(system_info))
         self.write_attr_keyval(system_info)
@@ -296,7 +432,7 @@ class FirmwareTest(FAFTBase):
         """
         recovery_reason = 0
         logging.info('Try to retrieve recovery reason...')
-        if self.servo.get_usbkey_direction() == 'dut':
+        if self.servo.get_usbkey_state() == 'dut':
             self.switcher.bypass_rec_mode()
         else:
             self.servo.switch_usbkey('dut')
@@ -427,18 +563,44 @@ class FirmwareTest(FAFTBase):
         if self.check_setup_done('usb_check'):
             return
         if usb_dev:
-            assert self.servo.get_usbkey_direction() == 'host'
+            assert self.servo.get_usbkey_state() == 'host'
         else:
             self.servo.switch_usbkey('host')
             usb_dev = self.servo.probe_host_usb_dev()
             if not usb_dev:
                 raise error.TestError(
-                        'An USB disk should be plugged in the servo board.')
+                    'An USB disk should be plugged in the servo board. %s' %
+                    telemetry.collect_usb_state(self.servo))
 
         rootfs = '%s%s' % (usb_dev, self._ROOTFS_PARTITION_NUMBER)
         logging.info('usb dev is %s', usb_dev)
         tmpd = self.servo.system_output('mktemp -d -t usbcheck.XXXX')
-        self.servo.system('mount -o ro %s %s' % (rootfs, tmpd))
+        # After the USB key is muxed from the DUT to the servo host, there
+        # appears to be a delay between when servod can confirm that a sysfs
+        # entry exists for the disk (as done by probe_host_usb_dev) and when
+        # sysfs entries get populated for the disk's partitions.
+        @retry.retry(error.AutoservRunError,
+                     timeout_min=PARTITION_TABLE_READINESS_TIMEOUT,
+                     delay_sec=PARTITION_TABLE_READINESS_FIRST_RETRY_DELAY)
+        def confirm_rootfs_partition_device_node_readable():
+            """Repeatedly poll for the RootFS partition sysfs node."""
+            self.servo.system('ls {}'.format(rootfs))
+
+        try:
+            confirm_rootfs_partition_device_node_readable()
+        except error.AutoservRunError as e:
+            usb_info = telemetry.collect_usb_state(self.servo)
+            raise error.TestError(
+                    ('Could not ls the device node for the RootFS on the USB '
+                     'device. %s: %s\nMore telemetry: %s') %
+                    (type(e).__name__, e, usb_info))
+        try:
+            self.servo.system('mount -o ro %s %s' % (rootfs, tmpd))
+        except error.AutoservRunError as e:
+            usb_info = telemetry.collect_usb_state(self.servo)
+            raise error.TestError(
+                ('Could not mount the partition on USB device. %s: %s\n'
+                 'More telemetry: %s') % (type(e).__name__, e, usb_info))
 
         try:
             usb_lsb = self.servo.system_output('cat %s' %
@@ -460,27 +622,57 @@ class FirmwareTest(FAFTBase):
 
         self.mark_setup_done('usb_check')
 
-    def setup_pdtester(self, flip_cc=False):
+    def setup_pdtester(self, flip_cc=False, dts_mode=False, pd_faft=True,
+                       min_batt_level=None):
         """Setup the PDTester to a given state.
 
         @param flip_cc: True to flip CC polarity; False to not flip it.
+        @param dts_mode: True to config PDTester to DTS mode; False to not.
+        @param pd_faft: True to config PD FAFT setup.
+        @param min_batt_level: An int for minimum battery level, or None for
+                               skip.
         @raise TestError: If Servo v4 not setup properly.
         """
+
+        # PD FAFT is only tested with a least a servo V4 with servo micro
+        # or C2D2.
+        if pd_faft and (
+                'servo_v4_with_servo_micro' not in self.pdtester.servo_type
+        ) and ('servo_v4_with_c2d2' not in self.pdtester.servo_type):
+            raise error.TestError('servo_v4_with_servo_micro or '
+                                  'servo_v4_with_c2d2 is a mandatory setup '
+                                  'for PD FAFT. Got %s.' %
+                                  self.pdtester.servo_type)
+
+        # Ensure the battery is enough for testing, this should be done before
+        # all the following setup.
+        if (min_batt_level is not None) and self._client.has_battery():
+            logging.info('Start charging if batt level < %d', min_batt_level)
+            PowerUtils.put_host_battery_in_range(self._client, min_batt_level,
+                                                 100, 600)
+
         # Servo v4 by default has dts_mode enabled. Enabling dts_mode affects
         # the behaviors of what PD FAFT tests. So we want it disabled.
         if 'servo_v4' in self.pdtester.servo_type:
-            self.pdtester.set('servo_v4_dts_mode', 'off')
+            self.servo.set_dts_mode('on' if dts_mode else 'off')
+        else:
+            logging.warn('Configuring DTS mode only supported on Servo v4')
 
         self.pdtester.set('usbc_polarity', 'cc2' if flip_cc else 'cc1')
         # Make it sourcing max voltage.
         self.pdtester.charge(self.pdtester.USBC_MAX_VOLTAGE)
 
+        time.sleep(self.PD_RESYNC_DELAY)
+
         # Servo v4 requires an external charger to source power. Make sure
         # this setup is correct.
-        if ('servo_v4' in self.pdtester.servo_type and
-            self.pdtester.get('servo_v4_role') != 'src'):
-            raise error.TestError('Servo v4 failed sourcing power! Check '
-                    'the "DUT POWER" port connecting a valid charger.')
+        if 'servo_v4' in self.pdtester.servo_type:
+            role = self.pdtester.get('servo_v4_role')
+            if role != 'src':
+                raise error.TestError(
+                        'Servo v4 is not sourcing power! Make sure the servo '
+                        '"DUT POWER" port is connected to a working charger. '
+                        'servo_v4_role:%s' % role)
 
     def setup_usbkey(self, usbkey, host=None, used_for_recovery=None):
         """Setup the USB disk for the test.
@@ -497,6 +689,7 @@ class FirmwareTest(FAFTBase):
                                   used for recovery boot, like Ctrl-U USB boot.
         """
         if usbkey:
+            self.stage_build_to_usbkey()
             self.assert_test_image_in_usb_disk()
         elif host is None:
             # USB disk is not required for the test. Better to mux it to host.
@@ -527,10 +720,15 @@ class FirmwareTest(FAFTBase):
             # low and sleep for a while for charging.
             self.set_servo_v4_role_to_snk()
 
-    def set_servo_v4_role_to_snk(self):
-        """Set the servo v4 role to SNK."""
+    def set_servo_v4_role_to_snk(self, pd_comm=False):
+        """Set the servo v4 role to SNK.
+
+        @param pd_comm: a bool. Enable PD communication if True, else otherwise
+        """
         self._needed_restore_servo_v4_role = True
         self.servo.set_servo_v4_role('snk')
+        if pd_comm:
+            self.servo.set_servo_v4_pd_comm('on')
 
     def _restore_servo_v4_role(self):
         """Restore the servo v4 role to default SRC."""
@@ -538,6 +736,25 @@ class FirmwareTest(FAFTBase):
             return
         if self._needed_restore_servo_v4_role:
             self.servo.set_servo_v4_role('src')
+
+    def set_dut_low_power_idle_delay(self, delay):
+        """Set EC low power idle delay
+
+        @param delay: Delay in seconds
+        """
+        if not self.ec.has_command('dsleep'):
+            logging.info("Can't set low power idle delay.")
+            return
+        self._previous_ec_low_power_delay = int(
+                self.ec.send_command_get_output("dsleep",
+                ["timeout:\s+(\d+)\ssec"])[0][1])
+        self.ec.send_command("dsleep " + str(delay))
+
+    def restore_dut_low_power_idle_delay(self):
+        """Restore EC low power idle delay"""
+        if getattr(self, '_previous_ec_low_power_delay', None):
+            self.ec.send_command("dsleep " + str(
+                    self._previous_ec_low_power_delay))
 
     def get_usbdisk_path_on_dut(self):
         """Get the path of the USB disk device plugged-in the servo on DUT.
@@ -547,10 +764,11 @@ class FirmwareTest(FAFTBase):
           no USB disk is found.
         """
         cmd = 'ls -d /dev/s*[a-z]'
-        original_value = self.servo.get_usbkey_direction()
+        original_value = self.servo.get_usbkey_state()
 
         # Make the dut unable to see the USB disk.
         self.servo.switch_usbkey('off')
+        time.sleep(self.faft_config.usb_unplug)
         no_usb_set = set(
             self.faft_client.system.run_shell_command_get_output(cmd))
 
@@ -561,7 +779,7 @@ class FirmwareTest(FAFTBase):
             self.faft_client.system.run_shell_command_get_output(cmd))
 
         # Back to its original value.
-        if original_value != self.servo.get_usbkey_direction():
+        if original_value != self.servo.get_usbkey_state():
             self.servo.switch_usbkey(original_value)
 
         diff_set = has_usb_set - no_usb_set
@@ -761,6 +979,7 @@ class FirmwareTest(FAFTBase):
         @param original_dev_boot_usb: Original dev_boot_usb value.
         """
         logging.info('Checking internal device boot.')
+        self.faft_client.system.set_dev_default_boot()
         if self.faft_client.system.is_removable_device_boot():
             logging.info('Reboot into internal disk...')
             self.faft_client.system.set_dev_boot_usb(original_dev_boot_usb)
@@ -774,6 +993,39 @@ class FirmwareTest(FAFTBase):
         @param enable: True if asserting write protect pin. Otherwise, False.
         """
         self.servo.set('fw_wp_state', 'force_on' if enable else 'force_off')
+
+    def set_ap_write_protect_and_reboot(self, enable):
+        """Set AP write protect status and reboot to take effect.
+
+        @param enable: True if asserting write protect. Otherwise, False.
+        """
+        self.set_hardware_write_protect(enable)
+        if hasattr(self, 'ec'):
+            self.sync_and_ec_reboot()
+            self.switcher.wait_for_client()
+
+    def run_chromeos_firmwareupdate(self, mode, append=None, options=(),
+            ignore_status=False):
+        """Use RPC to get the command to run, but do the actual run via ssh.
+
+        Running the command via SSH improves the reliability in cases where the
+        USB network connection gets interrupted.  SSH will still return the
+        output, and won't hang like RPC would.
+        """
+        update_cmd = self.faft_client.updater.get_firmwareupdate_command(
+                mode, append, options)
+        try:
+            result = self._client.run(
+                    update_cmd, timeout=300, ignore_status=ignore_status)
+            if result.exit_status == 255:
+                self.faft_client.disconnect()
+            return result
+        except error.AutoservRunError as e:
+            if e.result_obj.exit_status == 255:
+                self.faft_client.disconnect()
+            if ignore_status:
+                return e.result_obj
+            raise
 
     def set_ec_write_protect_and_reboot(self, enable):
         """Set EC write protect status and reboot to take effect.
@@ -809,11 +1061,15 @@ class FirmwareTest(FAFTBase):
         if enable:
             # Set write protect flag and reboot to take effect.
             self.ec.set_flash_write_protect(enable)
-            self.sync_and_ec_reboot()
+            self.sync_and_ec_reboot(
+                    flags='hard',
+                    extra_sleep=self.faft_config.ec_boot_to_wp_en)
         else:
             # Reboot after deasserting hardware write protect pin to deactivate
             # write protect. And then remove software write protect flag.
-            self.sync_and_ec_reboot()
+            # Some ITE ECs can only clear their WP status on a power-on reset,
+            # no software-initiated reset will do.
+            self.sync_and_ec_reboot(flags='cold')
             self.ec.set_flash_write_protect(enable)
 
     def _setup_ec_write_protect(self, ec_wp):
@@ -826,13 +1082,10 @@ class FirmwareTest(FAFTBase):
                       not write-protected; None to do nothing.
         """
         if ec_wp is None:
-            self._old_wpsw_boot = None
             return
         self._old_wpsw_cur = self.checkers.crossystem_checker(
                                     {'wpsw_cur': '1'}, suppress_logging=True)
-        self._old_wpsw_boot = self.checkers.crossystem_checker(
-                                   {'wpsw_boot': '1'}, suppress_logging=True)
-        if not (ec_wp == self._old_wpsw_cur == self._old_wpsw_boot):
+        if ec_wp != self._old_wpsw_cur:
             if not self.faft_config.ap_access_ec_flash:
                 raise error.TestNAError(
                         "Cannot change EC write-protect for this device")
@@ -842,120 +1095,168 @@ class FirmwareTest(FAFTBase):
             self.switcher.mode_aware_reboot(
                     'custom',
                      lambda:self.set_ec_write_protect_and_reboot(ec_wp))
-        wpsw_boot = wpsw_cur = '1' if ec_wp == True else '0'
+        wpsw_cur = '1' if ec_wp else '0'
         self.check_state((self.checkers.crossystem_checker, {
-                               'wpsw_boot': wpsw_boot, 'wpsw_cur': wpsw_cur}))
+                               'wpsw_cur': wpsw_cur}))
 
     def _restore_ec_write_protect(self):
         """Restore the original EC write-protection."""
-        if (not hasattr(self, '_old_wpsw_boot')) or (self._old_wpsw_boot is
-                                                     None):
+        if (not hasattr(self, '_old_wpsw_cur')) or (self._old_wpsw_cur is
+                                                    None):
             return
-        if not self.checkers.crossystem_checker({'wpsw_boot': '1' if
-                       self._old_wpsw_boot else '0'}, suppress_logging=True):
+        if not self.checkers.crossystem_checker({'wpsw_cur': '1' if
+                       self._old_wpsw_cur else '0'}, suppress_logging=True):
             logging.info('Restore original EC write protection and reboot.')
             self.switcher.mode_aware_reboot(
                     'custom',
                     lambda:self.set_ec_write_protect_and_reboot(
-                            self._old_wpsw_boot))
+                            self._old_wpsw_cur))
         self.check_state((self.checkers.crossystem_checker, {
-                           'wpsw_boot': '1' if self._old_wpsw_boot else '0'}))
-
-    def _setup_uart_capture(self):
-        """Set up the CPU/EC/PD UART capture."""
-
-        # If adding another capture, make sure to update the UARTS constant.
-        self.cpu_uart_file = os.path.join(self.resultsdir, 'cpu_uart.txt')
-        self.servo.set('cpu_uart_capture', 'on')
-        self.cr50_uart_file = None
-        self.ec_uart_file = None
-        self.servo_micro_uart_file = None
-        self.servo_v4_uart_file = None
-        self.usbpd_uart_file = None
-
-        try:
-            # Check that the console works before declaring the cr50 console
-            # connection exists and enabling uart capture.
-            self.servo.get('cr50_version')
-            self.servo.set('cr50_uart_capture', 'on')
-            self.cr50_uart_file = os.path.join(self.resultsdir, 'cr50_uart.txt')
-            self.cr50 = chrome_cr50.ChromeCr50(self.servo, self.faft_config)
-        except servo.ControlUnavailableError:
-            logging.warn('cr50 console not supported.')
-        except error.TestFail as e:
-            logging.warn('Unknown cr50 uart capture error: %s', str(e))
-        if (self.faft_config.chrome_ec and
-            self.servo.has_control('ec_uart_capture')):
-            self.servo.set('ec_uart_capture', 'on')
-            self.ec_uart_file = os.path.join(self.resultsdir, 'ec_uart.txt')
-            # Log separate PD console if supported
-            if (self.check_ec_capability(['usbpd_uart'], suppress_warning=True)
-                and self.servo.has_control('usb_pd_uart_capture')):
-                self.servo.set('usbpd_uart_capture', 'on')
-                self.usbpd_uart_file = os.path.join(self.resultsdir,
-                                                    'usbpd_uart.txt')
-        else:
-            logging.info('Not a Google EC, cannot capture ec console output.')
-
-        for servo_console in ['servo_micro', 'servo_v4']:
-            capture_cmd = '%s_uart_capture' % servo_console
-            uart_file_attr = '%s_uart_file' % servo_console
-            if self.servo.has_control(capture_cmd):
-                self.servo.set(capture_cmd, 'on')
-                outfile = '%s_uart.txt' % servo_console
-                setattr(self, uart_file_attr, os.path.join(self.resultsdir,
-                                                           outfile))
+                          'wpsw_cur': '1' if self._old_wpsw_cur else '0'}))
 
     def _record_uart_capture(self):
         """Record the CPU/EC/PD UART output stream to files."""
-        for uart in self.UARTS:
-            # Attribute will be nonexistent or empty if capture wasn't set up.
-            uart_file = getattr(self, '%s_uart_file' % uart, None)
-            if uart_file:
-                with open(uart_file, 'a') as f:
-                    f.write(ast.literal_eval(
-                        self.servo.get('%s_uart_stream' % uart)))
+        self.servo.record_uart_capture(self.resultsdir)
 
     def _cleanup_uart_capture(self):
         """Cleanup the CPU/EC/PD UART capture."""
-        # Flush the remaining UART output first.
-        self._record_uart_capture()
-        for uart in self.UARTS:
-            # Attribute will be nonexistent or empty if capture wasn't set up.
-            uart_file = getattr(self, '%s_uart_file' % uart, None)
-            if uart_file:
-                self.servo.set('%s_uart_capture' % uart, 'off')
+        self.servo.close(self.resultsdir)
 
-    def _get_power_state(self, power_state):
+    def set_ap_off_power_mode(self, power_mode):
         """
-        Return the current power state of the AP
-        """
-        return self.ec.send_command_get_output("powerinfo", [power_state])
+        Set the DUT power mode to suspend (S0ix/S3) or shutdown (G3/S5).
+        The DUT must be in S0 when calling this method.
 
-    def wait_power_state(self, power_state, retries):
+        @param power_mode: a string for the expected power mode, either
+                           'suspend' or 'shutdown'.
+        """
+        if power_mode == 'suspend':
+            target_power_state = self.POWER_STATE_SUSPEND
+        elif power_mode == 'shutdown':
+            target_power_state = self.POWER_STATE_G3
+        else:
+            raise error.TestError('%s is not a valid ap-off power mode.' %
+                                  power_mode)
+
+        if self.get_power_state() != self.POWER_STATE_S0:
+            raise error.TestError('The DUT is not in S0.')
+
+        self._restore_power_mode = True
+
+        if target_power_state == self.POWER_STATE_G3:
+            self.run_shutdown_cmd()
+            time.sleep(self.faft_config.shutdown)
+        elif target_power_state == self.POWER_STATE_SUSPEND:
+            self.suspend()
+
+        if self.wait_power_state(target_power_state, self.DEFAULT_PWR_RETRIES):
+            logging.info('System entered %s state.', target_power_state)
+        else:
+            self._restore_power_mode = False
+            raise error.TestFail('System fail to enter %s state. '
+                    'Current state: %s', target_power_state,
+                    self.get_power_state())
+
+    def restore_ap_on_power_mode(self):
+        """
+        Wake up the DUT to S0. If the DUT was not set to suspend or
+        shutdown mode by set_ap_off_power_mode(), raise an error.
+        """
+        if self.get_power_state() != self.POWER_STATE_S0:
+            logging.info('Wake up the DUT to S0.')
+            self.servo.power_normal_press()
+            # If the DUT is ping-able, it must be in S0.
+            self.switcher.wait_for_client()
+            if self._restore_power_mode != True:
+                raise error.TestFail('The DUT was not set to suspend/shutdown '
+                        'mode by set_ap_off_power_mode().')
+            self._restore_power_mode = False
+
+    def get_power_state(self):
+        """
+        Return the current power state of the AP (via EC 'powerinfo' command)
+
+        @return the name of the power state, or None if a problem occurred
+        """
+        if not hasattr(self, 'ec'):
+            # Don't fail when EC not present or not fully initialized
+            return None
+
+        pattern = r'power state (\w+) = (\w+),'
+
+        try:
+            match = self.ec.send_command_get_output("powerinfo", [pattern])
+        except error.TestFail as err:
+            logging.warn("powerinfo command encountered an error: %s", err)
+            return None
+        if not match:
+            logging.warn("powerinfo output did not match pattern: %r", pattern)
+            return None
+        (line, state_num, state_name) = match[0]
+        logging.debug("power state info %r", match)
+        return state_name
+
+    def _check_power_state(self, power_state):
+        """
+        Check for correct power state of the AP (via EC 'powerinfo' command)
+
+        @return: the line and the match, if the output matched.
+        @raise error.TestFail: if output didn't match after the delay.
+        """
+        if not isinstance(power_state, str):
+            raise error.TestError('%s is not a string while it should be.' %
+                                  power_state)
+        return self.ec.send_command_get_output("powerinfo",
+            ['\\b' + power_state + '\\b'])
+
+    def wait_power_state(self, power_state, retries, retry_delay=0):
         """
         Wait for certain power state.
 
         @param power_state: power state you are expecting
         @param retries: retries.  This is necessary if AP is powering down
         and transitioning through different states.
+        @param retry_delay: delay between retries in seconds
         """
         logging.info('Checking power state "%s" maximum %d times.',
                      power_state, retries)
+
+        # Reset the cache, in case previous calls silently changed it on servod
+        self.ec.set_uart_regexp('None')
+
         while retries > 0:
             logging.info("try count: %d", retries)
+            start_time = time.time()
             try:
                 retries = retries - 1
-                ret = self._get_power_state(power_state)
-                return True
+                if self._check_power_state(power_state):
+                    return True
             except error.TestFail:
                 pass
+            delay_time = retry_delay - time.time() + start_time
+            if delay_time > 0:
+                time.sleep(delay_time)
         return False
+
+    def run_shutdown_cmd(self):
+        """Shut down the DUT by running '/sbin/shutdown -P now'."""
+        self.faft_client.disconnect()
+        # Shut down in the background after sleeping so the call gets a reply.
+        try:
+            self._client.run_background('sleep 0.5; /sbin/shutdown -P now')
+        except error.AutoservRunError as e:
+            # From the ssh man page, error code 255 indicates ssh errors.
+            if e.result_obj.exit_status == 255:
+                logging.warn("Ignoring error from ssh: %s", e)
+            else:
+                raise
+        self.switcher.wait_for_client_offline()
 
     def suspend(self):
         """Suspends the DUT."""
-        cmd = '(sleep %d; powerd_dbus_suspend) &' % self.EC_SUSPEND_DELAY
-        self.faft_client.system.run_shell_command(cmd)
+        cmd = 'sleep %d; powerd_dbus_suspend' % self.EC_SUSPEND_DELAY
+        block = False
+        self.faft_client.system.run_shell_command(cmd, block)
         time.sleep(self.EC_SUSPEND_DELAY)
 
     def _record_faft_client_log(self):
@@ -977,17 +1278,19 @@ class FirmwareTest(FAFTBase):
         # And if the "no_ec_sync" argument is set, then disable EC software
         # sync.
         if self._no_ec_sync:
+            logging.info(
+                    'User selected to disable EC software sync')
             flags_to_set |= vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC
+
+        # And if the "no_fw_rollback_check" argument is set, then disable fw
+        # rollback check.
+        if self._no_fw_rollback_check:
+            logging.info(
+                    'User selected to disable FW rollback check')
+            flags_to_set |= vboot.GBB_FLAG_DISABLE_FW_ROLLBACK_CHECK
 
         self.clear_set_gbb_flags(0xffffffff, flags_to_set)
         self.mark_setup_done('gbb_flags')
-
-    def drop_backup_gbb_flags(self):
-        """Drops the backup GBB flags.
-
-        This can be used when a test intends to permanently change GBB flags.
-        """
-        self._backup_gbb_flags = None
 
     def _restore_gbb_flags(self):
         """Restore GBB flags to their original state."""
@@ -1120,8 +1423,25 @@ class FirmwareTest(FAFTBase):
             # a device is ready for transfer operation.
             self.faft_client.system.run_shell_command('hdparm -f %s' % device)
 
-    def blocking_sync(self):
-        """Sync root device and internal device."""
+    def blocking_sync(self, freeze_for_reset=False):
+        """Sync root device and internal device, via script if possible.
+
+        The actual calls end up logged by the run() call, since they're printed
+        to stdout/stderr in the script.
+
+        @param freeze_for_reset: if True, prepare for reset by blocking writes
+                                 (only if enable_fs_sync_fsfreeze=True)
+        """
+
+        if self._use_sync_script:
+            if freeze_for_reset:
+                self.faft_client.quit()
+            try:
+                return self._client.blocking_sync(freeze_for_reset)
+            except (AttributeError, ImportError, error.AutoservRunError) as e:
+                logging.warn(
+                        'Falling back to old sync method due to error: %s', e)
+
         # The double calls to sync fakes a blocking call
         # since the first call returns before the flush
         # is complete, but the second will wait for the
@@ -1139,17 +1459,23 @@ class FirmwareTest(FAFTBase):
             internal_dev = self.faft_client.system.get_internal_device()
             self.do_blocking_sync(internal_dev)
 
-    def sync_and_ec_reboot(self, flags=''):
+    def sync_and_ec_reboot(self, flags='', extra_sleep=0):
         """Request the client sync and do a EC triggered reboot.
 
         @param flags: Optional, a space-separated string of flags passed to EC
                       reboot command, including:
                           default: EC soft reboot;
-                          'hard': EC cold/hard reboot.
+                          'hard': EC hard reboot.
+                          'cold': Cold reboot via servo.
+        @param extra_sleep: Optional, int or float for extra wait time for EC
+                            reboot in seconds.
         """
-        self.blocking_sync()
-        self.ec.reboot(flags)
-        time.sleep(self.faft_config.ec_boot_to_console)
+        self.blocking_sync(freeze_for_reset=True)
+        if flags == 'cold':
+            self.servo.get_power_state_controller().reset()
+        else:
+            self.ec.reboot(flags)
+        time.sleep(self.faft_config.ec_boot_to_console + extra_sleep)
         self.check_lid_and_power_on()
 
     def reboot_and_reset_tpm(self):
@@ -1161,6 +1487,8 @@ class FirmwareTest(FAFTBase):
     def full_power_off_and_on(self):
         """Shutdown the device by pressing power button and power on again."""
         boot_id = self.get_bootid()
+        self.faft_client.disconnect()
+
         # Press power button to trigger Chrome OS normal shutdown process.
         # We use a customized delay since the normal-press 1.2s is not enough.
         self.servo.power_key(self.faft_config.hold_pwr_button_poweroff)
@@ -1168,22 +1496,61 @@ class FirmwareTest(FAFTBase):
         # add buffer from the default timeout of 60 seconds.
         self.switcher.wait_for_client_offline(timeout=100, orig_boot_id=boot_id)
         time.sleep(self.faft_config.shutdown)
-        if self.check_ec_capability(['x86'], suppress_warning=True):
-            self.check_shutdown_power_state("G3", pwr_retries=5)
+        if self.faft_config.chrome_ec:
+            self.check_shutdown_power_state(self.POWER_STATE_G3,
+                                            orig_boot_id=boot_id)
         # Short press power button to boot DUT again.
         self.servo.power_key(self.faft_config.hold_pwr_button_poweron)
 
-    def check_shutdown_power_state(self, power_state, pwr_retries):
-        """Check whether the device entered into requested EC power state
-        after shutdown.
+    def check_shutdown_power_state(self, power_state,
+                                   pwr_retries=DEFAULT_PWR_RETRIES,
+                                   orig_boot_id=None):
+        """Check whether the device shut down and entered the given power state.
+
+        If orig_boot_id is specified, it will check whether the DUT responds to
+        ssh requests, then use orig_boot_id to check if it rebooted.
 
         @param power_state: EC power state has to be checked. Either S5 or G3.
         @param pwr_retries: Times to check if the DUT in expected power state.
+        @param orig_boot_id: Old boot_id, to check for unexpected reboots.
         @raise TestFail: If device failed to enter into requested power state.
         """
         if not self.wait_power_state(power_state, pwr_retries):
-            raise error.TestFail('System not shutdown properly and EC fails '
-                                 'to enter into %s state.' % power_state)
+            current_state = self.get_power_state()
+            if current_state == self.POWER_STATE_S0 and self._client.wait_up():
+                # DUT is unexpectedly up, so check whether it rebooted instead.
+                new_boot_id = self.get_bootid()
+                logging.debug('orig_boot_id=%s, new_boot_id=%s',
+                              orig_boot_id, new_boot_id)
+                if orig_boot_id is None or new_boot_id is None:
+                    # Can't say anything more specific without values to compare
+                    raise error.TestFail(
+                            "Expected state %s, but the system is unexpectedly"
+                            " still up.  Current state: %s"
+                            % (power_state, current_state))
+                if new_boot_id == orig_boot_id:
+                    raise error.TestFail(
+                            "Expected state %s, but the system didn't shut"
+                            " down.  Current state: %s"
+                            % (power_state, current_state))
+                else:
+                    raise error.TestFail(
+                            "Expected state %s, but the system rebooted instead"
+                            " of shutting down.  Current state: %s"
+                            % (power_state, current_state))
+
+            if current_state is None:
+                current_state = '(unknown)'
+
+            if current_state == power_state:
+                raise error.TestFail(
+                        "Expected state %s, but the system didn't reach it"
+                        " until after the limit of %s tries."
+                        % (power_state, pwr_retries))
+
+            raise error.TestFail('System not shutdown properly and EC fails'
+                                 ' to enter into %s state.  Current state: %s'
+                                 % (power_state, current_state))
         logging.info('System entered into %s state..', power_state)
 
     def check_lid_and_power_on(self):
@@ -1327,8 +1694,8 @@ class FirmwareTest(FAFTBase):
                     'Should shut the device down after calling %s.' %
                     shutdown_action.__name__)
         except ConnectionError:
-            if self.check_ec_capability(['x86'], suppress_warning=True):
-                self.check_shutdown_power_state("G3", pwr_retries=5)
+            if self.faft_config.chrome_ec:
+                self.check_shutdown_power_state(self.POWER_STATE_G3)
             logging.info(
                 'DUT is surely shutdown. We are going to power it on again...')
 
@@ -1386,7 +1753,6 @@ class FirmwareTest(FAFTBase):
         @return: Current firmware checksums and fwids, as a dict
         """
 
-        # TODO(dgoyette): add a way to avoid hardcoding the keys (section names)
         current_checksums = {
             'VBOOTA': self.faft_client.bios.get_sig_sha('a'),
             'FVMAINA': self.faft_client.bios.get_body_sha('a'),
@@ -1462,15 +1828,13 @@ class FirmwareTest(FAFTBase):
         """
         return bool(self._backup_firmware_identity)
 
-    def clear_saved_firmware(self):
-        """Clear the firmware saved by the method backup_firmware."""
-        self._backup_firmware_identity = {}
-
-    def restore_firmware(self, suffix='.original', restore_ec=True):
+    def restore_firmware(self, suffix='.original', restore_ec=True,
+                         reboot_ec=False):
         """Restore firmware from host in resultsdir.
 
         @param suffix: a string appended to backup file name
         @param restore_ec: True to restore the ec firmware; False not to do.
+        @param reboot_ec: True to reboot EC after restore (if it was restored)
         @return: True if firmware needed to be restored
         """
         if not self.is_firmware_changed():
@@ -1481,19 +1845,33 @@ class FirmwareTest(FAFTBase):
 
         # Restore firmware.
         remote_temp_dir = self.faft_client.system.create_temp_dir()
-        self._client.send_file(os.path.join(self.resultsdir, 'bios' + suffix),
-                               os.path.join(remote_temp_dir, 'bios'))
 
-        self.faft_client.bios.write_whole(
-            os.path.join(remote_temp_dir, 'bios'))
+        bios_local = os.path.join(self.resultsdir, 'bios%s' % suffix)
+        bios_remote = os.path.join(remote_temp_dir, 'bios%s' % suffix)
+        self._client.send_file(bios_local, bios_remote)
+        self.faft_client.bios.write_whole(bios_remote)
 
         if self.faft_config.chrome_ec and restore_ec:
-            self._client.send_file(os.path.join(self.resultsdir, 'ec' + suffix),
-                os.path.join(remote_temp_dir, 'ec'))
-            self.faft_client.ec.write_whole(
-                os.path.join(remote_temp_dir, 'ec'))
+            ec_local = os.path.join(self.resultsdir, 'ec%s' % suffix)
+            ec_remote = os.path.join(remote_temp_dir, 'ec%s' % suffix)
+            self._client.send_file(ec_local, ec_remote)
+            ec_cmd = self.faft_client.ec.get_write_cmd(ec_remote)
+            try:
+                self._client.run(ec_cmd, timeout=300)
+            except error.AutoservSSHTimeout:
+                logging.warn("DUT connection died during EC restore")
+                self.faft_client.disconnect()
 
-        self.switcher.mode_aware_reboot()
+            except error.GenericHostRunError:
+                logging.warn("DUT command failed during EC restore")
+                logging.debug("Full exception:", exc_info=True)
+            if reboot_ec:
+                self.switcher.mode_aware_reboot(
+                        'custom', lambda: self.sync_and_ec_reboot('hard'))
+            else:
+                self.switcher.mode_aware_reboot()
+        else:
+            self.switcher.mode_aware_reboot()
         logging.info('Successfully restored firmware.')
         return True
 
@@ -1574,10 +1952,6 @@ class FirmwareTest(FAFTBase):
         """
         return len(self._backup_kernel_sha) != 0
 
-    def clear_saved_kernel(self):
-        """Clear the kernel saved by backup_kernel()."""
-        self._backup_kernel_sha = dict()
-
     def restore_kernel(self, suffix='.original'):
         """Restore kernel from host in resultsdir.
 
@@ -1644,16 +2018,16 @@ class FirmwareTest(FAFTBase):
         @return: the dict of versions in the shellball
         """
         fwids = dict()
-        fwids['bios'] = self.faft_client.updater.get_all_fwids('bios')
+        fwids['bios'] = self.faft_client.updater.get_image_fwids('bios')
 
         if include_ec is None:
-            if self.faft_config.platform == 'Samus':
+            if self.faft_config.platform.lower() == 'samus':
                 include_ec = False  # no ec.bin in shellball
             else:
                 include_ec = self.faft_config.chrome_ec
 
         if include_ec:
-            fwids['ec'] = self.faft_client.updater.get_all_fwids('ec')
+            fwids['ec'] = self.faft_client.updater.get_image_fwids('ec')
         return fwids
 
     def modify_shellball(self, append, modify_ro=True, modify_ec=False):
@@ -1663,15 +2037,19 @@ class FirmwareTest(FAFTBase):
         """
 
         if modify_ro:
-            self.faft_client.updater.modify_fwids('bios', ['ro', 'a', 'b'])
+            self.faft_client.updater.modify_image_fwids(
+                    'bios', ['ro', 'a', 'b'])
         else:
-            self.faft_client.updater.modify_fwids('bios', ['a', 'b'])
+            self.faft_client.updater.modify_image_fwids(
+                    'bios', ['a', 'b'])
 
         if modify_ec:
             if modify_ro:
-                self.faft_client.updater.modify_fwids('ec', ['ro', 'rw'])
+                self.faft_client.updater.modify_image_fwids(
+                        'ec', ['ro', 'rw'])
             else:
-                self.faft_client.updater.modify_fwids('ec', ['rw'])
+                self.faft_client.updater.modify_image_fwids(
+                        'ec', ['rw'])
 
         modded_shellball = self.faft_client.updater.repack_shellball(append)
 
@@ -1691,6 +2069,8 @@ class FirmwareTest(FAFTBase):
 
         For expected_written, the dict should be keyed by flash type only:
         {'bios': ['ro'], 'ec': ['ro', 'rw']}
+        To expect the contents completely unchanged, give only the keys:
+        {'bios': [], 'ec': []} or {'bios': None, 'ec': None}
 
         @param before_fwids: dict of versions from before the update
         @param image_fwids: dict of versions in the update
@@ -1699,12 +2079,15 @@ class FirmwareTest(FAFTBase):
         @return: list of error lines for mismatches
 
         @type before_fwids: dict
-        @type image_fwids: dict
+        @type image_fwids: dict | None
         @type after_fwids: dict
         @type expected_written: dict
         @rtype: list
         """
         errors = []
+
+        if image_fwids is None:
+            image_fwids = {}
 
         for target in sorted(expected_written.keys()):
             # target is BIOS or EC
@@ -1729,7 +2112,7 @@ class FirmwareTest(FAFTBase):
                 # section is RO, RW, A, or B
 
                 before_fwid = before_fwids[target][section]
-                image_fwid = image_fwids[target][section]
+                image_fwid = image_fwids.get(target, {}).get(section, None)
                 actual_fwid = after_fwids[target][section]
 
                 if section in written_sections:
@@ -1778,18 +2161,265 @@ class FirmwareTest(FAFTBase):
 
     def _tpm_is_owned(self):
         """Returns True if the tpm is owned"""
-        result = self.host.run('cryptohome --action=tpm_more_status',
+        result = self.host.run('tpm_manager_client status --nonsensitive',
                                ignore_status=True)
         logging.debug(result)
-        return result.exit_status == 0 and 'owned: true' in result.stdout
+        return result.exit_status == 0 and 'is_owned: true' in result.stdout
 
     def clear_fwmp(self):
         """Clear the FWMP"""
         if self.fwmp_is_cleared():
             return
         tpm_utils.ClearTPMOwnerRequest(self.host, wait_for_ready=True)
-        self.host.run('cryptohome --action=tpm_take_ownership')
+        self.host.run('tpm_manager_client take_ownership')
         if not utils.wait_for_value(self._tpm_is_owned, expected_value=True):
             raise error.TestError('Unable to own tpm while clearing fwmp.')
         self.host.run('cryptohome '
                       '--action=remove_firmware_management_parameters')
+
+    def wait_for(self, cfg_field, action_msg=None, extra_time=0):
+        """Waits for time specified in a config.
+
+        @ivar cfg_field: The name of the config field that specifies the
+                            time to wait.
+        @ivar action_msg: Optional log message describing the action that
+                            will occur after the wait.
+        @ivar extra_time: Additional time to be added to time from config.
+        """
+        wait_time = self.faft_config.__getattr__(cfg_field) + extra_time
+        if extra_time:
+            wait_src = "%s + %s" % (cfg_field, extra_time)
+        else:
+            wait_src = cfg_field
+
+        units = 'second' if wait_time==1 else 'seconds'
+        start_msg = "Waiting %s(%s) %s" % (wait_time, wait_src, units)
+        if action_msg:
+            start_msg += ", before '%s'" % action_msg
+        start_msg += "."
+
+        logging.info(start_msg)
+        time.sleep(wait_time)
+        logging.info("Done waiting.")
+
+    def _try_to_bring_dut_up(self):
+        """Try to quickly get the dut in a pingable state"""
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        logging.info('checking dut state')
+
+        self.servo.set_nocheck('cold_reset', 'off')
+        try:
+            self.servo.set_nocheck('warm_reset', 'off')
+        except error.TestFail as e:
+            # TODO(b/159338538): remove once the kukui remap issue is resolved.
+            if 'Timed out waiting for interfaces to become available' in str(e):
+                logging.warn('Ignoring warm_reset interface issue b/159338538')
+            else:
+                raise
+
+        time.sleep(self.cr50.SHORT_WAIT)
+        if not self.cr50.ap_is_on():
+            logging.info('Pressing power button to turn on AP')
+            self.servo.power_short_press()
+
+        end_time = time.time() + self.RESPONSE_TIMEOUT
+        while not self.host.ping_wait_up(
+                self.faft_config.delay_reboot_to_ping * 2):
+            if time.time() > end_time:
+                logging.warn('DUT is unresponsive after trying to bring it up')
+                return
+            self.servo.get_power_state_controller().reset()
+            logging.info('DUT did not respond. Resetting it.')
+
+    def _check_open_and_press_power_button(self):
+        """Check stdout and press the power button if prompted.
+
+        Returns:
+            True if the process is still running.
+        """
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        logging.info(self._get_ccd_open_output())
+        self.servo.power_short_press()
+        logging.info('long int power button press')
+        # power button press cr50 erases nvmem and resets the dut before setting
+        # the state to open. Wait a bit so we don't check the ccd state in the
+        # middle of this reset process. Power button requests happen once a
+        # minute, so waiting 10 seconds isn't a big deal.
+        time.sleep(10)
+        return (self.cr50.OPEN == self.cr50.get_ccd_level() or
+                self._ccd_open_job.sp.poll() is not None)
+
+    def _get_ccd_open_output(self):
+        """Read the new output."""
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        self._ccd_open_job.process_output()
+        self._ccd_open_stdout.seek(self._ccd_open_last_len)
+        output = self._ccd_open_stdout.read()
+        self._ccd_open_last_len = self._ccd_open_stdout.len
+        return output
+
+    def _close_ccd_open_job(self):
+        """Terminate the process and check the results."""
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        exit_status = utils.nuke_subprocess(self._ccd_open_job.sp)
+        stdout = self._ccd_open_stdout.getvalue().strip()
+        delattr(self, '_ccd_open_job')
+        if stdout:
+            logging.info('stdout of ccd open:\n%s', stdout)
+        if exit_status:
+            logging.info('exit status: %d', exit_status)
+        if 'Error' in stdout:
+            raise error.TestFail('ccd open Error %s' %
+                                 stdout.split('Error')[-1])
+        if self.cr50.OPEN != self.cr50.get_ccd_level():
+            raise error.TestFail('unable to open cr50: %s' % stdout)
+        else:
+            logging.info('Opened Cr50')
+
+    def ccd_open_from_ap(self):
+        """Start the open process and press the power button."""
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        # Opening CCD requires power button presses. If those presses would
+        # power off the AP and prevent CCD open from completing, ignore them.
+        if self.faft_config.ec_forwards_short_pp_press:
+            self.stop_powerd()
+
+        # Make sure the test waits long enough to avoid ccd rate limiting.
+        time.sleep(self.cr50.CCD_PASSWORD_RATE_LIMIT)
+
+        self._ccd_open_last_len = 0
+
+        self._ccd_open_stdout = StringIO.StringIO()
+
+        ccd_open_cmd = utils.sh_escape('gsctool -a -o')
+        full_ssh_cmd = '%s "%s"' % (self.host.ssh_command(options='-tt'),
+                                    ccd_open_cmd)
+        # Start running the Cr50 Open process in the background.
+        self._ccd_open_job = utils.BgJob(full_ssh_cmd,
+                                         nickname='ccd_open',
+                                         stdout_tee=self._ccd_open_stdout,
+                                         stderr_tee=utils.TEE_TO_LOGS)
+        if self._ccd_open_job == None:
+            raise error.TestFail('could not start ccd open')
+
+        try:
+            # Wait for the first gsctool power button prompt before starting the
+            # open process.
+            logging.info(self._get_ccd_open_output())
+            # Cr50 starts out by requesting 5 quick presses then 4 longer
+            # power button presses. Run the quick presses without looking at the
+            # command output, because getting the output can take some time. For
+            # the presses that require a 1 minute wait check the output between
+            # presses, so we can catch errors
+            #
+            # run quick presses for 30 seconds. It may take a couple of seconds
+            # for open to start. 10 seconds should be enough. 30 is just used
+            # because it will definitely be enough, and this process takes 300
+            # seconds, so doing quick presses for 30 seconds won't matter.
+            end_time = time.time() + 30
+            while time.time() < end_time:
+                self.servo.power_short_press()
+                logging.info('short int power button press')
+                time.sleep(self.PP_SHORT_INTERVAL)
+            # Poll the output and press the power button for the longer presses.
+            utils.wait_for_value(self._check_open_and_press_power_button,
+                                 expected_value=True,
+                                 timeout_sec=self.cr50.PP_LONG)
+        except Exception as e:
+            logging.info(e)
+            raise
+        finally:
+            self._close_ccd_open_job()
+            self._try_to_bring_dut_up()
+        logging.info(self.cr50.get_ccd_info())
+
+    def enter_mode_after_checking_cr50_state(self, mode):
+        """Reboot to mode if cr50 doesn't already match the state"""
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        # If the device is already in the correct mode, don't do anything
+        if (mode == 'dev') == self.cr50.in_dev_mode():
+            logging.info('already in %r mode', mode)
+            return
+
+        self.switcher.reboot_to_mode(to_mode=mode)
+
+        if (mode == 'dev') != self.cr50.in_dev_mode():
+            raise error.TestError('Unable to enter %r mode' % mode)
+
+    def fast_ccd_open(self, enable_testlab=False, reset_ccd=True,
+                      dev_mode=False):
+        """Try to use ccd testlab open. If that fails, do regular ap open.
+
+        Args:
+            enable_testlab: If True, enable testlab mode after cr50 is open.
+            reset_ccd: If True, reset ccd after open.
+            dev_mode: True if the device should be in dev mode after ccd is
+                      is opened.
+        """
+        if not hasattr(self, 'cr50'):
+            raise error.TestNAError('Test can only be run on devices with '
+                                    'access to the Cr50 console')
+
+        if self.servo.main_device_is_ccd():
+            error_txt = 'because the main servo device is CCD.'
+            if enable_testlab:
+                raise error.TestNAError('Cannot enable testlab: %s' % error_txt)
+            elif reset_ccd:
+                raise error.TestNAError('CCD reset not allowed: %s' % error_txt)
+
+        if not self.faft_config.has_powerbutton:
+            logging.warning('No power button', exc_info=True)
+            enable_testlab = False
+
+        # Try to use testlab open first, so we don't have to wait for the
+        # physical presence check.
+        self.cr50.send_command('ccd testlab open')
+        if self.cr50.OPEN != self.cr50.get_ccd_level():
+            if self.servo.has_control('chassis_open'):
+                self.servo.set('chassis_open', 'yes')
+            pw = '' if self.cr50.password_is_reset() else self.CCD_PASSWORD
+            # Use the console to open cr50 without entering dev mode if
+            # possible. Ittakes longer and relies on more systems to enter dev
+            # mode and ssh into the AP. Skip the steps that aren't required.
+            if not (pw or self.cr50.get_cap(
+                            'OpenNoDevMode')[self.cr50.CAP_IS_ACCESSIBLE]):
+                self.enter_mode_after_checking_cr50_state('dev')
+
+            if pw or self.cr50.get_cap(
+                            'OpenFromUSB')[self.cr50.CAP_IS_ACCESSIBLE]:
+                self.cr50.set_ccd_level(self.cr50.OPEN, pw)
+            else:
+                self.ccd_open_from_ap()
+
+            if self.servo.has_control('chassis_open'):
+                self.servo.set('chassis_open', 'no')
+
+            if enable_testlab:
+                self.cr50.set_ccd_testlab('on')
+
+        if reset_ccd:
+            self.cr50.send_command('ccd reset')
+
+        # In default, the device should be in normal mode. After opening cr50,
+        # the TPM should be cleared and the device should automatically reset to
+        # normal mode. However, some tests might want the device in 'dev' mode.
+        self.enter_mode_after_checking_cr50_state('dev' if dev_mode else
+                                                 'normal')

@@ -929,8 +929,8 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         @param include_dependencies: Whether or not to follow relations to
                                      objects this object depends on.
                                      This parameter is used when uploading
-                                     jobs from a shard to the master, as the
-                                     master already has all the dependent
+                                     jobs from a shard to the main, as the
+                                     main already has all the dependent
                                      objects.
 
         @returns: Dictionary representation of the object.
@@ -1000,14 +1000,14 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
     def _filter_update_allowed_fields(cls, data):
         """Filters data and returns only files that updates are allowed on.
 
-        This is i.e. needed for syncing aborted bits from the master to shards.
+        This is i.e. needed for syncing aborted bits from the main to shards.
 
         Local links are only allowed to be updated, if they are in
         SERIALIZATION_LOCAL_LINKS_TO_UPDATE.
         Overwriting existing values is allowed in order to be able to sync i.e.
-        the aborted bit from the master to a shard.
+        the aborted bit from the main to a shard.
 
-        The whitelisting mechanism is in place to prevent overwriting local
+        The allowlisting mechanism is in place to prevent overwriting local
         status: If all fields were overwritten, jobs would be completely be
         set back to their original (unstarted) state.
 
@@ -1094,7 +1094,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
 
         If an object of the same type with the same id already exists, it's
         local values will be left untouched, unless they are explicitly
-        whitelisted in SERIALIZATION_LOCAL_LINKS_TO_UPDATE.
+        allowlisted in SERIALIZATION_LOCAL_LINKS_TO_UPDATE.
 
         Deserialize will always recursively propagate to all related objects
         present in data though.
@@ -1127,7 +1127,7 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
                                        *args, **kwargs):
         """Check if an update sent from a shard is legitimate.
 
-        @raises error.UnallowedRecordsSentToMaster if an update is not
+        @raises error.UnallowedRecordsSentToMain if an update is not
                 legitimate.
         """
         raise NotImplementedError(
@@ -1143,8 +1143,8 @@ class ModelExtensions(rdb_model_extensions.ModelValidators):
         does update local values, which deserialize doesn't, but doesn't
         recursively propagate to related objects, which deserialize() does.
 
-        The use case of this function is to update job records on the master
-        after the jobs have been executed on a slave, as the master is not
+        The use case of this function is to update job records on the main
+        after the jobs have been executed on a shard, as the main is not
         interested in updates for users, labels, specialtasks, etc.
 
         @param serialized: Representation of an object and its dependencies, as

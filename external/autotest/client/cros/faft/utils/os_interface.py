@@ -2,8 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """A module to provide interface to OS services."""
-
 import datetime
+import errno
+import logging
 import os
 import re
 import struct
@@ -76,6 +77,8 @@ class OSInterface(object):
         self.state_dir = state_dir
         self.log_file = log_file
         self.test_mode = test_mode
+
+        self._use_log_file = False
 
         self.shell = shell_wrapper.LocalShell(self)
         self.host_shell = None
@@ -194,20 +197,91 @@ class OSInterface(object):
     def log(self, text):
         """Write text to the log file and print it on the screen, if enabled.
 
-        The entire log (maintained across reboots) can be found in
-        self.log_file.
+        The entire log (kept across reboots) can be found in self.log_file.
         """
-        if not self.log_file or not os.path.exists(self.state_dir):
-            # Called before environment was initialized, ignore.
+        if not self._use_log_file:
+            # Called during init, during shutdown, or after a log write fails.
+            logging.info('%s', text)
             return
 
         timestamp = datetime.datetime.strftime(datetime.datetime.now(),
                                                '%I:%M:%S %p:')
 
-        with open(self.log_file, 'a') as log_f:
-            log_f.write('%s %s\n' % (timestamp, text))
-            log_f.flush()
-            os.fdatasync(log_f.fileno())
+        try:
+            with open(self.log_file, 'a') as log_f:
+                log_f.write('%s %s\n' % (timestamp, text))
+                log_f.flush()
+                os.fdatasync(log_f.fileno())
+        except EnvironmentError:
+            logging.info('%s', text)
+            logging.warn("Couldn't write RPC Log: %s", self.log_file,
+                         exc_info=True)
+            # Report error only once.
+            self._use_log_file = False
+
+    def start_file_logging(self):
+        """Create and start using using the log file (or report failure)"""
+        if self._use_log_file:
+            return
+
+        try:
+
+            with open(self.log_file, 'a'):
+                self._use_log_file = True
+
+            # log to stderr, showing the filename (extra newline to add a gap)
+            logging.debug('Begin RPC Log: %s\n', self.log_file)
+
+            # log into the file, to indicate the start time
+            self.log('Begin RPC Log: %s (this file)' % self.log_file)
+
+        except EnvironmentError:
+            logging.warn("Couldn't write RPC Log: %s", self.log_file,
+                         exc_info=True)
+            self._use_log_file = False
+
+    def stop_file_logging(self):
+        """Stop using the log file (switch back to stderr)."""
+        if not self._use_log_file:
+            return
+
+        # log to the file, to indicate when done (extra newline to add a gap)
+        self.log('End RPC Log.\n')
+
+        self._use_log_file = False
+
+        # log to stderr, to tie timestamps together
+        logging.debug('End RPC Log.')
+
+    def remove_log_file(self):
+        """Delete the log file."""
+        if not self.test_mode:
+            # Test mode shouldn't be able to actually remove the log.
+            try:
+                os.remove(self.log_file)
+            except EnvironmentError as e:
+                if e.errno != errno.ENOENT:
+                    self.log("Could not remove log file: %s" % e)
+
+    def dump_log(self, remove_log=False):
+        """Dump the log file.
+
+        @param remove_log: Remove the log file after dump
+        @return: String of the log file content.
+        """
+        if remove_log and not self.test_mode:
+            # Make sure "end RPC log" is printed before grabbing the log
+            self.stop_file_logging()
+
+        try:
+            with open(self.log_file, 'r') as f:
+                log = f.read()
+        except EnvironmentError as e:
+            log = '<%s>' % e
+
+        if remove_log and not self.test_mode:
+            self.remove_log_file()
+        return log
 
     def is_removable_device(self, device):
         """Check if a certain storage device is removable.
@@ -240,7 +314,10 @@ class OSInterface(object):
         if self.is_removable_device(device):
             for p in ('/dev/mmcblk0', '/dev/mmcblk1', '/dev/nvme0n1'):
                 if self.path_exists(p):
-                    return p
+                    devicetype = '/sys/block/%s/device/type' % p.split('/')[2]
+                    if (not self.path_exists(devicetype)
+                        or self.read_file(devicetype).strip() != 'SD'):
+                         return p
             return '/dev/sda'
         else:
             return self.strip_part(device)

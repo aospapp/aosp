@@ -100,6 +100,7 @@ STIN void presymmetry(DATA_TYPE *in,int n2,int step){
   }while(aX>=bX);
 }
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 /* 8 point butterfly (in place) */
 STIN void mdct_butterfly_8(DATA_TYPE *x){
 
@@ -123,6 +124,7 @@ STIN void mdct_butterfly_8(DATA_TYPE *x){
 	   MB();
 }
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 /* 16 point butterfly (in place, 4 register) */
 STIN void mdct_butterfly_16(DATA_TYPE *x){
 
@@ -150,6 +152,7 @@ STIN void mdct_butterfly_16(DATA_TYPE *x){
 	   mdct_butterfly_8(x+8);
 }
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 /* 32 point butterfly (in place, 4 register) */
 STIN void mdct_butterfly_32(DATA_TYPE *x){
 
@@ -271,6 +274,7 @@ STIN void mdct_bitreverse(DATA_TYPE *x,int n,int shift){
   }while(w>x);
 }
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 STIN void mdct_step7(DATA_TYPE *x,int n,int step){
   DATA_TYPE   *w0    = x;
   DATA_TYPE   *w1    = x+(n>>1);
@@ -317,6 +321,7 @@ STIN void mdct_step7(DATA_TYPE *x,int n,int step){
 }
 #endif
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 STIN void mdct_step8(DATA_TYPE *x, int n, int step){
   LOOKUP_T *T;
   LOOKUP_T *V;

@@ -17,7 +17,7 @@ import org.bouncycastle.util.Arrays;
  * This generator uses a SHA-1 HMac as the calculation function.
  * <p>
  * The document this implementation is based on can be found at
- * <a href=http://www.rsasecurity.com/rsalabs/pkcs/pkcs-5/index.html>
+ * <a href=https://www.rsasecurity.com/rsalabs/pkcs/pkcs-5/index.html>
  * RSA's PKCS5 Page</a>
  */
 public class PKCS5S2ParametersGenerator
@@ -117,7 +117,7 @@ public class PKCS5S2ParametersGenerator
     {
         keySize = keySize / 8;
 
-        byte[]  dKey = Arrays.copyOfRange(generateDerivedKey(keySize), 0, keySize);
+        byte[] dKey = generateDerivedKey(keySize);
 
         return new KeyParameter(dKey, 0, keySize);
     }
@@ -138,7 +138,7 @@ public class PKCS5S2ParametersGenerator
         keySize = keySize / 8;
         ivSize = ivSize / 8;
 
-        byte[]  dKey = generateDerivedKey(keySize + ivSize);
+        byte[] dKey = generateDerivedKey(keySize + ivSize);
 
         return new ParametersWithIV(new KeyParameter(dKey, 0, keySize), dKey, keySize, ivSize);
     }

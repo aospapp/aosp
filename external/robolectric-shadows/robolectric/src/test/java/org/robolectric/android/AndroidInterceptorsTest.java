@@ -12,7 +12,7 @@ import org.robolectric.internal.bytecode.MethodRef;
 public class AndroidInterceptorsTest {
   @Test
   public void allMethodRefs() throws Exception {
-    assertThat(new Interceptors(AndroidInterceptors.all()).getAllMethodRefs()).containsAllOf(
+    assertThat(new Interceptors(AndroidInterceptors.all()).getAllMethodRefs()).containsAtLeast(
             new MethodRef("java.util.LinkedHashMap", "eldest"),
             new MethodRef("java.lang.System", "loadLibrary"),
             new MethodRef("android.os.StrictMode", "trackActivity"),

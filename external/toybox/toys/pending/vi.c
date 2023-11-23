@@ -21,37 +21,28 @@ config VI
 #include "toys.h"
 
 GLOBALS(
-    char *s;
-    int cur_col;
-    int cur_row;
-    int scr_row;
-    int drawn_row;
-    int drawn_col;
-    unsigned screen_height;
-    unsigned screen_width;
-    int vi_mode;
-    int count0;
-    int count1;
-    int vi_mov_flag;
-    int modified;
-    char vi_reg;
-    char *last_search;
-    int tabstop;
-    int list;
-    struct str_line {
-      int alloc;
-      int len;
-      char *data;
-    } *il;
-    size_t screen; //offset in slices must be higher than cursor
-    size_t cursor; //offset in slices
-    //yank buffer
-    struct yank_buf {
-      char reg;
-      int alloc;
-      char* data;
-    } yank;
+  char *s;
+  int vi_mode, tabstop, list;
+  int cur_col, cur_row, scr_row;
+  int drawn_row, drawn_col;
+  int count0, count1, vi_mov_flag;
+  unsigned screen_height, screen_width;
+  char vi_reg, *last_search;
+  struct str_line {
+    int alloc;
+    int len;
+    char *data;
+  } *il;
+  size_t screen, cursor; //offsets
+  //yank buffer
+  struct yank_buf {
+    char reg;
+    int alloc;
+    char* data;
+  } yank;
 
+  int modified;
+  size_t filesize;
 // mem_block contains RO data that is either original file as mmap
 // or heap allocated inserted data
 //
@@ -85,47 +76,58 @@ GLOBALS(
       const char *data;
     } *node;
   } *slices;
-
-  size_t filesize;
-  int fd; //file_handle
-
 )
 
 static const char *blank = " \n\r\t";
 static const char *specials = ",.:;=-+*/(){}<>[]!@#$%^&|\\?\"\'";
 
-// TT.vi_mov_flag is used for special cases when certain move
-// acts differently depending is there DELETE/YANK or NOP
-// Also commands such as G does not default to count0=1
-// 0x1 = Command needs argument (f,F,r...)
-// 0x2 = Move 1 right on yank/delete/insert (e, $...)
-// 0x4 = yank/delete last line fully
-// 0x10000000 = redraw after cursor needed
-// 0x20000000 = full redraw needed
-// 0x40000000 = count0 not given
-// 0x80000000 = move was reverse
+//get utf8 length and width at same time
+static int utf8_lnw(int *width, char *s, int bytes)
+{
+  wchar_t wc;
+  int length = 1;
 
+  if (*s == '\t') *width = TT.tabstop;
+  else {
+    length = utf8towc(&wc, s, bytes);
+    if (length < 1) length = 0, *width = 0;
+    else *width = wcwidth(wc);
+  }
+  return length;
+}
 
-static void draw_page();
+static int utf8_dec(char key, char *utf8_scratch, int *sta_p)
+{
+  int len = 0;
+  char *c = utf8_scratch;
+  c[*sta_p] = key;
+  if (!(*sta_p))  *c = key;
+  if (*c < 0x7F) { *sta_p = 1; return 1; }
+  if ((*c & 0xE0) == 0xc0) len = 2;
+  else if ((*c & 0xF0) == 0xE0 ) len = 3;
+  else if ((*c & 0xF8) == 0xF0 ) len = 4;
+  else {*sta_p = 0; return 0; }
 
-//utf8 support
-static int utf8_lnw(int* width, char* str, int bytes);
-static int utf8_dec(char key, char *utf8_scratch, int *sta_p);
-static char* utf8_last(char* str, int size);
+  (*sta_p)++;
 
+  if (*sta_p == 1) return 0;
+  if ((c[*sta_p-1] & 0xc0) != 0x80) {*sta_p = 0; return 0; }
 
-static int cur_left(int count0, int count1, char* unused);
-static int cur_right(int count0, int count1, char* unused);
-static int cur_up(int count0, int count1, char* unused);
-static int cur_down(int count0, int count1, char* unused);
-static void check_cursor_bounds();
-static void adjust_screen_buffer();
-static int search_str(char *s);
+  if (*sta_p == len) { c[(*sta_p)] = 0; return 1; }
 
-//from TT.cursor to
-static int vi_yank(char reg, size_t from, int flags);
-static int vi_delete(char reg, size_t from, int flags);
+  return 0;
+}
 
+static char* utf8_last(char* str, int size)
+{
+  char* end = str+size;
+  int pos = size, len, width = 0;
+  for (;pos >= 0; end--, pos--) {
+    len = utf8_lnw(&width, end, size-pos);
+    if (len && width) return end;
+  }
+  return 0;
+}
 
 struct double_list *dlist_add_before(struct double_list **head,
   struct double_list **list, char *data)
@@ -254,27 +256,21 @@ static int cut_str(size_t offset, size_t len)
       spos += s->node->len;
       offset += s->node->len;
       s = dlist_pop(&s);
-
       if (s == TT.slices) TT.slices = s->next;
-    }
 
-    else if (spos < offset && ( end >= spos+s->node->len)) {
+    } else if (spos < offset && ( end >= spos+s->node->len)) {
       //cut end
       size_t clip = s->node->len - (offset - spos);
       offset = spos+s->node->len;
       spos += s->node->len;
       s->node->len -= clip;
-    }
-
-    else if (spos == offset && s == e) {
+    } else if (spos == offset && s == e) {
       //cut begin
       size_t clip = end - offset;
       s->node->len -= clip;
       s->node->data += clip;
       break;
-    }
-
-    else {
+    } else {
       //cut middle
       struct slice *tail = xmalloc(sizeof(struct slice));
       size_t clip = end-offset;
@@ -410,7 +406,7 @@ static int text_codepoint(char *dest, size_t offset)
     if (!state) return -1;
 
   if (!finished && !state) return -1;
-  if (dest) memcpy(dest,scratch,8);
+  if (dest) memcpy(dest, scratch, 8);
 
   return strlen(scratch);
 }
@@ -512,15 +508,8 @@ static void block_list_free(void *node)
 static void linelist_unload()
 {
   llist_traverse((void *)TT.slices, llist_free_double);
-  TT.slices = 0;
-
   llist_traverse((void *)TT.text, block_list_free);
-  TT.text = 0;
-
-  if (TT.fd) {
-    xclose(TT.fd);
-    TT.fd = 0;
-  }
+  TT.slices = 0, TT.text = 0;
 }
 
 static int linelist_load(char *filename)
@@ -528,20 +517,15 @@ static int linelist_load(char *filename)
   if (!filename) filename = (char*)*toys.optargs;
 
   if (filename) {
-    int fd;
-    size_t len, size;
+    int fd = open(filename, O_RDONLY);
+    size_t size;
     char *data;
-    if ( (fd = open(filename, O_RDONLY)) <0) return 0;
 
-    size = fdlength(fd);
-    if (!(len = lseek(fd, 0, SEEK_END))) len = size;
-    lseek(fd, 0, SEEK_SET);
-
-    data = xmmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
-    if (data == MAP_FAILED) return 0;
-    insert_str(data, 0, size, len, MMAP);
+    if (fd == -1) return 0;
+    data = xmmap(0, size = fdlength(fd), PROT_READ, MAP_SHARED, fd, 0);
+    xclose(fd);
+    insert_str(data, 0, size, size, MMAP);
     TT.filesize = text_filesize();
-    TT.fd = fd;
   }
 
   return 1;
@@ -575,6 +559,236 @@ static void write_file(char *filename)
 
 }
 
+//jump into valid offset index
+//and valid utf8 codepoint
+static void check_cursor_bounds()
+{
+  char buf[8] = {0};
+  int len, width = 0;
+  if (!TT.filesize) TT.cursor = 0;
+
+  for (;;) {
+    if (TT.cursor < 1) {
+      TT.cursor = 0;
+      return;
+    } else if (TT.cursor >= TT.filesize-1) {
+      TT.cursor = TT.filesize-1;
+      return;
+    }
+    if ((len = text_codepoint(buf, TT.cursor)) < 1) {
+      TT.cursor--; //we are not in valid data try jump over
+      continue;
+    }
+    if (utf8_lnw(&width, buf, len) && width) break;
+    else TT.cursor--; //combine char jump over
+  }
+}
+
+// TT.vi_mov_flag is used for special cases when certain move
+// acts differently depending is there DELETE/YANK or NOP
+// Also commands such as G does not default to count0=1
+// 0x1 = Command needs argument (f,F,r...)
+// 0x2 = Move 1 right on yank/delete/insert (e, $...)
+// 0x4 = yank/delete last line fully
+// 0x10000000 = redraw after cursor needed
+// 0x20000000 = full redraw needed
+// 0x40000000 = count0 not given
+// 0x80000000 = move was reverse
+
+//TODO rewrite the logic, difficulties counting lines
+//and with big files scroll should not rely in knowing
+//absoluteline numbers
+static void adjust_screen_buffer()
+{
+  size_t c, s;
+  TT.cur_row = 0, TT.scr_row = 0;
+  if (!TT.cursor) {
+    TT.screen = 0;
+    TT.vi_mov_flag = 0x20000000;
+    return;
+  } else if (TT.screen > (1<<18) || TT.cursor > (1<<18)) {
+     //give up, file is big, do full redraw
+
+    TT.screen = text_strrchr(TT.cursor-1, '\n')+1;
+    TT.vi_mov_flag = 0x20000000;
+    return;
+  }
+
+  s = text_count(0, TT.screen, '\n');
+  c = text_count(0, TT.cursor, '\n');
+  if (s >= c) {
+    TT.screen = text_strrchr(TT.cursor-1, '\n')+1;
+    s = c;
+    TT.vi_mov_flag = 0x20000000; //TODO I disabled scroll
+  } else {
+    int distance = c-s+1;
+    if (distance > (int)TT.screen_height) {
+      int n, adj = distance-TT.screen_height;
+      TT.vi_mov_flag = 0x20000000; //TODO I disabled scroll
+      for (;adj; adj--, s++)
+        if ((n = text_strchr(TT.screen, '\n'))+1 > TT.screen)
+          TT.screen = n+1;
+    }
+  }
+
+  TT.scr_row = s;
+  TT.cur_row = c;
+
+}
+
+//TODO search yank buffer by register
+//TODO yanks could be separate slices so no need to copy data
+//now only supports default register
+static int vi_yank(char reg, size_t from, int flags)
+{
+  size_t start = from, end = TT.cursor;
+  char *str;
+
+  memset(TT.yank.data, 0, TT.yank.alloc);
+  if (TT.vi_mov_flag&0x80000000) start = TT.cursor, end = from;
+  else TT.cursor = start; //yank moves cursor to left pos always?
+
+  if (TT.yank.alloc < end-from) {
+    size_t new_bounds = (1+end-from)/1024;
+    new_bounds += ((1+end-from)%1024) ? 1 : 0;
+    new_bounds *= 1024;
+    TT.yank.data = xrealloc(TT.yank.data, new_bounds);
+    TT.yank.alloc = new_bounds;
+  }
+
+  //this is naive copy
+  for (str = TT.yank.data ; start<end; start++, str++) *str = text_byte(start);
+
+  *str = 0;
+
+  return 1;
+}
+
+static int vi_delete(char reg, size_t from, int flags)
+{
+  size_t start = from, end = TT.cursor;
+
+  vi_yank(reg, from, flags);
+
+  if (TT.vi_mov_flag&0x80000000)
+    start = TT.cursor, end = from;
+
+  //pre adjust cursor move one right until at next valid rune
+  if (TT.vi_mov_flag&2) {
+    //TODO
+  }
+  //do slice cut
+  cut_str(start, end-start);
+
+  //cursor is at start at after delete
+  TT.cursor = start;
+  TT.filesize = text_filesize();
+  //find line start by strrchr(/n) ++
+  //set cur_col with crunch_n_str maybe?
+  TT.vi_mov_flag |= 0x30000000;
+
+  return 1;
+}
+
+static int vi_change(char reg, size_t to, int flags)
+{
+  vi_delete(reg, to, flags);
+  TT.vi_mode = 2;
+  return 1;
+}
+
+static int cur_left(int count0, int count1, char *unused)
+{
+  int count = count0*count1;
+  TT.vi_mov_flag |= 0x80000000;
+  for (;count && TT.cursor; count--) {
+    TT.cursor--;
+    if (text_byte(TT.cursor) == '\n') TT.cursor++;
+    check_cursor_bounds();
+  }
+  return 1;
+}
+
+static int cur_right(int count0, int count1, char *unused)
+{
+  int count = count0*count1, len, width = 0;
+  char buf[8] = {0};
+
+  for (;count; count--) {
+    len = text_codepoint(buf, TT.cursor);
+
+    if (*buf == '\n') break;
+    else if (len > 0) TT.cursor += len;
+    else TT.cursor++;
+
+    for (;TT.cursor < TT.filesize;) {
+      if ((len = text_codepoint(buf, TT.cursor)) < 1) {
+        TT.cursor++; //we are not in valid data try jump over
+        continue;
+      }
+
+      if (utf8_lnw(&width, buf, len) && width) break;
+      else TT.cursor += len;
+    }
+  }
+  check_cursor_bounds();
+  return 1;
+}
+
+//TODO column shift
+static int cur_up(int count0, int count1, char *unused)
+{
+  int count = count0*count1;
+  for (;count--;) TT.cursor = text_psol(TT.cursor);
+
+  TT.vi_mov_flag |= 0x80000000;
+  check_cursor_bounds();
+  return 1;
+}
+
+//TODO column shift
+static int cur_down(int count0, int count1, char *unused)
+{
+  int count = count0*count1;
+  for (;count--;) TT.cursor = text_nsol(TT.cursor);
+  check_cursor_bounds();
+  return 1;
+}
+
+static int vi_H(int count0, int count1, char *unused)
+{
+  TT.cursor = text_sol(TT.screen);
+  return 1;
+}
+
+static int vi_L(int count0, int count1, char *unused)
+{
+  TT.cursor = text_sol(TT.screen);
+  cur_down(TT.screen_height-1, 1, 0);
+  return 1;
+}
+
+static int vi_M(int count0, int count1, char *unused)
+{
+  TT.cursor = text_sol(TT.screen);
+  cur_down(TT.screen_height/2, 1, 0);
+  return 1;
+}
+
+static int search_str(char *s)
+{
+  size_t pos = text_strstr(TT.cursor+1, s);
+
+  if (TT.last_search != s) {
+    free(TT.last_search);
+    TT.last_search = xstrdup(s);
+  }
+
+  if (pos != SIZE_MAX) TT.cursor = pos;
+  check_cursor_bounds();
+  return 0;
+}
+
 static int vi_yy(char reg, int count0, int count1)
 {
   size_t history = TT.cursor;
@@ -592,7 +806,7 @@ static int vi_yy(char reg, int count0, int count1)
 static int vi_dd(char reg, int count0, int count1)
 {
   size_t pos = text_sol(TT.cursor); //go left to first char on line
-  TT.vi_mov_flag |= 0x4;
+  TT.vi_mov_flag |= 0x30000000;
 
   for (;count0; count0--) TT.cursor = text_nsol(TT.cursor);
 
@@ -620,7 +834,7 @@ static int vi_x(char reg, int count0, int count1)
   return 1;
 }
 
-static int vi_movw(int count0, int count1, char* unused)
+static int vi_movw(int count0, int count1, char *unused)
 {
   int count = count0*count1;
   while (count--) {
@@ -653,7 +867,7 @@ static int vi_movw(int count0, int count1, char* unused)
   return 1;
 }
 
-static int vi_movb(int count0, int count1, char* unused)
+static int vi_movb(int count0, int count1, char *unused)
 {
   int count = count0*count1;
   int type = 0;
@@ -717,7 +931,7 @@ static int vi_move(int count0, int count1, char *unused)
 }
 
 
-static void i_insert(char* str, int len)
+static void i_insert(char *str, int len)
 {
   if (!str || !len) return;
 
@@ -735,13 +949,57 @@ static int vi_zero(int count0, int count1, char *unused)
   return 1;
 }
 
-static int vi_eol(int count0, int count1, char *unused)
+static int vi_dollar(int count0, int count1, char *unused)
 {
-  //forward find /n
-  TT.cursor = text_strchr(TT.cursor, '\n');
-  TT.vi_mov_flag |= 2;
-  check_cursor_bounds();
+  size_t new = text_strchr(TT.cursor, '\n');
+
+  if (new != TT.cursor) {
+    TT.cursor = new - 1;
+    TT.vi_mov_flag |= 2;
+    check_cursor_bounds();
+  }
   return 1;
+}
+
+static void vi_eol()
+{
+  TT.cursor = text_strchr(TT.cursor, '\n');
+  check_cursor_bounds();
+}
+
+static void ctrl_b()
+{
+  int i;
+
+  for (i=0; i<TT.screen_height-2; ++i) {
+    TT.screen = text_psol(TT.screen);
+    // TODO: retain x offset.
+    TT.cursor = text_psol(TT.screen);
+  }
+}
+
+static void ctrl_f()
+{
+  int i;
+
+  for (i=0; i<TT.screen_height-2; ++i) TT.screen = text_nsol(TT.screen);
+  // TODO: real vi keeps the x position.
+  if (TT.screen > TT.cursor) TT.cursor = TT.screen;
+}
+
+static void ctrl_e()
+{
+  TT.screen = text_nsol(TT.screen);
+  // TODO: real vi keeps the x position.
+  if (TT.screen > TT.cursor) TT.cursor = TT.screen;
+}
+
+static void ctrl_y()
+{
+  TT.screen = text_psol(TT.screen);
+  // TODO: only if we're on the bottom line
+  TT.cursor = text_psol(TT.cursor);
+  // TODO: real vi keeps the x position.
 }
 
 //TODO check register where to push from
@@ -807,53 +1065,37 @@ static int vi_go(int count0, int count1, char *symbol)
   return 1;
 }
 
-static int vi_delete(char reg, size_t from, int flags)
+static int vi_o(char reg, int count0, int count1)
 {
-  size_t start = from, end = TT.cursor;
-
-  vi_yank(reg, from, flags);
-
-  if (TT.vi_mov_flag&0x80000000)
-    start = TT.cursor, end = from;
-
-  //pre adjust cursor move one right until at next valid rune
-  if (TT.vi_mov_flag&2) {
-    //int len, width;
-    //char *s = end->line->data;
-    //len = utf8_lnw(&width, s+col_e, strlen(s+col_e));
-    //for (;;) {
-      //col_e += len;
-      //len = utf8_lnw(&width, s+col_e, strlen(s+col_e));
-      //if (len<1 || width || !(*(s+col_e))) break;
-    //}
-  }
-  //find if range contains atleast single /n
-  //if so set TT.vi_mov_flag |= 0x10000000;
-
-  //do slice cut
-  cut_str(start, end-start);
-
-  //cursor is at start at after delete
-  TT.cursor = start;
-  TT.filesize = text_filesize();
-  //find line start by strrchr(/n) ++
-  //set cur_col with crunch_n_str maybe?
-
+  TT.cursor = text_eol(TT.cursor);
+  insert_str(xstrdup("\n"), TT.cursor++, 1, 1, HEAP);
+  TT.vi_mov_flag |= 0x30000000;
+  TT.vi_mode = 2;
   return 1;
 }
 
+static int vi_O(char reg, int count0, int count1)
+{
+  TT.cursor = text_psol(TT.cursor);
+  return vi_o(reg, count0, count1);
+}
 
 static int vi_D(char reg, int count0, int count1)
 {
   size_t pos = TT.cursor;
   if (!count0) return 1;
-  vi_eol(1, 1, 0);
+  vi_eol();
   vi_delete(reg, pos, 0);
-  count0--;
-  if (count0) {
-    vi_dd(reg, count0, 1);
-  }
+  if (--count0) vi_dd(reg, count0, 1);
+
   check_cursor_bounds();
+  return 1;
+}
+
+static int vi_I(char reg, int count0, int count1)
+{
+  TT.cursor = text_sol(TT.cursor);
+  TT.vi_mode = 2;
   return 1;
 }
 
@@ -872,41 +1114,6 @@ static int vi_join(char reg, int count0, int count1)
 static int vi_find_next(char reg, int count0, int count1)
 {
   if (TT.last_search) search_str(TT.last_search);
-  return 1;
-}
-
-static int vi_change(char reg, size_t to, int flags)
-{
-  vi_delete(reg, to, flags);
-  TT.vi_mode = 2;
-  return 1;
-}
-
-//TODO search yank buffer by register
-//TODO yanks could be separate slices so no need to copy data
-//now only supports default register
-static int vi_yank(char reg, size_t from, int flags)
-{
-  size_t start = from, end = TT.cursor;
-  char *str;
-
-  memset(TT.yank.data, 0, TT.yank.alloc);
-  if (TT.vi_mov_flag&0x80000000) start = TT.cursor, end = from;
-  else TT.cursor = start; //yank moves cursor to left pos always?
-
-  if (TT.yank.alloc < end-from) {
-    size_t new_bounds = (1+end-from)/1024;
-    new_bounds += ((1+end-from)%1024) ? 1 : 0;
-    new_bounds *= 1024;
-    TT.yank.data = xrealloc(TT.yank.data, new_bounds);
-    TT.yank.alloc = new_bounds;
-  }
-
-  //this is naive copy
-  for (str = TT.yank.data ; start<end; start++, str++) *str = text_byte(start);
-
-  *str = 0;
-
   return 1;
 }
 
@@ -942,13 +1149,16 @@ struct vi_special_param {
 };
 struct vi_special_param vi_special[] =
 {
+  {"D", &vi_D},
+  {"I", &vi_I},
+  {"J", &vi_join},
+  {"O", &vi_O},
+  {"n", &vi_find_next},
+  {"o", &vi_o},
+  {"p", &vi_push},
+  {"x", &vi_x},
   {"dd", &vi_dd},
   {"yy", &vi_yy},
-  {"D", &vi_D},
-  {"J", &vi_join},
-  {"n", &vi_find_next},
-  {"x", &vi_x},
-  {"p", &vi_push}
 };
 //there is around ~47 vi moves
 //some of them need extra params
@@ -959,12 +1169,15 @@ struct vi_mov_param vi_movs[] =
   {"b", 0, &vi_movb},
   {"e", 0, &vi_move},
   {"G", 0, &vi_go},
+  {"H", 0, &vi_H},
   {"h", 0, &cur_left},
   {"j", 0, &cur_down},
   {"k", 0, &cur_up},
+  {"L", 0, &vi_L},
   {"l", 0, &cur_right},
+  {"M", 0, &vi_M},
   {"w", 0, &vi_movw},
-  {"$", 0, &vi_eol},
+  {"$", 0, &vi_dollar},
   {"f", 1, &vi_find_c},
   {"F", 1, &vi_find_cb},
 };
@@ -1039,19 +1252,6 @@ static int run_vi_cmd(char *cmd)
   return 0;
 }
 
-static int search_str(char *s)
-{
-  size_t pos = text_strstr(TT.cursor+1, s);
-
-  if (TT.last_search != s) {
-    free(TT.last_search);
-    TT.last_search = xstrdup(s);
-  }
-
-  if (pos != SIZE_MAX) TT.cursor = pos;
-  check_cursor_bounds();
-  return 0;
-}
 
 static int run_ex_cmd(char *cmd)
 {
@@ -1088,14 +1288,219 @@ static int run_ex_cmd(char *cmd)
 
 }
 
+static int vi_crunch(FILE *out, int cols, int wc)
+{
+  int ret = 0;
+  if (wc < 32 && TT.list) {
+    tty_esc("1m");
+    ret = crunch_escape(out,cols,wc);
+    tty_esc("m");
+  } else if (wc == 0x09) {
+    if (out) {
+      int i = TT.tabstop;
+      for (;i--;) fputs(" ", out);
+    }
+    ret = TT.tabstop;
+  } else if (wc == '\n') return 0;
+  return ret;
+}
+
+//crunch_str with n bytes restriction for printing substrings or
+//non null terminated strings
+static int crunch_nstr(char **str, int width, int n, FILE *out, char *escmore,
+  int (*escout)(FILE *out, int cols, int wc))
+{
+  int columns = 0, col, bytes;
+  char *start, *end;
+
+  for (end = start = *str; *end && n>0; columns += col, end += bytes, n -= bytes) {
+    wchar_t wc;
+
+    if ((bytes = utf8towc(&wc, end, 4))>0 && (col = wcwidth(wc))>=0) {
+      if (!escmore || wc>255 || !strchr(escmore, wc)) {
+        if (width-columns<col) break;
+        if (out) fwrite(end, bytes, 1, out);
+
+        continue;
+      }
+    }
+
+    if (bytes<1) {
+      bytes = 1;
+      wc = *end;
+    }
+    col = width-columns;
+    if (col<1) break;
+    if (escout) {
+      if ((col = escout(out, col, wc))<0) break;
+    } else if (out) fwrite(end, 1, bytes, out);
+  }
+  *str = end;
+
+  return columns;
+}
+
+static void draw_page()
+{
+  unsigned y = 0;
+  int x = 0;
+
+  char *line = 0, *end = 0;
+  int bytes = 0;
+
+  //screen coordinates for cursor
+  int cy_scr = 0, cx_scr = 0;
+
+  //variables used only for cursor handling
+  int aw = 0, iw = 0, clip = 0, margin = 8;
+
+  int scroll = 0, redraw = 0;
+
+  int SSOL, SOL;
+
+
+  adjust_screen_buffer();
+  //redraw = 3; //force full redraw
+  redraw = (TT.vi_mov_flag & 0x30000000)>>28;
+
+  scroll = TT.drawn_row-TT.scr_row;
+  if (TT.drawn_row<0 || TT.cur_row<0 || TT.scr_row<0) redraw = 3;
+  else if (abs(scroll)>TT.screen_height/2) redraw = 3;
+
+  tty_jump(0, 0);
+  if (redraw&2) tty_esc("2J"), tty_esc("H");   //clear screen
+  else if (scroll>0) printf("\033[%dL", scroll);  //scroll up
+  else if (scroll<0) printf("\033[%dM", -scroll); //scroll down
+
+  SOL = text_sol(TT.cursor);
+  bytes = text_getline(toybuf, SOL, ARRAY_LEN(toybuf));
+  line = toybuf;
+
+  for (SSOL = TT.screen, y = 0; SSOL < SOL; y++) SSOL = text_nsol(SSOL);
+
+  cy_scr = y;
+
+  //draw cursor row
+  /////////////////////////////////////////////////////////////
+  //for long lines line starts to scroll when cursor hits margin
+  bytes = TT.cursor-SOL; // TT.cur_col;
+  end = line;
+
+
+  tty_jump(0, y);
+  tty_esc("2K");
+  //find cursor position
+  aw = crunch_nstr(&end, INT_MAX, bytes, 0, "\t\n", vi_crunch);
+
+  //if we need to render text that is not inserted to buffer yet
+  if (TT.vi_mode == 2 && TT.il->len) {
+    char* iend = TT.il->data; //input end
+    x = 0;
+    //find insert end position
+    iw = crunch_str(&iend, INT_MAX, 0, "\t\n", vi_crunch);
+    clip = (aw+iw) - TT.screen_width+margin;
+
+    //if clipped area is bigger than text before insert
+    if (clip > aw) {
+      clip -= aw;
+      iend = TT.il->data;
+
+      iw -= crunch_str(&iend, clip, 0, "\t\n", vi_crunch);
+      x = crunch_str(&iend, iw, stdout, "\t\n", vi_crunch);
+    } else {
+      iend = TT.il->data;
+      end = line;
+
+      //if clipped area is substring from cursor row start
+      aw -= crunch_nstr(&end, clip, bytes, 0, "\t\n", vi_crunch);
+      x = crunch_str(&end, aw,  stdout, "\t\n", vi_crunch);
+      x += crunch_str(&iend, iw, stdout, "\t\n", vi_crunch);
+    }
+  }
+  //when not inserting but still need to keep cursor inside screen
+  //margin area
+  else if ( aw+margin > TT.screen_width) {
+    clip = aw-TT.screen_width+margin;
+    end = line;
+    aw -= crunch_nstr(&end, clip, bytes, 0, "\t\n", vi_crunch);
+    x = crunch_str(&end, aw,  stdout, "\t\n", vi_crunch);
+  }
+  else {
+    end = line;
+    x = crunch_nstr(&end, aw, bytes, stdout, "\t\n", vi_crunch);
+  }
+  cx_scr = x;
+  cy_scr = y;
+  x += crunch_str(&end, TT.screen_width-x,  stdout, "\t\n", vi_crunch);
+
+  //start drawing all other rows that needs update
+  ///////////////////////////////////////////////////////////////////
+  y = 0, SSOL = TT.screen, line = toybuf;
+  bytes = text_getline(toybuf, SSOL, ARRAY_LEN(toybuf));
+
+  //if we moved around in long line might need to redraw everything
+  if (clip != TT.drawn_col) redraw = 3;
+
+  for (; y < TT.screen_height; y++ ) {
+    int draw_line = 0;
+    if (SSOL == SOL) {
+      line = toybuf;
+      SSOL += bytes+1;
+      bytes = text_getline(line, SSOL, ARRAY_LEN(toybuf));
+      continue;
+    } else if (redraw) draw_line++;
+    else if (scroll<0 && TT.screen_height-y-1<-scroll)
+      scroll++, draw_line++;
+    else if (scroll>0) scroll--, draw_line++;
+
+    tty_jump(0, y);
+    if (draw_line) {
+      tty_esc("2K");
+      if (line && strlen(line)) {
+        aw = crunch_nstr(&line, clip, bytes, 0, "\t\n", vi_crunch);
+        crunch_str(&line, TT.screen_width-1, stdout, "\t\n", vi_crunch);
+        if ( *line ) printf("@");
+      } else printf("\033[2m~\033[m");
+    }
+    if (SSOL+bytes < TT.filesize)  {
+      line = toybuf;
+      SSOL += bytes+1;
+      bytes = text_getline(line, SSOL, ARRAY_LEN(toybuf));
+   } else line = 0;
+  }
+
+  TT.drawn_row = TT.scr_row, TT.drawn_col = clip;
+
+  // Finished updating visual area, show status line.
+  tty_jump(0, TT.screen_height);
+  tty_esc("2K");
+  if (TT.vi_mode == 2) printf("\033[1m-- INSERT --\033[m");
+  if (!TT.vi_mode) {
+    cx_scr = printf("%s", TT.il->data);
+    cy_scr = TT.screen_height;
+    *toybuf = 0;
+  } else {
+    // TODO: the row,col display doesn't show the cursor column
+    // TODO: real vi shows the percentage by lines, not bytes
+    sprintf(toybuf, "%zu/%zuC  %zu%%  %d,%d", TT.cursor, TT.filesize,
+      (100*TT.cursor)/TT.filesize, TT.cur_row+1, TT.cur_col+1);
+    if (TT.cur_col != cx_scr) sprintf(toybuf+strlen(toybuf),"-%d", cx_scr+1);
+  }
+  tty_jump(TT.screen_width-strlen(toybuf), TT.screen_height);
+  printf("%s", toybuf);
+
+  tty_jump(cx_scr, cy_scr);
+  xflush(1);
+}
+
 void vi_main(void)
 {
+  char stdout_buf[BUFSIZ];
   char keybuf[16] = {0};
   char vi_buf[16] = {0};
   char utf8_code[8] = {0};
   int utf8_dec_p = 0, vi_buf_pos = 0;
-  FILE *script = 0;
-  if (FLAG(s)) script = fopen(TT.s, "r");
+  FILE *script = FLAG(s) ? xfopen(TT.s, "r") : 0;
 
   TT.il = xzalloc(sizeof(struct str_line));
   TT.il->data = xzalloc(80);
@@ -1113,17 +1518,19 @@ void vi_main(void)
   terminal_size(&TT.screen_width, &TT.screen_height);
   TT.screen_height -= 1;
 
+  // Avoid flicker.
+  setbuf(stdout, stdout_buf);
+
+  xsignal(SIGWINCH, generic_signal);
   set_terminal(0, 1, 0, 0);
   //writes stdout into different xterm buffer so when we exit
   //we dont get scroll log full of junk
   tty_esc("?1049h");
-  tty_esc("H");
-  xflush(1);
 
-
-  draw_page();
   for (;;) {
     int key = 0;
+
+    draw_page();
     if (script) {
       key = fgetc(script);
       if (key == EOF) {
@@ -1134,9 +1541,12 @@ void vi_main(void)
     } else key = scan_key(keybuf, -1);
 
     if (key == -1) goto cleanup_vi;
-
-    terminal_size(&TT.screen_width, &TT.screen_height);
-    TT.screen_height -= 1; //TODO this is hack fix visual alignment
+    else if (key == -3) {
+      toys.signal = 0;
+      terminal_size(&TT.screen_width, &TT.screen_height);
+      TT.screen_height -= 1; //TODO this is hack fix visual alignment
+      continue;
+    }
 
     // TODO: support cursor keys in ex mode too.
     if (TT.vi_mode && key>=256) {
@@ -1145,7 +1555,10 @@ void vi_main(void)
       else if (key==KEY_DOWN) cur_down(1, 1, 0);
       else if (key==KEY_LEFT) cur_left(1, 1, 0);
       else if (key==KEY_RIGHT) cur_right(1, 1, 0);
-      draw_page();
+      else if (key==KEY_HOME) vi_zero(1, 1, 0);
+      else if (key==KEY_END) vi_dollar(1, 1, 0);
+      else if (key==KEY_PGDN) ctrl_f();
+      else if (key==KEY_PGUP) ctrl_b();
       continue;
     }
 
@@ -1159,7 +1572,7 @@ void vi_main(void)
           TT.il->len++;
           break;
         case 'A':
-          vi_eol(1, 1, 0);
+          vi_eol();
           TT.vi_mode = 2;
           break;
         case 'a':
@@ -1167,6 +1580,18 @@ void vi_main(void)
           // FALLTHROUGH
         case 'i':
           TT.vi_mode = 2;
+          break;
+        case 'B'-'@':
+          ctrl_b();
+          break;
+        case 'E'-'@':
+          ctrl_e();
+          break;
+        case 'F'-'@':
+          ctrl_f();
+          break;
+        case 'Y'-'@':
+          ctrl_y();
           break;
         case 27:
           vi_buf[0] = 0;
@@ -1266,398 +1691,10 @@ void vi_main(void)
           break;
       }
     }
-
-    draw_page();
-
   }
 cleanup_vi:
   linelist_unload();
   free(TT.il->data), free(TT.il), free(TT.yank.data);
   tty_reset();
   tty_esc("?1049l");
-}
-
-static int vi_crunch(FILE* out, int cols, int wc)
-{
-  int ret = 0;
-  if (wc < 32 && TT.list) {
-    tty_esc("1m");
-    ret = crunch_escape(out,cols,wc);
-    tty_esc("m");
-  } else if (wc == 0x09) {
-    if (out) {
-      int i = TT.tabstop;
-      for (;i--;) fputs(" ", out);
-    }
-    ret = TT.tabstop;
-  } else if (wc == '\n') return 0;
-  return ret;
-}
-
-//crunch_str with n bytes restriction for printing substrings or
-//non null terminated strings
-static int crunch_nstr(char **str, int width, int n, FILE *out, char *escmore,
-  int (*escout)(FILE *out, int cols, int wc))
-{
-  int columns = 0, col, bytes;
-  char *start, *end;
-
-  for (end = start = *str; *end && n>0; columns += col, end += bytes, n -= bytes) {
-    wchar_t wc;
-
-    if ((bytes = utf8towc(&wc, end, 4))>0 && (col = wcwidth(wc))>=0) {
-      if (!escmore || wc>255 || !strchr(escmore, wc)) {
-        if (width-columns<col) break;
-        if (out) fwrite(end, bytes, 1, out);
-
-        continue;
-      }
-    }
-
-    if (bytes<1) {
-      bytes = 1;
-      wc = *end;
-    }
-    col = width-columns;
-    if (col<1) break;
-    if (escout) {
-      if ((col = escout(out, col, wc))<0) break;
-    } else if (out) fwrite(end, 1, bytes, out);
-  }
-  *str = end;
-
-  return columns;
-}
-
-//BUGBUG cursor at eol
-static void draw_page()
-{
-  unsigned y = 0;
-  int x = 0;
-
-  char *line = 0, *end = 0;
-  int bytes = 0;
-
-  //screen coordinates for cursor
-  int cy_scr = 0, cx_scr = 0;
-
-  //variables used only for cursor handling
-  int aw = 0, iw = 0, clip = 0, margin = 8;
-
-  int scroll = 0, redraw = 0;
-
-  int SSOL, SOL;
-
-
-  adjust_screen_buffer();
-  //redraw = 3; //force full redraw
-  redraw = (TT.vi_mov_flag & 0x30000000)>>28;
-
-  scroll = TT.drawn_row-TT.scr_row;
-  if (TT.drawn_row<0 || TT.cur_row<0 || TT.scr_row<0) redraw = 3;
-  else if (abs(scroll)>TT.screen_height/2) redraw = 3;
-
-  tty_jump(0, 0);
-  if (redraw&2) tty_esc("2J"), tty_esc("H");   //clear screen
-  else if (scroll>0) printf("\033[%dL", scroll);  //scroll up
-  else if (scroll<0) printf("\033[%dM", -scroll); //scroll down
-
-  SOL = text_sol(TT.cursor);
-  bytes = text_getline(toybuf, SOL, ARRAY_LEN(toybuf));
-  line = toybuf;
-
-  for (SSOL = TT.screen, y = 0; SSOL < SOL; y++) SSOL = text_nsol(SSOL);
-
-  cy_scr = y;
-
-  //draw cursor row
-  /////////////////////////////////////////////////////////////
-  //for long lines line starts to scroll when cursor hits margin
-  bytes = TT.cursor-SOL; // TT.cur_col;
-  end = line;
-
-
-  tty_jump(0, y);
-  tty_esc("2K");
-  //find cursor position
-  aw = crunch_nstr(&end, 1024, bytes, 0, "\t\n", vi_crunch);
-
-  //if we need to render text that is not inserted to buffer yet
-  if (TT.vi_mode == 2 && TT.il->len) {
-    char* iend = TT.il->data; //input end
-    x = 0;
-    //find insert end position
-    iw = crunch_str(&iend, 1024, 0, "\t\n", vi_crunch);
-    clip = (aw+iw) - TT.screen_width+margin;
-
-    //if clipped area is bigger than text before insert
-    if (clip > aw) {
-      clip -= aw;
-      iend = TT.il->data;
-
-      iw -= crunch_str(&iend, clip, 0, "\t\n", vi_crunch);
-      x = crunch_str(&iend, iw, stdout, "\t\n", vi_crunch);
-    } else {
-      iend = TT.il->data;
-      end = line;
-
-      //if clipped area is substring from cursor row start
-      aw -= crunch_nstr(&end, clip, bytes, 0, "\t\n", vi_crunch);
-      x = crunch_str(&end, aw,  stdout, "\t\n", vi_crunch);
-      x += crunch_str(&iend, iw, stdout, "\t\n", vi_crunch);
-    }
-  }
-  //when not inserting but still need to keep cursor inside screen
-  //margin area
-  else if ( aw+margin > TT.screen_width) {
-    clip = aw-TT.screen_width+margin;
-    end = line;
-    aw -= crunch_nstr(&end, clip, bytes, 0, "\t\n", vi_crunch);
-    x = crunch_str(&end, aw,  stdout, "\t\n", vi_crunch);
-  }
-  else {
-    end = line;
-    x = crunch_nstr(&end, aw, bytes, stdout, "\t\n", vi_crunch);
-  }
-  cx_scr = x;
-  cy_scr = y;
-  x += crunch_str(&end, TT.screen_width-x,  stdout, "\t\n", vi_crunch);
-
-  //start drawing all other rows that needs update
-  ///////////////////////////////////////////////////////////////////
-  y = 0, SSOL = TT.screen, line = toybuf;
-  bytes = text_getline(toybuf, SSOL, ARRAY_LEN(toybuf));
-
-  //if we moved around in long line might need to redraw everything
-  if (clip != TT.drawn_col) redraw = 3;
-
-  for (; y < TT.screen_height; y++ ) {
-    int draw_line = 0;
-    if (SSOL == SOL) {
-      line = toybuf;
-      SSOL += bytes+1;
-      bytes = text_getline(line, SSOL, ARRAY_LEN(toybuf));
-      continue;
-    } else if (redraw) draw_line++;
-    else if (scroll<0 && TT.screen_height-y-1<-scroll)
-      scroll++, draw_line++;
-    else if (scroll>0) scroll--, draw_line++;
-
-    tty_jump(0, y);
-    if (draw_line) {
-
-      tty_esc("2K");
-      if (line) {
-        if (draw_line && line && strlen(line)) {
-
-          aw = crunch_nstr(&line, clip, bytes, 0, "\t\n", vi_crunch);
-          crunch_str(&line, TT.screen_width-1, stdout, "\t\n", vi_crunch);
-          if ( *line ) printf("@");
-
-        }
-      } else if (draw_line) printf("~");
-    }
-    if (SSOL+bytes < TT.filesize)  {
-      line = toybuf;
-      SSOL += bytes+1;
-      bytes = text_getline(line, SSOL, ARRAY_LEN(toybuf));
-   } else line = 0;
-  }
-
-  TT.drawn_row = TT.scr_row, TT.drawn_col = clip;
-
-  //finished updating visual area
-  tty_jump(0, TT.screen_height);
-  tty_esc("2K");
-  if (TT.vi_mode == 2) printf("\x1b[1m-- INSERT --\x1b[m");
-  if (!TT.vi_mode) printf("\x1b[1m%s \x1b[m",TT.il->data);
-
-  sprintf(toybuf, "%zu / %zu,%d,%d", TT.cursor, TT.filesize,
-    TT.cur_row+1, TT.cur_col+1);
-
-  if (TT.cur_col != cx_scr) sprintf(toybuf+strlen(toybuf),"-%d", cx_scr+1);
-
-  tty_jump(TT.screen_width-strlen(toybuf), TT.screen_height);
-  printf("%s", toybuf);
-
-  if (TT.vi_mode) tty_jump(cx_scr, cy_scr);
-
-  xflush(1);
-
-}
-//jump into valid offset index
-//and valid utf8 codepoint
-static void check_cursor_bounds()
-{
-  char buf[8] = {0};
-  int len, width = 0;
-  if (!TT.filesize) TT.cursor = 0;
-
-  for (;;) {
-    if (TT.cursor < 1) {
-      TT.cursor = 0;
-      return;
-    } else if (TT.cursor >= TT.filesize-1) {
-      TT.cursor = TT.filesize-1;
-      return;
-    }
-    if ((len = text_codepoint(buf, TT.cursor)) < 1) {
-      TT.cursor--; //we are not in valid data try jump over
-      continue;
-    }
-    if (utf8_lnw(&width, buf, len) && width) break;
-    else TT.cursor--; //combine char jump over
-  }
-}
-
-//TODO rewrite the logic, difficulties counting lines
-//and with big files scroll should not rely in knowing
-//absoluteline numbers
-static void adjust_screen_buffer()
-{
-  size_t c, s;
-  TT.cur_row = 0, TT.scr_row = 0;
-  if (!TT.cursor) {
-    TT.screen = 0;
-    TT.vi_mov_flag = 0x20000000;
-    return;
-  } else if (TT.screen > (1<<18) || TT.cursor > (1<<18)) {
-     //give up, file is big, do full redraw
-
-    TT.screen = text_strrchr(TT.cursor-1, '\n')+1;
-    TT.vi_mov_flag = 0x20000000;
-    return;
-  }
-
-  s = text_count(0, TT.screen, '\n');
-  c = text_count(0, TT.cursor, '\n');
-  if (s >= c) {
-    TT.screen = text_strrchr(TT.cursor-1, '\n')+1;
-    s = c;
-    TT.vi_mov_flag = 0x20000000; //TODO I disabled scroll
-  } else {
-    int distance = c-s+1;
-    if (distance > (int)TT.screen_height) {
-      int n, adj = distance-TT.screen_height;
-      TT.vi_mov_flag = 0x20000000; //TODO I disabled scroll
-      for (;adj; adj--, s++)
-        if ((n = text_strchr(TT.screen, '\n'))+1 > TT.screen)
-          TT.screen = n+1;
-    }
-  }
-
-  TT.scr_row = s;
-  TT.cur_row = c;
-
-}
-
-//get utf8 length and width at same time
-static int utf8_lnw(int* width, char* s, int bytes)
-{
-  wchar_t wc;
-  int length;
-
-  *width = 0;
-  if (*s == '\t') {
-    *width = TT.tabstop;
-    return 1;
-  }
-  length = utf8towc(&wc, s, bytes);
-  if (length < 1) return 0;
-  *width = wcwidth(wc);
-  return length;
-}
-
-static int utf8_dec(char key, char *utf8_scratch, int *sta_p)
-{
-  int len = 0;
-  char *c = utf8_scratch;
-  c[*sta_p] = key;
-  if (!(*sta_p))  *c = key;
-  if (*c < 0x7F) { *sta_p = 1; return 1; }
-  if ((*c & 0xE0) == 0xc0) len = 2;
-  else if ((*c & 0xF0) == 0xE0 ) len = 3;
-  else if ((*c & 0xF8) == 0xF0 ) len = 4;
-  else {*sta_p = 0; return 0; }
-
-  (*sta_p)++;
-
-  if (*sta_p == 1) return 0;
-  if ((c[*sta_p-1] & 0xc0) != 0x80) {*sta_p = 0; return 0; }
-
-  if (*sta_p == len) { c[(*sta_p)] = 0; return 1; }
-
-  return 0;
-}
-
-static char* utf8_last(char* str, int size)
-{
-  char* end = str+size;
-  int pos = size;
-  int len = 0;
-  int width = 0;
-  while (pos >= 0) {
-    len = utf8_lnw(&width, end, size-pos);
-    if (len && width) return end;
-    end--; pos--;
-  }
-  return 0;
-}
-
-static int cur_left(int count0, int count1, char* unused)
-{
-  int count = count0*count1;
-  TT.vi_mov_flag |= 0x80000000;
-  for (;count--;) {
-    if (!TT.cursor) return 1;
-
-    TT.cursor--;
-    check_cursor_bounds();
-  }
-  return 1;
-}
-
-static int cur_right(int count0, int count1, char* unused)
-{
-  int count = count0*count1;
-  char buf[8] = {0};
-  int len, width = 0;
-  for (;count; count--) {
-    if ((len = text_codepoint(buf, TT.cursor)) > 0) TT.cursor += len;
-    else TT.cursor++;
-
-    for (;TT.cursor < TT.filesize;) {
-      if ((len = text_codepoint(buf, TT.cursor)) < 1) {
-        TT.cursor++; //we are not in valid data try jump over
-        continue;
-      }
-
-      if (utf8_lnw(&width, buf, len) && width) break;
-      else TT.cursor += len;
-    }
-    if (*buf == '\n') break;
-  }
-  check_cursor_bounds();
-  return 1;
-}
-
-//TODO column shift
-static int cur_up(int count0, int count1, char* unused)
-{
-  int count = count0*count1;
-  for (;count--;) TT.cursor = text_psol(TT.cursor);
-
-  TT.vi_mov_flag |= 0x80000000;
-  check_cursor_bounds();
-  return 1;
-}
-
-//TODO column shift
-static int cur_down(int count0, int count1, char* unused)
-{
-  int count = count0*count1;
-  for (;count--;) TT.cursor = text_nsol(TT.cursor);
-
-  check_cursor_bounds();
-  return 1;
 }

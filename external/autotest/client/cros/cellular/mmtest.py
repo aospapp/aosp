@@ -75,7 +75,7 @@ class ModemManagerTest(object):
 
         Arguments:
         netname -- fake network interface name (e.g. tun0)
-        modemname -- path to pty slave device of fake modem (e.g. /dev/pts/4)
+        modemname -- path to pty node device of fake modem (e.g. /dev/pts/4)
 
         Returns...
 

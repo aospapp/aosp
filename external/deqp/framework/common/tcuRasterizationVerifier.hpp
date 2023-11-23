@@ -119,10 +119,19 @@ struct RasterizationArguments
 
 struct VerifyTriangleGroupRasterizationLogStash
 {
-	int				missingPixels;
-	int				unexpectedPixels;
-	tcu::Surface	errorMask;
-	bool			result;
+	std::vector<std::string>	messages;
+	int							missingPixels;
+	int							unexpectedPixels;
+	tcu::Surface				errorMask;
+	bool						result;
+};
+
+struct VerifyTriangleGroupInterpolationLogStash
+{
+	std::vector<std::string>	messages;
+	int							invalidPixels;
+	tcu::Surface				errorMask;
+	bool						success;
 };
 
 /*--------------------------------------------------------------------*//*!
@@ -133,6 +142,18 @@ struct VerifyTriangleGroupRasterizationLogStash
  * whole pixel area is compared.
  *//*--------------------------------------------------------------------*/
 CoverageType calculateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1, const tcu::Vec4& p2, const tcu::IVec2& pixel, const tcu::IVec2& viewportSize, int subpixelBits, bool multisample);
+
+/*--------------------------------------------------------------------*//*!
+ * \brief Calculates line coverage at given pixel
+ * Calculates the coverage of a reactangle given by line coordinates and width.
+ *//*--------------------------------------------------------------------*/
+CoverageType calculateUnderestimateLineCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1, const float lineWidth, const tcu::IVec2& pixel, const tcu::IVec2& viewportSize);
+
+/*--------------------------------------------------------------------*//*!
+ * \brief Calculates triangle coverage at given pixel
+ * Calculates the coverage of a triangle given by by three vertices.
+ *//*--------------------------------------------------------------------*/
+CoverageType calculateUnderestimateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1, const tcu::Vec4& p2, const tcu::IVec2& pixel, int subpixelBits, const tcu::IVec2& viewportSize);
 
 /*--------------------------------------------------------------------*//*!
  * \brief Verify triangle rasterization result
@@ -178,7 +199,7 @@ bool verifyClippedTriangulatedLineGroupRasterization (const tcu::Surface& surfac
  *
  * Returns false if both rasterizations are invalid.
  *//*--------------------------------------------------------------------*/
-bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, const bool vulkanLinesTest = false);
+bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, const bool vulkanLinesTest = false, const bool strict = true);
 
 /*--------------------------------------------------------------------*//*!
  * \brief Verify point rasterization result
@@ -223,7 +244,7 @@ LineInterpolationMethod verifyLineGroupInterpolation (const tcu::Surface& surfac
  *
  * Returns false if invalid rasterization interpolation is found.
  *//*--------------------------------------------------------------------*/
-bool verifyTriangulatedLineGroupInterpolation (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log);
+bool verifyTriangulatedLineGroupInterpolation (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, const bool strictMode = true, const bool allowBresenhamForNonStrictLines = false);
 
 } // tcu
 

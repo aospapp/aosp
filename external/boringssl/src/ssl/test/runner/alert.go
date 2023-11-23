@@ -16,7 +16,6 @@ const (
 
 const (
 	alertCloseNotify                  alert = 0
-	alertEndOfEarlyData               alert = 1
 	alertUnexpectedMessage            alert = 10
 	alertBadRecordMAC                 alert = 20
 	alertDecryptionFailed             alert = 21
@@ -46,11 +45,11 @@ const (
 	alertBadCertificateStatusResponse alert = 113
 	alertUnknownPSKIdentity           alert = 115
 	alertCertificateRequired          alert = 116
+	alertNoApplicationProtocol        alert = 120
 )
 
 var alertText = map[alert]string{
 	alertCloseNotify:                  "close notify",
-	alertEndOfEarlyData:               "end of early data",
 	alertUnexpectedMessage:            "unexpected message",
 	alertBadRecordMAC:                 "bad record MAC",
 	alertDecryptionFailed:             "decryption failed",
@@ -80,6 +79,7 @@ var alertText = map[alert]string{
 	alertUnrecognizedName:             "unrecognized name",
 	alertUnknownPSKIdentity:           "unknown PSK identity",
 	alertCertificateRequired:          "certificate required",
+	alertNoApplicationProtocol:        "no application protocol",
 }
 
 func (e alert) String() string {

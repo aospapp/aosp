@@ -78,7 +78,7 @@ aubinator_init(void *user_data, int aub_pci_id, const char *app_name)
 {
    pci_id = aub_pci_id;
 
-   if (!gen_get_device_info(pci_id, &devinfo)) {
+   if (!gen_get_device_info_from_pci_id(pci_id, &devinfo)) {
       fprintf(stderr, "can't find device information: pci_id=0x%x\n", pci_id);
       exit(EXIT_FAILURE);
    }
@@ -297,7 +297,7 @@ int main(int argc, char *argv[])
       { "no-offsets",    no_argument,       (int *) &option_print_offsets, false },
       { "gen",           required_argument, NULL,                          'g' },
       { "headers",       no_argument,       (int *) &option_full_decode,   false },
-      { "color",         required_argument, NULL,                          'c' },
+      { "color",         optional_argument, NULL,                          'c' },
       { "xml",           required_argument, NULL,                          'x' },
       { "max-vbo-lines", required_argument, NULL,                          'v' },
       { NULL,            0,                 NULL,                          0 }

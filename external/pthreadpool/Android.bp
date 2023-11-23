@@ -12,23 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_pthreadpool_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_pthreadpool_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_static {
     name: "libpthreadpool",
     export_include_dirs: ["include"],
     vendor_available: true,
     sdk_version: "current",
     srcs: [
-        "src/threadpool-pthreads.c",
-        "src/threadpool-legacy.c",
+        "src/memory.c",
+        "src/portable-api.c",
+        "src/pthreads.c",
     ],
     cflags: [
-        "-std=gnu11",
         "-O2",
         "-Wno-deprecated-declarations",
         "-Wno-missing-field-initializers",
+        "-DPTHREADPOOL_USE_CPUINFO=1",
+        "-DPTHREADPOOL_USE_CONDVAR=1",
     ],
+    c_std: "gnu11",
     header_libs: [
         "fxdiv_headers",
+    ],
+    shared_libs: [
+        "liblog",
+    ],
+    static_libs: [
+        "libcpuinfo",
+        "libclog",
     ],
 }
 
@@ -43,7 +70,12 @@ cc_test {
         "-Wno-missing-field-initializers",
     ],
     stl: "libc++_static",
+    shared_libs: [
+        "liblog",
+    ],
     static_libs: [
+        "libclog",
+        "libcpuinfo",
         "libgmock_ndk",
         "libpthreadpool",
     ],
@@ -51,4 +83,3 @@ cc_test {
         "general-tests",
     ],
 }
-

@@ -53,11 +53,8 @@ namespace test_utils {
 
 void BsdiffTestEnvironment::SetUp() {
 #ifdef BSDIFF_TARGET_UNITTEST
-#define BSDIFF_TARGET_TMP_BASE "/data/tmp"
-      if (access(BSDIFF_TARGET_TMP_BASE, F_OK) == -1) {
-        mkdir(BSDIFF_TARGET_TMP_BASE, S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH);
-      }
-      setenv("TMPDIR", BSDIFF_TARGET_TMP_BASE, 1);
+#define BSDIFF_TARGET_TMP_BASE "/data/local/tmp"
+  setenv("TMPDIR", BSDIFF_TARGET_TMP_BASE, 1);
 #endif  // defined (BSDIFF_TARGET_UNITTEST)
 }
 

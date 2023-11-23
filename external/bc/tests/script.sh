@@ -1,8 +1,8 @@
 #! /bin/sh
 #
-# Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+# SPDX-License-Identifier: BSD-2-Clause
 #
-# All rights reserved.
+# Copyright (c) 2018-2021 Gavin D. Howard and contributors.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,10 @@ script="$0"
 
 testdir=$(dirname "${script}")
 
+. "$testdir/../functions.sh"
+
 if [ "$#" -lt 2 ]; then
-	printf 'usage: %s dir script [run_stack_tests] [generate_tests] [time_tests] [exec args...]\n' "$script"
+	printf 'usage: %s dir script [run_extra_tests] [run_stack_tests] [generate_tests] [time_tests] [exec args...]\n' "$script"
 	exit 1
 fi
 
@@ -43,6 +45,13 @@ shift
 
 f="$1"
 shift
+
+if [ "$#" -gt 0 ]; then
+	run_extra_tests="$1"
+	shift
+else
+	run_extra_tests=1
+fi
 
 if [ "$#" -gt 0 ]; then
 	run_stack_tests="$1"
@@ -72,8 +81,6 @@ else
 	exe="$testdir/../bin/$d"
 fi
 
-out="$testdir/../.log_${d}_test.txt"
-
 if [ "$d" = "bc" ]; then
 
 	if [ "$run_stack_tests" -ne 0 ]; then
@@ -97,14 +104,33 @@ if [ "$f" = "timeconst.bc" ]; then
 	exit 0
 fi
 
+if [ "$run_extra_tests" -eq 0 ]; then
+	if [ "$f" = "rand.bc" ]; then
+		printf 'Skipping %s script: %s\n' "$d" "$f"
+		exit 0
+	fi
+fi
+
 if [ "$run_stack_tests" -eq 0 ]; then
 
-	if [ "$f" = "globals.bc" -o "$f" = "references.bc" ]; then
+	if [ "$f" = "globals.bc" -o "$f" = "references.bc" -o "$f" = "rand.bc" ]; then
 		printf 'Skipping %s script: %s\n' "$d" "$f"
 		exit 0
 	fi
 
 fi
+
+out="$testdir/${d}_outputs/${name}_script_results.txt"
+outdir=$(dirname "$out")
+
+if [ ! -d "$outdir" ]; then
+	mkdir -p "$outdir"
+fi
+
+unset BC_ENV_ARGS
+unset BC_LINE_LENGTH
+unset DC_ENV_ARGS
+unset DC_LINE_LENGTH
 
 s="$scriptdir/$f"
 orig="$testdir/$name.txt"
@@ -115,7 +141,7 @@ if [ -f "$orig" ]; then
 elif [ -f "$results" ]; then
 	res="$results"
 elif [ "$generate" -eq 0 ]; then
-	printf 'Skipping %s script %s\n' "$d" "$s"
+	printf 'Skipping %s script %s\n' "$d" "$f"
 	exit 0
 else
 	printf 'Generating %s results...' "$f"
@@ -124,18 +150,22 @@ else
 	res="$results"
 fi
 
+set +e
+
 printf 'Running %s script %s...' "$d" "$f"
 
 if [ "$time_tests" -ne 0 ]; then
 	printf '\n'
-	printf '%s\n' "$halt" | time -p "$exe" "$@" $options "$s" > "$out"
+	printf '%s\n' "$halt" | /usr/bin/time -p "$exe" "$@" $options "$s" > "$out"
+	err="$?"
 	printf '\n'
 else
 	printf '%s\n' "$halt" | "$exe" "$@" $options "$s" > "$out"
+	err="$?"
 fi
 
-diff "$res" "$out"
+checktest "$d" "$err" "script $f" "$res" "$out"
 
 rm -f "$out"
 
-printf 'pass\n'
+exec printf 'pass\n'

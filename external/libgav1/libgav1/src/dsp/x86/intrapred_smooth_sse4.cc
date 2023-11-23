@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/dsp/dsp.h"
-#include "src/dsp/intrapred.h"
+#include "src/dsp/intrapred_smooth.h"
+#include "src/utils/cpu.h"
 
-#if LIBGAV1_ENABLE_SSE4_1
+#if LIBGAV1_TARGETING_SSE4_1
 
 #include <xmmintrin.h>
 
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>  // memcpy
 
 #include "src/dsp/constants.h"
+#include "src/dsp/dsp.h"
 #include "src/dsp/x86/common_sse4.h"
 #include "src/utils/common.h"
+#include "src/utils/constants.h"
 
 namespace libgav1 {
 namespace dsp {
@@ -64,29 +65,6 @@ inline void WriteSmoothHorizontalSum4(void* const dest, const __m128i& left,
   const __m128i pred = _mm_srli_epi32(_mm_add_epi32(pred_sum, round), 8);
   const __m128i cvtepi32_epi8 = _mm_set1_epi32(0x0C080400);
   Store4(dest, _mm_shuffle_epi8(pred, cvtepi32_epi8));
-}
-
-template <int y_mask>
-inline __m128i SmoothVerticalSum4(const __m128i& top, const __m128i& weights,
-                                  const __m128i& scaled_bottom_left) {
-  const __m128i weights_y = _mm_shuffle_epi32(weights, y_mask);
-  const __m128i weighted_top_y = _mm_mullo_epi16(top, weights_y);
-  const __m128i scaled_bottom_left_y =
-      _mm_shuffle_epi32(scaled_bottom_left, y_mask);
-  return _mm_add_epi32(scaled_bottom_left_y, weighted_top_y);
-}
-
-template <int y_mask>
-inline void WriteSmoothVerticalSum4(uint8_t* dest, const __m128i& top,
-                                    const __m128i& weights,
-                                    const __m128i& scaled_bottom_left,
-                                    const __m128i& round) {
-  __m128i pred_sum =
-      SmoothVerticalSum4<y_mask>(top, weights, scaled_bottom_left);
-  // Equivalent to RightShiftWithRounding(pred[x][y], 8).
-  pred_sum = _mm_srli_epi32(_mm_add_epi32(pred_sum, round), 8);
-  const __m128i cvtepi32_epi8 = _mm_set1_epi32(0x0C080400);
-  Store4(dest, _mm_shuffle_epi8(pred_sum, cvtepi32_epi8));
 }
 
 // For SMOOTH_H, |pixels| is the repeated left value for the row. For SMOOTH_V,
@@ -2408,7 +2386,7 @@ void SmoothVertical64x64_SSE4_1(void* const dest, const ptrdiff_t stride,
 }
 
 void Init8bpp() {
-  Dsp* const dsp = dsp_internal::GetWritableDspTable(8);
+  Dsp* const dsp = dsp_internal::GetWritableDspTable(kBitdepth8);
   assert(dsp != nullptr);
 #if DSP_ENABLED_8BPP_SSE4_1(TransformSize4x4_IntraPredictorSmooth)
   dsp->intra_predictors[kTransformSize4x4][kIntraPredictorSmooth] =
@@ -2648,7 +2626,7 @@ void IntraPredSmoothInit_SSE4_1() { low_bitdepth::Init8bpp(); }
 }  // namespace dsp
 }  // namespace libgav1
 
-#else  // !LIBGAV1_ENABLE_SSE4_1
+#else  // !LIBGAV1_TARGETING_SSE4_1
 
 namespace libgav1 {
 namespace dsp {
@@ -2658,4 +2636,4 @@ void IntraPredSmoothInit_SSE4_1() {}
 }  // namespace dsp
 }  // namespace libgav1
 
-#endif  // LIBGAV1_ENABLE_SSE4_1
+#endif  // LIBGAV1_TARGETING_SSE4_1

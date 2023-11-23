@@ -14,19 +14,30 @@
 
 import {Draft} from 'immer';
 
-import {assertExists} from '../base/logging';
-import {
-  Area,
-  CallsiteInfo,
-  HeapProfileFlamegraphViewingOption
-} from '../common/state';
+import {assertExists, assertTrue} from '../base/logging';
+import {randomColor} from '../common/colorizer';
 import {ConvertTrace, ConvertTraceToPprof} from '../controller/trace_converter';
+import {ACTUAL_FRAMES_SLICE_TRACK_KIND} from '../tracks/actual_frames/common';
+import {ASYNC_SLICE_TRACK_KIND} from '../tracks/async_slices/common';
+import {COUNTER_TRACK_KIND} from '../tracks/counter/common';
+import {DEBUG_SLICE_TRACK_KIND} from '../tracks/debug_slices/common';
+import {
+  EXPECTED_FRAMES_SLICE_TRACK_KIND
+} from '../tracks/expected_frames/common';
+import {HEAP_PROFILE_TRACK_KIND} from '../tracks/heap_profile/common';
+import {
+  PROCESS_SCHEDULING_TRACK_KIND
+} from '../tracks/process_scheduling/common';
+import {PROCESS_SUMMARY_TRACK} from '../tracks/process_summary/common';
 
 import {DEFAULT_VIEWING_OPTION} from './flamegraph_util';
 import {
   AdbRecordingTarget,
+  Area,
+  CallsiteInfo,
   createEmptyState,
   EngineMode,
+  HeapProfileFlamegraphViewingOption,
   LogsPagination,
   NewEngineMode,
   OmniboxState,
@@ -35,26 +46,38 @@ import {
   SCROLLING_TRACK_GROUP,
   State,
   Status,
-  TimestampedAreaSelection,
   TraceSource,
   TraceTime,
+  TrackKindPriority,
   TrackState,
   VisibleState,
 } from './state';
 
 type StateDraft = Draft<State>;
 
+const highPriorityTrackOrder = [
+  PROCESS_SCHEDULING_TRACK_KIND,
+  PROCESS_SUMMARY_TRACK,
+  EXPECTED_FRAMES_SLICE_TRACK_KIND,
+  ACTUAL_FRAMES_SLICE_TRACK_KIND
+];
+
+const lowPriorityTrackOrder =
+    [HEAP_PROFILE_TRACK_KIND, COUNTER_TRACK_KIND, ASYNC_SLICE_TRACK_KIND];
+
 export interface AddTrackArgs {
   id?: string;
   engineId: string;
   kind: string;
   name: string;
+  trackKindPriority: TrackKindPriority;
   trackGroup?: string;
   config: {};
 }
 
 export interface PostedTrace {
   title: string;
+  fileName?: string;
   url?: string;
   buffer: ArrayBuffer;
 }
@@ -64,6 +87,7 @@ function clearTraceState(state: StateDraft) {
   const recordConfig = state.recordConfig;
   const route = state.route;
   const recordingTarget = state.recordingTarget;
+  const updateChromeCategories = state.updateChromeCategories;
   const extensionInstalled = state.extensionInstalled;
   const availableAdbDevices = state.availableAdbDevices;
   const chromeCategories = state.chromeCategories;
@@ -74,10 +98,25 @@ function clearTraceState(state: StateDraft) {
   state.recordConfig = recordConfig;
   state.route = route;
   state.recordingTarget = recordingTarget;
+  state.updateChromeCategories = updateChromeCategories;
   state.extensionInstalled = extensionInstalled;
   state.availableAdbDevices = availableAdbDevices;
   state.chromeCategories = chromeCategories;
   state.newEngineMode = newEngineMode;
+}
+
+function rank(ts: TrackState): number[] {
+  const hpRank = rankIndex(ts.kind, highPriorityTrackOrder);
+  const lpRank = rankIndex(ts.kind, lowPriorityTrackOrder);
+  // TODO(hjd): Create sortBy object on TrackState to avoid this cast.
+  const tid = (ts.config as {tid?: number}).tid || 0;
+  return [hpRank, ts.trackKindPriority.valueOf(), lpRank, tid];
+}
+
+function rankIndex<T>(element: T, array: T[]): number {
+  const index = array.indexOf(element);
+  if (index === -1) return array.length;
+  return index;
 }
 
 export const StateActions = {
@@ -137,14 +176,19 @@ export const StateActions = {
 
   // TODO(b/141359485): Actions should only modify state.
   convertTraceToJson(
-      _: StateDraft, args: {file: Blob, truncate?: 'start'|'end'}): void {
-    ConvertTrace(args.file, args.truncate);
+      state: StateDraft, args: {file: Blob, truncate?: 'start'|'end'}): void {
+    state.traceConversionInProgress = true;
+    ConvertTrace(args.file, 'json', args.truncate);
   },
 
   convertTraceToPprof(
       _: StateDraft,
       args: {pid: number, src: TraceSource, ts1: number, ts2?: number}): void {
     ConvertTraceToPprof(args.pid, args.src, args.ts1, args.ts2);
+  },
+
+  clearConversionInProgress(state: StateDraft, _args: {}): void {
+    state.traceConversionInProgress = false;
   },
 
   addTracks(state: StateDraft, args: {tracks: AddTrackArgs[]}) {
@@ -162,7 +206,7 @@ export const StateActions = {
 
   addTrack(state: StateDraft, args: {
     id?: string; engineId: string; kind: string; name: string;
-    trackGroup?: string; config: {};
+    trackGroup?: string; config: {}; trackKindPriority: TrackKindPriority;
   }): void {
     const id = args.id !== undefined ? args.id : `${state.nextId++}`;
     state.tracks[id] = {
@@ -170,6 +214,7 @@ export const StateActions = {
       engineId: args.engineId,
       kind: args.kind,
       name: args.name,
+      trackKindPriority: args.trackKindPriority,
       trackGroup: args.trackGroup,
       config: args.config,
     };
@@ -189,9 +234,60 @@ export const StateActions = {
         collapsed: boolean;
       }): void {
     state.trackGroups[args.id] = {
-      ...args,
-      tracks: [],
+      engineId: args.engineId,
+      name: args.name,
+      id: args.id,
+      collapsed: args.collapsed,
+      tracks: [args.summaryTrackId],
     };
+  },
+
+  addDebugTrack(state: StateDraft, args: {engineId: string, name: string}):
+      void {
+        if (state.debugTrackId !== undefined) return;
+        const trackId = `${state.nextId++}`;
+        state.debugTrackId = trackId;
+        this.addTrack(state, {
+          id: trackId,
+          engineId: args.engineId,
+          kind: DEBUG_SLICE_TRACK_KIND,
+          name: args.name,
+          trackKindPriority: TrackKindPriority.ORDINARY,
+          trackGroup: SCROLLING_TRACK_GROUP,
+          config: {
+            maxDepth: 1,
+          }
+        });
+        this.toggleTrackPinned(state, {trackId});
+      },
+
+  removeDebugTrack(state: StateDraft, _: {}): void {
+    const {debugTrackId} = state;
+    if (debugTrackId === undefined) return;
+    delete state.tracks[debugTrackId];
+    state.scrollingTracks =
+        state.scrollingTracks.filter(id => id !== debugTrackId);
+    state.pinnedTracks = state.pinnedTracks.filter(id => id !== debugTrackId);
+    state.debugTrackId = undefined;
+  },
+
+  sortThreadTracks(state: StateDraft, _: {}): void {
+    // Use a numeric collator so threads are sorted as T1, T2, ..., T10, T11,
+    // rather than T1, T10, T11, ..., T2, T20, T21 .
+    const coll = new Intl.Collator([], {sensitivity: 'base', numeric: true});
+    for (const group of Object.values(state.trackGroups)) {
+      group.tracks.sort((a: string, b: string) => {
+        const aRank = rank(state.tracks[a]);
+        const bRank = rank(state.tracks[b]);
+        for (let i = 0; i < aRank.length; i++) {
+          if (aRank[i] !== bRank[i]) return aRank[i] - bRank[i];
+        }
+
+        const aName = state.tracks[a].name.toLocaleLowerCase();
+        const bName = state.tracks[b].name.toLocaleLowerCase();
+        return coll.compare(aName, bName);
+      });
+    }
   },
 
   updateAggregateSorting(
@@ -295,11 +391,23 @@ export const StateActions = {
         trackGroup.collapsed = !trackGroup.collapsed;
       },
 
+  requestTrackReload(state: StateDraft, _: {}) {
+    if (state.lastTrackReloadRequest) {
+      state.lastTrackReloadRequest++;
+    } else {
+      state.lastTrackReloadRequest = 1;
+    }
+  },
+
   setEngineReady(
       state: StateDraft,
       args: {engineId: string; ready: boolean, mode: EngineMode}): void {
-    state.engines[args.engineId].ready = args.ready;
-    state.engines[args.engineId].mode = args.mode;
+    const engine = state.engines[args.engineId];
+    if (engine === undefined) {
+      return;
+    }
+    engine.ready = args.ready;
+    engine.mode = args.mode;
   },
 
   setNewEngineMode(state: StateDraft, args: {mode: NewEngineMode}): void {
@@ -314,8 +422,12 @@ export const StateActions = {
         }
       },
 
-  createPermalink(state: StateDraft, _: {}): void {
-    state.permalink = {requestId: `${state.nextId++}`, hash: undefined};
+  createPermalink(state: StateDraft, args: {isRecordingConfig: boolean}): void {
+    state.permalink = {
+      requestId: `${state.nextId++}`,
+      hash: undefined,
+      isRecordingConfig: args.isRecordingConfig
+    };
   },
 
   setPermalink(state: StateDraft, args: {requestId: string; hash: string}):
@@ -326,10 +438,7 @@ export const StateActions = {
       },
 
   loadPermalink(state: StateDraft, args: {hash: string}): void {
-    state.permalink = {
-      requestId: `${state.nextId++}`,
-      hash: args.hash,
-    };
+    state.permalink = {requestId: `${state.nextId++}`, hash: args.hash};
   },
 
   clearPermalink(state: StateDraft, _: {}): void {
@@ -372,7 +481,7 @@ export const StateActions = {
   addNote(
       state: StateDraft,
       args: {timestamp: number, color: string, isMovie: boolean}): void {
-    const id = `${state.nextId++}`;
+    const id = `${state.nextNoteId++}`;
     state.notes[id] = {
       noteType: 'DEFAULT',
       id,
@@ -386,20 +495,55 @@ export const StateActions = {
     this.selectNote(state, {id});
   },
 
-  addAreaNote(
-      state: StateDraft, args: {timestamp: number, area: Area, color: string}):
+  markCurrentArea(
+      state: StateDraft, args: {color: string, persistent: boolean}):
       void {
-        const id = `${state.nextId++}`;
+        if (state.currentSelection === null ||
+            state.currentSelection.kind !== 'AREA') {
+          return;
+        }
+        const id = args.persistent ? `${state.nextNoteId++}` : '0';
+        const color = args.persistent ? args.color : '#344596';
         state.notes[id] = {
           noteType: 'AREA',
           id,
-          timestamp: args.timestamp,
-          area: args.area,
-          color: args.color,
+          areaId: state.currentSelection.areaId,
+          color,
           text: '',
         };
-        this.selectNote(state, {id});
+        state.currentSelection.noteId = id;
       },
+
+  toggleMarkCurrentArea(state: StateDraft, args: {persistent: boolean}) {
+    const selection = state.currentSelection;
+    if (selection != null && selection.kind === 'AREA' &&
+        selection.noteId !== undefined) {
+      this.removeNote(state, {id: selection.noteId});
+    } else {
+      const color = randomColor();
+      this.markCurrentArea(state, {color, persistent: args.persistent});
+    }
+  },
+
+  markArea(state: StateDraft, args: {area: Area, persistent: boolean}): void {
+    const areaId = `${state.nextAreaId++}`;
+    assertTrue(args.area.endSec >= args.area.startSec);
+    state.areas[areaId] = {
+      id: areaId,
+      startSec: args.area.startSec,
+      endSec: args.area.endSec,
+      tracks: args.area.tracks
+    };
+    const id = args.persistent ? `${state.nextNoteId++}` : '0';
+    const color = args.persistent ? randomColor() : '#344596';
+    state.notes[id] = {
+      noteType: 'AREA',
+      id,
+      areaId,
+      color,
+      text: '',
+    };
+  },
 
   toggleVideo(state: StateDraft, _: {}): void {
     state.videoEnabled = !state.videoEnabled;
@@ -443,16 +587,23 @@ export const StateActions = {
   },
 
   removeNote(state: StateDraft, args: {id: string}): void {
+    if (state.notes[args.id] === undefined) return;
     if (state.notes[args.id].noteType === 'MOVIE') {
       state.videoNoteIds = state.videoNoteIds.filter(id => {
         return id !== args.id;
       });
     }
     delete state.notes[args.id];
+    // For regular notes, we clear the current selection but for an area note
+    // we only want to clear the note/marking and leave the area selected.
     if (state.currentSelection === null) return;
     if (state.currentSelection.kind === 'NOTE' &&
         state.currentSelection.id === args.id) {
       state.currentSelection = null;
+    } else if (
+        state.currentSelection.kind === 'AREA' &&
+        state.currentSelection.noteId === args.id) {
+      state.currentSelection.noteId = undefined;
     }
   },
 
@@ -487,11 +638,6 @@ export const StateActions = {
       ts: args.ts,
       type: args.type,
     };
-  },
-
-  showHeapProfileFlamegraph(
-      state: StateDraft,
-      args: {id: number, upid: number, ts: number, type: string}): void {
     state.currentHeapProfileFlamegraph = {
       kind: 'HEAP_PROFILE_FLAMEGRAPH',
       id: args.id,
@@ -543,24 +689,14 @@ export const StateActions = {
         };
       },
 
-  selectThreadState(state: StateDraft, args: {
-    utid: number,
-    ts: number,
-    dur: number,
-    state: string,
-    cpu: number,
-    trackId: string
-  }): void {
-    state.currentSelection = {
-      kind: 'THREAD_STATE',
-      utid: args.utid,
-      ts: args.ts,
-      dur: args.dur,
-      state: args.state,
-      cpu: args.cpu,
-      trackId: args.trackId,
-    };
-  },
+  selectThreadState(state: StateDraft, args: {id: number, trackId: string}):
+      void {
+        state.currentSelection = {
+          kind: 'THREAD_STATE',
+          id: args.id,
+          trackId: args.trackId,
+        };
+      },
 
   deselect(state: StateDraft, _: {}): void {
     state.currentSelection = null;
@@ -597,6 +733,10 @@ export const StateActions = {
     state.recordingTarget = args.target;
   },
 
+  setUpdateChromeCategories(state: StateDraft, args: {update: boolean}): void {
+    state.updateChromeCategories = args.update;
+  },
+
   setAvailableAdbDevices(
       state: StateDraft, args: {devices: AdbRecordingTarget[]}): void {
     state.availableAdbDevices = args.devices;
@@ -606,8 +746,63 @@ export const StateActions = {
     state.frontendLocalState.omniboxState = args;
   },
 
-  selectArea(state: StateDraft, args: TimestampedAreaSelection): void {
-    state.frontendLocalState.selectedArea = args;
+  selectArea(state: StateDraft, args: {area: Area}): void {
+    const areaId = `${state.nextAreaId++}`;
+    assertTrue(args.area.endSec >= args.area.startSec);
+    state.areas[areaId] = {
+      id: areaId,
+      startSec: args.area.startSec,
+      endSec: args.area.endSec,
+      tracks: args.area.tracks
+    };
+    state.currentSelection = {kind: 'AREA', areaId};
+  },
+
+  editArea(state: StateDraft, args: {area: Area, areaId: string}): void {
+    assertTrue(args.area.endSec >= args.area.startSec);
+    state.areas[args.areaId] = {
+      id: args.areaId,
+      startSec: args.area.startSec,
+      endSec: args.area.endSec,
+      tracks: args.area.tracks
+    };
+  },
+
+  reSelectArea(state: StateDraft, args: {areaId: string, noteId: string}):
+      void {
+        state.currentSelection = {
+          kind: 'AREA',
+          areaId: args.areaId,
+          noteId: args.noteId
+        };
+      },
+
+  toggleTrackSelection(
+      state: StateDraft, args: {id: string, isTrackGroup: boolean}) {
+    const selection = state.currentSelection;
+    if (selection === null || selection.kind !== 'AREA') return;
+    const areaId = selection.areaId;
+    const index = state.areas[areaId].tracks.indexOf(args.id);
+    if (index > -1) {
+      state.areas[areaId].tracks.splice(index, 1);
+      if (args.isTrackGroup) {  // Also remove all child tracks.
+        for (const childTrack of state.trackGroups[args.id].tracks) {
+          const childIndex = state.areas[areaId].tracks.indexOf(childTrack);
+          if (childIndex > -1) {
+            state.areas[areaId].tracks.splice(childIndex, 1);
+          }
+        }
+      }
+    } else {
+      state.areas[areaId].tracks.push(args.id);
+      if (args.isTrackGroup) {  // Also add all child tracks.
+        for (const childTrack of state.trackGroups[args.id].tracks) {
+          if (!state.areas[areaId].tracks.includes(childTrack)) {
+            state.areas[areaId].tracks.push(childTrack);
+          }
+        }
+      }
+    }
   },
 
   setVisibleTraceTime(state: StateDraft, args: VisibleState): void {
@@ -630,7 +825,34 @@ export const StateActions = {
 
   setAnalyzePageQuery(state: StateDraft, args: {query: string}): void {
     state.analyzePageQuery = args.query;
-  }
+  },
+
+  requestSelectedMetric(state: StateDraft, _: {}): void {
+    if (!state.metrics.availableMetrics) throw Error('No metrics available');
+    if (state.metrics.selectedIndex === undefined) {
+      throw Error('No metric selected');
+    }
+    state.metrics.requestedMetric =
+        state.metrics.availableMetrics[state.metrics.selectedIndex];
+  },
+
+  resetMetricRequest(state: StateDraft, args: {name: string}): void {
+    if (state.metrics.requestedMetric !== args.name) return;
+    state.metrics.requestedMetric = undefined;
+  },
+
+  setAvailableMetrics(state: StateDraft, args: {metrics: string[]}): void {
+    state.metrics.availableMetrics = args.metrics;
+    if (args.metrics.length > 0) state.metrics.selectedIndex = 0;
+  },
+
+  setMetricSelectedIndex(state: StateDraft, args: {index: number}): void {
+    if (!state.metrics.availableMetrics ||
+        args.index >= state.metrics.availableMetrics.length) {
+      throw Error('metric selection out of bounds');
+    }
+    state.metrics.selectedIndex = args.index;
+  },
 };
 
 // When we are on the frontend side, we don't really want to execute the

@@ -27,6 +27,7 @@
 #include "nvc0/nvc0_3d.xml.h"
 #include "nv50/nv50_2d.xml.h"
 #include "nvc0/nvc0_m2mf.xml.h"
+#include "nvc0/nve4_copy.xml.h"
 #include "nvc0/nve4_p2mf.xml.h"
 #include "nvc0/nvc0_compute.xml.h"
 #include "nvc0/nvc0_macros.h"
@@ -321,12 +322,11 @@ extern struct draw_stage *nvc0_draw_render_stage(struct nvc0_context *);
 
 /* nvc0_program.c */
 bool nvc0_program_translate(struct nvc0_program *, uint16_t chipset,
+                            struct disk_cache *,
                             struct pipe_debug_callback *);
 bool nvc0_program_upload(struct nvc0_context *, struct nvc0_program *);
 void nvc0_program_destroy(struct nvc0_context *, struct nvc0_program *);
 void nvc0_program_library_upload(struct nvc0_context *);
-uint32_t nvc0_program_symbol_offset(const struct nvc0_program *,
-                                    uint32_t label);
 void nvc0_program_init_tcp_empty(struct nvc0_context *);
 
 /* nvc0_shader_state.c */
@@ -356,6 +356,7 @@ bool nvc0_state_validate_3d(struct nvc0_context *, uint32_t);
 
 /* nvc0_surface.c */
 extern void nvc0_clear(struct pipe_context *, unsigned buffers,
+                       const struct pipe_scissor_state *scissor_state,
                        const union pipe_color_union *color,
                        double depth, unsigned stencil);
 extern void nvc0_init_surface_functions(struct nvc0_context *);

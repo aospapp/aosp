@@ -74,11 +74,11 @@ void get_optflags(void);
 // Don't warn about failure to stat
 #define DIRTREE_SHUTUP      16
 // Breadth first traversal, conserves filehandles at the expense of memory
-#define DIRTREE_BREADTH     32
+#define DIRTREE_BREADTH     32 // TODO not implemented yet
 // skip non-numeric entries
 #define DIRTREE_PROC        64
 // Return files we can't stat
-#define DIRTREE_STATLESS    128
+#define DIRTREE_STATLESS   128
 // Don't look at any more files in this directory.
 #define DIRTREE_ABORT      256
 
@@ -127,14 +127,15 @@ char *xstrndup(char *s, size_t n);
 char *xstrdup(char *s);
 void *xmemdup(void *s, long len);
 char *xmprintf(char *format, ...) printf_format;
+void xflush(int flush);
 void xprintf(char *format, ...) printf_format;
 void xputsl(char *s, int len);
 void xputsn(char *s);
 void xputs(char *s);
 void xputc(char c);
-void xflush(int flush);
+void xvdaemon(void);
 void xexec(char **argv);
-pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(void));
+pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(char **argv));
 pid_t xpopen_both(char **argv, int *pipes);
 int xwaitpid(pid_t pid);
 int xpclose_both(pid_t pid, int *pipes);
@@ -187,7 +188,8 @@ void xsignal_flags(int signal, void *handler, int flags);
 void xsignal(int signal, void *handler);
 time_t xvali_date(struct tm *tm, char *str);
 void xparsedate(char *str, time_t *t, unsigned *nano, int endian);
-char *xgetline(FILE *fp, int *len);
+char *xgetline(FILE *fp);
+time_t xmktime(struct tm *tm, int utc);
 
 // lib.c
 void verror_msg(char *msg, int err, va_list va);
@@ -228,11 +230,13 @@ long long xstrtol(char *str, char **end, int base);
 long long atolx(char *c);
 long long atolx_range(char *numstr, long long low, long long high);
 int stridx(char *haystack, char needle);
+int wctoutf8(char *s, unsigned wc);
 int utf8towc(wchar_t *wc, char *str, unsigned len);
 char *strlower(char *s);
 char *strafter(char *haystack, char *needle);
 char *chomp(char *s);
 int unescape(char c);
+int unescape2(char **c, int echo);
 char *strend(char *str, char *suffix);
 int strstart(char **a, char *b);
 int strcasestart(char **a, char *b);
@@ -268,24 +272,27 @@ char *getgroupname(gid_t gid);
 void do_lines(int fd, char delim, void (*call)(char **pline, long len));
 long long millitime(void);
 char *format_iso_time(char *buf, size_t len, struct timespec *ts);
-void reset_env(struct passwd *p, int clear);
 void loggit(int priority, char *format, ...);
 unsigned tar_cksum(void *data);
 int is_tar_header(void *pkt);
 char *elf_arch_name(int type);
 
-#define HR_SPACE 1 // Space between number and units
-#define HR_B     2 // Use "B" for single byte units
-#define HR_1000  4 // Use decimal instead of binary units
-int human_readable_long(char *buf, unsigned long long num, int dgt, int style);
+#define HR_SPACE  1 // Space between number and units
+#define HR_B      2 // Use "B" for single byte units
+#define HR_1000   4 // Use decimal instead of binary units
+#define HR_NODOT  8 // No tenths for single digit units
+int human_readable_long(char *buf, unsigned long long num, int dgt, int unit,
+  int style);
 int human_readable(char *buf, unsigned long long num, int style);
 
 // env.c
 
-long environ_bytes();
-void xsetenv(char *name, char *val);
+long environ_bytes(void);
+char *xsetenv(char *name, char *val);
 void xunsetenv(char *name);
+char *xpop_env(char *name); // because xpopenv() looks like xpopen_v()
 void xclearenv(void);
+void reset_env(struct passwd *p, int clear);
 
 // linestack.c
 
@@ -330,6 +337,7 @@ int terminal_probesize(unsigned *xx, unsigned *yy);
 #define KEY_ALT (1<<18)
 int scan_key(char *scratch, int timeout_ms);
 int scan_key_getsize(char *scratch, int timeout_ms, unsigned *xx, unsigned *yy);
+void xsetspeed(struct termios *tio, int speed);
 int set_terminal(int fd, int raw, int speed, struct termios *old);
 void xset_terminal(int fd, int raw, int speed, struct termios *old);
 void tty_esc(char *s);
@@ -396,7 +404,7 @@ struct mtab_list *xgetmountlist(char *path);
 void generic_signal(int signal);
 void exit_signal(int signal);
 void sigatexit(void *handler);
-void list_signals();
+void list_signals(void);
 
 mode_t string_to_mode(char *mode_str, mode_t base);
 void mode_to_string(mode_t mode, char *buf);

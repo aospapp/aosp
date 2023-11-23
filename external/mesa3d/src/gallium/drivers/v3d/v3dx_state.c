@@ -23,12 +23,12 @@
  */
 
 #include "pipe/p_state.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_framebuffer.h"
 #include "util/u_inlines.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
-#include "util/u_half.h"
+#include "util/half_float.h"
 #include "util/u_helpers.h"
 #include "util/u_upload_mgr.h"
 
@@ -52,7 +52,7 @@ v3d_set_blend_color(struct pipe_context *pctx,
         v3d->blend_color.f = *blend_color;
         for (int i = 0; i < 4; i++) {
                 v3d->blend_color.hf[i] =
-                        util_float_to_half(blend_color->color[i]);
+                        _mesa_float_to_half(blend_color->color[i]);
         }
         v3d->dirty |= VC5_DIRTY_BLEND_COLOR;
 }
@@ -453,7 +453,7 @@ v3d_set_constant_buffer(struct pipe_context *pctx, uint shader, uint index,
 
         util_copy_constant_buffer(&so->cb[index], cb);
 
-        /* Note that the state tracker can unbind constant buffers by
+        /* Note that the gallium frontend can unbind constant buffers by
          * passing NULL here.
          */
         if (unlikely(!cb)) {
@@ -691,13 +691,13 @@ v3d_upload_sampler_state_variant(void *map,
                                 sampler.border_color_word_3 = border.ui[3];
                         } else {
                                 sampler.border_color_word_0 =
-                                        util_float_to_half(border.f[0]);
+                                        _mesa_float_to_half(border.f[0]);
                                 sampler.border_color_word_1 =
-                                        util_float_to_half(border.f[1]);
+                                        _mesa_float_to_half(border.f[1]);
                                 sampler.border_color_word_2 =
-                                        util_float_to_half(border.f[2]);
+                                        _mesa_float_to_half(border.f[2]);
                                 sampler.border_color_word_3 =
-                                        util_float_to_half(border.f[3]);
+                                        _mesa_float_to_half(border.f[3]);
                         }
                 }
         }
@@ -708,7 +708,7 @@ static void *
 v3d_create_sampler_state(struct pipe_context *pctx,
                          const struct pipe_sampler_state *cso)
 {
-        MAYBE_UNUSED struct v3d_context *v3d = v3d_context(pctx);
+        UNUSED struct v3d_context *v3d = v3d_context(pctx);
         struct v3d_sampler_state *so = CALLOC_STRUCT(v3d_sampler_state);
 
         if (!so)
@@ -793,6 +793,8 @@ v3d_sampler_states_bind(struct pipe_context *pctx,
         }
 
         stage_tex->num_samplers = new_nr;
+
+        v3d_flag_dirty_sampler_state(v3d, shader);
 }
 
 static void
@@ -890,6 +892,93 @@ v3d_setup_texture_shader_state(struct V3DX(TEXTURE_SHADER_STATE) *tex,
                 tex->extended = true;
         }
 #endif /* V3D_VERSION >= 40 */
+}
+
+void
+v3dX(create_texture_shader_state_bo)(struct v3d_context *v3d,
+                                     struct v3d_sampler_view *so)
+{
+        struct pipe_resource *prsc = so->texture;
+        const struct pipe_sampler_view *cso = &so->base;
+        struct v3d_screen *screen = v3d->screen;
+
+        void *map;
+
+#if V3D_VERSION >= 40
+        v3d_bo_unreference(&so->bo);
+        so->bo = v3d_bo_alloc(v3d->screen,
+                              cl_packet_length(TEXTURE_SHADER_STATE), "sampler");
+        map = v3d_bo_map(so->bo);
+#else /* V3D_VERSION < 40 */
+        STATIC_ASSERT(sizeof(so->texture_shader_state) >=
+                      cl_packet_length(TEXTURE_SHADER_STATE));
+        map = &so->texture_shader_state;
+#endif
+
+        v3dx_pack(map, TEXTURE_SHADER_STATE, tex) {
+                v3d_setup_texture_shader_state(&tex, prsc,
+                                               cso->u.tex.first_level,
+                                               cso->u.tex.last_level,
+                                               cso->u.tex.first_layer,
+                                               cso->u.tex.last_layer);
+
+                tex.srgb = util_format_is_srgb(cso->format);
+
+#if V3D_VERSION >= 40
+                tex.swizzle_r = translate_swizzle(so->swizzle[0]);
+                tex.swizzle_g = translate_swizzle(so->swizzle[1]);
+                tex.swizzle_b = translate_swizzle(so->swizzle[2]);
+                tex.swizzle_a = translate_swizzle(so->swizzle[3]);
+#endif
+
+                if (prsc->nr_samples > 1 && V3D_VERSION < 40) {
+                        /* Using texture views to reinterpret formats on our
+                         * MSAA textures won't work, because we don't lay out
+                         * the bits in memory as it's expected -- for example,
+                         * RGBA8 and RGB10_A2 are compatible in the
+                         * ARB_texture_view spec, but in HW we lay them out as
+                         * 32bpp RGBA8 and 64bpp RGBA16F.  Just assert for now
+                         * to catch failures.
+                         *
+                         * We explicitly allow remapping S8Z24 to RGBA8888 for
+                         * v3d_blit.c's stencil blits.
+                         */
+                        assert((util_format_linear(cso->format) ==
+                                util_format_linear(prsc->format)) ||
+                               (prsc->format == PIPE_FORMAT_S8_UINT_Z24_UNORM &&
+                                cso->format == PIPE_FORMAT_R8G8B8A8_UNORM));
+                        uint32_t output_image_format =
+                                v3d_get_rt_format(&screen->devinfo, cso->format);
+                        uint32_t internal_type;
+                        uint32_t internal_bpp;
+                        v3d_get_internal_type_bpp_for_output_format(&screen->devinfo,
+                                                                    output_image_format,
+                                                                    &internal_type,
+                                                                    &internal_bpp);
+
+                        switch (internal_type) {
+                        case V3D_INTERNAL_TYPE_8:
+                                tex.texture_type = TEXTURE_DATA_FORMAT_RGBA8;
+                                break;
+                        case V3D_INTERNAL_TYPE_16F:
+                                tex.texture_type = TEXTURE_DATA_FORMAT_RGBA16F;
+                                break;
+                        default:
+                                unreachable("Bad MSAA texture type");
+                        }
+
+                        /* sRGB was stored in the tile buffer as linear and
+                         * would have been encoded to sRGB on resolved tile
+                         * buffer store.  Note that this means we would need
+                         * shader code if we wanted to read an MSAA sRGB
+                         * texture without sRGB decode.
+                         */
+                        tex.srgb = false;
+                } else {
+                        tex.texture_type = v3d_get_tex_format(&screen->devinfo,
+                                                              cso->format);
+                }
+        };
 }
 
 static struct pipe_sampler_view *
@@ -1043,81 +1132,7 @@ v3d_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
                 pipe_resource_reference(&so->texture, prsc);
         }
 
-        void *map;
-#if V3D_VERSION >= 40
-        so->bo = v3d_bo_alloc(v3d->screen,
-                              cl_packet_length(TEXTURE_SHADER_STATE), "sampler");
-        map = v3d_bo_map(so->bo);
-#else /* V3D_VERSION < 40 */
-        STATIC_ASSERT(sizeof(so->texture_shader_state) >=
-                      cl_packet_length(TEXTURE_SHADER_STATE));
-        map = &so->texture_shader_state;
-#endif
-
-        v3dx_pack(map, TEXTURE_SHADER_STATE, tex) {
-                v3d_setup_texture_shader_state(&tex, prsc,
-                                               cso->u.tex.first_level,
-                                               cso->u.tex.last_level,
-                                               cso->u.tex.first_layer,
-                                               cso->u.tex.last_layer);
-
-                tex.srgb = util_format_is_srgb(cso->format);
-
-#if V3D_VERSION >= 40
-                tex.swizzle_r = translate_swizzle(so->swizzle[0]);
-                tex.swizzle_g = translate_swizzle(so->swizzle[1]);
-                tex.swizzle_b = translate_swizzle(so->swizzle[2]);
-                tex.swizzle_a = translate_swizzle(so->swizzle[3]);
-#endif
-
-                if (prsc->nr_samples > 1 && V3D_VERSION < 40) {
-                        /* Using texture views to reinterpret formats on our
-                         * MSAA textures won't work, because we don't lay out
-                         * the bits in memory as it's expected -- for example,
-                         * RGBA8 and RGB10_A2 are compatible in the
-                         * ARB_texture_view spec, but in HW we lay them out as
-                         * 32bpp RGBA8 and 64bpp RGBA16F.  Just assert for now
-                         * to catch failures.
-                         *
-                         * We explicitly allow remapping S8Z24 to RGBA8888 for
-                         * v3d_blit.c's stencil blits.
-                         */
-                        assert((util_format_linear(cso->format) ==
-                                util_format_linear(prsc->format)) ||
-                               (prsc->format == PIPE_FORMAT_S8_UINT_Z24_UNORM &&
-                                cso->format == PIPE_FORMAT_R8G8B8A8_UNORM));
-                        uint32_t output_image_format =
-                                v3d_get_rt_format(&screen->devinfo, cso->format);
-                        uint32_t internal_type;
-                        uint32_t internal_bpp;
-                        v3d_get_internal_type_bpp_for_output_format(&screen->devinfo,
-                                                                    output_image_format,
-                                                                    &internal_type,
-                                                                    &internal_bpp);
-
-                        switch (internal_type) {
-                        case V3D_INTERNAL_TYPE_8:
-                                tex.texture_type = TEXTURE_DATA_FORMAT_RGBA8;
-                                break;
-                        case V3D_INTERNAL_TYPE_16F:
-                                tex.texture_type = TEXTURE_DATA_FORMAT_RGBA16F;
-                                break;
-                        default:
-                                unreachable("Bad MSAA texture type");
-                        }
-
-                        /* sRGB was stored in the tile buffer as linear and
-                         * would have been encoded to sRGB on resolved tile
-                         * buffer store.  Note that this means we would need
-                         * shader code if we wanted to read an MSAA sRGB
-                         * texture without sRGB decode.
-                         */
-                        tex.srgb = false;
-                } else {
-                        tex.texture_type = v3d_get_tex_format(&screen->devinfo,
-                                                              cso->format);
-                }
-        };
+        v3d_create_texture_shader_state_bo(v3d, so);
 
         return &so->base;
 }
@@ -1158,6 +1173,8 @@ v3d_set_sampler_views(struct pipe_context *pctx,
         }
 
         stage_tex->num_textures = new_nr;
+
+        v3d_flag_dirty_sampler_state(v3d, shader);
 }
 
 static struct pipe_stream_output_target *
@@ -1166,20 +1183,20 @@ v3d_create_stream_output_target(struct pipe_context *pctx,
                                 unsigned buffer_offset,
                                 unsigned buffer_size)
 {
-        struct pipe_stream_output_target *target;
+        struct v3d_stream_output_target *target;
 
-        target = CALLOC_STRUCT(pipe_stream_output_target);
+        target = CALLOC_STRUCT(v3d_stream_output_target);
         if (!target)
                 return NULL;
 
-        pipe_reference_init(&target->reference, 1);
-        pipe_resource_reference(&target->buffer, prsc);
+        pipe_reference_init(&target->base.reference, 1);
+        pipe_resource_reference(&target->base.buffer, prsc);
 
-        target->context = pctx;
-        target->buffer_offset = buffer_offset;
-        target->buffer_size = buffer_size;
+        target->base.context = pctx;
+        target->base.buffer_offset = buffer_offset;
+        target->base.buffer_size = buffer_size;
 
-        return target;
+        return &target->base;
 }
 
 static void
@@ -1202,6 +1219,14 @@ v3d_set_stream_output_targets(struct pipe_context *pctx,
 
         assert(num_targets <= ARRAY_SIZE(so->targets));
 
+        /* Update recorded vertex counts when we are ending the recording of
+         * transform feedback. We do this when we switch primitive types
+         * at draw time, but if we haven't switched primitives in our last
+         * draw we need to do it here as well.
+         */
+        if (num_targets == 0 && so->num_targets > 0)
+                v3d_update_primitive_counters(ctx);
+
         for (i = 0; i < num_targets; i++) {
                 if (offsets[i] != -1)
                         so->offsets[i] = offsets[i];
@@ -1213,6 +1238,16 @@ v3d_set_stream_output_targets(struct pipe_context *pctx,
                 pipe_so_target_reference(&so->targets[i], NULL);
 
         so->num_targets = num_targets;
+
+        /* Create primitive counters BO if needed */
+        if (num_targets > 0 && !ctx->prim_counts) {
+                /* Init all 7 counters and 1 padding to 0 */
+                uint32_t zeroes[8] = { 0 };
+                u_upload_data(ctx->uploader,
+                              0, sizeof(zeroes), 32, zeroes,
+                              &ctx->prim_counts_offset,
+                              &ctx->prim_counts);
+        }
 
         ctx->dirty |= VC5_DIRTY_STREAMOUT;
 }

@@ -105,6 +105,7 @@ ifneq ($(DISABLE_ROBO_RUN_TESTS),true)
     # The jars needed to run the tests.
     my_jars := \
         $(my_robolectric_jars) \
+        $(call java-lib-files,robolectric-host-android_all,HOST) \
         $(call java-lib-files,junitxml) \
         $(my_srcs_jars)
 
@@ -116,7 +117,7 @@ ifneq ($(DISABLE_ROBO_RUN_TESTS),true)
     my_filename_stem := test
 
     # Define rules that copy android-all jars to the intermediates folder.
-    local_android_all_source_jar := $(call intermediates-dir-for, JAVA_LIBRARIES, robolectric_android-all-stub,,COMMON)/classes.jar
+    local_android_all_source_jar := $(call java-lib-files,robolectric-host-android_all,HOST)
     android_all_lib_path := prebuilts/misc/common/robolectric/android-all
     my_robolectric_path := $(intermediates.COMMON)/android-all
     copy_android_all_jar_pairs := \
@@ -133,7 +134,8 @@ ifneq ($(DISABLE_ROBO_RUN_TESTS),true)
       $(android_all_lib_path)/android-all-8.1.0-robolectric-4611349.jar:$(my_robolectric_path)/android-all-8.1.0-robolectric-4611349.jar \
       $(android_all_lib_path)/android-all-9-robolectric-4913185-2.jar:$(my_robolectric_path)/android-all-9-robolectric-4913185-2.jar \
       $(android_all_lib_path)/android-all-10-robolectric-5803371.jar:$(my_robolectric_path)/android-all-10-robolectric-5803371.jar \
-      $(local_android_all_source_jar):$(my_robolectric_path)/android-all-R-robolectric-r0.jar
+      $(android_all_lib_path)/android-all-R-beta2-robolectric-6625208.jar:$(my_robolectric_path)/android-all-R-beta2-robolectric-6625208.jar \
+      $(local_android_all_source_jar):$(my_robolectric_path)/android-all-S-robolectric-r0.jar
     copy_android_all_jars := $(call copy-many-files, $(copy_android_all_jar_pairs))
 
     $(my_target): $(copy_android_all_jars)

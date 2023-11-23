@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
 import static dagger.internal.codegen.TestUtils.message;
 
@@ -63,8 +64,7 @@ public class ComponentHierarchyValidationTest {
     assertThat(compilation).hadErrorContaining("test.Parent also has @Singleton");
 
     Compilation withoutScopeValidation =
-        daggerCompiler()
-            .withOptions("-Adagger.disableInterComponentScopeValidation=none")
+        compilerWithOptions("-Adagger.disableInterComponentScopeValidation=none")
             .compile(component, subcomponent);
     assertThat(withoutScopeValidation).succeeded();
   }

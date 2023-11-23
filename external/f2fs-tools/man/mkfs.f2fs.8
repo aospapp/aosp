@@ -32,6 +32,7 @@ mkfs.f2fs \- create an F2FS file system
 ]
 [
 .B \-g
+.I default-options
 ]
 [
 .B \-i
@@ -59,6 +60,9 @@ mkfs.f2fs \- create an F2FS file system
 .B \-q
 ]
 [
+.B \-r
+]
+[
 .B \-R
 .I root_owner
 ]
@@ -72,6 +76,10 @@ mkfs.f2fs \- create an F2FS file system
 [
 .B \-t
 .I nodiscard/discard
+]
+[
+.B \-T
+.I timestamp
 ]
 [
 .B \-w
@@ -91,7 +99,7 @@ mkfs.f2fs \- create an F2FS file system
 is used to create a f2fs file system (usually in a disk partition).
 \fIdevice\fP is the special file corresponding to the device (e.g.
 \fI/dev/sdXX\fP).
-\fIsectors\fP is optionally given for specifing the filesystem size.
+\fIsectors\fP is optionally given for specifying the filesystem size.
 .PP
 The exit code returned by
 .B mkfs.f2fs
@@ -129,11 +137,18 @@ Force overwrite when an existing filesystem is detected on the device.
 By default, mkfs.f2fs will not write to the device if it suspects that
 there is a filesystem or partition table on the device already.
 .TP
-.BI \-g
-Add default Android options.
+.BI \-g " default-options"
+Use a default set of options.
+The following values are supported:
+.RS 1.2i
+.TP 1.2i
+.B android
+Use default options for Android.
+.RE
 .TP
 .BI \-i
 Enable extended node bitmap.
+.TP
 .BI \-l " volume-label"
 Specify the volume label to the partition mounted as F2FS.
 .TP
@@ -176,7 +191,7 @@ Enable inode creation time feature. Requires extra attr.
 Enable lost+found feature.
 .TP
 .B verity
-Reserved feature.
+Enable support for verity protected files (a.k.a. fs-verity).
 .TP
 .B sb_checksum
 Enable superblock checksum.
@@ -212,6 +227,9 @@ Default is disabled.
 Quiet mode.
 With it, mkfs.f2fs does not show any messages, including the basic messages.
 .TP
+.BI \-r
+Sets the checkpointing srand seed to 0.
+.TP
 .BI \-R
 Give root_owner option for initial uid/gid assignment.
 Default is set by getuid()/getgid(), and assigned by "-R $uid:$gid".
@@ -228,6 +246,10 @@ Enable sparse mode.
 Specify 1 or 0 to enable or disable discard policy, respectively.
 The default value is 1.
 .TP
+.BI \-T " timestamp"
+Set inodes times to a given timestamp. By default, the current time will be used.
+This behaviour corresponds to the value -1.
+.TP
 .BI \-w " wanted-sector-size"
 Specify the sector size in bytes.
 Without it, the sectors will be calculated by device sector size.
@@ -242,6 +264,9 @@ Number of sectors. Default is determined by device size.
 .TP
 .BI \-V
 Print the version number and exit.
+.TP
+.BI \-h,\ \-\-help
+Print usage and exit.
 .SH AUTHOR
 This version of
 .B mkfs.f2fs

@@ -24,12 +24,15 @@ CHROMEOS_SCRIPTS_DIR = '/mnt/host/source/src/scripts'
 TOOLCHAIN_UTILS_PATH = ('/mnt/host/source/src/third_party/toolchain-utils/'
                         'cros_utils/toolchain_utils.sh')
 
+CROS_MAIN_BRANCH = 'cros/master'
+
 
 def GetChromeOSVersionFromLSBVersion(lsb_version):
   """Get Chromeos version from Lsb version."""
   ce = command_executer.GetCommandExecuter()
   command = ('git ls-remote '
-             'https://chromium.googlesource.com/chromiumos/manifest.git')
+             'https://chromium.googlesource.com/chromiumos/manifest.git '
+             'refs/heads/release-R*')
   ret, out, _ = ce.RunCommandWOutput(command, print_to_console=False)
   assert ret == 0, 'Command %s failed' % command
   lower = []
@@ -444,8 +447,9 @@ def DeleteChromeOsTree(chromeos_root, dry_run=False):
       cmd1, print_to_console=True) == 0
 
 
-def ApplyGerritPatches(chromeos_root, gerrit_patch_string,
-                       branch='cros/master'):
+def ApplyGerritPatches(chromeos_root,
+                       gerrit_patch_string,
+                       branch=CROS_MAIN_BRANCH):
   """Apply gerrit patches on a chromeos tree.
 
   Args:
@@ -462,7 +466,7 @@ def ApplyGerritPatches(chromeos_root, gerrit_patch_string,
   sys.path.append(os.path.join(chromeos_root, 'chromite'))
   # Imports below are ok after modifying path to add chromite.
   # Pylint cannot detect that and complains.
-  # pylint: disable=import-error
+  # pylint: disable=import-error, import-outside-toplevel
   from lib import git
   from lib import gerrit
   manifest = git.ManifestCheckout(chromeos_root)

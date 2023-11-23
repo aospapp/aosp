@@ -163,6 +163,7 @@ FUSE_3.7 {
 	global:
 		fuse_set_log_func;
 		fuse_log;
+		fuse_passthrough_enable;
 		fuse_reply_canonical_path;
 } FUSE_3.3;
 

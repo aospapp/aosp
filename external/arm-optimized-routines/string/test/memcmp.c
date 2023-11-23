@@ -1,7 +1,7 @@
 /*
  * memcmp test.
  *
- * Copyright (c) 2019, Arm Limited.
+ * Copyright (c) 2019-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -9,88 +9,117 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "mte.h"
 #include "stringlib.h"
+#include "stringtest.h"
+
+#define F(x, mte) {#x, x, mte},
 
 static const struct fun
 {
-	const char *name;
-	int (*fun)(const void *s1, const void *s2, size_t n);
+  const char *name;
+  int (*fun) (const void *s1, const void *s2, size_t n);
+  int test_mte;
 } funtab[] = {
-#define F(x) {#x, x},
-F(memcmp)
+  // clang-format off
+  F(memcmp, 0)
 #if __aarch64__
-F(__memcmp_aarch64)
+  F(__memcmp_aarch64, 1)
 # if __ARM_FEATURE_SVE
-F(__memcmp_aarch64_sve)
+  F(__memcmp_aarch64_sve, 1)
 # endif
 #endif
-#undef F
-	{0, 0}
+  {0, 0, 0}
+  // clang-format on
 };
-
-static int test_status;
-#define ERR(...) (test_status=1, printf(__VA_ARGS__))
+#undef F
 
 #define A 32
 #define LEN 250000
-static unsigned char s1buf[LEN+2*A];
-static unsigned char s2buf[LEN+2*A];
+static unsigned char *s1buf;
+static unsigned char *s2buf;
 
-static void *alignup(void *p)
+static void *
+alignup (void *p)
 {
-	return (void*)(((uintptr_t)p + A-1) & -A);
+  return (void *) (((uintptr_t) p + A - 1) & -A);
 }
 
-static void test(const struct fun *fun, int s1align, int s2align, int len, int diffpos)
+static void
+test (const struct fun *fun, int s1align, int s2align, int len, int diffpos,
+      int delta)
 {
-	unsigned char *src1 = alignup(s1buf);
-	unsigned char *src2 = alignup(s2buf);
-	unsigned char *s1 = src1 + s1align;
-	unsigned char *s2 = src2 + s2align;
-	int r;
+  unsigned char *src1 = alignup (s1buf);
+  unsigned char *src2 = alignup (s2buf);
+  unsigned char *s1 = src1 + s1align;
+  unsigned char *s2 = src2 + s2align;
+  int r;
 
-	if (len > LEN || s1align >= A || s2align >= A)
-		abort();
-	if (diffpos && diffpos >= len)
-		abort();
+  if (err_count >= ERR_LIMIT)
+    return;
+  if (len > LEN || s1align >= A || s2align >= A)
+    abort ();
+  if (diffpos >= len)
+    abort ();
+  if ((diffpos < 0) != (delta == 0))
+    abort ();
 
-	for (int i = 0; i < len+A; i++)
-		src1[i] = src2[i] = '?';
-	for (int i = 0; i < len; i++)
-		s1[i] = s2[i] = 'a' + i%23;
-	if (diffpos)
-		s1[diffpos]++;
+  for (int i = 0; i < len + A; i++)
+    src1[i] = src2[i] = '?';
+  for (int i = 0; i < len; i++)
+    s1[i] = s2[i] = 'a' + i % 23;
+  if (delta)
+    s1[diffpos] += delta;
 
-	r = fun->fun(s1, s2, len);
+  s1 = tag_buffer (s1, len, fun->test_mte);
+  s2 = tag_buffer (s2, len, fun->test_mte);
+  r = fun->fun (s1, s2, len);
+  untag_buffer (s1, len, fun->test_mte);
+  untag_buffer (s2, len, fun->test_mte);
 
-	if ((!diffpos && r != 0) || (diffpos && r == 0)) {
-		ERR("%s(align %d, align %d, %d) failed, returned %d\n",
-			fun->name, s1align, s2align, len, r);
-		ERR("src1: %.*s\n", s1align+len+1, src1);
-		ERR("src2: %.*s\n", s2align+len+1, src2);
-	}
+  if ((delta == 0 && r != 0) || (delta > 0 && r <= 0) || (delta < 0 && r >= 0))
+    {
+      ERR ("%s(align %d, align %d, %d) failed, returned %d\n", fun->name,
+	   s1align, s2align, len, r);
+      quoteat ("src1", src1, len + A, diffpos);
+      quoteat ("src2", src2, len + A, diffpos);
+    }
 }
 
-int main()
+int
+main ()
 {
-	int r = 0;
-	for (int i=0; funtab[i].name; i++) {
-		test_status = 0;
-		for (int d = 0; d < A; d++)
-			for (int s = 0; s < A; s++) {
-				int n;
-				for (n = 0; n < 100; n++) {
-					test(funtab+i, d, s, n, 0);
-					test(funtab+i, d, s, n, n / 2);
-				}
-				for (; n < LEN; n *= 2) {
-					test(funtab+i, d, s, n, 0);
-					test(funtab+i, d, s, n, n / 2);
-				}
-			}
-		printf("%s %s\n", test_status ? "FAIL" : "PASS", funtab[i].name);
-		if (test_status)
-			r = -1;
-	}
-	return r;
+  s1buf = mte_mmap (LEN + 2 * A);
+  s2buf = mte_mmap (LEN + 2 * A);
+  int r = 0;
+  for (int i = 0; funtab[i].name; i++)
+    {
+      err_count = 0;
+      for (int d = 0; d < A; d++)
+	for (int s = 0; s < A; s++)
+	  {
+	    int n;
+	    test (funtab + i, d, s, 0, -1, 0);
+	    test (funtab + i, d, s, 1, -1, 0);
+	    test (funtab + i, d, s, 1, 0, -1);
+	    test (funtab + i, d, s, 1, 0, 1);
+	    for (n = 2; n < 100; n++)
+	      {
+		test (funtab + i, d, s, n, -1, 0);
+		test (funtab + i, d, s, n, 0, -1);
+		test (funtab + i, d, s, n, n - 1, -1);
+		test (funtab + i, d, s, n, n / 2, 1);
+	      }
+	    for (; n < LEN; n *= 2)
+	      {
+		test (funtab + i, d, s, n, -1, 0);
+		test (funtab + i, d, s, n, n / 2, -1);
+	      }
+	  }
+      char *pass = funtab[i].test_mte && mte_enabled () ? "MTE PASS" : "PASS";
+      printf ("%s %s\n", err_count ? "FAIL" : pass, funtab[i].name);
+      if (err_count)
+	r = -1;
+    }
+  return r;
 }

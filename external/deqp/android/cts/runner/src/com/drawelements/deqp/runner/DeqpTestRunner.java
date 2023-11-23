@@ -42,7 +42,6 @@ import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
-import com.android.tradefed.testtype.NativeCodeCoverageListener;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
@@ -92,6 +91,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     public static final String FEATURE_PORTRAIT = "android.hardware.screen.portrait";
     public static final String FEATURE_VULKAN_LEVEL = "android.hardware.vulkan.level";
     public static final String FEATURE_VULKAN_DEQP_LEVEL = "android.software.vulkan.deqp.level";
+    public static final String FEATURE_OPENGLES_DEQP_LEVEL = "android.software.opengles.deqp.level";
 
     private static final int TESTCASE_BATCH_LIMIT = 1000;
     private static final int UNRESPONSIVE_CMD_TIMEOUT_MS = 10 * 60 * 1000; // 10min
@@ -153,13 +153,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             description="ANGLE backend ('none', 'vulkan', 'opengles'). Defaults to 'none' (don't use ANGLE)",
             importance=Option.Importance.NEVER)
     private String mAngle = "none";
-
-    @Option(
-            name = "native-coverage",
-            description =
-                    "Collect code coverage for this test run. Note that the build under test must"
-                        + " be a coverage build or else this will fail.")
-    private boolean mCoverage = false;
 
     @Option(
             name = "disable-watchdog",
@@ -1650,51 +1643,75 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     }
 
     /**
-     * Check whether the device's claimed Vulkan dEQP level is high enough that it should pass the
-     * tests in the caselist.
+     * Check whether the device's claimed Vulkan/OpenGL ES dEQP level is high enough that it should
+     * pass the tests in the caselist.
      *
-     * Precondition: the package must be a Vulkan package.
+     * Precondition: the package must be a Vulkan or OpenGL ES package.
      */
-    private boolean claimedVulkanDeqpLevelIsRecentEnough()
-        throws CapabilityQueryFailureException, DeviceNotAvailableException {
-
-        if (!isVulkanPackage() || !isSupportedVulkan()) {
-            throw new AssertionError("Claims about Vulkan dEQP support should only be checked for "
-                + "Vulkan packages, and when Vulkan is supported");
+    private boolean claimedDeqpLevelIsRecentEnough() throws CapabilityQueryFailureException,
+            DeviceNotAvailableException {
+        // Determine whether we need to check the dEQP feature flag for Vulkan or OpenGL ES.
+        final String featureName;
+        if (isVulkanPackage()) {
+            featureName = FEATURE_VULKAN_DEQP_LEVEL;
+        } else if (isOpenGlEsPackage()) {
+            featureName = FEATURE_OPENGLES_DEQP_LEVEL;
+        } else {
+            throw new AssertionError(
+                "Claims about dEQP support should only be checked for Vulkan or OpenGL ES "
+                    + "packages");
         }
+
+        CLog.d("For caselist \"%s\", the dEQP level feature flag is \"%s\".", mCaselistFile,
+            featureName);
+
+        // A Vulkan/OpenGL ES caselist filename has the form:
+        //     {gles2,gles3,gles31,vk}-master-YYYY-MM-DD.txt
+        final Pattern caseListFilenamePattern = Pattern
+            .compile("-master-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)\\.txt$");
+        final Matcher matcher = caseListFilenamePattern.matcher(mCaselistFile);
+        if (!matcher.find()) {
+            CLog.d("No dEQP level date found in caselist. Running unconditionally.");
+            return true;
+        }
+        final int year = Integer.parseInt(matcher.group(1));
+        final int month = Integer.parseInt(matcher.group(2));
+        final int day = Integer.parseInt(matcher.group(3));
+        CLog.d("Caselist date is %04d-%02d-%02d", year, month, day);
+
+        // As per the documentation for FEATURE_VULKAN_DEQP_LEVEL and
+        // FEATURE_OPENGLES_DEQP_LEVEL in android.content.pm.PackageManager, a year is
+        // encoded as an integer by devoting bits 31-16 to year, 15-8 to month and 7-0
+        // to day.
+        final int minimumLevel = (year << 16) + (month << 8) + day;
+
+        CLog.d("For reference, date -> level mappings are:");
+        CLog.d("    2019-03-01 -> 132317953");
+        CLog.d("    2020-03-01 -> 132383489");
+        CLog.d("    2021-03-01 -> 132449025");
+
+        CLog.d("Minimum level required to run this caselist is %d", minimumLevel);
+
+        // Now look for the feature flag.
         final Map<String, Optional<Integer>> features = getDeviceFeatures(mDevice);
+
         for (String feature : features.keySet()) {
-            if (feature.startsWith(FEATURE_VULKAN_DEQP_LEVEL)) {
-                final Optional<Integer> claimedVulkanDeqpLevel = features.get(feature);
-                if (!claimedVulkanDeqpLevel.isPresent()) {
-                    throw new IllegalStateException("Feature " + FEATURE_VULKAN_DEQP_LEVEL
+            if (feature.startsWith(featureName)) {
+                final Optional<Integer> claimedDeqpLevel = features.get(feature);
+                if (!claimedDeqpLevel.isPresent()) {
+                    throw new IllegalStateException("Feature " + featureName
                         + " has no associated version");
                 }
-                // A Vulkan case list filename has the form 'vk-master-YYYY-MM-DD.txt'
-                final Pattern caseListFilenamePattern = Pattern
-                    .compile("vk-master-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)\\.txt");
-                final Matcher matcher = caseListFilenamePattern.matcher(mCaselistFile);
-                if (matcher.find()) {
-                    final int year = Integer.parseInt(matcher.group(1));
-                    final int month = Integer.parseInt(matcher.group(2));
-                    final int day = Integer.parseInt(matcher.group(3));
-                    CLog.d("Case list date is %04d-%02d-%02d", year, month, day);
-                    // As per the documentation for FEATURE_VULKAN_DEQP_LEVEL in
-                    // android.content.pm.PackageManager, a year is encoded as an integer by
-                    // devoting bits 31-16 to year, 15-8 to month and 7-0 to day
-                    final int minimumLevel = (year << 16) + (month << 8) + day;
-                    CLog.d("Minimum level required to run this case list is %d", minimumLevel);
-                    CLog.d("Claimed level for this device is %d", claimedVulkanDeqpLevel.get());
-                    return claimedVulkanDeqpLevel.get() >= minimumLevel;
-                } else {
-                    throw new IllegalStateException("Case list filename " + mCaselistFile
-                        + " is malformed");
-                }
+                CLog.d("Device level is %d", claimedDeqpLevel.get());
+
+                final boolean shouldRunCaselist = claimedDeqpLevel.get() >= minimumLevel;
+                CLog.d("Running caselist? %b", shouldRunCaselist);
+                return shouldRunCaselist;
             }
         }
-        // The device supports Vulkan but does not specify a minimum supported Vulkan dEQP
-        // level.  We conservatively assume that the device should be expected to pass all
-        // Vulkan dEQP tests.
+
+        CLog.d("Could not find dEQP level feature flag \"%s\". Running caselist unconditionally.",
+            featureName);
         return true;
     }
 
@@ -2097,8 +2114,8 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         try {
             // Get the system into a known state.
             // Clear ANGLE Global.Settings values
-            mDevice.executeShellCommand("settings put global angle_gl_driver_selection_pkgs \"\"");
-            mDevice.executeShellCommand("settings put global angle_gl_driver_selection_values \"\"");
+            mDevice.executeShellCommand("settings delete global angle_gl_driver_selection_pkgs");
+            mDevice.executeShellCommand("settings delete global angle_gl_driver_selection_values");
 
             // ANGLE
             if (mAngle.equals(ANGLE_VULKAN)) {
@@ -2134,12 +2151,10 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
     private void teardownTestEnvironment() throws DeviceNotAvailableException {
         // ANGLE
         try {
-            if (!mAngle.equals(ANGLE_NONE)) {
-                CLog.i("Cleaning up ANGLE");
-                // Stop forcing dEQP to use ANGLE
-                mDevice.executeShellCommand("settings put global angle_gl_driver_selection_pkgs \"\"");
-                mDevice.executeShellCommand("settings put global angle_gl_driver_selection_values \"\"");
-            }
+            CLog.i("Cleaning up ANGLE");
+            // Stop forcing dEQP to use ANGLE
+            mDevice.executeShellCommand("settings delete global angle_gl_driver_selection_pkgs");
+            mDevice.executeShellCommand("settings delete global angle_gl_driver_selection_values");
         } catch (DeviceNotAvailableException ex) {
             // chain forward
             CLog.e("Failed to clean up ANGLE correctly.");
@@ -2159,8 +2174,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
             loadTests();
         }
 
-        listener = addNativeCoverageListenerIfEnabled(mDevice, listener);
-
         mRemainingTests = new LinkedList<>(mTestInstances.keySet());
         long startTime = System.currentTimeMillis();
         listener.testRunStarted(getId(), mRemainingTests.size());
@@ -2175,7 +2188,7 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
                                             || (!isOpenGlEsPackage() && !isVulkanPackage());
             if (mCollectTestsOnly
                 || !isSupportedApi
-                || (isVulkanPackage() && !claimedVulkanDeqpLevelIsRecentEnough())) {
+                || ((isVulkanPackage() || isOpenGlEsPackage()) && !claimedDeqpLevelIsRecentEnough())) {
                 // Pass all tests trivially if:
                 // - we are collecting the names of the tests only, or
                 // - the relevant API is not supported, or
@@ -2270,8 +2283,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         mCollectTestsOnly = collectTests;
     }
 
-    public void setNativeCoverage(boolean coverage) { mCoverage = coverage; }
-
     private static void copyOptions(DeqpTestRunner destination, DeqpTestRunner source) {
         destination.mDeqpPackage = source.mDeqpPackage;
         destination.mConfigName = source.mConfigName;
@@ -2287,7 +2298,6 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         destination.mLogData = source.mLogData;
         destination.mCollectTestsOnly = source.mCollectTestsOnly;
         destination.mAngle = source.mAngle;
-        destination.mCoverage = source.mCoverage;
         destination.mDisableWatchdog = source.mDisableWatchdog;
     }
 
@@ -2360,20 +2370,5 @@ public class DeqpTestRunner implements IBuildReceiver, IDeviceTest,
         // Tests normally take something like ~100ms. Some take a
         // second. Let's guess 200ms per test.
         return 200 * mTestInstances.size();
-    }
-
-    /**
-     * Adds a {@link NativeCodeCoverageListener} to the chain if code coverage is enabled.
-     *
-     * @param device the device to pull coverage results from
-     * @param listener the original listener
-     * @return a chained listener if code coverage is enabled, otherwise the original listener
-     */
-    ITestInvocationListener addNativeCoverageListenerIfEnabled(
-            ITestDevice device, ITestInvocationListener listener) {
-        if (mCoverage) {
-            return new NativeCodeCoverageListener(device, listener);
-        }
-        return listener;
     }
 }

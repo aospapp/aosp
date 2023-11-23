@@ -33,10 +33,15 @@
  */
 
 #include "pipe/p_config.h"
+#include "pipe/p_compiler.h"
 
 #include "util/u_debug.h"
 #include "u_cpu_detect.h"
+#include "u_math.h"
 #include "c11/threads.h"
+
+#include <stdio.h>
+#include <inttypes.h>
 
 #if defined(PIPE_ARCH_PPC)
 #if defined(PIPE_OS_APPLE)
@@ -47,15 +52,17 @@
 #endif
 #endif
 
-#if defined(PIPE_OS_NETBSD) || defined(PIPE_OS_OPENBSD)
+#if defined(PIPE_OS_BSD)
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #include <machine/cpu.h>
 #endif
 
-#if defined(PIPE_OS_FREEBSD) || defined(PIPE_OS_DRAGONFLY)
-#include <sys/types.h>
-#include <sys/sysctl.h>
+#if defined(PIPE_OS_FREEBSD)
+#if __has_include(<sys/auxv.h>)
+#include <sys/auxv.h>
+#define HAVE_ELF_AUX_INFO
+#endif
 #endif
 
 #if defined(PIPE_OS_LINUX)
@@ -80,9 +87,7 @@
 #endif
 
 
-#ifdef DEBUG
-DEBUG_GET_ONCE_BOOL_OPTION(dump_cpu, "GALLIUM_DUMP_CPU", FALSE)
-#endif
+DEBUG_GET_ONCE_BOOL_OPTION(dump_cpu, "GALLIUM_DUMP_CPU", false)
 
 
 struct util_cpu_caps util_cpu_caps;
@@ -92,7 +97,7 @@ static int has_cpuid(void);
 #endif
 
 
-#if defined(PIPE_ARCH_PPC) && !defined(PIPE_OS_APPLE)
+#if defined(PIPE_ARCH_PPC) && !defined(PIPE_OS_APPLE) && !defined(PIPE_OS_BSD) && !defined(PIPE_OS_LINUX)
 static jmp_buf  __lv_powerpc_jmpbuf;
 static volatile sig_atomic_t __lv_powerpc_canjump = 0;
 
@@ -113,8 +118,20 @@ sigill_handler(int sig)
 static void
 check_os_altivec_support(void)
 {
-#if defined(PIPE_OS_APPLE)
+#if defined(__ALTIVEC__)
+   util_cpu_caps.has_altivec = 1;
+#endif
+#if defined(__VSX__)
+   util_cpu_caps.has_vsx = 1;
+#endif
+#if defined(__ALTIVEC__) && defined(__VSX__)
+/* Do nothing */
+#elif defined(PIPE_OS_APPLE) || defined(PIPE_OS_NETBSD) || defined(PIPE_OS_OPENBSD)
+#ifdef HW_VECTORUNIT
    int sels[2] = {CTL_HW, HW_VECTORUNIT};
+#else
+   int sels[2] = {CTL_MACHDEP, CPU_ALTIVEC};
+#endif
    int has_vu = 0;
    int len = sizeof (has_vu);
    int err;
@@ -126,8 +143,41 @@ check_os_altivec_support(void)
          util_cpu_caps.has_altivec = 1;
       }
    }
-#else /* !PIPE_OS_APPLE */
-   /* not on Apple/Darwin, do it the brute-force way */
+#elif defined(PIPE_OS_FREEBSD) /* !PIPE_OS_APPLE && !PIPE_OS_NETBSD && !PIPE_OS_OPENBSD */
+   unsigned long hwcap = 0;
+#ifdef HAVE_ELF_AUX_INFO
+   elf_aux_info(AT_HWCAP, &hwcap, sizeof(hwcap));
+#else
+   size_t len = sizeof(hwcap);
+   sysctlbyname("hw.cpu_features", &hwcap, &len, NULL, 0);
+#endif
+   if (hwcap & PPC_FEATURE_HAS_ALTIVEC)
+      util_cpu_caps.has_altivec = 1;
+   if (hwcap & PPC_FEATURE_HAS_VSX)
+      util_cpu_caps.has_vsx = 1;
+#elif defined(PIPE_OS_LINUX) /* !PIPE_OS_FREEBSD */
+#if defined(PIPE_ARCH_PPC_64)
+    Elf64_auxv_t aux;
+#else
+    Elf32_auxv_t aux;
+#endif
+    int fd = open("/proc/self/auxv", O_RDONLY | O_CLOEXEC);
+    if (fd >= 0) {
+       while (read(fd, &aux, sizeof(aux)) == sizeof(aux)) {
+          if (aux.a_type == AT_HWCAP) {
+             char *env_vsx = getenv("GALLIVM_VSX");
+             uint64_t hwcap = aux.a_un.a_val;
+             util_cpu_caps.has_altivec = (hwcap >> 28) & 1;
+             if (!env_vsx || env_vsx[0] != '0') {
+                util_cpu_caps.has_vsx  = (hwcap >>  7) & 1;
+             }
+             break;
+          }
+       }
+       close(fd);
+    }
+#else /* !PIPE_OS_APPLE && !PIPE_OS_BSD && !PIPE_OS_LINUX */
+   /* not on Apple/Darwin or Linux, do it the brute-force way */
    /* this is borrowed from the libmpeg2 library */
    signal(SIGILL, sigill_handler);
    if (setjmp(__lv_powerpc_jmpbuf)) {
@@ -171,7 +221,7 @@ check_os_altivec_support(void)
          util_cpu_caps.has_altivec = 0;
       }
    }
-#endif /* !PIPE_OS_APPLE */
+#endif /* !PIPE_OS_APPLE && !PIPE_OS_LINUX */
 }
 #endif /* PIPE_ARCH_PPC */
 
@@ -339,7 +389,14 @@ check_os_arm_support(void)
     * used. Because of this we cannot use PIPE_OS_ANDROID here, but rather
     * have a separate macro that only gets enabled from respective Android.mk.
     */
-#if defined(HAS_ANDROID_CPUFEATURES)
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+   util_cpu_caps.has_neon = 1;
+#elif defined(PIPE_OS_FREEBSD) && defined(HAVE_ELF_AUX_INFO)
+   unsigned long hwcap = 0;
+   elf_aux_info(AT_HWCAP, &hwcap, sizeof(hwcap));
+   if (hwcap & HWCAP_NEON)
+      util_cpu_caps.has_neon = 1;
+#elif defined(HAS_ANDROID_CPUFEATURES)
    AndroidCpuFamily cpu_family = android_getCpuFamily();
    uint64_t cpu_features = android_getCpuFeatures();
 
@@ -377,21 +434,105 @@ check_os_arm_support(void)
 static void
 get_cpu_topology(void)
 {
-   /* Default. This is correct if L3 is not present or there is only one. */
+   /* Default. This is OK if L3 is not present or there is only one. */
    util_cpu_caps.cores_per_L3 = util_cpu_caps.nr_cpus;
+   util_cpu_caps.num_L3_caches = 1;
 
 #if defined(PIPE_ARCH_X86) || defined(PIPE_ARCH_X86_64)
    /* AMD Zen */
-   if (util_cpu_caps.x86_cpu_type == 0x17) {
+   if (util_cpu_caps.family >= CPU_AMD_ZEN1_ZEN2 &&
+       util_cpu_caps.family < CPU_AMD_LAST) {
       uint32_t regs[4];
 
-      /* Query the L3 cache topology information. */
+      /* Query the L3 cache count. */
       cpuid_count(0x8000001D, 3, regs);
       unsigned cache_level = (regs[0] >> 5) & 0x7;
-      unsigned cores_per_cache = ((regs[0] >> 14) & 0xfff) + 1;
+      unsigned cores_per_L3 = ((regs[0] >> 14) & 0xfff) + 1;
 
-      if (cache_level == 3)
-         util_cpu_caps.cores_per_L3 = cores_per_cache;
+      if (cache_level != 3 || cores_per_L3 == util_cpu_caps.nr_cpus)
+         return;
+
+      uint32_t saved_mask[UTIL_MAX_CPUS / 32] = {0};
+      uint32_t mask[UTIL_MAX_CPUS / 32] = {0};
+      uint32_t allowed_mask[UTIL_MAX_CPUS / 32] = {0};
+      uint32_t apic_id[UTIL_MAX_CPUS];
+      bool saved = false;
+
+      /* Query APIC IDs from each CPU core.
+       *
+       * An APIC ID is a logical ID of the CPU with respect to the cache
+       * hierarchy, meaning that consecutive APIC IDs are neighbours in
+       * the hierarchy, e.g. sharing the same cache.
+       *
+       * For example, CPU 0 can have APIC ID 0 and CPU 12 can have APIC ID 1,
+       * which means that both CPU 0 and 12 are next to each other.
+       * (e.g. they are 2 threads belonging to 1 SMT2 core)
+       *
+       * We need to find out which CPUs share the same L3 cache and they can
+       * be all over the place.
+       *
+       * Querying the APIC ID can only be done by pinning the current thread
+       * to each core. The original affinity mask is saved.
+       */
+      for (unsigned i = 0; i < util_cpu_caps.nr_cpus && i < UTIL_MAX_CPUS;
+           i++) {
+         uint32_t cpu_bit = 1u << (i % 32);
+
+         mask[i / 32] = cpu_bit;
+
+         if (util_set_current_thread_affinity(mask,
+                                              !saved ? saved_mask : NULL,
+                                              UTIL_MAX_CPUS)) {
+            saved = true;
+            allowed_mask[i / 32] |= cpu_bit;
+
+            /* Query the APIC ID of the current core. */
+            cpuid(0x00000001, regs);
+            apic_id[i] = regs[1] >> 24;
+         }
+         mask[i / 32] = 0;
+      }
+
+      if (saved) {
+
+         /* We succeeded in using at least one CPU. */
+         util_cpu_caps.num_L3_caches = util_cpu_caps.nr_cpus / cores_per_L3;
+         util_cpu_caps.cores_per_L3 = cores_per_L3;
+         util_cpu_caps.L3_affinity_mask = calloc(sizeof(util_affinity_mask),
+                                                 util_cpu_caps.num_L3_caches);
+
+         for (unsigned i = 0; i < util_cpu_caps.nr_cpus && i < UTIL_MAX_CPUS;
+              i++) {
+            uint32_t cpu_bit = 1u << (i % 32);
+
+            if (allowed_mask[i / 32] & cpu_bit) {
+               /* Each APIC ID bit represents a topology level, so we need
+                * to round up to the next power of two.
+                */
+               unsigned L3_index = apic_id[i] /
+                                   util_next_power_of_two(cores_per_L3);
+
+               util_cpu_caps.L3_affinity_mask[L3_index][i / 32] |= cpu_bit;
+               util_cpu_caps.cpu_to_L3[i] = L3_index;
+            }
+         }
+
+         if (debug_get_option_dump_cpu()) {
+            fprintf(stderr, "CPU <-> L3 cache mapping:\n");
+            for (unsigned i = 0; i < util_cpu_caps.num_L3_caches; i++) {
+               fprintf(stderr, "  - L3 %u mask = ", i);
+               for (int j = util_cpu_caps.nr_cpus - 1; j >= 0; j -= 32)
+                  fprintf(stderr, "%08x ", util_cpu_caps.L3_affinity_mask[i][j / 32]);
+               fprintf(stderr, "\n");
+            }
+         }
+
+         /* Restore the original affinity mask. */
+         util_set_current_thread_affinity(saved_mask, NULL, UTIL_MAX_CPUS);
+      } else {
+         if (debug_get_option_dump_cpu())
+            fprintf(stderr, "Cannot set thread affinity for any thread.\n");
+      }
    }
 #endif
 }
@@ -452,6 +593,18 @@ util_cpu_detect_once(void)
          /* Add "extended family". */
          if (util_cpu_caps.x86_cpu_type == 0xf)
              util_cpu_caps.x86_cpu_type += ((regs2[0] >> 20) & 0xff);
+
+         switch (util_cpu_caps.x86_cpu_type) {
+         case 0x17:
+            util_cpu_caps.family = CPU_AMD_ZEN1_ZEN2;
+            break;
+         case 0x18:
+            util_cpu_caps.family = CPU_AMD_ZEN_HYGON;
+            break;
+         case 0x19:
+            util_cpu_caps.family = CPU_AMD_ZEN3;
+            break;
+         }
 
          /* general feature flags */
          util_cpu_caps.has_tsc    = (regs2[3] >>  4) & 1; /* 0x0000010 */
@@ -551,7 +704,6 @@ util_cpu_detect_once(void)
 
    get_cpu_topology();
 
-#ifdef DEBUG
    if (debug_get_option_dump_cpu()) {
       debug_printf("util_cpu_caps.nr_cpus = %u\n", util_cpu_caps.nr_cpus);
 
@@ -588,7 +740,6 @@ util_cpu_detect_once(void)
       debug_printf("util_cpu_caps.has_avx512vl = %u\n", util_cpu_caps.has_avx512vl);
       debug_printf("util_cpu_caps.has_avx512vbmi = %u\n", util_cpu_caps.has_avx512vbmi);
    }
-#endif
 }
 
 static once_flag cpu_once_flag = ONCE_FLAG_INIT;

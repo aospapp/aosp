@@ -1,7 +1,15 @@
+# Lint as: python2, python3
 # pylint: disable=missing-docstring
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import six
+
 
 def any_call(*args, **kwargs):
     """An empty method to handle any call.
@@ -36,10 +44,8 @@ class mock_class_type(type):
             return mock_class_base
 
 
-class mock_class_base(object):
+class mock_class_base(six.with_metaclass(mock_class_type, object)):
     """Base class for a mock es class."""
-
-    __metaclass__ = mock_class_type
 
     def __init__(self, *args, **kwargs):
         pass

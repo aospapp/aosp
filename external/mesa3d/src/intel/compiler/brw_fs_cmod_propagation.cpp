@@ -48,11 +48,14 @@
  * exists and therefore remove the instruction.
  */
 
+using namespace brw;
+
 static bool
 cmod_propagate_cmp_to_add(const gen_device_info *devinfo, bblock_t *block,
                           fs_inst *inst)
 {
    bool read_flag = false;
+   const unsigned flags_written = inst->flags_written();
 
    foreach_inst_in_block_reverse_starting_from(fs_inst, scan_inst, inst) {
       if (scan_inst->opcode == BRW_OPCODE_ADD &&
@@ -79,18 +82,55 @@ cmod_propagate_cmp_to_add(const gen_device_info *devinfo, bblock_t *block,
             goto not_match;
          }
 
-         /* From the Sky Lake PRM Vol. 7 "Assigning Conditional Mods":
+         /* If the scan instruction writes a different flag register than the
+          * instruction we're trying to propagate from, bail.
+          *
+          * FINISHME: The second part of the condition may be too strong.
+          * Perhaps (scan_inst->flags_written() & flags_written) !=
+          * flags_written?
+          */
+         if (scan_inst->flags_written() != 0 &&
+             scan_inst->flags_written() != flags_written)
+            goto not_match;
+
+         /* From the Kaby Lake PRM Vol. 7 "Assigning Conditional Flags":
           *
           *    * Note that the [post condition signal] bits generated at
           *      the output of a compute are before the .sat.
           *
-          * So we don't have to bail if scan_inst has saturate.
+          * Paragraph about post_zero does not mention saturation, but
+          * testing it on actual GPUs shows that conditional modifiers
+          * are applied after saturation.
+          *
+          *    * post_zero bit: This bit reflects whether the final
+          *      result is zero after all the clamping, normalizing,
+          *      or format conversion logic.
+          *
+          * For signed types we don't care about saturation: it won't
+          * change the result of conditional modifier.
+          *
+          * For floating and unsigned types there two special cases,
+          * when we can remove inst even if scan_inst is saturated: G
+          * and LE. Since conditional modifiers are just comparations
+          * against zero, saturating positive values to the upper
+          * limit never changes the result of comparation.
+          *
+          * For negative values:
+          * (sat(x) >  0) == (x >  0) --- false
+          * (sat(x) <= 0) == (x <= 0) --- true
           */
-         /* Otherwise, try propagating the conditional. */
          const enum brw_conditional_mod cond =
             negate ? brw_swap_cmod(inst->conditional_mod)
             : inst->conditional_mod;
 
+         if (scan_inst->saturate &&
+             (brw_reg_type_is_floating_point(scan_inst->dst.type) ||
+              type_is_unsigned_int(scan_inst->dst.type)) &&
+             (cond != BRW_CONDITIONAL_G &&
+              cond != BRW_CONDITIONAL_LE))
+            goto not_match;
+
+         /* Otherwise, try propagating the conditional. */
          if (scan_inst->can_do_cmod() &&
              ((!read_flag && scan_inst->conditional_mod == BRW_CONDITIONAL_NONE) ||
               scan_inst->conditional_mod == cond)) {
@@ -102,10 +142,11 @@ cmod_propagate_cmp_to_add(const gen_device_info *devinfo, bblock_t *block,
       }
 
    not_match:
-      if (scan_inst->flags_written())
+      if ((scan_inst->flags_written() & flags_written) != 0)
          break;
 
-      read_flag = read_flag || scan_inst->flags_read(devinfo);
+      read_flag = read_flag ||
+                  (scan_inst->flags_read(devinfo) & flags_written) != 0;
    }
 
    return false;
@@ -130,6 +171,7 @@ cmod_propagate_not(const gen_device_info *devinfo, bblock_t *block,
 {
    const enum brw_conditional_mod cond = brw_negate_cmod(inst->conditional_mod);
    bool read_flag = false;
+   const unsigned flags_written = inst->flags_written();
 
    if (cond != BRW_CONDITIONAL_Z && cond != BRW_CONDITIONAL_NZ)
       return false;
@@ -146,6 +188,17 @@ cmod_propagate_not(const gen_device_info *devinfo, bblock_t *block,
              scan_inst->exec_size != inst->exec_size)
             break;
 
+         /* If the scan instruction writes a different flag register than the
+          * instruction we're trying to propagate from, bail.
+          *
+          * FINISHME: The second part of the condition may be too strong.
+          * Perhaps (scan_inst->flags_written() & flags_written) !=
+          * flags_written?
+          */
+         if (scan_inst->flags_written() != 0 &&
+             scan_inst->flags_written() != flags_written)
+            break;
+
          if (scan_inst->can_do_cmod() &&
              ((!read_flag && scan_inst->conditional_mod == BRW_CONDITIONAL_NONE) ||
               scan_inst->conditional_mod == cond)) {
@@ -156,10 +209,11 @@ cmod_propagate_not(const gen_device_info *devinfo, bblock_t *block,
          break;
       }
 
-      if (scan_inst->flags_written())
+      if ((scan_inst->flags_written() & flags_written) != 0)
          break;
 
-      read_flag = read_flag || scan_inst->flags_read(devinfo);
+      read_flag = read_flag ||
+                  (scan_inst->flags_read(devinfo) & flags_written) != 0;
    }
 
    return false;
@@ -231,9 +285,21 @@ opt_cmod_propagation_local(const gen_device_info *devinfo, bblock_t *block)
       }
 
       bool read_flag = false;
+      const unsigned flags_written = inst->flags_written();
       foreach_inst_in_block_reverse_starting_from(fs_inst, scan_inst, inst) {
          if (regions_overlap(scan_inst->dst, scan_inst->size_written,
                              inst->src[0], inst->size_read(0))) {
+            /* If the scan instruction writes a different flag register than
+             * the instruction we're trying to propagate from, bail.
+             *
+             * FINISHME: The second part of the condition may be too strong.
+             * Perhaps (scan_inst->flags_written() & flags_written) !=
+             * flags_written?
+             */
+            if (scan_inst->flags_written() != 0 &&
+                scan_inst->flags_written() != flags_written)
+               break;
+
             if (scan_inst->is_partial_write() ||
                 scan_inst->dst.offset != inst->src[0].offset ||
                 scan_inst->exec_size != inst->exec_size)
@@ -288,17 +354,69 @@ opt_cmod_propagation_local(const gen_device_info *devinfo, bblock_t *block)
                }
             }
 
-            /* If the instruction generating inst's source also wrote the
-             * flag, and inst is doing a simple .nz comparison, then inst
-             * is redundant - the appropriate value is already in the flag
-             * register.  Delete inst.
+            /* Knowing following:
+             * - CMP writes to flag register the result of
+             *   applying cmod to the `src0 - src1`.
+             *   After that it stores the same value to dst.
+             *   Other instructions first store their result to
+             *   dst, and then store cmod(dst) to the flag
+             *   register.
+             * - inst is either CMP or MOV
+             * - inst->dst is null
+             * - inst->src[0] overlaps with scan_inst->dst
+             * - inst->src[1] is zero
+             * - scan_inst wrote to a flag register
+             *
+             * There can be three possible paths:
+             *
+             * - scan_inst is CMP:
+             *
+             *   Considering that src0 is either 0x0 (false),
+             *   or 0xffffffff (true), and src1 is 0x0:
+             *
+             *   - If inst's cmod is NZ, we can always remove
+             *     scan_inst: NZ is invariant for false and true. This
+             *     holds even if src0 is NaN: .nz is the only cmod,
+             *     that returns true for NaN.
+             *
+             *   - .g is invariant if src0 has a UD type
+             *
+             *   - .l is invariant if src0 has a D type
+             *
+             * - scan_inst and inst have the same cmod:
+             *
+             *   If scan_inst is anything than CMP, it already
+             *   wrote the appropriate value to the flag register.
+             *
+             * - else:
+             *
+             *   We can change cmod of scan_inst to that of inst,
+             *   and remove inst. It is valid as long as we make
+             *   sure that no instruction uses the flag register
+             *   between scan_inst and inst.
              */
-            if (inst->conditional_mod == BRW_CONDITIONAL_NZ &&
-                !inst->src[0].negate &&
+            if (!inst->src[0].negate &&
                 scan_inst->flags_written()) {
-               inst->remove(block);
-               progress = true;
-               break;
+               if (scan_inst->opcode == BRW_OPCODE_CMP) {
+                  if ((inst->conditional_mod == BRW_CONDITIONAL_NZ) ||
+                      (inst->conditional_mod == BRW_CONDITIONAL_G &&
+                       inst->src[0].type == BRW_REGISTER_TYPE_UD) ||
+                      (inst->conditional_mod == BRW_CONDITIONAL_L &&
+                       inst->src[0].type == BRW_REGISTER_TYPE_D)) {
+                     inst->remove(block);
+                     progress = true;
+                     break;
+                  }
+               } else if (scan_inst->conditional_mod == inst->conditional_mod) {
+                  inst->remove(block);
+                  progress = true;
+                  break;
+               } else if (!read_flag) {
+                  scan_inst->conditional_mod = inst->conditional_mod;
+                  inst->remove(block);
+                  progress = true;
+                  break;
+               }
             }
 
             /* The conditional mod of the CMP/CMPN instructions behaves
@@ -311,14 +429,6 @@ opt_cmod_propagation_local(const gen_device_info *devinfo, bblock_t *block)
              */
             if (scan_inst->opcode == BRW_OPCODE_CMP ||
                 scan_inst->opcode == BRW_OPCODE_CMPN)
-               break;
-
-            /* From the Sky Lake PRM Vol. 7 "Assigning Conditional Mods":
-             *
-             *    * Note that the [post condition signal] bits generated at
-             *      the output of a compute are before the .sat.
-             */
-            if (scan_inst->saturate)
                break;
 
             /* From the Sky Lake PRM, Vol 2a, "Multiply":
@@ -338,25 +448,68 @@ opt_cmod_propagation_local(const gen_device_info *devinfo, bblock_t *block)
                 scan_inst->opcode == BRW_OPCODE_MUL)
                break;
 
-            /* Otherwise, try propagating the conditional. */
             enum brw_conditional_mod cond =
                inst->src[0].negate ? brw_swap_cmod(inst->conditional_mod)
                                    : inst->conditional_mod;
 
+            /* From the Sky Lake PRM Vol. 7 "Assigning Conditional Mods":
+             *
+             *    * Note that the [post condition signal] bits generated at
+             *      the output of a compute are before the .sat.
+             *
+             * This limits the cases where we can propagate the conditional
+             * modifier.  If scan_inst has a saturate modifier, then we can
+             * only propagate from inst if inst is 'scan_inst <= 0',
+             * 'scan_inst == 0', 'scan_inst != 0', or 'scan_inst > 0'.  If
+             * inst is 'scan_inst == 0', the conditional modifier must be
+             * replace with LE.  Likewise, if inst is 'scan_inst != 0', the
+             * conditional modifier must be replace with G.
+             *
+             * The only other cases are 'scan_inst < 0' (which is a
+             * contradiction) and 'scan_inst >= 0' (which is a tautology).
+             */
+            if (scan_inst->saturate) {
+               if (scan_inst->dst.type != BRW_REGISTER_TYPE_F)
+                  break;
+
+               if (cond != BRW_CONDITIONAL_Z &&
+                   cond != BRW_CONDITIONAL_NZ &&
+                   cond != BRW_CONDITIONAL_LE &&
+                   cond != BRW_CONDITIONAL_G)
+                  break;
+
+               if (inst->opcode != BRW_OPCODE_MOV &&
+                   inst->opcode != BRW_OPCODE_CMP)
+                  break;
+
+               /* inst->src[1].is_zero() was tested before, but be safe
+                * against possible future changes in this code.
+                */
+               assert(inst->opcode != BRW_OPCODE_CMP || inst->src[1].is_zero());
+
+               if (cond == BRW_CONDITIONAL_Z)
+                  cond = BRW_CONDITIONAL_LE;
+               else if (cond == BRW_CONDITIONAL_NZ)
+                  cond = BRW_CONDITIONAL_G;
+            }
+
+            /* Otherwise, try propagating the conditional. */
             if (scan_inst->can_do_cmod() &&
                 ((!read_flag && scan_inst->conditional_mod == BRW_CONDITIONAL_NONE) ||
                  scan_inst->conditional_mod == cond)) {
                scan_inst->conditional_mod = cond;
+               scan_inst->flag_subreg = inst->flag_subreg;
                inst->remove(block);
                progress = true;
             }
             break;
          }
 
-         if (scan_inst->flags_written())
+         if ((scan_inst->flags_written() & flags_written) != 0)
             break;
 
-         read_flag = read_flag || scan_inst->flags_read(devinfo);
+         read_flag = read_flag ||
+                     (scan_inst->flags_read(devinfo) & flags_written) != 0;
       }
    }
 
@@ -373,7 +526,7 @@ fs_visitor::opt_cmod_propagation()
    }
 
    if (progress)
-      invalidate_live_intervals();
+      invalidate_analysis(DEPENDENCY_INSTRUCTIONS);
 
    return progress;
 }

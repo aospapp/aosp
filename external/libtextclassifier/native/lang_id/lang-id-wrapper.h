@@ -35,6 +35,11 @@ std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> LoadFromPath(
 std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> LoadFromDescriptor(
     const int fd);
 
+// Loads the LangId model from a buffer. The buffer needs to outlive the LangId
+// instance.
+std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> LoadFromUnownedBuffer(
+    const char* buffer, int size);
+
 // Returns the LangId predictions (locale, confidence) from the given LangId
 // model. The maximum number of predictions returned will be computed internally
 // relatively to the noise threshold.

@@ -23,9 +23,9 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
-import androidx.annotation.NonNull;
 import android.util.AttributeSet;
 import android.widget.Button;
+import androidx.annotation.NonNull;
 
 /**
  * Button for navigation bar, which includes tinting of its compound drawables to be used for dark
@@ -45,6 +45,10 @@ public class NavigationBarButton extends Button {
   }
 
   private void init() {
+    if (isInEditMode()) {
+      return;
+    }
+
     // Unfortunately, drawableStart and drawableEnd set through XML does not call the setter,
     // so manually getting it and wrapping it in the compat drawable.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {

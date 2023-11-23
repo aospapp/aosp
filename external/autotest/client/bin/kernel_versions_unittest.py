@@ -1,13 +1,17 @@
 #!/usr/bin/python2
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import unittest
 import common
 from autotest_lib.client.bin import kernel_versions
+from six.moves import range
 
 
 class kernel_versions_test(unittest.TestCase):
 
     def increases(self, kernels):
-        for i in xrange(len(kernels)-1):
+        for i in range(len(kernels)-1):
             k1 = kernels[i]
             k2 = kernels[i+1]
             ek1 = kernel_versions.version_encode(k1)

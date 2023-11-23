@@ -12,7 +12,7 @@ Release info
 
 This is a minor bug fix release.
 
-Please see the `CHANGES-1.0.txt` file for a complete list of changes.
+Please see the `CHANGES-1.2.md` file for a complete list of changes.
 
 Major changes
 -------------

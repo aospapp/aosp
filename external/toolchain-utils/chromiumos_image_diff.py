@@ -318,7 +318,7 @@ def Main(argv):
     for i, image_path in enumerate([options.image1, options.image2], start=1):
       image_path = os.path.realpath(image_path)
       if not os.path.isfile(image_path):
-        logger.getLogger().LogError('"{0}" is not a file.'.format(image_path))
+        logger.GetLogger().LogError('"{0}" is not a file.'.format(image_path))
         return 1
 
       chromeos_root = None

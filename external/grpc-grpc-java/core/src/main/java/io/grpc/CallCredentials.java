@@ -40,10 +40,15 @@ public interface CallCredentials {
    * The security level of the transport. It is guaranteed to be present in the {@code attrs} passed
    * to {@link #applyRequestMetadata}. It is by default {@link SecurityLevel#NONE} but can be
    * overridden by the transport.
+   *
+   * @deprecated transport implementations should use {@code
+   * io.grpc.internal.GrpcAttributes.ATTR_SECURITY_LEVEL} instead.
    */
   @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1914")
+  @Grpc.TransportAttr
+  @Deprecated
   public static final Key<SecurityLevel> ATTR_SECURITY_LEVEL =
-      Key.create("io.grpc.CallCredentials.securityLevel");
+      Key.create("io.grpc.internal.GrpcAttributes.securityLevel");
 
   /**
    * The authority string used to authenticate the server. Usually it's the server's host name. It
@@ -52,6 +57,8 @@ public interface CallCredentials {
    * io.grpc.CallOptions} with increasing precedence.
    */
   @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1914")
+  @Grpc.TransportAttr
+  @Deprecated
   public static final Key<String> ATTR_AUTHORITY = Key.create("io.grpc.CallCredentials.authority");
 
   /**
@@ -71,8 +78,11 @@ public interface CallCredentials {
    *        needs to perform blocking operations.
    * @param applier The outlet of the produced headers. It can be called either before or after this
    *        method returns.
+   *
+   * @deprecated implement {@link CallCredentials2} instead.
    */
   @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1914")
+  @Deprecated
   void applyRequestMetadata(
       MethodDescriptor<?, ?> method, Attributes attrs,
       Executor appExecutor, MetadataApplier applier);
@@ -89,6 +99,7 @@ public interface CallCredentials {
    *
    * <p>Exactly one of its methods must be called to make the RPC proceed.
    */
+  @Deprecated
   @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1914")
   public interface MetadataApplier {
     /**
@@ -101,5 +112,32 @@ public interface CallCredentials {
      * Called when there has been an error when preparing the headers. This will fail the RPC.
      */
     void fail(Status status);
+  }
+
+  /**
+   * The request-related information passed to {@code CallCredentials2.applyRequestMetadata()}.
+   */
+  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1914")
+  public abstract static class RequestInfo {
+    /**
+     * The method descriptor of this RPC.
+     */
+    public abstract MethodDescriptor<?, ?> getMethodDescriptor();
+
+    /**
+     * The security level on the transport.
+     */
+    public abstract SecurityLevel getSecurityLevel();
+
+    /**
+     * Returns the authority string used to authenticate the server for this call.
+     */
+    public abstract String getAuthority();
+
+    /**
+     * Returns the transport attributes.
+     */
+    @Grpc.TransportAttr
+    public abstract Attributes getTransportAttrs();
   }
 }

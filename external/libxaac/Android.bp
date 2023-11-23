@@ -1,15 +1,38 @@
+package {
+    default_applicable_licenses: ["external_libxaac_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_libxaac_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libxaacdec",
 
     vendor_available: true,
-    host_supported:true,
+    host_supported: true,
     cflags: [
-        "-O3"
+        "-O3",
     ],
 
     export_include_dirs: [
         "decoder",
-        "decoder/drc_src"
+        "decoder/drc_src",
     ],
 
     srcs: [
@@ -130,9 +153,10 @@ cc_library_static {
             "signed-integer-overflow",
             "bounds",
         ],
-        // Enable CFI if this becomes a shared library.
-        // cfi: true,
-        blacklist: "libxaac_blacklist.txt",
+        cfi: true,
+        config: {
+            cfi_assembly_support: true,
+        },
     },
 
     arch: {
@@ -213,9 +237,9 @@ cc_library_static {
                     "decoder/armv7/ixheaacd_aac_ld_dec_rearrange.s",
                     "decoder/armv7/ixheaacd_fft32x32_ld2_armv7.s",
                     "decoder/armv7/ixheaacd_apply_scale_fac.s",
-                    "decoder/armv7/ixheaacd_tns_ar_filter_fixed.s"
+                    "decoder/armv7/ixheaacd_tns_ar_filter_fixed.s",
                 ],
-            }
+            },
         },
 
         arm64: {
@@ -274,30 +298,6 @@ cc_library_static {
             srcs: [
                 "decoder/generic/ixheaacd_qmf_dec_generic.c",
                 "decoder/x86_64/ixheaacd_function_selector_x86_64.c",
-            ],
-        },
-
-        mips: {
-            cflags: [
-            ],
-
-            local_include_dirs: [
-            ],
-
-            srcs: [
-                "decoder/generic/ixheaacd_function_selector_generic.c",
-            ],
-        },
-
-        mips64: {
-            cflags: [
-            ],
-
-            local_include_dirs: [
-            ],
-
-            srcs: [
-                "decoder/generic/ixheaacd_function_selector_generic.c",
             ],
         },
     },

@@ -43,7 +43,7 @@ static int read_golomb(MACROBLOCKD *xd, aom_reader *r) {
 }
 
 static INLINE int rec_eob_pos(const int eob_token, const int extra) {
-  int eob = k_eob_group_start[eob_token];
+  int eob = av1_eob_group_start[eob_token];
   if (eob > 2) {
     eob += extra;
   }
@@ -148,9 +148,7 @@ uint8_t av1_read_coeffs_txb(const AV1_COMMON *const cm, MACROBLOCKD *const xd,
   if (all_zero) {
     *max_scan_line = 0;
     if (plane == 0) {
-      const int txk_type_idx =
-          av1_get_txk_type_index(mbmi->sb_type, blk_row, blk_col);
-      mbmi->txk_type[txk_type_idx] = DCT_DCT;
+      xd->tx_type_map[blk_row * xd->tx_type_map_stride + blk_col] = DCT_DCT;
     }
     return 0;
   }
@@ -159,14 +157,12 @@ uint8_t av1_read_coeffs_txb(const AV1_COMMON *const cm, MACROBLOCKD *const xd,
     // only y plane's tx_type is transmitted
     av1_read_tx_type(cm, xd, blk_row, blk_col, tx_size, r);
   }
-  const TX_TYPE tx_type = av1_get_tx_type(plane_type, xd, blk_row, blk_col,
-                                          tx_size, cm->reduced_tx_set_used);
+  const TX_TYPE tx_type =
+      av1_get_tx_type(xd, plane_type, blk_row, blk_col, tx_size,
+                      cm->features.reduced_tx_set_used);
   const TX_CLASS tx_class = tx_type_to_class[tx_type];
-  const TX_SIZE qm_tx_size = av1_get_adjusted_tx_size(tx_size);
   const qm_val_t *iqmatrix =
-      IS_2D_TRANSFORM(tx_type)
-          ? pd->seg_iqmatrix[mbmi->segment_id][qm_tx_size]
-          : cm->giqmatrix[NUM_QM_LEVELS - 1][0][qm_tx_size];
+      av1_get_iqmatrix(&cm->quant_params, xd, plane, tx_size, tx_type);
   const SCAN_ORDER *const scan_order = get_scan(tx_size, tx_type);
   const int16_t *const scan = scan_order->scan;
   int eob_extra = 0;
@@ -220,7 +216,7 @@ uint8_t av1_read_coeffs_txb(const AV1_COMMON *const cm, MACROBLOCKD *const xd,
       break;
   }
 
-  const int eob_offset_bits = k_eob_offset_bits[eob_pt];
+  const int eob_offset_bits = av1_eob_offset_bits[eob_pt];
   if (eob_offset_bits > 0) {
     const int eob_ctx = eob_pt - 3;
     int bit = aom_read_symbol(
@@ -336,25 +332,42 @@ void av1_read_coeffs_txb_facade(const AV1_COMMON *const cm,
   struct macroblockd_plane *const pd = &xd->plane[plane];
 
   const BLOCK_SIZE bsize = mbmi->sb_type;
+  assert(bsize < BLOCK_SIZES_ALL);
   const BLOCK_SIZE plane_bsize =
       get_plane_block_size(bsize, pd->subsampling_x, pd->subsampling_y);
 
   TXB_CTX txb_ctx;
-  get_txb_ctx(plane_bsize, tx_size, plane, pd->above_context + col,
-              pd->left_context + row, &txb_ctx);
+  get_txb_ctx(plane_bsize, tx_size, plane, pd->above_entropy_context + col,
+              pd->left_entropy_context + row, &txb_ctx);
   const uint8_t cul_level =
       av1_read_coeffs_txb(cm, xd, r, row, col, plane, &txb_ctx, tx_size);
-  av1_set_contexts(xd, pd, plane, plane_bsize, tx_size, cul_level, col, row);
+  av1_set_entropy_contexts(xd, pd, plane, plane_bsize, tx_size, cul_level, col,
+                           row);
 
   if (is_inter_block(mbmi)) {
-    PLANE_TYPE plane_type = get_plane_type(plane);
+    const PLANE_TYPE plane_type = get_plane_type(plane);
     // tx_type will be read out in av1_read_coeffs_txb_facade
-    const TX_TYPE tx_type = av1_get_tx_type(plane_type, xd, row, col, tx_size,
-                                            cm->reduced_tx_set_used);
+    const TX_TYPE tx_type = av1_get_tx_type(xd, plane_type, row, col, tx_size,
+                                            cm->features.reduced_tx_set_used);
 
-    if (plane == 0)
-      update_txk_array(mbmi->txk_type, mbmi->sb_type, row, col, tx_size,
-                       tx_type);
+    if (plane == 0) {
+      const int txw = tx_size_wide_unit[tx_size];
+      const int txh = tx_size_high_unit[tx_size];
+      // The 16x16 unit is due to the constraint from tx_64x64 which sets the
+      // maximum tx size for chroma as 32x32. Coupled with 4x1 transform block
+      // size, the constraint takes effect in 32x16 / 16x32 size too. To solve
+      // the intricacy, cover all the 16x16 units inside a 64 level transform.
+      if (txw == tx_size_wide_unit[TX_64X64] ||
+          txh == tx_size_high_unit[TX_64X64]) {
+        const int tx_unit = tx_size_wide_unit[TX_16X16];
+        const int stride = xd->tx_type_map_stride;
+        for (int idy = 0; idy < txh; idy += tx_unit) {
+          for (int idx = 0; idx < txw; idx += tx_unit) {
+            xd->tx_type_map[(row + idy) * stride + col + idx] = tx_type;
+          }
+        }
+      }
+    }
   }
 
 #if TXCOEFF_TIMER

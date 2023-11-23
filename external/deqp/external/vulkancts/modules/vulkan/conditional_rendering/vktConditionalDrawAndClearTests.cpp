@@ -726,7 +726,8 @@ tcu::TestStatus ConditionalRenderingClearAttachmentsTestInstance::iterate (void)
 
 	imageMemoryBarrier(m_testParams.m_testDepth ? m_depthTargetImage->object() : m_colorTargetImage->object(),										//VkImage							image
 					   VK_ACCESS_TRANSFER_WRITE_BIT,																								//VkAccessFlags						srcAccessMask
-					   m_testParams.m_testDepth ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,				//VkAccessFlags						dstAccessMask
+					   m_testParams.m_testDepth ? (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+												: (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),						//VkAccessFlags						dstAccessMask
 					   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,																						//VkImageLayout						oldLayout
 					   m_testParams.m_testDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,		//VkImageLayout						newLayout
 					   VK_PIPELINE_STAGE_TRANSFER_BIT,																								//VkPipelineStageFlags				srcStageMask
@@ -763,7 +764,8 @@ tcu::TestStatus ConditionalRenderingClearAttachmentsTestInstance::iterate (void)
 	}
 
 	imageMemoryBarrier(m_testParams.m_testDepth ? m_depthTargetImage->object() : m_colorTargetImage->object(),										//VkImage							image
-					   m_testParams.m_testDepth ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,				//VkAccessFlags						srcAccessMask
+					   m_testParams.m_testDepth ? (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+												: (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),						//VkAccessFlags						dstAccessMask
 					   VK_ACCESS_TRANSFER_READ_BIT,																									//VkAccessFlags						dstAccessMask
 					   m_testParams.m_testDepth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,		//VkImageLayout						oldLayout
 					   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,																						//VkImageLayout						newLayout
@@ -773,9 +775,26 @@ tcu::TestStatus ConditionalRenderingClearAttachmentsTestInstance::iterate (void)
 
 	copyResultImageToBuffer(m_testParams.m_testDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT, m_testParams.m_testDepth ? m_depthTargetImage->object() : m_colorTargetImage->object());
 
+	const vk::VkBufferMemoryBarrier bufferMemoryBarrier =
+	{
+		vk::VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+		DE_NULL,
+		vk::VK_ACCESS_TRANSFER_WRITE_BIT,
+		vk::VK_ACCESS_HOST_READ_BIT,
+		VK_QUEUE_FAMILY_IGNORED,
+		VK_QUEUE_FAMILY_IGNORED,
+		m_resultBuffer->object(),
+		0u,
+		VK_WHOLE_SIZE
+	};
+
+	m_vkd.cmdPipelineBarrier(*m_cmdBufferPrimary, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, 0u, 0u, DE_NULL, 1u, &bufferMemoryBarrier, 0u, DE_NULL);
+
 	endCommandBuffer(m_vkd, *m_cmdBufferPrimary);
 
 	submitCommandsAndWait(m_vkd, m_device, m_queue, *m_cmdBufferPrimary);
+
+	invalidateMappedMemoryRange(m_vkd, m_device, m_resultBuffer->getBoundMemory().getMemory(), m_resultBuffer->getBoundMemory().getOffset(), VK_WHOLE_SIZE);
 
 	tcu::ConstPixelBufferAccess					result(mapVkFormat(m_testParams.m_testDepth ? VK_FORMAT_D32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM), tcu::IVec3(WIDTH, HEIGHT, 1), m_resultBuffer->getBoundMemory().getHostPtr());
 
@@ -876,7 +895,7 @@ tcu::TestStatus ConditionalRenderingDrawTestInstance::iterate (void)
 
 	imageMemoryBarrier(m_colorTargetImage->object(),																				//VkImage							image
 					   VK_ACCESS_TRANSFER_WRITE_BIT,																				//VkAccessFlags						srcAccessMask
-					   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,																		//VkAccessFlags						dstAccessMask
+					   VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,									//VkAccessFlags						dstAccessMask
 					   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,																		//VkImageLayout						oldLayout
 					   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,																	//VkImageLayout						newLayout
 					   VK_PIPELINE_STAGE_TRANSFER_BIT,																				//VkPipelineStageFlags				srcStageMask
@@ -942,9 +961,26 @@ tcu::TestStatus ConditionalRenderingDrawTestInstance::iterate (void)
 
 	copyResultImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, m_colorTargetImage->object());
 
+	const vk::VkBufferMemoryBarrier bufferMemoryBarrier =
+	{
+		vk::VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+		DE_NULL,
+		vk::VK_ACCESS_TRANSFER_WRITE_BIT,
+		vk::VK_ACCESS_HOST_READ_BIT,
+		VK_QUEUE_FAMILY_IGNORED,
+		VK_QUEUE_FAMILY_IGNORED,
+		m_resultBuffer->object(),
+		0u,
+		VK_WHOLE_SIZE
+	};
+
+	m_vkd.cmdPipelineBarrier(*m_cmdBufferPrimary, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, 0u, 0u, DE_NULL, 1u, &bufferMemoryBarrier, 0u, DE_NULL);
+
 	endCommandBuffer(m_vkd, *m_cmdBufferPrimary);
 
 	submitCommandsAndWait(m_vkd, m_device, m_queue, *m_cmdBufferPrimary);
+
+	invalidateMappedMemoryRange(m_vkd, m_device, m_resultBuffer->getBoundMemory().getMemory(), m_resultBuffer->getBoundMemory().getOffset(), VK_WHOLE_SIZE);
 
 	tcu::ConstPixelBufferAccess			result(mapVkFormat(VK_FORMAT_R8G8B8A8_UNORM), tcu::IVec3(WIDTH, HEIGHT, 1), m_resultBuffer->getBoundMemory().getHostPtr());
 
@@ -1184,7 +1220,7 @@ tcu::TestStatus ConditionalRenderingUpdateBufferWithDrawTestInstance::iterate (v
 
 	imageMemoryBarrier(m_colorTargetImage->object(),																				//VkImage							image
 					   VK_ACCESS_TRANSFER_WRITE_BIT,																				//VkAccessFlags						srcAccessMask
-					   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,																		//VkAccessFlags						dstAccessMask
+					   VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,									//VkAccessFlags						dstAccessMask
 					   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,																		//VkImageLayout						oldLayout
 					   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,																	//VkImageLayout						newLayout
 					   VK_PIPELINE_STAGE_TRANSFER_BIT,																				//VkPipelineStageFlags				srcStageMask
@@ -1198,8 +1234,12 @@ tcu::TestStatus ConditionalRenderingUpdateBufferWithDrawTestInstance::iterate (v
 
 	draw();
 
+	endRenderPass(m_vkd, *m_cmdBufferPrimary);
+
 	bufferMemoryBarrier(m_conditionalRenderingBuffer->object(), m_conditionalRenderingBufferOffset, sizeof(deUint32), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_CONDITIONAL_RENDERING_READ_BIT_EXT,
 						VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT);
+
+	beginRenderPass(m_vkd, *m_cmdBufferPrimary, *m_renderPass, *m_framebuffer, makeRect2D(0, 0, WIDTH, HEIGHT));
 
 	m_vkd.cmdBindPipeline(*m_cmdBufferPrimary, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipelineDraw);
 	m_vkd.cmdBindDescriptorSets(*m_cmdBufferPrimary, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipelineLayout, 0, 1, &(*m_descriptorSet), 0, DE_NULL);
@@ -1211,7 +1251,7 @@ tcu::TestStatus ConditionalRenderingUpdateBufferWithDrawTestInstance::iterate (v
 	endRenderPass(m_vkd, *m_cmdBufferPrimary);
 
 	imageMemoryBarrier(m_colorTargetImage->object(),																				//VkImage							image
-					   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,																		//VkAccessFlags						srcAccessMask
+					   VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,																		//VkAccessFlags						srcAccessMask
 					   VK_ACCESS_TRANSFER_READ_BIT,																					//VkAccessFlags						dstAccessMask
 					   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,																	//VkImageLayout						oldLayout
 					   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,																		//VkImageLayout						newLayout
@@ -1221,9 +1261,26 @@ tcu::TestStatus ConditionalRenderingUpdateBufferWithDrawTestInstance::iterate (v
 
 	copyResultImageToBuffer(VK_IMAGE_ASPECT_COLOR_BIT, m_colorTargetImage->object());
 
+	const vk::VkBufferMemoryBarrier bufferMemoryBarrier =
+	{
+		vk::VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+		DE_NULL,
+		vk::VK_ACCESS_TRANSFER_WRITE_BIT,
+		vk::VK_ACCESS_HOST_READ_BIT,
+		VK_QUEUE_FAMILY_IGNORED,
+		VK_QUEUE_FAMILY_IGNORED,
+		m_resultBuffer->object(),
+		0u,
+		VK_WHOLE_SIZE
+	};
+
+	m_vkd.cmdPipelineBarrier(*m_cmdBufferPrimary, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, 0u, 0u, DE_NULL, 1u, &bufferMemoryBarrier, 0u, DE_NULL);
+
 	endCommandBuffer(m_vkd, *m_cmdBufferPrimary);
 
 	submitCommandsAndWait(m_vkd, m_device, m_queue, *m_cmdBufferPrimary);
+
+	invalidateMappedMemoryRange(m_vkd, m_device, m_resultBuffer->getBoundMemory().getMemory(), m_resultBuffer->getBoundMemory().getOffset(), VK_WHOLE_SIZE);
 
 	tcu::ConstPixelBufferAccess			result(mapVkFormat(VK_FORMAT_R8G8B8A8_UNORM), tcu::IVec3(WIDTH, HEIGHT, 1), m_resultBuffer->getBoundMemory().getHostPtr());
 
@@ -1231,8 +1288,6 @@ tcu::TestStatus ConditionalRenderingUpdateBufferWithDrawTestInstance::iterate (v
 	tcu::PixelBufferAccess				reference(mapVkFormat(VK_FORMAT_R8G8B8A8_UNORM), tcu::IVec3(WIDTH, HEIGHT, 1), referenceData.data());
 
 	m_testParams ? prepareReferenceImageOneColor(reference, tcu::Vec4(0,1,0,1)) : prepareReferenceImageOneColor(reference, clearColorInitial);
-
-	flushMappedMemoryRange(m_vkd, m_device, m_conditionalRenderingBuffer->getBoundMemory().getMemory(), m_conditionalRenderingBuffer->getBoundMemory().getOffset(), VK_WHOLE_SIZE);
 
 	if (!tcu::floatThresholdCompare(m_context.getTestContext().getLog(), "Comparison", "Comparison", reference, result, tcu::Vec4(0.01f), tcu::COMPARE_LOG_ON_ERROR))
 		return tcu::TestStatus::fail("Fail");
@@ -1355,6 +1410,26 @@ void checkSupport (Context& context)
 	context.requireDeviceFunctionality("VK_EXT_conditional_rendering");
 }
 
+void checkFan (Context& context)
+{
+	checkSupport(context);
+
+	if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+		!context.getPortabilitySubsetFeatures().triangleFans)
+	{
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Triangle fans are not supported by this implementation");
+	}
+}
+
+void checkFanAndVertexStores (Context& context)
+{
+	checkFan(context);
+
+	const auto& features = context.getDeviceFeatures();
+	if (!features.vertexPipelineStoresAndAtomics)
+		TCU_THROW(NotSupportedError, "Vertex pipeline stores and atomics not supported");
+}
+
 } // unnamed namespace
 
 ConditionalRenderingDrawAndClearTests::ConditionalRenderingDrawAndClearTests (tcu::TestContext &testCtx)
@@ -1383,10 +1458,10 @@ void ConditionalRenderingDrawAndClearTests::init (void)
 		depth->addChild(new InstanceFactory1WithSupport<ConditionalRenderingClearAttachmentsTestInstance, ClearTestParams, FunctionSupport0>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "clear_attachment_twice_" + generateClearTestName(clearDepthTwiceGrid[testNdx]), "Depth clear test.", clearDepthTwiceGrid[testNdx], checkSupport));
 
 	for (int testNdx = 0; testNdx < DE_LENGTH_OF_ARRAY(drawTestGrid); testNdx++)
-		draw->addChild(new InstanceFactory1WithSupport<ConditionalRenderingDrawTestInstance, DrawTestParams, FunctionSupport0, AddProgramsDraw>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "case_" + de::toString(testNdx), "Draw test.", AddProgramsDraw(), drawTestGrid[testNdx], checkSupport));
+		draw->addChild(new InstanceFactory1WithSupport<ConditionalRenderingDrawTestInstance, DrawTestParams, FunctionSupport0, AddProgramsDraw>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "case_" + de::toString(testNdx), "Draw test.", AddProgramsDraw(), drawTestGrid[testNdx], checkFan));
 
-	draw->addChild(new InstanceFactory1WithSupport<ConditionalRenderingUpdateBufferWithDrawTestInstance, bool, FunctionSupport0, AddProgramsUpdateBufferUsingRendering>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "update_with_rendering_no_discard", "Draw test.", AddProgramsUpdateBufferUsingRendering(), true, checkSupport));
-	draw->addChild(new InstanceFactory1WithSupport<ConditionalRenderingUpdateBufferWithDrawTestInstance, bool, FunctionSupport0, AddProgramsUpdateBufferUsingRendering>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "update_with_rendering_discard", "Draw test.", AddProgramsUpdateBufferUsingRendering(), false, checkSupport));
+	draw->addChild(new InstanceFactory1WithSupport<ConditionalRenderingUpdateBufferWithDrawTestInstance, bool, FunctionSupport0, AddProgramsUpdateBufferUsingRendering>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "update_with_rendering_no_discard", "Draw test.", AddProgramsUpdateBufferUsingRendering(), true, checkFanAndVertexStores));
+	draw->addChild(new InstanceFactory1WithSupport<ConditionalRenderingUpdateBufferWithDrawTestInstance, bool, FunctionSupport0, AddProgramsUpdateBufferUsingRendering>(m_testCtx, tcu::NODETYPE_SELF_VALIDATE, "update_with_rendering_discard", "Draw test.", AddProgramsUpdateBufferUsingRendering(), false, checkFanAndVertexStores));
 
 	clear->addChild(color);
 	clear->addChild(depth);

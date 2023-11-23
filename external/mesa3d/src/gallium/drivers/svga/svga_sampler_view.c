@@ -29,7 +29,7 @@
 #include "pipe/p_defines.h"
 #include "util/u_inlines.h"
 #include "os/os_thread.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "util/u_string.h"
@@ -48,7 +48,7 @@ svga_debug_describe_sampler_view(char *buf, const struct svga_sampler_view *sv)
 {
    char res[128];
    debug_describe_resource(res, sv->texture);
-   util_sprintf(buf, "svga_sampler_view<%s,[%u,%u]>",
+   sprintf(buf, "svga_sampler_view<%s,[%u,%u]>",
                 res, sv->min_lod, sv->max_lod);
 }
 

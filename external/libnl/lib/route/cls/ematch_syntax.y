@@ -20,6 +20,8 @@
 #include <netlink/route/cls/ematch/nbyte.h>
 #include <netlink/route/cls/ematch/text.h>
 #include <netlink/route/cls/ematch/meta.h>
+#include <linux/tc_ematch/tc_em_meta.h>
+#include <linux/tc_ematch/tc_em_cmp.h>
 
 #define META_ALLOC rtnl_meta_value_alloc_id
 #define META_ID(name) TCF_META_ID_##name
@@ -53,9 +55,9 @@ extern int ematch_lex(YYSTYPE *, void *);
 static void yyerror(void *scanner, char **errp, struct nl_list_head *root, const char *msg)
 {
 	if (msg)
-            *errp = strdup(msg);
-        else
-	    *errp = NULL;
+		*errp = strdup(msg);
+	else
+		*errp = NULL;
 }
 %}
 
@@ -374,7 +376,7 @@ meta_int_id:
 	| META_SK_ERR_QLEN		{ $$ = META_ID(SK_ERR_QLEN); }
 	| META_SK_FORWARD_ALLOCS	{ $$ = META_ID(SK_FORWARD_ALLOCS); }
 	| META_SK_ALLOCS		{ $$ = META_ID(SK_ALLOCS); }
-	| META_SK_ROUTE_CAPS		{ $$ = META_ID(SK_ROUTE_CAPS); }
+	| META_SK_ROUTE_CAPS		{ $$ = __TCF_META_ID_SK_ROUTE_CAPS; }
 	| META_SK_HASH			{ $$ = META_ID(SK_HASH); }
 	| META_SK_LINGERTIME		{ $$ = META_ID(SK_LINGERTIME); }
 	| META_SK_ACK_BACKLOG		{ $$ = META_ID(SK_ACK_BACKLOG); }

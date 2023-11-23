@@ -1,12 +1,23 @@
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import bytechr, byteord, bytesjoin, tobytes, tostr
 from fontTools.misc import eexec
-from .psOperators import *
+from .psOperators import (
+	PSOperators,
+	ps_StandardEncoding,
+	ps_array,
+	ps_boolean,
+	ps_dict,
+	ps_integer,
+	ps_literal,
+	ps_mark,
+	ps_name,
+	ps_operator,
+	ps_procedure,
+	ps_procmark,
+	ps_real,
+	ps_string,
+)
 import re
-try:
-	from collections.abc import Callable
-except ImportError:  # python < 3.3
-	from collections import Callable
+from collections.abc import Callable
 from string import whitespace
 import logging
 

@@ -36,6 +36,18 @@ message AndroidBatteryMetric {
     optional int64 total_screen_doze_ns = 3;
     // Total time a wakelock was held
     optional int64 total_wakelock_ns = 4;
+    // Amount of time the device was suspended. Depends on the ftrace source
+    // "power/suspend_resume".
+    optional int64 sleep_ns = 5;
+    optional int64 sleep_screen_off_ns = 6;
+    optional int64 sleep_screen_on_ns = 7;
+    optional int64 sleep_screen_doze_ns = 8;
+  }
+
+  // Period of time during the trace that the device went to sleep completely.
+  message SuspendPeriod {
+    optional int64 timestamp_ns = 1;
+    optional int64 duration_ns = 2;
   }
 
   // Battery counters info for each ts of the trace. This should only be
@@ -43,4 +55,6 @@ message AndroidBatteryMetric {
   repeated BatteryCounters battery_counters = 1;
 
   optional BatteryAggregates battery_aggregates = 2;
+
+  repeated SuspendPeriod suspend_period = 3;
 }

@@ -84,20 +84,21 @@ public class TestClass implements Annotatable {
         for (Annotation each : member.getAnnotations()) {
             Class<? extends Annotation> type = each.annotationType();
             List<T> members = getAnnotatedMembers(map, type, true);
-            if (member.isShadowedBy(members)) {
+            T memberToAdd = member.handlePossibleBridgeMethod(members);
+            if (memberToAdd == null) {
                 return;
             }
             if (runsTopToBottom(type)) {
-                members.add(0, member);
+                members.add(0, memberToAdd);
             } else {
-                members.add(member);
+                members.add(memberToAdd);
             }
         }
     }
 
     private static <T extends FrameworkMember<T>> Map<Class<? extends Annotation>, List<T>>
             makeDeeplyUnmodifiable(Map<Class<? extends Annotation>, List<T>> source) {
-        LinkedHashMap<Class<? extends Annotation>, List<T>> copy =
+        Map<Class<? extends Annotation>, List<T>> copy =
                 new LinkedHashMap<Class<? extends Annotation>, List<T>>();
         for (Map.Entry<Class<? extends Annotation>, List<T>> entry : source.entrySet()) {
             copy.put(entry.getKey(), Collections.unmodifiableList(entry.getValue()));
@@ -168,7 +169,7 @@ public class TestClass implements Annotatable {
     }
 
     private static List<Class<?>> getSuperClasses(Class<?> testClass) {
-        ArrayList<Class<?>> results = new ArrayList<Class<?>>();
+        List<Class<?>> results = new ArrayList<Class<?>>();
         Class<?> current = testClass;
         while (current != null) {
             results.add(current);
@@ -224,24 +225,59 @@ public class TestClass implements Annotatable {
 
     public <T> List<T> getAnnotatedFieldValues(Object test,
             Class<? extends Annotation> annotationClass, Class<T> valueClass) {
-        List<T> results = new ArrayList<T>();
+        final List<T> results = new ArrayList<T>();
+        collectAnnotatedFieldValues(test, annotationClass, valueClass,
+                new MemberValueConsumer<T>() {
+                    public void accept(FrameworkMember<?> member, T value) {
+                        results.add(value);
+                    }
+                });
+        return results;
+    }
+
+    /**
+     * Finds the fields annotated with the specified annotation and having the specified type,
+     * retrieves the values and passes those to the specified consumer.
+     *
+     * @since 4.13
+     */
+    public <T> void collectAnnotatedFieldValues(Object test,
+            Class<? extends Annotation> annotationClass, Class<T> valueClass,
+            MemberValueConsumer<T> consumer) {
         for (FrameworkField each : getAnnotatedFields(annotationClass)) {
             try {
                 Object fieldValue = each.get(test);
                 if (valueClass.isInstance(fieldValue)) {
-                    results.add(valueClass.cast(fieldValue));
+                    consumer.accept(each, valueClass.cast(fieldValue));
                 }
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(
                         "How did getFields return a field we couldn't access?", e);
             }
         }
-        return results;
     }
 
     public <T> List<T> getAnnotatedMethodValues(Object test,
             Class<? extends Annotation> annotationClass, Class<T> valueClass) {
-        List<T> results = new ArrayList<T>();
+        final List<T> results = new ArrayList<T>();
+        collectAnnotatedMethodValues(test, annotationClass, valueClass,
+                new MemberValueConsumer<T>() {
+                    public void accept(FrameworkMember<?> member, T value) {
+                        results.add(value);
+                    }
+                });
+        return results;
+    }
+
+    /**
+     * Finds the methods annotated with the specified annotation and returning the specified type,
+     * invokes it and pass the return value to the specified consumer.
+     *
+     * @since 4.13
+     */
+    public <T> void collectAnnotatedMethodValues(Object test,
+            Class<? extends Annotation> annotationClass, Class<T> valueClass,
+            MemberValueConsumer<T> consumer) {
         for (FrameworkMethod each : getAnnotatedMethods(annotationClass)) {
             try {
                 /*
@@ -254,14 +290,13 @@ public class TestClass implements Annotatable {
                  */
                 if (valueClass.isAssignableFrom(each.getReturnType())) {
                     Object fieldValue = each.invokeExplosively(test);
-                    results.add(valueClass.cast(fieldValue));
+                    consumer.accept(each, valueClass.cast(fieldValue));
                 }
             } catch (Throwable e) {
                 throw new RuntimeException(
                         "Exception in " + each.getName(), e);
             }
         }
-        return results;
     }
 
     public boolean isPublic() {

@@ -37,25 +37,13 @@ class BRILLO_EXPORT FakeMessageLoop : public MessageLoop {
   ~FakeMessageLoop() override = default;
 
   TaskId PostDelayedTask(const base::Location& from_here,
-                         const base::Closure& task,
+                         base::OnceClosure task,
                          base::TimeDelta delay) override;
   using MessageLoop::PostDelayedTask;
-  TaskId WatchFileDescriptor(const base::Location& from_here,
-                             int fd,
-                             WatchMode mode,
-                             bool persistent,
-                             const base::Closure& task) override;
-  using MessageLoop::WatchFileDescriptor;
   bool CancelTask(TaskId task_id) override;
   bool RunOnce(bool may_block) override;
 
   // FakeMessageLoop methods:
-
-  // Pretend, for the purpose of the FakeMessageLoop watching for file
-  // descriptors, that the file descriptor |fd| readiness to perform the
-  // operation described by |mode| is |ready|. Initially, no file descriptor
-  // is ready for any operation.
-  void SetFileDescriptorReadiness(int fd, WatchMode mode, bool ready);
 
   // Return whether there are peding tasks. Useful to check that no
   // callbacks were leaked.
@@ -64,8 +52,7 @@ class BRILLO_EXPORT FakeMessageLoop : public MessageLoop {
  private:
   struct ScheduledTask {
     base::Location location;
-    bool persistent;
-    base::Closure callback;
+    base::OnceClosure callback;
   };
 
   // The sparse list of scheduled pending callbacks.
@@ -78,13 +65,6 @@ class BRILLO_EXPORT FakeMessageLoop : public MessageLoop {
       std::pair<base::Time, MessageLoop::TaskId>,
       std::vector<std::pair<base::Time, MessageLoop::TaskId>>,
       std::greater<std::pair<base::Time, MessageLoop::TaskId>>> fire_order_;
-
-  // The bag of watched (fd, mode) pair associated with the TaskId that's
-  // watching them.
-  std::multimap<std::pair<int, WatchMode>, MessageLoop::TaskId> fds_watched_;
-
-  // The set of (fd, mode) pairs that are faked as ready.
-  std::set<std::pair<int, WatchMode>> fds_ready_;
 
   base::SimpleTestClock* test_clock_ = nullptr;
   base::Time current_time_ = base::Time::FromDoubleT(1246996800.);

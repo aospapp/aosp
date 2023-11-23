@@ -105,11 +105,11 @@ static AvbSlotVerifyResult load_full_partition(AvbOps* ops,
     }
 
     if (*out_image_buf != NULL) {
+      *out_image_preloaded = true;
       if (part_num_read != image_size) {
         avb_errorv(part_name, ": Read incorrect number of bytes.\n", NULL);
         return AVB_SLOT_VERIFY_RESULT_ERROR_IO;
       }
-      *out_image_preloaded = true;
     }
   }
 
@@ -561,7 +561,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
     AvbSlotVerifyFlags flags,
     bool allow_verification_error,
     AvbVBMetaImageFlags toplevel_vbmeta_flags,
-    int rollback_index_location,
+    uint32_t rollback_index_location,
     const char* partition_name,
     size_t partition_name_len,
     const uint8_t* expected_public_key,
@@ -791,6 +791,9 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
   }
 
   uint32_t rollback_index_location_to_use = rollback_index_location;
+  if (is_main_vbmeta) {
+    rollback_index_location_to_use = vbmeta_header.rollback_index_location;
+  }
 
   /* Check if key used to make signature matches what is expected. */
   if (pk_data != NULL) {
@@ -1205,15 +1208,15 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
     }
   }
 
-  if (rollback_index_location < 0 ||
-      rollback_index_location >= AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS) {
+  if (rollback_index_location_to_use >=
+      AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS) {
     avb_errorv(
         full_partition_name, ": Invalid rollback_index_location.\n", NULL);
     ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
     goto out;
   }
 
-  slot_data->rollback_indexes[rollback_index_location] =
+  slot_data->rollback_indexes[rollback_index_location_to_use] =
       vbmeta_header.rollback_index;
 
   if (out_algorithm_type != NULL) {
@@ -1332,7 +1335,7 @@ out:
 
 static bool has_system_partition(AvbOps* ops, const char* ab_suffix) {
   char part_name[AVB_PART_NAME_MAX_SIZE];
-  char* system_part_name = "system";
+  const char* system_part_name = "system";
   char guid_buf[37];
   AvbIOResult io_ret;
 

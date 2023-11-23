@@ -21,6 +21,7 @@ from __future__ import print_function
 import copy
 import os
 
+from absl.testing import parameterized
 import numpy as np
 
 from tensorflow.python import keras
@@ -29,13 +30,13 @@ from tensorflow.python.eager import context
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.framework import test_util
+from tensorflow.python.keras import combinations
 from tensorflow.python.keras import keras_parameterized
 from tensorflow.python.keras import testing_utils
 from tensorflow.python.keras.tests import model_subclassing_test_util as model_util
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import embedding_ops
 from tensorflow.python.ops import init_ops
-from tensorflow.python.ops import resource_variable_ops
 from tensorflow.python.ops import variables as variables_lib
 from tensorflow.python.platform import test
 from tensorflow.python.training.tracking import data_structures
@@ -78,7 +79,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
         return 1.
 
     m = ModelWithProperty()
-    with self.assertRaisesRegexp(AttributeError, 'read_only'):
+    with self.assertRaisesRegex(AttributeError, 'read_only'):
       m.read_only = 2.
 
   def test_custom_build_with_fit(self):
@@ -99,8 +100,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
     model.compile(
         'sgd',
         'mse',
-        run_eagerly=testing_utils.should_run_eagerly(),
-        experimental_run_tf_function=testing_utils.should_run_tf_function())
+        run_eagerly=testing_utils.should_run_eagerly())
     model.fit(np.ones((10, 10)), np.ones((10, 1)), batch_size=2, epochs=2)
     self.assertLen(model.layers, 2)
     self.assertLen(model.trainable_variables, 4)
@@ -122,8 +122,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
     model.compile(
         'sgd',
         'mse',
-        run_eagerly=testing_utils.should_run_eagerly(),
-        experimental_run_tf_function=testing_utils.should_run_tf_function())
+        run_eagerly=testing_utils.should_run_eagerly())
 
     data = dataset_ops.DatasetV2.from_tensor_slices(({
         'a': np.ones((32, 10)),
@@ -141,8 +140,8 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
     self.assertFalse(model.built, 'Model should not have been built')
     self.assertFalse(model.weights, ('Model should have no weights since it '
                                      'has not been built.'))
-    with self.assertRaisesRegexp(
-        ValueError, 'input shape is not one of the valid types'):
+    with self.assertRaisesRegex(ValueError,
+                                'input shape is not one of the valid types'):
       model.build(input_shape=tensor_shape.Dimension(input_dim))
 
   def test_embed_dtype_with_subclass_build(self):
@@ -178,7 +177,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
     self.assertFalse(model.built, 'Model should not have been built')
     self.assertFalse(model.weights, ('Model should have no weights since it '
                                      'has not been built.'))
-    with self.assertRaisesRegexp(
+    with self.assertRaisesRegex(
         ValueError, 'if your layers do not support float type inputs'):
       model.build(input_shape=(35, 20))
 
@@ -340,19 +339,28 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
     # Single-io
     model = testing_utils.SmallSubclassMLP(
         num_hidden=32, num_classes=4, use_bn=True, use_dp=True)
-    model._set_inputs(np.ones((3, 4)))  # need to build model first
+    model(np.ones((3, 4)))  # need to build model first
     print_fn = ToString()
     model.summary(print_fn=print_fn)
-    self.assertTrue('Trainable params: 356' in print_fn.contents)
+    self.assertIn('Trainable params: 356', print_fn.contents)
 
     # Multi-io
     model = model_util.get_multi_io_subclass_model(
         num_classes=(5, 6), use_bn=True, use_dp=True)
-    model._set_inputs([np.ones((3, 4)),
-                       np.ones((3, 4))])  # need to build model first
+    model([np.ones((3, 4)), np.ones((3, 4))])  # need to build model first
     print_fn = ToString()
     model.summary(print_fn=print_fn)
-    self.assertTrue('Trainable params: 587' in print_fn.contents)
+    self.assertIn('Trainable params: 587', print_fn.contents)
+
+    # Single-io with unused layer
+    model = testing_utils.SmallSubclassMLP(
+        num_hidden=32, num_classes=4, use_bn=True, use_dp=True)
+    model.unused_layer = keras.layers.Dense(10)
+    model(np.ones((3, 4)))  # need to build model first
+    print_fn = ToString()
+    model.summary(print_fn=print_fn)
+    self.assertIn('Trainable params: 356', print_fn.contents)
+    self.assertIn('0 (unused)', print_fn.contents)
 
   def test_no_dependency(self):
     class Foo(keras.Model):
@@ -362,7 +370,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
         self.isdep = keras.layers.Dense(1)
         self.notdep = data_structures.NoDependency(keras.layers.Dense(2))
         self.notdep_var = data_structures.NoDependency(
-            resource_variable_ops.ResourceVariable(1., name='notdep_var'))
+            variables_lib.Variable(1., name='notdep_var'))
 
     m = Foo()
     self.assertEqual([m.isdep, m.notdep], m.layers)
@@ -377,9 +385,8 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
       def __init__(self):
         super(ExtraVar, self).__init__()
         self.dense = keras.layers.Dense(1)
-        self.var = resource_variable_ops.ResourceVariable(1.)
-        self.not_trainable_var = resource_variable_ops.ResourceVariable(
-            2., trainable=False)
+        self.var = variables_lib.Variable(1.)
+        self.not_trainable_var = variables_lib.Variable(2., trainable=False)
 
       def call(self, inputs):
         return self.dense(inputs + self.var)
@@ -431,7 +438,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
       def call(self, inputs):
         return inputs + self.b + self.c
 
-    x = ops.convert_to_tensor(np.ones((10, 10), 'float32'))
+    x = ops.convert_to_tensor_v2_with_dispatch(np.ones((10, 10), 'float32'))
     model = MyModel()
     model(x)
     self.assertEqual(1, len(model.trainable_weights))
@@ -447,7 +454,7 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
       def call(self, inputs):
         return inputs + self.b + self.c
 
-    x = ops.convert_to_tensor(np.ones((10, 10), 'float32'))
+    x = ops.convert_to_tensor_v2_with_dispatch(np.ones((10, 10), 'float32'))
     model = MyModelCustomBuild()
     model(x)
     self.assertEqual(1, len(model.trainable_weights))
@@ -467,10 +474,10 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
         # Unconditional
         self.add_update(self.b.assign(self.b * 2))
         # Conditional
-        self.add_update(self.c.assign(inputs[1, :]), inputs)
+        self.add_update(self.c.assign(inputs[1, :]))
         return inputs + self.b + self.c
 
-    x = ops.convert_to_tensor(np.ones((10, 10), 'float32'))
+    x = ops.convert_to_tensor_v2_with_dispatch(np.ones((10, 10), 'float32'))
     model = MyModel()
     model(x)
 
@@ -478,19 +485,16 @@ class ModelSubclassingTest(keras_parameterized.TestCase):
       self.assertEqual(0, len(model.updates))
     else:
       self.assertEqual(2, len(model.updates))
-      self.assertEqual(1, len(model.get_updates_for(None)))
-      self.assertEqual(1, len(model.get_updates_for(x)))
 
 
 class GraphSpecificModelSubclassingTests(test.TestCase):
 
-  @test_util.run_deprecated_v1
   def test_single_io_workflow_with_tensors(self):
     num_classes = 2
     num_samples = 10
     input_dim = 50
 
-    with self.cached_session():
+    with ops.Graph().as_default(), self.cached_session():
       model = testing_utils.SmallSubclassMLP(
           num_hidden=32, num_classes=num_classes, use_dp=True, use_bn=True)
       model.compile(loss='mse', optimizer='rmsprop')
@@ -501,13 +505,12 @@ class GraphSpecificModelSubclassingTests(test.TestCase):
       model.fit(x, y, epochs=2, steps_per_epoch=10, verbose=0)
       _ = model.evaluate(steps=10, verbose=0)
 
-  @test_util.run_deprecated_v1
   def test_multi_io_workflow_with_tensors(self):
     num_classes = (2, 3)
     num_samples = 10
     input_dim = 50
 
-    with self.cached_session():
+    with ops.Graph().as_default(), self.cached_session():
       model = model_util.get_multi_io_subclass_model(
           num_classes=num_classes, use_dp=True, use_bn=True)
       model.compile(loss='mse', optimizer='rmsprop')
@@ -520,7 +523,6 @@ class GraphSpecificModelSubclassingTests(test.TestCase):
       model.fit([x1, x2], [y1, y2], epochs=2, steps_per_epoch=10, verbose=0)
       _ = model.evaluate(steps=10, verbose=0)
 
-  @test_util.run_deprecated_v1
   def test_updates_and_losses_for_nested_models_in_subclassed_model(self):
 
     # Case 1: deferred-build sequential nested in subclass.
@@ -535,13 +537,13 @@ class GraphSpecificModelSubclassingTests(test.TestCase):
       def call(self, x):
         return self.bn(self.fc(x))
 
-    with self.cached_session():
+    with ops.get_default_graph().as_default(), self.cached_session():
       model = TestModel1()
 
       x = array_ops.ones(shape=[100, 784], dtype='float32')
       model(x)
-      self.assertEqual(len(model.get_updates_for(x)), 2)
-      self.assertEqual(len(model.get_losses_for(x)), 1)
+      self.assertLen(model.updates, 2)
+      self.assertLen(model.losses, 1)
 
     # Case 2: placeholder-sequential nested in subclass.
     class TestModel2(keras.Model):
@@ -556,7 +558,7 @@ class GraphSpecificModelSubclassingTests(test.TestCase):
       def call(self, x):
         return self.bn(self.fc(x))
 
-    with self.cached_session():
+    with ops.get_default_graph().as_default(), self.cached_session():
       model = TestModel2()
 
       x = array_ops.ones(shape=[100, 784], dtype='float32')
@@ -565,36 +567,36 @@ class GraphSpecificModelSubclassingTests(test.TestCase):
       self.assertEqual(len(model.get_losses_for(x)), 1)
 
     # Case 3: functional-API model nested in subclass.
-    inputs = keras.Input((10,))
-    outputs = keras.layers.BatchNormalization(axis=1)(inputs)
-    bn = keras.Model(inputs, outputs)
+    with ops.get_default_graph().as_default():
+      inputs = keras.Input((10,))
+      outputs = keras.layers.BatchNormalization(axis=1)(inputs)
+      bn = keras.Model(inputs, outputs)
 
-    class TestModel3(keras.Model):
+      class TestModel3(keras.Model):
 
-      def __init__(self):
-        super(TestModel3, self).__init__()
-        self.fc = keras.layers.Dense(10, input_shape=(784,),
-                                     activity_regularizer='l1')
-        self.bn = bn
+        def __init__(self):
+          super(TestModel3, self).__init__()
+          self.fc = keras.layers.Dense(10, input_shape=(784,),
+                                       activity_regularizer='l1')
+          self.bn = bn
 
-      def call(self, x):
-        return self.bn(self.fc(x))
+        def call(self, x):
+          return self.bn(self.fc(x))
 
-    with self.cached_session():
-      model = TestModel3()
+      with self.cached_session():
+        model = TestModel3()
 
-      x = array_ops.ones(shape=[100, 784], dtype='float32')
-      model(x)
-      self.assertEqual(len(model.get_updates_for(x)), 2)
-      self.assertEqual(len(model.get_losses_for(x)), 1)
+        x = array_ops.ones(shape=[100, 784], dtype='float32')
+        model(x)
+        self.assertEqual(len(model.get_updates_for(x)), 2)
+        self.assertEqual(len(model.get_losses_for(x)), 1)
 
-  @test_util.run_deprecated_v1
   def test_multi_io_workflow_with_numpy_arrays_and_custom_placeholders(self):
     num_classes = (2, 3)
     num_samples = 1000
     input_dim = 50
 
-    with self.cached_session():
+    with ops.Graph().as_default(), self.cached_session():
       model = model_util.get_multi_io_subclass_model(
           num_classes=num_classes, use_dp=True, use_bn=True)
       model.compile(loss='mse', optimizer='rmsprop')
@@ -612,8 +614,8 @@ class GraphSpecificModelSubclassingTests(test.TestCase):
       _ = model.evaluate([x1, x2], [y1, y2], verbose=0)
 
 
-@test_util.run_all_in_graph_and_eager_modes
-class CustomCallSignatureTests(test.TestCase):
+@combinations.generate(combinations.combine(mode=['graph', 'eager']))
+class CustomCallSignatureTests(test.TestCase, parameterized.TestCase):
 
   def test_no_inputs_in_signature(self):
     model = model_util.CustomCallModel()
@@ -660,8 +662,8 @@ class CustomCallSignatureTests(test.TestCase):
     self.assertFalse(model.built, 'Model should not have been built')
     self.assertFalse(model.weights, ('Model should have no weights since it '
                                      'has not been built.'))
-    with self.assertRaisesRegexp(
-        ValueError, 'cannot build your model if it has positional'):
+    with self.assertRaisesRegex(ValueError,
+                                'cannot build your model if it has positional'):
       model.build(input_shape=[first_input_shape, second_input_shape])
 
   def test_kwargs_in_signature(self):
@@ -675,13 +677,13 @@ class CustomCallSignatureTests(test.TestCase):
     arg = array_ops.ones([1])
     model(arg, a=3)
     if not context.executing_eagerly():
-      self.assertEqual(len(model.inputs), 1)
+      self.assertLen(model.inputs, 1)
 
   @test_util.assert_no_new_tensors
   @test_util.assert_no_garbage_created
   def test_training_no_default(self):
     if not context.executing_eagerly():
-      self.skipTest('b/138307499')
+      return
     model = model_util.TrainingNoDefaultModel()
     arg = array_ops.ones([1, 1])
     model(arg, True)
@@ -697,49 +699,65 @@ class CustomCallSignatureTests(test.TestCase):
     y = np.ones((10, 1))
     m = ModelWithPositionalArgs()
     m.compile('sgd', 'mse')
-    with self.assertRaisesRegexp(ValueError, r'Models passed to `fit`'):
+    with self.assertRaisesRegex(ValueError, r'Models passed to `fit`'):
       m.fit(x, y, batch_size=2)
-    with self.assertRaisesRegexp(ValueError, r'Models passed to `evaluate`'):
+    with self.assertRaisesRegex(ValueError, r'Models passed to `evaluate`'):
       m.evaluate(x, y, batch_size=2)
-    with self.assertRaisesRegexp(ValueError, r'Models passed to `predict`'):
+    with self.assertRaisesRegex(ValueError, r'Models passed to `predict`'):
       m.predict(x, batch_size=2)
-    with self.assertRaisesRegexp(ValueError,
-                                 r'Models passed to `train_on_batch`'):
+    with self.assertRaisesRegex(ValueError,
+                                r'Models passed to `train_on_batch`'):
       m.train_on_batch(x, y)
-    with self.assertRaisesRegexp(ValueError,
-                                 r'Models passed to `test_on_batch`'):
+    with self.assertRaisesRegex(ValueError,
+                                r'Models passed to `test_on_batch`'):
       m.test_on_batch(x, y)
-    with self.assertRaisesRegexp(ValueError,
-                                 r'Models passed to `predict_on_batch`'):
+    with self.assertRaisesRegex(ValueError,
+                                r'Models passed to `predict_on_batch`'):
       m.predict_on_batch(x)
 
   def test_deepcopy(self):
-    with context.eager_mode():
+    if not context.executing_eagerly():
+      self.skipTest('Run in eager mode only.')
 
-      class MyModel(keras.Model):
+    class MyModel(keras.Model):
 
-        def __init__(self):
-          super(MyModel, self).__init__()
-          self.my_variable = variables_lib.Variable(0.0, trainable=False)
-          self.layer = keras.layers.Dense(4)
+      def __init__(self):
+        super(MyModel, self).__init__()
+        self.my_variable = variables_lib.Variable(0.0, trainable=False)
+        self.layer = keras.layers.Dense(4)
 
-        def call(self, obs):
-          return self.layer(obs)
+      def call(self, obs):
+        return self.layer(obs)
 
-      model = MyModel()
-      model.my_variable.assign_add(1.0)
+    model = MyModel()
+    model.my_variable.assign_add(1.0)
 
-      new_model = copy.deepcopy(model)
-      self.assertEqual(model.my_variable.numpy(), 1.0)
-      self.assertEqual(new_model.my_variable.numpy(), 1.0)
+    new_model = copy.deepcopy(model)
+    self.assertEqual(model.my_variable.numpy(), 1.0)
+    self.assertEqual(new_model.my_variable.numpy(), 1.0)
 
-      model.my_variable.assign_add(1.0)
-      self.assertEqual(model.my_variable.numpy(), 2.0)
-      self.assertEqual(new_model.my_variable.numpy(), 1.0)
+    model.my_variable.assign_add(1.0)
+    self.assertEqual(model.my_variable.numpy(), 2.0)
+    self.assertEqual(new_model.my_variable.numpy(), 1.0)
 
-      # Check that Trackable logic still works.
-      self.assertLen(new_model.variables, 1)
-      self.assertLen(new_model.layers, 1)
+    # Check that Trackable logic still works.
+    self.assertLen(new_model.variables, 1)
+    self.assertLen(new_model.layers, 1)
+
+  def test_batch_counters_not_in_variables(self):
+
+    class MyModel(keras.Model):
+
+      def __init__(self):
+        super(MyModel, self).__init__()
+        self.layer = keras.layers.Dense(4)
+
+      def call(self, obs):
+        return self.layer(obs)
+
+    model = MyModel()
+    model(np.ones((10, 10)))
+    self.assertLen(model.variables, 2)
 
 
 if __name__ == '__main__':

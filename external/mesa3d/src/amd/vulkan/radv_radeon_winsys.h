@@ -33,19 +33,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include "main/macros.h"
+#include <string.h>
+#include <vulkan/vulkan.h>
 #include "amd_family.h"
+#include "util/u_memory.h"
+#include "util/u_math.h"
 
 struct radeon_info;
 struct ac_surf_info;
 struct radeon_surf;
 
-#define FREE(x) free(x)
-
 enum radeon_bo_domain { /* bitfield */
 	RADEON_DOMAIN_GTT  = 2,
 	RADEON_DOMAIN_VRAM = 4,
-	RADEON_DOMAIN_VRAM_GTT = RADEON_DOMAIN_VRAM | RADEON_DOMAIN_GTT
+	RADEON_DOMAIN_VRAM_GTT = RADEON_DOMAIN_VRAM | RADEON_DOMAIN_GTT,
+	RADEON_DOMAIN_GDS = 8,
+	RADEON_DOMAIN_OA = 16,
 };
 
 enum radeon_bo_flag { /* bitfield */
@@ -59,21 +62,13 @@ enum radeon_bo_flag { /* bitfield */
 	RADEON_FLAG_READ_ONLY =     (1 << 7),
 	RADEON_FLAG_32BIT =         (1 << 8),
 	RADEON_FLAG_PREFER_LOCAL_BO = (1 << 9),
+	RADEON_FLAG_ZERO_VRAM = (1 << 10),
 };
 
 enum radeon_bo_usage { /* bitfield */
 	RADEON_USAGE_READ = 2,
 	RADEON_USAGE_WRITE = 4,
 	RADEON_USAGE_READWRITE = RADEON_USAGE_READ | RADEON_USAGE_WRITE
-};
-
-enum ring_type {
-	RING_GFX = 0,
-	RING_COMPUTE,
-	RING_DMA,
-	RING_UVD,
-	RING_VCE,
-	RING_LAST,
 };
 
 enum radeon_ctx_priority {
@@ -151,6 +146,7 @@ struct radeon_bo_metadata {
 		struct {
 			/* surface flags */
 			unsigned swizzle_mode:5;
+			bool scanout;
 		} gfx9;
 	} u;
 
@@ -162,18 +158,21 @@ struct radeon_bo_metadata {
 	uint32_t                metadata[64];
 };
 
-uint32_t syncobj_handle;
 struct radeon_winsys_fence;
+struct radeon_winsys_ctx;
 
 struct radeon_winsys_bo {
 	uint64_t va;
 	bool is_local;
-	bool vram_cpu_access;
+	bool vram_no_cpu_access;
 };
 struct radv_winsys_sem_counts {
 	uint32_t syncobj_count;
+	uint32_t syncobj_reset_count; /* for wait only, whether to reset the syncobj */
+	uint32_t timeline_syncobj_count;
 	uint32_t sem_count;
 	uint32_t *syncobj;
+	uint64_t *points;
 	struct radeon_winsys_sem **sem;
 };
 
@@ -242,11 +241,15 @@ struct radeon_winsys {
 	struct radeon_winsys_bo *(*buffer_from_fd)(struct radeon_winsys *ws,
 						   int fd,
 						   unsigned priority,
-						   unsigned *stride, unsigned *offset);
+						   uint64_t *alloc_size);
 
 	bool (*buffer_get_fd)(struct radeon_winsys *ws,
 			      struct radeon_winsys_bo *bo,
 			      int *fd);
+
+	bool (*buffer_get_flags_from_fd)(struct radeon_winsys *ws, int fd,
+	                                 enum radeon_bo_domain *domains,
+	                                 enum radeon_bo_flag *flags);
 
 	void (*buffer_unmap)(struct radeon_winsys_bo *bo);
 
@@ -255,11 +258,12 @@ struct radeon_winsys {
 	void (*buffer_get_metadata)(struct radeon_winsys_bo *bo,
 				    struct radeon_bo_metadata *md);
 
-	void (*buffer_virtual_bind)(struct radeon_winsys_bo *parent,
-	                            uint64_t offset, uint64_t size,
-	                            struct radeon_winsys_bo *bo, uint64_t bo_offset);
-	struct radeon_winsys_ctx *(*ctx_create)(struct radeon_winsys *ws,
-						enum radeon_ctx_priority priority);
+	VkResult (*buffer_virtual_bind)(struct radeon_winsys_bo *parent,
+					uint64_t offset, uint64_t size,
+					struct radeon_winsys_bo *bo, uint64_t bo_offset);
+	VkResult (*ctx_create)(struct radeon_winsys *ws,
+	                       enum radeon_ctx_priority priority,
+	                       struct radeon_winsys_ctx **ctx);
 	void (*ctx_destroy)(struct radeon_winsys_ctx *ctx);
 
 	bool (*ctx_wait_idle)(struct radeon_winsys_ctx *ctx,
@@ -272,20 +276,20 @@ struct radeon_winsys {
 
 	void (*cs_reset)(struct radeon_cmdbuf *cs);
 
-	bool (*cs_finalize)(struct radeon_cmdbuf *cs);
+	VkResult (*cs_finalize)(struct radeon_cmdbuf *cs);
 
 	void (*cs_grow)(struct radeon_cmdbuf * cs, size_t min_size);
 
-	int (*cs_submit)(struct radeon_winsys_ctx *ctx,
-			 int queue_index,
-			 struct radeon_cmdbuf **cs_array,
-			 unsigned cs_count,
-			 struct radeon_cmdbuf *initial_preamble_cs,
-			 struct radeon_cmdbuf *continue_preamble_cs,
-			 struct radv_winsys_sem_info *sem_info,
-			 const struct radv_winsys_bo_list *bo_list, /* optional */
-			 bool can_patch,
-			 struct radeon_winsys_fence *fence);
+	VkResult (*cs_submit)(struct radeon_winsys_ctx *ctx,
+			      int queue_index,
+			      struct radeon_cmdbuf **cs_array,
+			      unsigned cs_count,
+			      struct radeon_cmdbuf *initial_preamble_cs,
+			      struct radeon_cmdbuf *continue_preamble_cs,
+			      struct radv_winsys_sem_info *sem_info,
+			      const struct radv_winsys_bo_list *bo_list, /* optional */
+			      bool can_patch,
+			      struct radeon_winsys_fence *fence);
 
 	void (*cs_add_buffer)(struct radeon_cmdbuf *cs,
 			      struct radeon_winsys_bo *bo);
@@ -301,6 +305,9 @@ struct radeon_winsys {
 
 	struct radeon_winsys_fence *(*create_fence)();
 	void (*destroy_fence)(struct radeon_winsys_fence *fence);
+	void (*reset_fence)(struct radeon_winsys_fence *fence);
+	void (*signal_fence)(struct radeon_winsys_fence *fence);
+	bool (*is_fence_waitable)(struct radeon_winsys_fence *fence);
 	bool (*fence_wait)(struct radeon_winsys *ws,
 			   struct radeon_winsys_fence *fence,
 			   bool absolute,
@@ -316,13 +323,17 @@ struct radeon_winsys {
 	void (*destroy_sem)(struct radeon_winsys_sem *sem);
 
 	/* new shareable sync objects */
-	int (*create_syncobj)(struct radeon_winsys *ws, uint32_t *handle);
+	int (*create_syncobj)(struct radeon_winsys *ws, bool create_signaled,
+			      uint32_t *handle);
 	void (*destroy_syncobj)(struct radeon_winsys *ws, uint32_t handle);
 
 	void (*reset_syncobj)(struct radeon_winsys *ws, uint32_t handle);
-	void (*signal_syncobj)(struct radeon_winsys *ws, uint32_t handle);
+	void (*signal_syncobj)(struct radeon_winsys *ws, uint32_t handle, uint64_t point);
+	VkResult (*query_syncobj)(struct radeon_winsys *ws, uint32_t handle, uint64_t *point);
 	bool (*wait_syncobj)(struct radeon_winsys *ws, const uint32_t *handles, uint32_t handle_count,
 			     bool wait_all, uint64_t timeout);
+	bool (*wait_timeline_syncobj)(struct radeon_winsys *ws, const uint32_t *handles, const uint64_t *points,
+	                              uint32_t handle_count, bool wait_all, bool available, uint64_t timeout);
 
 	int (*export_syncobj)(struct radeon_winsys *ws, uint32_t syncobj, int *fd);
 	int (*import_syncobj)(struct radeon_winsys *ws, int fd, uint32_t *syncobj);

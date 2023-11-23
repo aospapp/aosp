@@ -8,11 +8,17 @@ Components
 
    spd/index
    arm-sip-service
+   debugfs-design
    exception-handling
+   fconf/index
    firmware-update
+   measured_boot/index
    platform-interrupt-controller-API
    ras
    romlib-design
    sdei
-   secure-partition-manager-design
+   secure-partition-manager
+   secure-partition-manager-mm
+   psa-ffa-manifest-binding
    xlat-tables-lib-v2-design
+   cot-binding

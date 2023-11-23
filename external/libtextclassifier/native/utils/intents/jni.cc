@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include "utils/base/status_macros.h"
 #include "utils/base/statusor.h"
 #include "utils/java/jni-base.h"
 #include "utils/java/jni-helper.h"
@@ -27,19 +28,19 @@ namespace libtextclassifier3 {
 // The macros below are intended to reduce the boilerplate and avoid
 // easily introduced copy/paste errors.
 #define TC3_CHECK_JNI_PTR(PTR) TC3_CHECK((PTR) != nullptr)
-#define TC3_GET_CLASS(FIELD, NAME)                                         \
-  {                                                                        \
-    StatusOr<ScopedLocalRef<jclass>> status_or_clazz =                     \
-        JniHelper::FindClass(env, NAME);                                   \
-    handler->FIELD = MakeGlobalRef(status_or_clazz.ValueOrDie().release(), \
-                                   env, jni_cache->jvm);                   \
-    TC3_CHECK_JNI_PTR(handler->FIELD) << "Error finding class: " << NAME;  \
+#define TC3_GET_CLASS(FIELD, NAME)                                        \
+  {                                                                       \
+    TC3_ASSIGN_OR_RETURN(ScopedLocalRef<jclass> clazz,                    \
+                         JniHelper::FindClass(env, NAME));                \
+    handler->FIELD = MakeGlobalRef(clazz.release(), env, jni_cache->jvm); \
+    TC3_CHECK_JNI_PTR(handler->FIELD) << "Error finding class: " << NAME; \
   }
-#define TC3_GET_METHOD(CLASS, FIELD, NAME, SIGNATURE)                       \
-  handler->FIELD = env->GetMethodID(handler->CLASS.get(), NAME, SIGNATURE); \
-  TC3_CHECK(handler->FIELD) << "Error finding method: " << NAME;
+#define TC3_GET_METHOD(CLASS, FIELD, NAME, SIGNATURE) \
+  TC3_ASSIGN_OR_RETURN(                               \
+      handler->FIELD,                                 \
+      JniHelper::GetMethodID(env, handler->CLASS.get(), NAME, SIGNATURE));
 
-std::unique_ptr<RemoteActionTemplatesHandler>
+StatusOr<std::unique_ptr<RemoteActionTemplatesHandler>>
 RemoteActionTemplatesHandler::Create(
     const std::shared_ptr<JniCache>& jni_cache) {
   JNIEnv* env = jni_cache->GetEnv();
@@ -127,8 +128,8 @@ RemoteActionTemplatesHandler::AsStringArray(
   for (int k = 0; k < values.size(); k++) {
     TC3_ASSIGN_OR_RETURN(ScopedLocalRef<jstring> value_str,
                          jni_cache_->ConvertToJavaString(values[k]));
-    jni_cache_->GetEnv()->SetObjectArrayElement(result.get(), k,
-                                                value_str.get());
+    TC3_RETURN_IF_ERROR(JniHelper::SetObjectArrayElement(
+        jni_cache_->GetEnv(), result.get(), k, value_str.get()));
   }
   return result;
 }
@@ -144,9 +145,9 @@ RemoteActionTemplatesHandler::AsFloatArray(
       ScopedLocalRef<jfloatArray> result,
       JniHelper::NewFloatArray(jni_cache_->GetEnv(), values.size()));
 
-  jni_cache_->GetEnv()->SetFloatArrayRegion(result.get(), /*start=*/0,
-                                            /*len=*/values.size(),
-                                            &(values[0]));
+  TC3_RETURN_IF_ERROR(JniHelper::SetFloatArrayRegion(
+      jni_cache_->GetEnv(), result.get(), /*start=*/0,
+      /*len=*/values.size(), &(values[0])));
   return result;
 }
 
@@ -160,8 +161,9 @@ StatusOr<ScopedLocalRef<jintArray>> RemoteActionTemplatesHandler::AsIntArray(
       ScopedLocalRef<jintArray> result,
       JniHelper::NewIntArray(jni_cache_->GetEnv(), values.size()));
 
-  jni_cache_->GetEnv()->SetIntArrayRegion(result.get(), /*start=*/0,
-                                          /*len=*/values.size(), &(values[0]));
+  TC3_RETURN_IF_ERROR(JniHelper::SetIntArrayRegion(
+      jni_cache_->GetEnv(), result.get(), /*start=*/0,
+      /*len=*/values.size(), &(values[0])));
   return result;
 }
 
@@ -275,8 +277,8 @@ RemoteActionTemplatesHandler::AsNamedVariantArray(
     TC3_ASSIGN_OR_RETURN(
         StatusOr<ScopedLocalRef<jobject>> named_extra,
         AsNamedVariant(key_value_pair.first, key_value_pair.second));
-    env->SetObjectArrayElement(result.get(), element_index,
-                               named_extra.ValueOrDie().get());
+    TC3_RETURN_IF_ERROR(JniHelper::SetObjectArrayElement(
+        env, result.get(), element_index, named_extra.ValueOrDie().get()));
     element_index++;
   }
   return result;
@@ -335,7 +337,8 @@ RemoteActionTemplatesHandler::RemoteActionTemplatesToJObjectArray(
             type.ValueOrDie().get(), flags.ValueOrDie().get(),
             category.ValueOrDie().get(), package.ValueOrDie().get(),
             extra.ValueOrDie().get(), request_code.ValueOrDie().get()));
-    env->SetObjectArrayElement(results.get(), i, result.get());
+    TC3_RETURN_IF_ERROR(
+        JniHelper::SetObjectArrayElement(env, results.get(), i, result.get()));
   }
   return results;
 }
@@ -344,8 +347,8 @@ StatusOr<ScopedLocalRef<jobjectArray>>
 RemoteActionTemplatesHandler::EntityDataAsNamedVariantArray(
     const reflection::Schema* entity_data_schema,
     const std::string& serialized_entity_data) const {
-  ReflectiveFlatbufferBuilder entity_data_builder(entity_data_schema);
-  std::unique_ptr<ReflectiveFlatbuffer> buffer = entity_data_builder.NewRoot();
+  MutableFlatbufferBuilder entity_data_builder(entity_data_schema);
+  std::unique_ptr<MutableFlatbuffer> buffer = entity_data_builder.NewRoot();
   buffer->MergeFromSerializedFlatbuffer(serialized_entity_data);
   std::map<std::string, Variant> entity_data_map = buffer->AsFlatMap();
   return AsNamedVariantArray(entity_data_map);

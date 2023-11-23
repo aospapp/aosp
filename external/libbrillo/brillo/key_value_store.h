@@ -21,15 +21,26 @@ namespace brillo {
 class BRILLO_EXPORT KeyValueStore {
  public:
   // Creates an empty KeyValueStore.
-  KeyValueStore() = default;
-  virtual ~KeyValueStore() = default;
+  KeyValueStore();
+  virtual ~KeyValueStore();
+  // Copying is expensive; disallow accidental copies.
+  KeyValueStore(const KeyValueStore&) = delete;
+  KeyValueStore& operator=(const KeyValueStore&) = delete;
+  KeyValueStore(KeyValueStore&&);
+  KeyValueStore& operator=(KeyValueStore&&);
 
   // Loads the key=value pairs from the given |path|. Lines starting with '#'
   // and empty lines are ignored, and whitespace around keys is trimmed.
   // Trailing backslashes may be used to extend values across multiple lines.
   // Adds all the read key=values to the store, overriding those already defined
-  // but persisting the ones that aren't present on the passed file. Returns
-  // whether reading the file succeeded.
+  // but persisting the ones that aren't present on the passed file.
+  //
+  // Returns true, if the entire file is loaded successfully. If an error occurs
+  // while loading, keeps the pairs that were loaded before the error, and
+  // returns false.
+  //
+  // This function does not clear its internal state before loading. To clear
+  // the internal state, call Clear().
   bool Load(const base::FilePath& path);
 
   // Loads the key=value pairs parsing the text passed in |data|. See Load() for
@@ -47,6 +58,9 @@ class BRILLO_EXPORT KeyValueStore {
   // result if the original string contained backslash-terminated lines (i.e.
   // these values will be rewritten on single lines), comments or empty lines.
   std::string SaveToString() const;
+
+  // Clears all the key-value pairs currently stored.
+  void Clear();
 
   // Getter for the given key. Returns whether the key was found on the store.
   bool GetString(const std::string& key, std::string* value) const;
@@ -67,8 +81,6 @@ class BRILLO_EXPORT KeyValueStore {
  private:
   // The map storing all the key-value pairs.
   std::map<std::string, std::string> store_;
-
-  DISALLOW_COPY_AND_ASSIGN(KeyValueStore);
 };
 
 }  // namespace brillo

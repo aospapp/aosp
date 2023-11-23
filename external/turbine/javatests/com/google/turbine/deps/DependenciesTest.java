@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.turbine.binder.Binder;
 import com.google.turbine.binder.Binder.BindingResult;
 import com.google.turbine.binder.ClassPathBinder;
@@ -40,7 +39,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +86,7 @@ public class DependenciesTest {
 
   static class DepsBuilder {
     List<Path> classpath;
-    List<CompUnit> units = new ArrayList<>();
+    ImmutableList.Builder<CompUnit> units = ImmutableList.builder();
 
     DepsBuilder setClasspath(Path... classpath) {
       this.classpath = ImmutableList.copyOf(classpath);
@@ -103,7 +101,7 @@ public class DependenciesTest {
     DepsProto.Dependencies run() throws IOException {
       BindingResult bound =
           Binder.bind(
-              units,
+              units.build(),
               ClassPathBinder.bindClasspath(classpath),
               TestClassPaths.TURBINE_BOOTCLASSPATH,
               /* moduleVersion=*/ Optional.empty());
@@ -116,7 +114,7 @@ public class DependenciesTest {
   }
 
   private Map<Path, DepsProto.Dependency.Kind> depsMap(DepsProto.Dependencies deps) {
-    return Streams.stream(deps.getDependencyList())
+    return deps.getDependencyList().stream()
         .collect(Collectors.toMap(d -> Paths.get(d.getPath()), DepsProto.Dependency::getKind));
   }
 
@@ -331,6 +329,96 @@ public class DependenciesTest {
               libp,
               DepsProto.Dependency.Kind.EXPLICIT);
     }
+  }
+
+  @Test
+  public void annotations_recursive() throws Exception {
+    Path libA = libA();
+    Path libB = libB();
+
+    DepsProto.Dependencies deps =
+        new DepsBuilder()
+            .setClasspath(libA, libB)
+            .addSourceLines(
+                "Test.java", //
+                "import a.A;",
+                "import b.B;",
+                "@A(B.class)",
+                "class Test {",
+                "}")
+            .run();
+    assertThat(depsMap(deps))
+        .containsExactly(
+            libA, DepsProto.Dependency.Kind.EXPLICIT, libB, DepsProto.Dependency.Kind.EXPLICIT);
+  }
+
+  @Test
+  public void annotations_field() throws Exception {
+    Path libA = libA();
+    Path libB = libB();
+    DepsProto.Dependencies deps =
+        new DepsBuilder()
+            .setClasspath(libA, libB)
+            .addSourceLines(
+                "Test.java", //
+                "import a.A;",
+                "import b.B;",
+                "class Test {",
+                "  @A(B.class)",
+                "  int x;",
+                "}")
+            .run();
+    assertThat(depsMap(deps))
+        .containsExactly(
+            libA, DepsProto.Dependency.Kind.EXPLICIT, libB, DepsProto.Dependency.Kind.EXPLICIT);
+  }
+
+  @Test
+  public void annotations_method() throws Exception {
+    Path libA = libA();
+    Path libB = libB();
+    DepsProto.Dependencies deps =
+        new DepsBuilder()
+            .setClasspath(libA, libB)
+            .addSourceLines(
+                "Test.java", //
+                "import a.A;",
+                "import b.B;",
+                "class Test {",
+                "  @A(B.class)",
+                "  void f() {}",
+                "}")
+            .run();
+    assertThat(depsMap(deps))
+        .containsExactly(
+            libA, DepsProto.Dependency.Kind.EXPLICIT, libB, DepsProto.Dependency.Kind.EXPLICIT);
+  }
+
+  private Path libB() throws Exception {
+    return new LibraryBuilder()
+        .addSourceLines(
+            "b/B.java",
+            "package b;",
+            "import java.lang.annotation.Retention;",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "@Retention(RUNTIME)",
+            "public @interface B {",
+            "}")
+        .compileToJar("libb.jar");
+  }
+
+  private Path libA() throws Exception {
+    return new LibraryBuilder()
+        .addSourceLines(
+            "a/A.java",
+            "package a;",
+            "import java.lang.annotation.Retention;",
+            "import static java.lang.annotation.RetentionPolicy.RUNTIME;",
+            "@Retention(RUNTIME)",
+            "public @interface A {",
+            "  Class<?> value() default Object.class;",
+            "}")
+        .compileToJar("liba.jar");
   }
 
   void writeDeps(Path path, ImmutableMap<String, DepsProto.Dependency.Kind> deps)

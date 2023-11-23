@@ -19,8 +19,25 @@ package com.android.icu.util;
 import java.util.Locale;
 import libcore.api.IntraCoreApi;
 
+/**
+ * Provide functionalities implemented by ICU4C for {@link java.lang.String}, which avoids using
+ * {@link android.icu.lang.UCharacter} to prevent circular runtime dependency.
+ *
+ * @hide
+ */
+@IntraCoreApi
 public class CaseMapperNative {
 
+    private CaseMapperNative() {}
+
+    /**
+     * Returns the lower-case version of the string in the {@code locale}.
+     *
+     * Behaves the same as {@link android.icu.lang.UCharacter#toLowerCase(Locale, String)}, but
+     * implemented by ICU4C.
+     *
+     * @hide
+     */
     @IntraCoreApi
     public static String toLowerCase(String s, Locale locale) {
         return toLowerCase(s, locale.toLanguageTag());
@@ -28,6 +45,14 @@ public class CaseMapperNative {
 
     private static native String toLowerCase(String s, String languageTag);
 
+    /**
+     * Returns the upper-case version of the string in the {@code locale}.
+     *
+     * Behaves the same as {@link android.icu.lang.UCharacter#toUpperCase(Locale, String)}, but
+     * implemented by ICU4C.
+     *
+     * @hide
+     */
     @IntraCoreApi
     public static String toUpperCase(String s, Locale locale) {
         return toUpperCase(s, locale.toLanguageTag());

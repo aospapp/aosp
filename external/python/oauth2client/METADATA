@@ -12,5 +12,6 @@ third_party {
     value: "https://github.com/google/oauth2client"
   }
   version: "v3.0.0"
+  license_type: NOTICE
   last_upgrade_date { year: 2018 month: 6 day: 6 }
 }

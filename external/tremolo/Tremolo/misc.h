@@ -166,6 +166,7 @@ static inline ogg_int32_t MULT31_SHIFT15(ogg_int32_t x, ogg_int32_t y) {
 
 #else
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 static inline void XPROD32(ogg_int32_t  a, ogg_int32_t  b,
 			   ogg_int32_t  t, ogg_int32_t  v,
 			   ogg_int32_t *x, ogg_int32_t *y)
@@ -174,6 +175,7 @@ static inline void XPROD32(ogg_int32_t  a, ogg_int32_t  b,
   *y = MULT32(b, t) - MULT32(a, v);
 }
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 static inline void XPROD31(ogg_int32_t  a, ogg_int32_t  b,
 			   ogg_int32_t  t, ogg_int32_t  v,
 			   ogg_int32_t *x, ogg_int32_t *y)
@@ -182,6 +184,7 @@ static inline void XPROD31(ogg_int32_t  a, ogg_int32_t  b,
   *y = MULT31(b, t) - MULT31(a, v);
 }
 
+__attribute__((no_sanitize("signed-integer-overflow")))
 static inline void XNPROD31(ogg_int32_t  a, ogg_int32_t  b,
 			    ogg_int32_t  t, ogg_int32_t  v,
 			    ogg_int32_t *x, ogg_int32_t *y)

@@ -369,7 +369,7 @@ class P4BinarySearcher(VCSBinarySearcher):
       self.ce.RunCommand(command)
     command = 'cd %s' % self.checkout_dir
     command += '; g4 changes -c %s' % self.client_name
-    _, out, _ = self.ce.RunCommandWOUTPUOT(command)
+    _, out, _ = self.ce.RunCommandWOutput(command)
     changes = re.findall(r'Change (\d+)', out)
     if changes:
       command = 'cd %s' % self.checkout_dir

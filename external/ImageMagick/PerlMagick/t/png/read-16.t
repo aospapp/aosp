@@ -25,27 +25,27 @@ testRead( 'input_mono.png',
 # 
 ++$test;
 testRead( 'input_256.png',
-  'e3930ba2c0d7813f21e9ac16b058c10904470853dc6a59f9f3b3f1f47da7dc2c' );
+  '5798b9623e5922d3f6c0e87ae76ccc5a69568258e557613f20934f2de6ee2d35' );
 
 #
 # 3) Test TrueColor PNG
 # 
 ++$test;
 testRead( 'input_truecolor.png',
-  '7d40e88aa651fd6234780c61a6cef9f34ae8f579975240cf5d33c86217a348c9' );
+  'eb9adaa26f3cda80273f436ddb92805da2cb88dd032d24380cd48cf05432a326' );
 
 #
 # 4) Test Multiple-image Network Graphics
 # 
 ++$test;
 testRead( 'input.mng',
-  '0cd7b340ab0c0bceac4e95a4248b12987446a9d2df07bcb6e7e7ecd4ddc44b13' );
+  '65c0eacf6e060b9fb8467eaa0f74e2dcc3ef72d06577f06a506bd0546b01fb61' );
 
 #
 # 5) Test 16-bit Portable Network Graphics
 # 
 ++$test;
 testRead( 'input_16.png',
-  'd4bed86abb1849f69f1a5afb7c5cf8798e8192ba228357f189c277198c14f5a0',
+  '6418d8dd1206c3566bac92a883196d448b4d3cc7c19581d95d43bda4f0b7e495',
   '2d30a8bed1ae8bd19c8320e861f3140dfc7497ca8a05d249734ab41c71272f08');
 

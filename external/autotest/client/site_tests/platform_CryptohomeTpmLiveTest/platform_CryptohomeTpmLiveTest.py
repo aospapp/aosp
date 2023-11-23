@@ -13,9 +13,10 @@ class platform_CryptohomeTpmLiveTest(test.test):
     version = 1
 
     def run_once(self):
+        """Run TPM live tests."""
         cryptohome.take_tpm_ownership(wait_for_ownership=True)
 
-        tpm_owner_password = cryptohome.get_tpm_status()['Password']
+        tpm_owner_password = cryptohome.get_tpm_password()
         if not tpm_owner_password:
             raise error.TestError('TPM owner password is empty after taking '
                                   'ownership.')

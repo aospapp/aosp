@@ -6,7 +6,6 @@ LIBDRM_ETNAVIV_FILES := \
 	etnaviv_perfmon.c \
 	etnaviv_pipe.c \
 	etnaviv_cmd_stream.c \
-	etnaviv_drm.h \
 	etnaviv_priv.h
 
 LIBDRM_ETNAVIV_H_FILES := \

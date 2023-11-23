@@ -23,14 +23,18 @@
 #include "aom_util/debug_util.h"
 #endif  // CONFIG_MISMATCH_DEBUG
 
-#include "av1/common/onyxc_int.h"
+#include "av1/common/av1_common_int.h"
+#include "av1/common/reconinter.h"
 
 #include "av1/encoder/encoder.h"
 #include "av1/encoder/encode_strategy.h"
+#include "av1/encoder/encodeframe.h"
 #include "av1/encoder/firstpass.h"
 #include "av1/encoder/pass2_strategy.h"
 #include "av1/encoder/temporal_filter.h"
 #include "av1/encoder/tpl_model.h"
+
+#define TEMPORAL_FILTER_KEY_FRAME (CONFIG_REALTIME_ONLY ? 0 : 1)
 
 void av1_configure_buffer_updates(AV1_COMP *const cpi,
                                   EncodeFrameParams *const frame_params,
@@ -39,105 +43,85 @@ void av1_configure_buffer_updates(AV1_COMP *const cpi,
   // NOTE(weitinglin): Should we define another function to take care of
   // cpi->rc.is_$Source_Type to make this function as it is in the comment?
 
+  const ExternalFlags *const ext_flags = &cpi->ext_flags;
   cpi->rc.is_src_frame_alt_ref = 0;
-  cpi->rc.is_src_frame_internal_arf = 0;
 
   switch (type) {
     case KF_UPDATE:
-      frame_params->refresh_last_frame = 1;
       frame_params->refresh_golden_frame = 1;
       frame_params->refresh_bwd_ref_frame = 1;
-      frame_params->refresh_alt2_ref_frame = 1;
       frame_params->refresh_alt_ref_frame = 1;
       break;
 
     case LF_UPDATE:
-      frame_params->refresh_last_frame = 1;
       frame_params->refresh_golden_frame = 0;
       frame_params->refresh_bwd_ref_frame = 0;
-      frame_params->refresh_alt2_ref_frame = 0;
       frame_params->refresh_alt_ref_frame = 0;
       break;
 
     case GF_UPDATE:
-      // TODO(zoeliu): To further investigate whether 'refresh_last_frame' is
-      //               needed.
-      frame_params->refresh_last_frame = 1;
       frame_params->refresh_golden_frame = 1;
       frame_params->refresh_bwd_ref_frame = 0;
-      frame_params->refresh_alt2_ref_frame = 0;
       frame_params->refresh_alt_ref_frame = 0;
       break;
 
     case OVERLAY_UPDATE:
-      frame_params->refresh_last_frame = 0;
       frame_params->refresh_golden_frame = 1;
       frame_params->refresh_bwd_ref_frame = 0;
-      frame_params->refresh_alt2_ref_frame = 0;
       frame_params->refresh_alt_ref_frame = 0;
 
       cpi->rc.is_src_frame_alt_ref = 1;
       break;
 
     case ARF_UPDATE:
-      frame_params->refresh_last_frame = 0;
       frame_params->refresh_golden_frame = 0;
       // NOTE: BWDREF does not get updated along with ALTREF_FRAME.
       frame_params->refresh_bwd_ref_frame = 0;
-      frame_params->refresh_alt2_ref_frame = 0;
       frame_params->refresh_alt_ref_frame = 1;
       break;
 
     case INTNL_OVERLAY_UPDATE:
-      frame_params->refresh_last_frame = 1;
       frame_params->refresh_golden_frame = 0;
       frame_params->refresh_bwd_ref_frame = 0;
-      frame_params->refresh_alt2_ref_frame = 0;
       frame_params->refresh_alt_ref_frame = 0;
 
       cpi->rc.is_src_frame_alt_ref = 1;
-      cpi->rc.is_src_frame_internal_arf = 1;
       break;
 
     case INTNL_ARF_UPDATE:
-      frame_params->refresh_last_frame = 0;
       frame_params->refresh_golden_frame = 0;
-      if (cpi->oxcf.pass == 2) {
-        frame_params->refresh_bwd_ref_frame = 1;
-        frame_params->refresh_alt2_ref_frame = 0;
-      } else {
-        frame_params->refresh_bwd_ref_frame = 0;
-        frame_params->refresh_alt2_ref_frame = 1;
-      }
+      frame_params->refresh_bwd_ref_frame = 1;
       frame_params->refresh_alt_ref_frame = 0;
       break;
 
     default: assert(0); break;
   }
 
-  if (cpi->ext_refresh_frame_flags_pending &&
-      (cpi->oxcf.pass == 0 || cpi->oxcf.pass == 2)) {
-    frame_params->refresh_last_frame = cpi->ext_refresh_last_frame;
-    frame_params->refresh_golden_frame = cpi->ext_refresh_golden_frame;
-    frame_params->refresh_alt_ref_frame = cpi->ext_refresh_alt_ref_frame;
-    frame_params->refresh_bwd_ref_frame = cpi->ext_refresh_bwd_ref_frame;
-    frame_params->refresh_alt2_ref_frame = cpi->ext_refresh_alt2_ref_frame;
+  if (ext_flags->refresh_frame_flags_pending &&
+      (!is_stat_generation_stage(cpi))) {
+    frame_params->refresh_golden_frame = ext_flags->refresh_golden_frame;
+    frame_params->refresh_alt_ref_frame = ext_flags->refresh_alt_ref_frame;
+    frame_params->refresh_bwd_ref_frame = ext_flags->refresh_bwd_ref_frame;
   }
 
   if (force_refresh_all) {
-    frame_params->refresh_last_frame = 1;
     frame_params->refresh_golden_frame = 1;
     frame_params->refresh_bwd_ref_frame = 1;
-    frame_params->refresh_alt2_ref_frame = 1;
     frame_params->refresh_alt_ref_frame = 1;
   }
 }
 
 static void set_additional_frame_flags(const AV1_COMMON *const cm,
                                        unsigned int *const frame_flags) {
-  if (frame_is_intra_only(cm)) *frame_flags |= FRAMEFLAGS_INTRAONLY;
-  if (frame_is_sframe(cm)) *frame_flags |= FRAMEFLAGS_SWITCH;
-  if (cm->error_resilient_mode) *frame_flags |= FRAMEFLAGS_ERROR_RESILIENT;
+  if (frame_is_intra_only(cm)) {
+    *frame_flags |= FRAMEFLAGS_INTRAONLY;
+  }
+  if (frame_is_sframe(cm)) {
+    *frame_flags |= FRAMEFLAGS_SWITCH;
+  }
+  if (cm->features.error_resilient_mode) {
+    *frame_flags |= FRAMEFLAGS_ERROR_RESILIENT;
+  }
 }
 
 static INLINE void update_keyframe_counters(AV1_COMP *cpi) {
@@ -153,10 +137,19 @@ static INLINE void update_keyframe_counters(AV1_COMP *cpi) {
   }
 }
 
-static INLINE int is_frame_droppable(const AV1_COMP *const cpi) {
-  return !(cpi->refresh_alt_ref_frame || cpi->refresh_alt2_ref_frame ||
-           cpi->refresh_bwd_ref_frame || cpi->refresh_golden_frame ||
-           cpi->refresh_last_frame);
+static INLINE int is_frame_droppable(const SVC *const svc,
+                                     const ExternalFlags *const ext_flags) {
+  // Droppable frame is only used by external refresh flags. VoD setting won't
+  // trigger its use case.
+  if (svc->external_ref_frame_config)
+    return svc->non_reference_frame;
+  else if (ext_flags->refresh_frame_flags_pending)
+    return !(ext_flags->refresh_alt_ref_frame ||
+             ext_flags->refresh_alt2_ref_frame ||
+             ext_flags->refresh_bwd_ref_frame ||
+             ext_flags->refresh_golden_frame || ext_flags->refresh_last_frame);
+  else
+    return 0;
 }
 
 static INLINE void update_frames_till_gf_update(AV1_COMP *cpi) {
@@ -164,73 +157,50 @@ static INLINE void update_frames_till_gf_update(AV1_COMP *cpi) {
   // is a work-around to handle the condition when a frame is drop.
   // We should fix the cpi->common.show_frame flag
   // instead of checking the other condition to update the counter properly.
-  if (cpi->common.show_frame || is_frame_droppable(cpi)) {
+  if (cpi->common.show_frame ||
+      is_frame_droppable(&cpi->svc, &cpi->ext_flags)) {
     // Decrement count down till next gf
     if (cpi->rc.frames_till_gf_update_due > 0)
       cpi->rc.frames_till_gf_update_due--;
   }
 }
 
-static INLINE void update_twopass_gf_group_index(AV1_COMP *cpi) {
+static INLINE void update_gf_group_index(AV1_COMP *cpi) {
   // Increment the gf group index ready for the next frame. If this is
   // a show_existing_frame with a source other than altref, or if it is not
   // a displayed forward keyframe, the index was incremented when it was
   // originally encoded.
   if (!cpi->common.show_existing_frame || cpi->rc.is_src_frame_alt_ref ||
       cpi->common.current_frame.frame_type == KEY_FRAME) {
-    ++cpi->twopass.gf_group.index;
+    ++cpi->gf_group.index;
   }
 }
 
 static void update_rc_counts(AV1_COMP *cpi) {
   update_keyframe_counters(cpi);
   update_frames_till_gf_update(cpi);
-  if (cpi->oxcf.pass == 2) update_twopass_gf_group_index(cpi);
+  update_gf_group_index(cpi);
 }
 
-static void check_show_existing_frame(AV1_COMP *const cpi,
-                                      EncodeFrameParams *const frame_params) {
-  const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
-  AV1_COMMON *const cm = &cpi->common;
-  const FRAME_UPDATE_TYPE frame_update_type =
-      gf_group->update_type[gf_group->index];
-  const int which_arf = (gf_group->arf_update_idx[gf_group->index] > 0);
-
-  if (cm->show_existing_frame == 1) {
-    frame_params->show_existing_frame = 0;
-  } else if (cpi->is_arf_filter_off[which_arf] &&
-             (frame_update_type == OVERLAY_UPDATE ||
-              frame_update_type == INTNL_OVERLAY_UPDATE)) {
-    // Other parameters related to OVERLAY_UPDATE will be taken care of
-    // in av1_get_second_pass_params(cpi)
-    frame_params->show_existing_frame = 1;
-    frame_params->existing_fb_idx_to_show =
-        (frame_update_type == OVERLAY_UPDATE)
-            ? get_ref_frame_map_idx(cm, ALTREF_FRAME)
-            : get_ref_frame_map_idx(cm, BWDREF_FRAME);
-  }
-}
-
-static void set_ext_overrides(AV1_COMP *const cpi,
-                              EncodeFrameParams *const frame_params) {
+static void set_ext_overrides(AV1_COMMON *const cm,
+                              EncodeFrameParams *const frame_params,
+                              ExternalFlags *const ext_flags) {
   // Overrides the defaults with the externally supplied values with
   // av1_update_reference() and av1_update_entropy() calls
   // Note: The overrides are valid only for the next frame passed
   // to av1_encode_lowlevel()
 
-  AV1_COMMON *const cm = &cpi->common;
-
-  if (cpi->ext_use_s_frame) {
+  if (ext_flags->use_s_frame) {
     frame_params->frame_type = S_FRAME;
   }
 
-  if (cpi->ext_refresh_frame_context_pending) {
-    cm->refresh_frame_context = cpi->ext_refresh_frame_context;
-    cpi->ext_refresh_frame_context_pending = 0;
+  if (ext_flags->refresh_frame_context_pending) {
+    cm->features.refresh_frame_context = ext_flags->refresh_frame_context;
+    ext_flags->refresh_frame_context_pending = 0;
   }
-  cm->allow_ref_frame_mvs = cpi->ext_use_ref_frame_mvs;
+  cm->features.allow_ref_frame_mvs = ext_flags->use_ref_frame_mvs;
 
-  frame_params->error_resilient_mode = cpi->ext_use_error_resilient;
+  frame_params->error_resilient_mode = ext_flags->use_error_resilient;
   // A keyframe is already error resilient and keyframes with
   // error_resilient_mode interferes with the use of show_existing_frame
   // when forward reference keyframes are enabled.
@@ -239,106 +209,25 @@ static void set_ext_overrides(AV1_COMP *const cpi,
   frame_params->error_resilient_mode |= frame_params->frame_type == S_FRAME;
 }
 
-static int get_ref_frame_flags(const AV1_COMP *const cpi) {
-  const AV1_COMMON *const cm = &cpi->common;
-
-  const RefCntBuffer *last_buf = get_ref_frame_buf(cm, LAST_FRAME);
-  const RefCntBuffer *last2_buf = get_ref_frame_buf(cm, LAST2_FRAME);
-  const RefCntBuffer *last3_buf = get_ref_frame_buf(cm, LAST3_FRAME);
-  const RefCntBuffer *golden_buf = get_ref_frame_buf(cm, GOLDEN_FRAME);
-  const RefCntBuffer *bwd_buf = get_ref_frame_buf(cm, BWDREF_FRAME);
-  const RefCntBuffer *alt2_buf = get_ref_frame_buf(cm, ALTREF2_FRAME);
-  const RefCntBuffer *alt_buf = get_ref_frame_buf(cm, ALTREF_FRAME);
-
-  // No.1 Priority: LAST_FRAME
-  const int last2_is_last = (last2_buf == last_buf);
-  const int last3_is_last = (last3_buf == last_buf);
-  const int gld_is_last = (golden_buf == last_buf);
-  const int bwd_is_last = (bwd_buf == last_buf);
-  const int alt2_is_last = (alt2_buf == last_buf);
-  const int alt_is_last = (alt_buf == last_buf);
-
-  // No.2 Priority: ALTREF_FRAME
-  const int last2_is_alt = (last2_buf == alt_buf);
-  const int last3_is_alt = (last3_buf == alt_buf);
-  const int gld_is_alt = (golden_buf == alt_buf);
-  const int bwd_is_alt = (bwd_buf == alt_buf);
-  const int alt2_is_alt = (alt2_buf == alt_buf);
-
-  // No.3 Priority: LAST2_FRAME
-  const int last3_is_last2 = (last3_buf == last2_buf);
-  const int gld_is_last2 = (golden_buf == last2_buf);
-  const int bwd_is_last2 = (bwd_buf == last2_buf);
-  const int alt2_is_last2 = (alt2_buf == last2_buf);
-
-  // No.4 Priority: LAST3_FRAME
-  const int gld_is_last3 = (golden_buf == last3_buf);
-  const int bwd_is_last3 = (bwd_buf == last3_buf);
-  const int alt2_is_last3 = (alt2_buf == last3_buf);
-
-  // No.5 Priority: GOLDEN_FRAME
-  const int bwd_is_gld = (bwd_buf == golden_buf);
-  const int alt2_is_gld = (alt2_buf == golden_buf);
-
-  // No.6 Priority: BWDREF_FRAME
-  const int alt2_is_bwd = (alt2_buf == bwd_buf);
-
-  // No.7 Priority: ALTREF2_FRAME
-
-  // cpi->ext_ref_frame_flags allows certain reference types to be disabled
-  // by the external interface.  These are set by av1_apply_encoding_flags().
-  // Start with what the external interface allows, then suppress any reference
-  // types which we have found to be duplicates.
-
-  int flags = cpi->ext_ref_frame_flags;
-
-  if (cpi->rc.frames_till_gf_update_due == INT_MAX) flags &= ~AOM_GOLD_FLAG;
-
-  if (alt_is_last) flags &= ~AOM_ALT_FLAG;
-
-  if (last2_is_last || last2_is_alt) flags &= ~AOM_LAST2_FLAG;
-
-  if (last3_is_last || last3_is_alt || last3_is_last2) flags &= ~AOM_LAST3_FLAG;
-
-  if (gld_is_last || gld_is_alt || gld_is_last2 || gld_is_last3)
-    flags &= ~AOM_GOLD_FLAG;
-
-  if ((bwd_is_last || bwd_is_alt || bwd_is_last2 || bwd_is_last3 || bwd_is_gld))
-    flags &= ~AOM_BWD_FLAG;
-
-  if ((alt2_is_last || alt2_is_alt || alt2_is_last2 || alt2_is_last3 ||
-       alt2_is_gld || alt2_is_bwd))
-    flags &= ~AOM_ALT2_FLAG;
-
-  return flags;
-}
-
 static int get_current_frame_ref_type(
     const AV1_COMP *const cpi, const EncodeFrameParams *const frame_params) {
-  const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
   // We choose the reference "type" of this frame from the flags which indicate
-  // which reference frames will be refreshed by it.  More than one of these
-  // flags may be set, so the order here implies an order of precedence.
-  // This is just used to choose the primary_ref_frame (as the most recent
-  // reference buffer of the same reference-type as the current frame)
+  // which reference frames will be refreshed by it.  More than one  of these
+  // flags may be set, so the order here implies an order of precedence. This is
+  // just used to choose the primary_ref_frame (as the most recent reference
+  // buffer of the same reference-type as the current frame)
 
-  const int intra_only = frame_params->frame_type == KEY_FRAME ||
-                         frame_params->frame_type == INTRA_ONLY_FRAME;
-  if (intra_only || frame_params->error_resilient_mode ||
-      cpi->ext_use_primary_ref_none)
-    return REGULAR_FRAME;
-  else if (gf_group->update_type[gf_group->index] == INTNL_ARF_UPDATE)
-    return INTERNAL_ARF_FRAME;
-  else if (frame_params->refresh_alt_ref_frame)
-    return ARF_FRAME;
-  else if (cpi->rc.is_src_frame_alt_ref)
-    return OVERLAY_FRAME;
-  else if (frame_params->refresh_golden_frame)
-    return GLD_FRAME;
-  else if (frame_params->refresh_bwd_ref_frame)
-    return BRF_FRAME;
-  else
-    return REGULAR_FRAME;
+  (void)frame_params;
+  // TODO(jingning): This table should be a lot simpler with the new
+  // ARF system in place. Keep frame_params for the time being as we are
+  // still evaluating a few design options.
+  switch (cpi->gf_group.layer_depth[cpi->gf_group.index]) {
+    case 0: return 0;
+    case 1: return 1;
+    case MAX_ARF_LAYERS:
+    case MAX_ARF_LAYERS + 1: return 4;
+    default: return 7;
+  }
 }
 
 static int choose_primary_ref_frame(
@@ -347,15 +236,20 @@ static int choose_primary_ref_frame(
 
   const int intra_only = frame_params->frame_type == KEY_FRAME ||
                          frame_params->frame_type == INTRA_ONLY_FRAME;
-  if (intra_only || frame_params->error_resilient_mode ||
-      cpi->ext_use_primary_ref_none) {
+  if (intra_only || frame_params->error_resilient_mode || cpi->use_svc ||
+      cpi->ext_flags.use_primary_ref_none) {
     return PRIMARY_REF_NONE;
   }
 
+  // In large scale case, always use Last frame's frame contexts.
+  // Note(yunqing): In other cases, primary_ref_frame is chosen based on
+  // cpi->gf_group.layer_depth[cpi->gf_group.index], which also controls
+  // frame bit allocation.
+  if (cm->tiles.large_scale) return (LAST_FRAME - LAST_FRAME);
+
   // Find the most recent reference frame with the same reference type as the
   // current frame
-  const FRAME_CONTEXT_INDEX current_ref_type =
-      get_current_frame_ref_type(cpi, frame_params);
+  const int current_ref_type = get_current_frame_ref_type(cpi, frame_params);
   int wanted_fb = cpi->fb_of_context_type[current_ref_type];
 
   int primary_ref_frame = PRIMARY_REF_NONE;
@@ -364,6 +258,7 @@ static int choose_primary_ref_frame(
       primary_ref_frame = ref_frame - LAST_FRAME;
     }
   }
+
   return primary_ref_frame;
 }
 
@@ -371,13 +266,15 @@ static void update_fb_of_context_type(
     const AV1_COMP *const cpi, const EncodeFrameParams *const frame_params,
     int *const fb_of_context_type) {
   const AV1_COMMON *const cm = &cpi->common;
+  const int current_frame_ref_type =
+      get_current_frame_ref_type(cpi, frame_params);
 
-  if (frame_is_intra_only(cm) || cm->error_resilient_mode ||
-      cpi->ext_use_primary_ref_none) {
+  if (frame_is_intra_only(cm) || cm->features.error_resilient_mode ||
+      cpi->ext_flags.use_primary_ref_none) {
     for (int i = 0; i < REF_FRAMES; i++) {
       fb_of_context_type[i] = -1;
     }
-    fb_of_context_type[REGULAR_FRAME] =
+    fb_of_context_type[current_frame_ref_type] =
         cm->show_frame ? get_ref_frame_map_idx(cm, GOLDEN_FRAME)
                        : get_ref_frame_map_idx(cm, ALTREF_FRAME);
   }
@@ -386,12 +283,11 @@ static void update_fb_of_context_type(
     // Refresh fb_of_context_type[]: see encoder.h for explanation
     if (cm->current_frame.frame_type == KEY_FRAME) {
       // All ref frames are refreshed, pick one that will live long enough
-      fb_of_context_type[REGULAR_FRAME] = 0;
+      fb_of_context_type[current_frame_ref_type] = 0;
     } else {
       // If more than one frame is refreshed, it doesn't matter which one we
       // pick so pick the first.  LST sometimes doesn't refresh any: this is ok
-      const int current_frame_ref_type =
-          get_current_frame_ref_type(cpi, frame_params);
+
       for (int i = 0; i < REF_FRAMES; i++) {
         if (cm->current_frame.refresh_frame_flags & (1 << i)) {
           fb_of_context_type[current_frame_ref_type] = i;
@@ -414,22 +310,28 @@ static int get_order_offset(const GF_GROUP *const gf_group,
   return AOMMIN((MAX_GF_INTERVAL - 1), arf_offset);
 }
 
-static void adjust_frame_rate(AV1_COMP *cpi,
-                              const struct lookahead_entry *source) {
+static void adjust_frame_rate(AV1_COMP *cpi, int64_t ts_start, int64_t ts_end) {
+  TimeStamps *time_stamps = &cpi->time_stamps;
   int64_t this_duration;
   int step = 0;
 
   // Clear down mmx registers
   aom_clear_system_state();
 
-  if (source->ts_start == cpi->first_time_stamp_ever) {
-    this_duration = source->ts_end - source->ts_start;
+  if (cpi->use_svc && cpi->svc.spatial_layer_id > 0) {
+    cpi->framerate = cpi->svc.base_framerate;
+    av1_rc_update_framerate(cpi, cpi->common.width, cpi->common.height);
+    return;
+  }
+
+  if (ts_start == time_stamps->first_ever) {
+    this_duration = ts_end - ts_start;
     step = 1;
   } else {
     int64_t last_duration =
-        cpi->last_end_time_stamp_seen - cpi->last_time_stamp_seen;
+        time_stamps->prev_end_seen - time_stamps->prev_start_seen;
 
-    this_duration = source->ts_end - cpi->last_end_time_stamp_seen;
+    this_duration = ts_end - time_stamps->prev_end_seen;
 
     // do a step update if the duration changes by 10%
     if (last_duration)
@@ -443,8 +345,8 @@ static void adjust_frame_rate(AV1_COMP *cpi,
       // Average this frame's rate into the last second's average
       // frame rate. If we haven't seen 1 second yet, then average
       // over the whole interval seen.
-      const double interval = AOMMIN(
-          (double)(source->ts_end - cpi->first_time_stamp_ever), 10000000.0);
+      const double interval =
+          AOMMIN((double)(ts_end - time_stamps->first_ever), 10000000.0);
       double avg_duration = 10000000.0 / cpi->framerate;
       avg_duration *= (interval - avg_duration + this_duration);
       avg_duration /= interval;
@@ -452,76 +354,61 @@ static void adjust_frame_rate(AV1_COMP *cpi,
       av1_new_framerate(cpi, 10000000.0 / avg_duration);
     }
   }
-  cpi->last_time_stamp_seen = source->ts_start;
-  cpi->last_end_time_stamp_seen = source->ts_end;
+  time_stamps->prev_start_seen = ts_start;
+  time_stamps->prev_end_seen = ts_end;
 }
 
 // If this is an alt-ref, returns the offset of the source frame used
 // as the arf midpoint. Otherwise, returns 0.
-static int get_arf_src_index(AV1_COMP *cpi) {
-  RATE_CONTROL *const rc = &cpi->rc;
+static int get_arf_src_index(GF_GROUP *gf_group, int pass) {
   int arf_src_index = 0;
-  if (cpi->oxcf.pass == 2) {
-    const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
-    if (gf_group->update_type[gf_group->index] == ARF_UPDATE) {
-      assert(is_altref_enabled(cpi));
-      arf_src_index = gf_group->arf_src_offset[gf_group->index];
-    }
-  } else if (rc->source_alt_ref_pending) {
-    arf_src_index = rc->frames_till_gf_update_due;
-  }
+  if (pass != 1) arf_src_index = gf_group->arf_src_offset[gf_group->index];
   return arf_src_index;
-}
-
-// If this is an internal alt-ref, returns the offset of the source frame used
-// as the internal arf midpoint. Otherwise, returns 0.
-static int get_internal_arf_src_index(AV1_COMP *cpi) {
-  int internal_arf_src_index = 0;
-  if (cpi->oxcf.pass == 2) {
-    const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
-    if (gf_group->update_type[gf_group->index] == INTNL_ARF_UPDATE) {
-      assert(is_altref_enabled(cpi) && cpi->internal_altref_allowed);
-      internal_arf_src_index = gf_group->arf_src_offset[gf_group->index];
-    }
-  }
-  return internal_arf_src_index;
 }
 
 // Called if this frame is an ARF or ARF2. Also handles forward-keyframes
 // For an ARF set arf2=0, for ARF2 set arf2=1
 // temporal_filtered is set to 1 if we temporally filter the ARF frame, so that
 // the correct post-filter buffer can be used.
-static struct lookahead_entry *setup_arf_or_arf2(
-    AV1_COMP *const cpi, const int arf_src_index, const int arf2,
-    int *temporal_filtered, EncodeFrameParams *const frame_params) {
+static struct lookahead_entry *setup_arf_frame(
+    AV1_COMP *const cpi, const int arf_src_index, int *code_arf,
+    EncodeFrameParams *const frame_params, int *show_existing_alt_ref) {
   AV1_COMMON *const cm = &cpi->common;
   RATE_CONTROL *const rc = &cpi->rc;
+#if !CONFIG_REALTIME_ONLY
   const AV1EncoderConfig *const oxcf = &cpi->oxcf;
+#endif
 
   assert(arf_src_index <= rc->frames_to_key);
-  *temporal_filtered = 0;
+  *code_arf = 0;
 
   struct lookahead_entry *source =
-      av1_lookahead_peek(cpi->lookahead, arf_src_index);
+      av1_lookahead_peek(cpi->lookahead, arf_src_index, cpi->compressor_stage);
 
   if (source != NULL) {
     cm->showable_frame = 1;
-    cpi->alt_ref_source = source;
 
     // When arf_src_index == rc->frames_to_key, it indicates a fwd_kf
-    if (!arf2 && arf_src_index == rc->frames_to_key) {
+    if (arf_src_index == rc->frames_to_key) {
       // Skip temporal filtering and mark as intra_only if we have a fwd_kf
-      const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
-      int which_arf = gf_group->arf_update_idx[gf_group->index];
-      cpi->is_arf_filter_off[which_arf] = 1;
       cpi->no_show_kf = 1;
     } else {
+#if !CONFIG_REALTIME_ONLY
       if (oxcf->arnr_max_frames > 0) {
         // Produce the filtered ARF frame.
-        av1_temporal_filter(cpi, arf_src_index);
-        aom_extend_frame_borders(&cpi->alt_ref_buffer, av1_num_planes(cm));
-        *temporal_filtered = 1;
+        cm->current_frame.frame_type = INTER_FRAME;
+        FRAME_UPDATE_TYPE frame_update_type =
+            get_frame_update_type(&cpi->gf_group);
+        av1_configure_buffer_updates(cpi, frame_params, frame_update_type, 0);
+        *code_arf =
+            av1_temporal_filter(cpi, arf_src_index, show_existing_alt_ref);
+        if (*code_arf) {
+          aom_extend_frame_borders(&cpi->alt_ref_buffer, av1_num_planes(cm));
+        }
       }
+#else
+      (void)show_existing_alt_ref;
+#endif
     }
     frame_params->show_frame = 0;
   }
@@ -530,79 +417,62 @@ static struct lookahead_entry *setup_arf_or_arf2(
 }
 
 // Determine whether there is a forced keyframe pending in the lookahead buffer
-static int is_forced_keyframe_pending(struct lookahead_ctx *lookahead,
-                                      const int up_to_index) {
+int is_forced_keyframe_pending(struct lookahead_ctx *lookahead,
+                               const int up_to_index,
+                               const COMPRESSOR_STAGE compressor_stage) {
   for (int i = 0; i <= up_to_index; i++) {
-    const struct lookahead_entry *e = av1_lookahead_peek(lookahead, i);
+    const struct lookahead_entry *e =
+        av1_lookahead_peek(lookahead, i, compressor_stage);
     if (e == NULL) {
       // We have reached the end of the lookahead buffer and not early-returned
       // so there isn't a forced key-frame pending.
-      return 0;
+      return -1;
     } else if (e->flags == AOM_EFLAG_FORCE_KF) {
-      return 1;
+      return (i + 1);
     } else {
       continue;
     }
   }
-  return 0;  // Never reached
+  return -1;  // Never reached
 }
 
 // Check if we should encode an ARF or internal ARF.  If not, try a LAST
 // Do some setup associated with the chosen source
 // temporal_filtered, flush, and frame_update_type are outputs.
 // Return the frame source, or NULL if we couldn't find one
-struct lookahead_entry *choose_frame_source(
-    AV1_COMP *const cpi, int *const temporal_filtered, int *const flush,
-    struct lookahead_entry **last_source, FRAME_UPDATE_TYPE *frame_update_type,
-    EncodeFrameParams *const frame_params) {
+static struct lookahead_entry *choose_frame_source(
+    AV1_COMP *const cpi, int *const code_arf, int *const flush,
+    struct lookahead_entry **last_source, EncodeFrameParams *const frame_params,
+    int *show_existing_alt_ref) {
   AV1_COMMON *const cm = &cpi->common;
   struct lookahead_entry *source = NULL;
-  *temporal_filtered = 0;
+  *code_arf = 0;
 
   // Should we encode an alt-ref frame.
-  int arf_src_index = get_arf_src_index(cpi);
+  int arf_src_index = get_arf_src_index(&cpi->gf_group, cpi->oxcf.pass);
+  // TODO(Aasaipriya): Forced key frames need to be fixed when rc_mode != AOM_Q
   if (arf_src_index &&
-      is_forced_keyframe_pending(cpi->lookahead, arf_src_index)) {
+      (is_forced_keyframe_pending(cpi->lookahead, arf_src_index,
+                                  cpi->compressor_stage) != -1) &&
+      cpi->oxcf.rc_mode != AOM_Q) {
     arf_src_index = 0;
     *flush = 1;
   }
 
-  if (arf_src_index) {
-    source = setup_arf_or_arf2(cpi, arf_src_index, 0, temporal_filtered,
-                               frame_params);
-    *frame_update_type = ARF_UPDATE;
-  }
-
-  // Should we encode an internal Alt-ref frame (mutually exclusive to ARF)
-  arf_src_index = get_internal_arf_src_index(cpi);
-  if (arf_src_index &&
-      is_forced_keyframe_pending(cpi->lookahead, arf_src_index)) {
-    arf_src_index = 0;
-    *flush = 1;
-  }
-
-  if (arf_src_index) {
-    source = setup_arf_or_arf2(cpi, arf_src_index, 1, temporal_filtered,
-                               frame_params);
-    *frame_update_type = INTNL_ARF_UPDATE;
-  }
+  if (arf_src_index)
+    source = setup_arf_frame(cpi, arf_src_index, code_arf, frame_params,
+                             show_existing_alt_ref);
 
   if (!source) {
     // Get last frame source.
     if (cm->current_frame.frame_number > 0) {
-      *last_source = av1_lookahead_peek(cpi->lookahead, -1);
+      *last_source =
+          av1_lookahead_peek(cpi->lookahead, -1, cpi->compressor_stage);
     }
     // Read in the source frame.
-    source = av1_lookahead_pop(cpi->lookahead, *flush);
+    source = av1_lookahead_pop(cpi->lookahead, *flush, cpi->compressor_stage);
     if (source == NULL) return NULL;
-    *frame_update_type = LF_UPDATE;  // Default update type
     frame_params->show_frame = 1;
-
-    // Check to see if the frame should be encoded as an arf overlay.
-    if (cpi->alt_ref_source == source) {
-      *frame_update_type = OVERLAY_UPDATE;
-      cpi->alt_ref_source = NULL;
-    }
   }
   return source;
 }
@@ -615,7 +485,7 @@ static int allow_show_existing(const AV1_COMP *const cpi,
   if (cpi->common.current_frame.frame_number == 0) return 0;
 
   const struct lookahead_entry *lookahead_src =
-      av1_lookahead_peek(cpi->lookahead, 0);
+      av1_lookahead_peek(cpi->lookahead, 0, cpi->compressor_stage);
   if (lookahead_src == NULL) return 1;
 
   const int is_error_resilient =
@@ -716,134 +586,149 @@ static void dump_ref_frame_images(AV1_COMP *cpi) {
 }
 #endif  // DUMP_REF_FRAME_IMAGES == 1
 
-// Assign new_ref in the new mapping to point at the reference buffer pointed at
-// by old_ref in the old_map.  The new mapping is stored in *new_map, while the
-// old map comes from cm->remapped_ref_idx[].
-static void assign_new_map(AV1_COMMON *const cm, int *new_map, int new_ref,
-                           int old_ref) {
-  new_map[new_ref - LAST_FRAME] = cm->remapped_ref_idx[old_ref - LAST_FRAME];
+int av1_get_refresh_ref_frame_map(int refresh_frame_flags) {
+  int ref_map_index = INVALID_IDX;
+
+  for (ref_map_index = 0; ref_map_index < REF_FRAMES; ++ref_map_index)
+    if ((refresh_frame_flags >> ref_map_index) & 1) break;
+
+  return ref_map_index;
 }
 
-// Generate a new reference frame mapping.  This function updates
-// cm->remapped_ref_idx[] depending on the frame_update_type of this frame.
-// This determines which references (e.g. LAST_FRAME, ALTREF_FRAME) point at the
-// 8 underlying buffers and, together with get_refresh_frame_flags(), implements
-// our reference frame management strategy.
-static void update_ref_frame_map(AV1_COMP *cpi,
-                                 FRAME_UPDATE_TYPE frame_update_type) {
+static void update_arf_stack(int ref_map_index,
+                             RefBufferStack *ref_buffer_stack) {
+  if (ref_buffer_stack->arf_stack_size >= 0) {
+    if (ref_buffer_stack->arf_stack[0] == ref_map_index)
+      stack_pop(ref_buffer_stack->arf_stack, &ref_buffer_stack->arf_stack_size);
+  }
+
+  if (ref_buffer_stack->lst_stack_size) {
+    for (int i = ref_buffer_stack->lst_stack_size - 1; i >= 0; --i) {
+      if (ref_buffer_stack->lst_stack[i] == ref_map_index) {
+        for (int idx = i; idx < ref_buffer_stack->lst_stack_size - 1; ++idx)
+          ref_buffer_stack->lst_stack[idx] =
+              ref_buffer_stack->lst_stack[idx + 1];
+        ref_buffer_stack->lst_stack[ref_buffer_stack->lst_stack_size - 1] =
+            INVALID_IDX;
+        --ref_buffer_stack->lst_stack_size;
+      }
+    }
+  }
+
+  if (ref_buffer_stack->gld_stack_size) {
+    for (int i = ref_buffer_stack->gld_stack_size - 1; i >= 0; --i) {
+      if (ref_buffer_stack->gld_stack[i] == ref_map_index) {
+        for (int idx = i; idx < ref_buffer_stack->gld_stack_size - 1; ++idx)
+          ref_buffer_stack->gld_stack[idx] =
+              ref_buffer_stack->gld_stack[idx + 1];
+        ref_buffer_stack->gld_stack[ref_buffer_stack->gld_stack_size - 1] =
+            INVALID_IDX;
+        --ref_buffer_stack->gld_stack_size;
+      }
+    }
+  }
+}
+
+// Update reference frame stack info.
+void av1_update_ref_frame_map(AV1_COMP *cpi,
+                              FRAME_UPDATE_TYPE frame_update_type,
+                              int show_existing_frame, int ref_map_index,
+                              RefBufferStack *ref_buffer_stack) {
   AV1_COMMON *const cm = &cpi->common;
+  // TODO(jingning): Consider the S-frame same as key frame for the
+  // reference frame tracking purpose. The logic might be better
+  // expressed than converting the frame update type.
+  if (frame_is_sframe(cm)) frame_update_type = KEY_FRAME;
 
-  // If check_frame_refs_short_signaling() decided to set
-  // frame_refs_short_signaling=1 then we update remapped_ref_idx[] here.  Every
-  // reference will still map to the same RefCntBuffer (through ref_frame_map[])
-  // after this, but that does not necessarily mean that remapped_ref_idx[] is
-  // unchanged.
-  if (cm->current_frame.frame_refs_short_signaling) {
-    const int lst_map_idx = get_ref_frame_map_idx(cm, LAST_FRAME);
-    const int gld_map_idx = get_ref_frame_map_idx(cm, GOLDEN_FRAME);
-    av1_set_frame_refs(cm, cm->remapped_ref_idx, lst_map_idx, gld_map_idx);
+  if (is_frame_droppable(&cpi->svc, &cpi->ext_flags)) return;
+
+  switch (frame_update_type) {
+    case KEY_FRAME:
+      if (show_existing_frame)
+        ref_map_index = stack_pop(ref_buffer_stack->arf_stack,
+                                  &ref_buffer_stack->arf_stack_size);
+      stack_reset(ref_buffer_stack->lst_stack,
+                  &ref_buffer_stack->lst_stack_size);
+      stack_reset(ref_buffer_stack->gld_stack,
+                  &ref_buffer_stack->gld_stack_size);
+      stack_reset(ref_buffer_stack->arf_stack,
+                  &ref_buffer_stack->arf_stack_size);
+      stack_push(ref_buffer_stack->gld_stack, &ref_buffer_stack->gld_stack_size,
+                 ref_map_index);
+      break;
+    case GF_UPDATE:
+      update_arf_stack(ref_map_index, ref_buffer_stack);
+      stack_push(ref_buffer_stack->gld_stack, &ref_buffer_stack->gld_stack_size,
+                 ref_map_index);
+      // For nonrd_mode: update LAST as well on GF_UPDATE frame.
+      if (cpi->sf.rt_sf.use_nonrd_pick_mode)
+        stack_push(ref_buffer_stack->lst_stack,
+                   &ref_buffer_stack->lst_stack_size, ref_map_index);
+      break;
+    case LF_UPDATE:
+      update_arf_stack(ref_map_index, ref_buffer_stack);
+      stack_push(ref_buffer_stack->lst_stack, &ref_buffer_stack->lst_stack_size,
+                 ref_map_index);
+      break;
+    case ARF_UPDATE:
+    case INTNL_ARF_UPDATE:
+      update_arf_stack(ref_map_index, ref_buffer_stack);
+      stack_push(ref_buffer_stack->arf_stack, &ref_buffer_stack->arf_stack_size,
+                 ref_map_index);
+      break;
+    case OVERLAY_UPDATE:
+      ref_map_index = stack_pop(ref_buffer_stack->arf_stack,
+                                &ref_buffer_stack->arf_stack_size);
+      stack_push(ref_buffer_stack->gld_stack, &ref_buffer_stack->gld_stack_size,
+                 ref_map_index);
+      break;
+    case INTNL_OVERLAY_UPDATE:
+      ref_map_index = stack_pop(ref_buffer_stack->arf_stack,
+                                &ref_buffer_stack->arf_stack_size);
+      stack_push(ref_buffer_stack->lst_stack, &ref_buffer_stack->lst_stack_size,
+                 ref_map_index);
+      break;
+    default: assert(0 && "unknown type");
   }
-
-  // For shown keyframes and S-frames all buffers are refreshed, but we don't
-  // change any of the mapping.
-  if ((cm->current_frame.frame_type == KEY_FRAME && cm->show_frame) ||
-      frame_is_sframe(cm)) {
-    return;
-  }
-
-  // Initialize the new reference map as a copy of the old one.
-  int new_map[REF_FRAMES];
-  memcpy(new_map, cm->remapped_ref_idx, sizeof(new_map));
-
-  // The reference management strategy is currently as follows.  See
-  // gop_structure.c for more details of the structure and DOI
-  // 10.1109/DCC.2018.00045 for a higher-level explanation
-  //
-  // * ALTREF_FRAME and GOLDEN_FRAME are kept separate from the other
-  //   references.  When we code an ALTREF it refreshes the ALTREF buffer.  When
-  //   we code an OVERLAY the old GOLDEN becomes the new ALTREF and the old
-  //   ALTREF (possibly refreshed by the OVERLAY) becomes the new GOLDEN.
-  // * LAST_FRAME, LAST2_FRAME, and LAST3_FRAME work like a FIFO.  When we code
-  //   a frame which does a last-frame update we pick a buffer to refresh and
-  //   then point the LAST_FRAME reference at it.  The old LAST_FRAME becomes
-  //   LAST2_FRAME and the old LAST2_FRAME becomes LAST3_FRAME.  The old
-  //   LAST3_FRAME is re-used somewhere else.
-  // * BWDREF, ALTREF2, and EXTREF act like a stack structure, so we can
-  //   "push" and "pop" internal alt-ref frames through the three references.
-  // * When we code a BRF or internal-ARF (they work the same in this
-  //   structure) we push it onto the bwdref stack.  Because we have a finite
-  //   number of buffers, we actually refresh EXTREF, the bottom of the stack,
-  //   and rotate the three references to make EXTREF the top.
-  // * When we code an INTNL_OVERLAY we refresh BWDREF, then pop it off of the
-  //   bwdref stack and push it into the last-frame FIFO.  The old LAST3
-  //   buffer gets pushed out of the last-frame FIFO and becomes the new
-  //   EXTREF, bottom of the bwdref stack.
-  // * LAST_BIPRED just acts like a LAST_FRAME.  The BWDREF will have an
-  //   INTNL_OVERLAY and so can do its own ref map update.
-  //
-  // Note that this function runs *after* a frame has been coded, so it does not
-  // affect reference assignment of the current frame, it only affects future
-  // frames.  This is why we refresh buffers using the old reference map before
-  // remapping them.
-  //
-  // show_existing_frames don't refresh any buffers or send the reference map to
-  // the decoder, but we can still update our reference map if we want to: the
-  // decoder will update its map next time we code a non-show-existing frame.
-
-  if (frame_update_type == OVERLAY_UPDATE) {
-    // We want the old golden-frame to become our new ARF so swap the
-    // references.  If cpi->preserve_arf_as_gld == 0 then we will refresh the
-    // old ARF before it becomes our new GF
-    assign_new_map(cm, new_map, ALTREF_FRAME, GOLDEN_FRAME);
-    assign_new_map(cm, new_map, GOLDEN_FRAME, ALTREF_FRAME);
-  } else if (frame_update_type == INTNL_OVERLAY_UPDATE &&
-             encode_show_existing_frame(cm)) {
-    // Note that because encode_show_existing_frame(cm) we don't refresh any
-    // buffers.
-    // Pop BWDREF (shown as current frame) from the bwdref stack and make it
-    // the new LAST_FRAME.
-    assign_new_map(cm, new_map, LAST_FRAME, BWDREF_FRAME);
-
-    // Progress the last-frame FIFO and the bwdref stack
-    assign_new_map(cm, new_map, LAST2_FRAME, LAST_FRAME);
-    assign_new_map(cm, new_map, LAST3_FRAME, LAST2_FRAME);
-    assign_new_map(cm, new_map, BWDREF_FRAME, ALTREF2_FRAME);
-    assign_new_map(cm, new_map, ALTREF2_FRAME, EXTREF_FRAME);
-    assign_new_map(cm, new_map, EXTREF_FRAME, LAST3_FRAME);
-  } else if (frame_update_type == INTNL_ARF_UPDATE &&
-             !cm->show_existing_frame) {
-    // We want to push the current frame onto the bwdref stack.  We refresh
-    // EXTREF (the old bottom of the stack) and rotate the references so it
-    // becomes BWDREF, the top of the stack.
-    assign_new_map(cm, new_map, BWDREF_FRAME, EXTREF_FRAME);
-    assign_new_map(cm, new_map, ALTREF2_FRAME, BWDREF_FRAME);
-    assign_new_map(cm, new_map, EXTREF_FRAME, ALTREF2_FRAME);
-  }
-
-  if ((frame_update_type == LF_UPDATE || frame_update_type == GF_UPDATE ||
-       frame_update_type == INTNL_OVERLAY_UPDATE) &&
-      !encode_show_existing_frame(cm) &&
-      (!cm->show_existing_frame || frame_update_type == INTNL_OVERLAY_UPDATE)) {
-    // A standard last-frame: we refresh the LAST3_FRAME buffer and then push it
-    // into the last-frame FIFO.
-    assign_new_map(cm, new_map, LAST3_FRAME, LAST2_FRAME);
-    assign_new_map(cm, new_map, LAST2_FRAME, LAST_FRAME);
-    assign_new_map(cm, new_map, LAST_FRAME, LAST3_FRAME);
-  }
-
-  memcpy(cm->remapped_ref_idx, new_map, sizeof(new_map));
-
-#if DUMP_REF_FRAME_IMAGES == 1
-  // Dump out all reference frame images.
-  dump_ref_frame_images(cpi);
-#endif  // DUMP_REF_FRAME_IMAGES
+  return;
 }
 
-static int get_refresh_frame_flags(const AV1_COMP *const cpi,
-                                   const EncodeFrameParams *const frame_params,
-                                   FRAME_UPDATE_TYPE frame_update_type) {
-  const AV1_COMMON *const cm = &cpi->common;
+static int get_free_ref_map_index(const RefBufferStack *ref_buffer_stack) {
+  for (int idx = 0; idx < REF_FRAMES; ++idx) {
+    int is_free = 1;
+    for (int i = 0; i < ref_buffer_stack->arf_stack_size; ++i) {
+      if (ref_buffer_stack->arf_stack[i] == idx) {
+        is_free = 0;
+        break;
+      }
+    }
 
+    for (int i = 0; i < ref_buffer_stack->lst_stack_size; ++i) {
+      if (ref_buffer_stack->lst_stack[i] == idx) {
+        is_free = 0;
+        break;
+      }
+    }
+
+    for (int i = 0; i < ref_buffer_stack->gld_stack_size; ++i) {
+      if (ref_buffer_stack->gld_stack[i] == idx) {
+        is_free = 0;
+        break;
+      }
+    }
+
+    if (is_free) return idx;
+  }
+  return INVALID_IDX;
+}
+
+int av1_get_refresh_frame_flags(const AV1_COMP *const cpi,
+                                const EncodeFrameParams *const frame_params,
+                                FRAME_UPDATE_TYPE frame_update_type,
+                                const RefBufferStack *const ref_buffer_stack) {
+  const AV1_COMMON *const cm = &cpi->common;
+  const ExternalFlags *const ext_flags = &cpi->ext_flags;
+  const SVC *const svc = &cpi->svc;
   // Switch frames and shown key-frames overwrite all reference slots
   if ((frame_params->frame_type == KEY_FRAME && frame_params->show_frame) ||
       frame_params->frame_type == S_FRAME)
@@ -857,99 +742,302 @@ static int get_refresh_frame_flags(const AV1_COMP *const cpi,
     return 0;
   }
 
+  if (is_frame_droppable(svc, ext_flags)) return 0;
+
   int refresh_mask = 0;
 
-  if (cpi->ext_refresh_frame_flags_pending) {
+  if (ext_flags->refresh_frame_flags_pending) {
+    if (svc->external_ref_frame_config) {
+      for (unsigned int i = 0; i < INTER_REFS_PER_FRAME; i++) {
+        int ref_frame_map_idx = svc->ref_idx[i];
+        refresh_mask |= svc->refresh[ref_frame_map_idx] << ref_frame_map_idx;
+      }
+      return refresh_mask;
+    }
     // Unfortunately the encoder interface reflects the old refresh_*_frame
     // flags so we have to replicate the old refresh_frame_flags logic here in
     // order to preserve the behaviour of the flag overrides.
-    refresh_mask |= cpi->ext_refresh_last_frame
-                    << get_ref_frame_map_idx(cm, LAST3_FRAME);
-    refresh_mask |= cpi->ext_refresh_bwd_ref_frame
-                    << get_ref_frame_map_idx(cm, EXTREF_FRAME);
-    refresh_mask |= cpi->ext_refresh_alt2_ref_frame
-                    << get_ref_frame_map_idx(cm, ALTREF2_FRAME);
+    int ref_frame_map_idx = get_ref_frame_map_idx(cm, LAST_FRAME);
+    if (ref_frame_map_idx != INVALID_IDX)
+      refresh_mask |= ext_flags->refresh_last_frame << ref_frame_map_idx;
+
+    ref_frame_map_idx = get_ref_frame_map_idx(cm, EXTREF_FRAME);
+    if (ref_frame_map_idx != INVALID_IDX)
+      refresh_mask |= ext_flags->refresh_bwd_ref_frame << ref_frame_map_idx;
+
+    ref_frame_map_idx = get_ref_frame_map_idx(cm, ALTREF2_FRAME);
+    if (ref_frame_map_idx != INVALID_IDX)
+      refresh_mask |= ext_flags->refresh_alt2_ref_frame << ref_frame_map_idx;
+
     if (frame_update_type == OVERLAY_UPDATE) {
-      if (!cpi->preserve_arf_as_gld) {
-        refresh_mask |= cpi->ext_refresh_golden_frame
-                        << get_ref_frame_map_idx(cm, ALTREF_FRAME);
-      }
+      ref_frame_map_idx = get_ref_frame_map_idx(cm, ALTREF_FRAME);
+      if (ref_frame_map_idx != INVALID_IDX)
+        refresh_mask |= ext_flags->refresh_golden_frame << ref_frame_map_idx;
     } else {
-      refresh_mask |= cpi->ext_refresh_golden_frame
-                      << get_ref_frame_map_idx(cm, GOLDEN_FRAME);
-      refresh_mask |= cpi->ext_refresh_alt_ref_frame
-                      << get_ref_frame_map_idx(cm, ALTREF_FRAME);
+      ref_frame_map_idx = get_ref_frame_map_idx(cm, GOLDEN_FRAME);
+      if (ref_frame_map_idx != INVALID_IDX)
+        refresh_mask |= ext_flags->refresh_golden_frame << ref_frame_map_idx;
+
+      ref_frame_map_idx = get_ref_frame_map_idx(cm, ALTREF_FRAME);
+      if (ref_frame_map_idx != INVALID_IDX)
+        refresh_mask |= ext_flags->refresh_alt_ref_frame << ref_frame_map_idx;
     }
     return refresh_mask;
   }
 
-  // See update_ref_frame_map() for a thorough description of the reference
-  // buffer management strategy currently in use.  This function just decides
-  // which buffers should be refreshed.
-
+  // Search for the open slot to store the current frame.
+  int free_fb_index = get_free_ref_map_index(ref_buffer_stack);
   switch (frame_update_type) {
     case KF_UPDATE:
-      // Note that a real shown key-frame or S-frame refreshes every buffer,
-      // handled in a special case above.  This case is for frames which aren't
-      // really a shown key-frame or S-frame but want to refresh all the
-      // important buffers.
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, LAST3_FRAME);
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, EXTREF_FRAME);
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, ALTREF2_FRAME);
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, GOLDEN_FRAME);
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, ALTREF_FRAME);
+    case GF_UPDATE:
+      if (free_fb_index != INVALID_IDX) {
+        refresh_mask = 1 << free_fb_index;
+      } else {
+        if (ref_buffer_stack->gld_stack_size)
+          refresh_mask =
+              1 << ref_buffer_stack
+                       ->gld_stack[ref_buffer_stack->gld_stack_size - 1];
+        else
+          refresh_mask =
+              1 << ref_buffer_stack
+                       ->lst_stack[ref_buffer_stack->lst_stack_size - 1];
+      }
       break;
     case LF_UPDATE:
-      // Refresh LAST3, which becomes the new LAST while LAST becomes LAST2
-      // and LAST2 becomes the new LAST3 (like a FIFO but circular)
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, LAST3_FRAME);
-      break;
-    case GF_UPDATE:
-      // In addition to refreshing the GF buffer, we refresh LAST3 and push it
-      // into the last-frame FIFO.
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, LAST3_FRAME);
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, GOLDEN_FRAME);
-      break;
-    case OVERLAY_UPDATE:
-      if (!cpi->preserve_arf_as_gld) {
-        // The result of our OVERLAY should become the GOLDEN_FRAME but we'd
-        // like to keep the old GOLDEN as our new ALTREF.  So we refresh the
-        // ALTREF and swap around the ALTREF and GOLDEN references.
-        refresh_mask |= 1 << get_ref_frame_map_idx(cm, ALTREF_FRAME);
+      if (free_fb_index != INVALID_IDX) {
+        refresh_mask = 1 << free_fb_index;
+      } else {
+        if (ref_buffer_stack->lst_stack_size >= 2)
+          refresh_mask =
+              1 << ref_buffer_stack
+                       ->lst_stack[ref_buffer_stack->lst_stack_size - 1];
+        else if (ref_buffer_stack->gld_stack_size >= 2)
+          refresh_mask =
+              1 << ref_buffer_stack
+                       ->gld_stack[ref_buffer_stack->gld_stack_size - 1];
+        else
+          assert(0 && "No ref map index found");
       }
       break;
     case ARF_UPDATE:
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, ALTREF_FRAME);
-      break;
-    case INTNL_OVERLAY_UPDATE:
-      // INTNL_OVERLAY may be a show_existing_frame in which case we don't
-      // refresh anything and the BWDREF or ALTREF2 being shown becomes the new
-      // LAST_FRAME.  But, if it's not a show_existing_frame, then we update as
-      // though it's a normal LF_UPDATE: we refresh LAST3 and
-      // update_ref_frame_map() makes that the new LAST_FRAME.
-      refresh_mask |= 1 << get_ref_frame_map_idx(cm, LAST3_FRAME);
-      break;
-    case INTNL_ARF_UPDATE:
-      if (cpi->oxcf.pass == 2) {
-        // Push the new ARF2 onto the bwdref stack.  We refresh EXTREF which is
-        // at the bottom of the stack then move it to the top.
-        refresh_mask |= 1 << get_ref_frame_map_idx(cm, EXTREF_FRAME);
+      if (free_fb_index != INVALID_IDX) {
+        refresh_mask = 1 << free_fb_index;
       } else {
-        // ARF2 just gets stored in the ARF2 slot, no reference map change.
-        refresh_mask |= 1 << get_ref_frame_map_idx(cm, ALTREF2_FRAME);
+        if (ref_buffer_stack->gld_stack_size >= 3)
+          refresh_mask =
+              1 << ref_buffer_stack
+                       ->gld_stack[ref_buffer_stack->gld_stack_size - 1];
+        else if (ref_buffer_stack->lst_stack_size >= 2)
+          refresh_mask =
+              1 << ref_buffer_stack
+                       ->lst_stack[ref_buffer_stack->lst_stack_size - 1];
+        else
+          assert(0 && "No ref map index found");
       }
       break;
+    case INTNL_ARF_UPDATE:
+      if (free_fb_index != INVALID_IDX) {
+        refresh_mask = 1 << free_fb_index;
+      } else {
+        refresh_mask =
+            1 << ref_buffer_stack
+                     ->lst_stack[ref_buffer_stack->lst_stack_size - 1];
+      }
+      break;
+    case OVERLAY_UPDATE: break;
+    case INTNL_OVERLAY_UPDATE: break;
     default: assert(0); break;
   }
+
   return refresh_mask;
+}
+
+#if !CONFIG_REALTIME_ONLY
+void setup_mi(AV1_COMP *const cpi, YV12_BUFFER_CONFIG *src) {
+  AV1_COMMON *const cm = &cpi->common;
+  const int num_planes = av1_num_planes(cm);
+  MACROBLOCK *const x = &cpi->td.mb;
+  MACROBLOCKD *const xd = &x->e_mbd;
+
+  av1_setup_src_planes(x, src, 0, 0, num_planes, cm->seq_params.sb_size);
+
+  av1_setup_block_planes(xd, cm->seq_params.subsampling_x,
+                         cm->seq_params.subsampling_y, num_planes);
+
+  set_mi_offsets(&cm->mi_params, xd, 0, 0);
+}
+
+// Apply temporal filtering to key frames and encode the filtered frame.
+// If the current frame is not key frame, this function is identical to
+// av1_encode().
+static int denoise_and_encode(AV1_COMP *const cpi, uint8_t *const dest,
+                              EncodeFrameInput *const frame_input,
+                              EncodeFrameParams *const frame_params,
+                              EncodeFrameResults *const frame_results) {
+  const AV1EncoderConfig *const oxcf = &cpi->oxcf;
+  AV1_COMMON *const cm = &cpi->common;
+
+  // Decide whether to apply temporal filtering to the source frame.
+  int apply_filtering =
+      frame_params->frame_type == KEY_FRAME &&
+      oxcf->enable_keyframe_filtering && !is_stat_generation_stage(cpi) &&
+      !frame_params->show_existing_frame &&
+      cpi->rc.frames_to_key > TF_NUM_FILTERING_FRAMES_FOR_KEY_FRAME &&
+      !is_lossless_requested(oxcf) && oxcf->arnr_max_frames > 0;
+  if (apply_filtering) {
+    const double y_noise_level = av1_estimate_noise_from_single_plane(
+        frame_input->source, 0, cm->seq_params.bit_depth);
+    apply_filtering = y_noise_level > 0;
+  }
+
+  // Save the pointer to the original source image.
+  YV12_BUFFER_CONFIG *source_kf_buffer = frame_input->source;
+
+  // Apply filtering to key frame.
+  if (apply_filtering) {
+    // Initialization for frame motion estimation.
+    MACROBLOCKD *const xd = &cpi->td.mb.e_mbd;
+    av1_init_mi_buffers(&cm->mi_params);
+    setup_mi(cpi, frame_input->source);
+    av1_init_macroblockd(cm, xd, NULL);
+    memset(
+        cpi->mbmi_ext_info.frame_base, 0,
+        cpi->mbmi_ext_info.alloc_size * sizeof(*cpi->mbmi_ext_info.frame_base));
+
+    av1_set_speed_features_framesize_independent(cpi, oxcf->speed);
+    av1_set_speed_features_framesize_dependent(cpi, oxcf->speed);
+    av1_set_rd_speed_thresholds(cpi);
+    av1_setup_frame_buf_refs(cm);
+    av1_setup_frame_sign_bias(cm);
+    av1_frame_init_quantizer(cpi);
+    av1_setup_past_independence(cm);
+
+    if (!frame_params->show_frame) {
+      int arf_src_index = get_arf_src_index(&cpi->gf_group, cpi->oxcf.pass);
+      av1_temporal_filter(cpi, -1 * arf_src_index, NULL);
+    } else {
+      av1_temporal_filter(cpi, -1, NULL);
+    }
+    aom_extend_frame_borders(&cpi->alt_ref_buffer, av1_num_planes(cm));
+    // Use the filtered frame for encoding.
+    frame_input->source = &cpi->alt_ref_buffer;
+    // Copy metadata info to alt-ref buffer.
+    aom_remove_metadata_from_frame_buffer(frame_input->source);
+    aom_copy_metadata_to_frame_buffer(frame_input->source,
+                                      source_kf_buffer->metadata);
+
+    if (oxcf->enable_tpl_model && oxcf->lag_in_frames > 0 &&
+        frame_params->show_frame) {
+      av1_tpl_setup_stats(cpi, 0, frame_params, frame_input);
+    }
+  }
+
+  if (av1_encode(cpi, dest, frame_input, frame_params, frame_results) !=
+      AOM_CODEC_OK) {
+    return AOM_CODEC_ERROR;
+  }
+
+  // Set frame_input source to true source for psnr calculation.
+  if (apply_filtering) {
+    cpi->source = source_kf_buffer;
+    cpi->unscaled_source = source_kf_buffer;
+  }
+
+  return AOM_CODEC_OK;
+}
+#endif  // !CONFIG_REALTIME_ONLY
+
+static INLINE int find_unused_ref_frame(const int *used_ref_frames,
+                                        const int *stack, int stack_size) {
+  for (int i = 0; i < stack_size; ++i) {
+    const int this_ref = stack[i];
+    int ref_idx = 0;
+    for (ref_idx = 0; ref_idx <= ALTREF_FRAME - LAST_FRAME; ++ref_idx) {
+      if (this_ref == used_ref_frames[ref_idx]) break;
+    }
+
+    // not in use
+    if (ref_idx > ALTREF_FRAME - LAST_FRAME) return this_ref;
+  }
+
+  return INVALID_IDX;
+}
+
+void av1_get_ref_frames(AV1_COMP *const cpi, RefBufferStack *ref_buffer_stack) {
+  AV1_COMMON *cm = &cpi->common;
+  int *const remapped_ref_idx = cm->remapped_ref_idx;
+  int *const arf_stack = ref_buffer_stack->arf_stack;
+  int *const lst_stack = ref_buffer_stack->lst_stack;
+  int *const gld_stack = ref_buffer_stack->gld_stack;
+  const int arf_stack_size = ref_buffer_stack->arf_stack_size;
+  const int lst_stack_size = ref_buffer_stack->lst_stack_size;
+  const int gld_stack_size = ref_buffer_stack->gld_stack_size;
+
+  // Initialization
+  for (int i = 0; i < REF_FRAMES; ++i) remapped_ref_idx[i] = INVALID_IDX;
+
+  if (arf_stack_size) {
+    remapped_ref_idx[ALTREF_FRAME - LAST_FRAME] = arf_stack[arf_stack_size - 1];
+
+    if (arf_stack_size > 1)
+      remapped_ref_idx[BWDREF_FRAME - LAST_FRAME] = arf_stack[0];
+
+    if (arf_stack_size > 2)
+      remapped_ref_idx[ALTREF2_FRAME - LAST_FRAME] = arf_stack[1];
+  }
+
+  if (lst_stack_size) {
+    remapped_ref_idx[LAST_FRAME - LAST_FRAME] = lst_stack[0];
+
+    if (lst_stack_size > 1)
+      remapped_ref_idx[LAST2_FRAME - LAST_FRAME] = lst_stack[1];
+  }
+
+  if (gld_stack_size) {
+    remapped_ref_idx[GOLDEN_FRAME - LAST_FRAME] = gld_stack[0];
+
+    if (gld_stack_size > 1) {
+      if (arf_stack_size <= 1)
+        remapped_ref_idx[BWDREF_FRAME - LAST_FRAME] = gld_stack[1];
+      else
+        remapped_ref_idx[LAST3_FRAME - LAST_FRAME] = gld_stack[1];
+    }
+  }
+
+  for (int idx = ALTREF_FRAME - LAST_FRAME; idx >= 0; --idx) {
+    int ref_map_index = remapped_ref_idx[idx];
+
+    if (ref_map_index != INVALID_IDX) continue;
+
+    ref_map_index =
+        find_unused_ref_frame(remapped_ref_idx, arf_stack, arf_stack_size);
+
+    if (ref_map_index == INVALID_IDX) {
+      ref_map_index =
+          find_unused_ref_frame(remapped_ref_idx, gld_stack, gld_stack_size);
+    }
+
+    if (ref_map_index == INVALID_IDX) {
+      ref_map_index =
+          find_unused_ref_frame(remapped_ref_idx, lst_stack, lst_stack_size);
+    }
+
+    if (ref_map_index != INVALID_IDX)
+      remapped_ref_idx[idx] = ref_map_index;
+    else
+      remapped_ref_idx[idx] = ref_buffer_stack->gld_stack[0];
+  }
 }
 
 int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
                         uint8_t *const dest, unsigned int *frame_flags,
                         int64_t *const time_stamp, int64_t *const time_end,
-                        const aom_rational_t *const timebase, int flush) {
+                        const aom_rational64_t *const timestamp_ratio,
+                        int flush) {
   const AV1EncoderConfig *const oxcf = &cpi->oxcf;
   AV1_COMMON *const cm = &cpi->common;
+  GF_GROUP *gf_group = &cpi->gf_group;
+  ExternalFlags *const ext_flags = &cpi->ext_flags;
 
   EncodeFrameInput frame_input;
   EncodeFrameParams frame_params;
@@ -958,66 +1046,82 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
   memset(&frame_params, 0, sizeof(frame_params));
   memset(&frame_results, 0, sizeof(frame_results));
 
-  if (oxcf->pass == 0 || oxcf->pass == 2) {
-    check_show_existing_frame(cpi, &frame_params);
+  // TODO(sarahparker) finish bit allocation for one pass pyramid
+  if (has_no_stats_stage(cpi) && oxcf->rc_mode != AOM_Q) {
+    cpi->oxcf.gf_max_pyr_height =
+        AOMMIN(cpi->oxcf.gf_max_pyr_height, USE_ALTREF_FOR_ONE_PASS);
+    cpi->oxcf.gf_min_pyr_height =
+        AOMMIN(cpi->oxcf.gf_min_pyr_height, cpi->oxcf.gf_max_pyr_height);
+  }
+
+  if (!is_stat_generation_stage(cpi)) {
+    // If this is a forward keyframe, mark as a show_existing_frame
+    if (cpi->oxcf.fwd_kf_enabled && (gf_group->index == gf_group->size) &&
+        gf_group->update_type[1] == ARF_UPDATE && cpi->rc.frames_to_key == 0) {
+      frame_params.show_existing_frame = 1;
+    } else {
+      frame_params.show_existing_frame =
+          ((oxcf->enable_overlay == 0 || cpi->sf.hl_sf.disable_overlay_frames ||
+            cpi->show_existing_alt_ref) &&
+           gf_group->update_type[gf_group->index] == OVERLAY_UPDATE) ||
+          gf_group->update_type[gf_group->index] == INTNL_OVERLAY_UPDATE;
+    }
     frame_params.show_existing_frame &= allow_show_existing(cpi, *frame_flags);
+
+    // Reset show_existing_alt_ref decision to 0 after it is used.
+    if (gf_group->update_type[gf_group->index] == OVERLAY_UPDATE) {
+      cpi->show_existing_alt_ref = 0;
+    }
   } else {
     frame_params.show_existing_frame = 0;
   }
 
-  int temporal_filtered = 0;
+  int code_arf = 0;
   struct lookahead_entry *source = NULL;
   struct lookahead_entry *last_source = NULL;
-  FRAME_UPDATE_TYPE frame_update_type;
   if (frame_params.show_existing_frame) {
-    source = av1_lookahead_pop(cpi->lookahead, flush);
-    frame_update_type = LF_UPDATE;
+    source = av1_lookahead_pop(cpi->lookahead, flush, cpi->compressor_stage);
+    frame_params.show_frame = 1;
   } else {
-    source = choose_frame_source(cpi, &temporal_filtered, &flush, &last_source,
-                                 &frame_update_type, &frame_params);
-  }
-
-  // In pass 2 we get the frame_update_type from gf_group
-  if (oxcf->pass == 2) {
-    frame_update_type =
-        cpi->twopass.gf_group.update_type[cpi->twopass.gf_group.index];
+    int show_existing_alt_ref = 0;
+    source = choose_frame_source(cpi, &code_arf, &flush, &last_source,
+                                 &frame_params, &show_existing_alt_ref);
+    if (gf_group->update_type[gf_group->index] == ARF_UPDATE)
+      cpi->show_existing_alt_ref = show_existing_alt_ref;
   }
 
   if (source == NULL) {  // If no source was found, we can't encode a frame.
+#if !CONFIG_REALTIME_ONLY
     if (flush && oxcf->pass == 1 && !cpi->twopass.first_pass_done) {
       av1_end_first_pass(cpi); /* get last stats packet */
       cpi->twopass.first_pass_done = 1;
     }
+#endif
     return -1;
   }
 
-  frame_input.source = temporal_filtered ? &cpi->alt_ref_buffer : &source->img;
+  frame_input.source = code_arf ? &cpi->alt_ref_buffer : &source->img;
   frame_input.last_source = last_source != NULL ? &last_source->img : NULL;
   frame_input.ts_duration = source->ts_end - source->ts_start;
+  // Save unfiltered source. It is used in av1_get_second_pass_params().
+  cpi->unfiltered_source = frame_input.source;
 
   *time_stamp = source->ts_start;
   *time_end = source->ts_end;
-  if (source->ts_start < cpi->first_time_stamp_ever) {
-    cpi->first_time_stamp_ever = source->ts_start;
-    cpi->last_end_time_stamp_seen = source->ts_start;
+  if (source->ts_start < cpi->time_stamps.first_ever) {
+    cpi->time_stamps.first_ever = source->ts_start;
+    cpi->time_stamps.prev_end_seen = source->ts_start;
   }
 
   av1_apply_encoding_flags(cpi, source->flags);
   if (!frame_params.show_existing_frame)
     *frame_flags = (source->flags & AOM_EFLAG_FORCE_KF) ? FRAMEFLAGS_KEY : 0;
 
-  const int is_overlay = frame_params.show_existing_frame &&
-                         (frame_update_type == OVERLAY_UPDATE ||
-                          frame_update_type == INTNL_OVERLAY_UPDATE);
-  if (frame_params.show_frame || is_overlay) {
-    // Shown frames and arf-overlay frames need frame-rate considering
-    adjust_frame_rate(cpi, source);
-  }
+  // Shown frames and arf-overlay frames need frame-rate considering
+  if (frame_params.show_frame)
+    adjust_frame_rate(cpi, source->ts_start, source->ts_end);
 
-  if (frame_params.show_existing_frame) {
-    // show_existing_frame implies this frame is shown!
-    frame_params.show_frame = 1;
-  } else {
+  if (!frame_params.show_existing_frame) {
     if (cpi->film_grain_table) {
       cm->cur_frame->film_grain_params_present = aom_film_grain_table_lookup(
           cpi->film_grain_table, *time_stamp, *time_end, 0 /* =erase */,
@@ -1027,17 +1131,21 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
           cm->seq_params.film_grain_params_present;
     }
     // only one operating point supported now
-    const int64_t pts64 = ticks_to_timebase_units(timebase, *time_stamp);
+    const int64_t pts64 = ticks_to_timebase_units(timestamp_ratio, *time_stamp);
     if (pts64 < 0 || pts64 > UINT32_MAX) return AOM_CODEC_ERROR;
-    cpi->common.frame_presentation_time = (uint32_t)pts64;
+    cm->frame_presentation_time = (uint32_t)pts64;
   }
 
-  if (oxcf->pass == 2 && (!frame_params.show_existing_frame || is_overlay)) {
-    // GF_GROUP needs updating for arf overlays as well as non-show-existing
-    av1_get_second_pass_params(cpi, &frame_params, *frame_flags);
-    frame_update_type =
-        cpi->twopass.gf_group.update_type[cpi->twopass.gf_group.index];
-  }
+#if CONFIG_REALTIME_ONLY
+  av1_get_one_pass_rt_params(cpi, &frame_params, *frame_flags);
+#else
+  if (has_no_stats_stage(cpi) && oxcf->mode == REALTIME &&
+      oxcf->lag_in_frames == 0)
+    av1_get_one_pass_rt_params(cpi, &frame_params, *frame_flags);
+  else if (!is_stat_generation_stage(cpi))
+    av1_get_second_pass_params(cpi, &frame_params, &frame_input, *frame_flags);
+#endif
+  FRAME_UPDATE_TYPE frame_update_type = get_frame_update_type(gf_group);
 
   if (frame_params.show_existing_frame &&
       frame_params.frame_type != KEY_FRAME) {
@@ -1056,27 +1164,10 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
   // parameter should be used with caution.
   frame_params.speed = oxcf->speed;
 
-  if (!frame_params.show_existing_frame) {
-    cm->using_qmatrix = cpi->oxcf.using_qm;
-    cm->min_qmlevel = cpi->oxcf.qm_minlevel;
-    cm->max_qmlevel = cpi->oxcf.qm_maxlevel;
-    if (cpi->twopass.gf_group.index == 1 && cpi->oxcf.enable_tpl_model) {
-      av1_configure_buffer_updates(cpi, &frame_params, frame_update_type, 0);
-      av1_set_frame_size(cpi, cm->width, cm->height);
-      av1_tpl_setup_stats(cpi, &frame_input);
-    }
-  }
-
   // Work out some encoding parameters specific to the pass:
-  if (oxcf->pass == 0) {
-    if (cpi->oxcf.rc_mode == AOM_CBR) {
-      av1_rc_get_one_pass_cbr_params(cpi, &frame_update_type, &frame_params,
-                                     *frame_flags);
-    } else {
-      av1_rc_get_one_pass_vbr_params(cpi, &frame_update_type, &frame_params,
-                                     *frame_flags);
-    }
-  } else if (oxcf->pass == 1) {
+  if (has_no_stats_stage(cpi) && cpi->oxcf.aq_mode == CYCLIC_REFRESH_AQ) {
+    av1_cyclic_refresh_update_parameters(cpi);
+  } else if (is_stat_generation_stage(cpi)) {
     cpi->td.mb.e_mbd.lossless[0] = is_lossless_requested(&cpi->oxcf);
     const int kf_requested = (cm->current_frame.frame_number == 0 ||
                               (*frame_flags & FRAMEFLAGS_KEY));
@@ -1086,7 +1177,7 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
     } else {
       frame_params.frame_type = INTER_FRAME;
     }
-  } else if (oxcf->pass == 2) {
+  } else if (is_stat_consumption_stage(cpi)) {
 #if CONFIG_MISMATCH_DEBUG
     mismatch_move_frame_idx_w();
 #endif
@@ -1096,7 +1187,8 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
 #endif
   }
 
-  if (oxcf->pass == 0 || oxcf->pass == 2) set_ext_overrides(cpi, &frame_params);
+  if (!is_stat_generation_stage(cpi))
+    set_ext_overrides(cm, &frame_params, ext_flags);
 
   // Shown keyframes and S frames refresh all reference buffers
   const int force_refresh_all =
@@ -1107,17 +1199,39 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
   av1_configure_buffer_updates(cpi, &frame_params, frame_update_type,
                                force_refresh_all);
 
-  if (oxcf->pass == 0 || oxcf->pass == 2) {
+  if (!is_stat_generation_stage(cpi)) {
+    const RefCntBuffer *ref_frames[INTER_REFS_PER_FRAME];
+    const YV12_BUFFER_CONFIG *ref_frame_buf[INTER_REFS_PER_FRAME];
+
+    if (!ext_flags->refresh_frame_flags_pending) {
+      av1_get_ref_frames(cpi, &cpi->ref_buffer_stack);
+    } else if (cpi->svc.external_ref_frame_config) {
+      for (unsigned int i = 0; i < INTER_REFS_PER_FRAME; i++)
+        cm->remapped_ref_idx[i] = cpi->svc.ref_idx[i];
+    }
+
+    // Get the reference frames
+    for (int i = 0; i < INTER_REFS_PER_FRAME; ++i) {
+      ref_frames[i] = get_ref_frame_buf(cm, ref_frame_priority_order[i]);
+      ref_frame_buf[i] = ref_frames[i] != NULL ? &ref_frames[i]->buf : NULL;
+    }
     // Work out which reference frame slots may be used.
-    frame_params.ref_frame_flags = get_ref_frame_flags(cpi);
+    frame_params.ref_frame_flags = get_ref_frame_flags(
+        &cpi->sf, ref_frame_buf, ext_flags->ref_frame_flags);
 
     frame_params.primary_ref_frame =
         choose_primary_ref_frame(cpi, &frame_params);
-    frame_params.order_offset =
-        get_order_offset(&cpi->twopass.gf_group, &frame_params);
+    frame_params.order_offset = get_order_offset(&cpi->gf_group, &frame_params);
 
-    frame_params.refresh_frame_flags =
-        get_refresh_frame_flags(cpi, &frame_params, frame_update_type);
+    frame_params.refresh_frame_flags = av1_get_refresh_frame_flags(
+        cpi, &frame_params, frame_update_type, &cpi->ref_buffer_stack);
+
+    frame_params.existing_fb_idx_to_show =
+        frame_params.show_existing_frame
+            ? (frame_update_type == INTNL_OVERLAY_UPDATE
+                   ? get_ref_frame_map_idx(cm, BWDREF_FRAME)
+                   : get_ref_frame_map_idx(cm, ALTREF_FRAME))
+            : INVALID_IDX;
   }
 
   // The way frame_params->remapped_ref_idx is setup is a placeholder.
@@ -1131,19 +1245,50 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
   memcpy(frame_params.remapped_ref_idx, cm->remapped_ref_idx,
          REF_FRAMES * sizeof(*cm->remapped_ref_idx));
 
+  cpi->td.mb.e_mbd.delta_qindex = 0;
+
+  if (!frame_params.show_existing_frame) {
+    cm->quant_params.using_qmatrix = cpi->oxcf.using_qm;
+#if !CONFIG_REALTIME_ONLY
+    if (oxcf->lag_in_frames > 0 && !is_stat_generation_stage(cpi)) {
+      if (cpi->gf_group.index == 1 && cpi->oxcf.enable_tpl_model) {
+        av1_configure_buffer_updates(cpi, &frame_params, frame_update_type, 0);
+        av1_set_frame_size(cpi, cm->width, cm->height);
+        av1_tpl_setup_stats(cpi, 0, &frame_params, &frame_input);
+        assert(cpi->num_gf_group_show_frames == 1);
+      }
+    }
+#endif
+  }
+
+#if CONFIG_REALTIME_ONLY
   if (av1_encode(cpi, dest, &frame_input, &frame_params, &frame_results) !=
       AOM_CODEC_OK) {
     return AOM_CODEC_ERROR;
   }
+#else
+  if (denoise_and_encode(cpi, dest, &frame_input, &frame_params,
+                         &frame_results) != AOM_CODEC_OK) {
+    return AOM_CODEC_ERROR;
+  }
+#endif  // CONFIG_REALTIME_ONLY
+  if (!is_stat_generation_stage(cpi))
+    cpi->num_gf_group_show_frames += frame_params.show_frame;
 
-  if (oxcf->pass == 0 || oxcf->pass == 2) {
+  if (!is_stat_generation_stage(cpi)) {
     // First pass doesn't modify reference buffer assignment or produce frame
     // flags
     update_frame_flags(cpi, frame_flags);
-    update_ref_frame_map(cpi, frame_update_type);
+    if (!ext_flags->refresh_frame_flags_pending) {
+      int ref_map_index =
+          av1_get_refresh_ref_frame_map(cm->current_frame.refresh_frame_flags);
+      av1_update_ref_frame_map(cpi, frame_update_type, cm->show_existing_frame,
+                               ref_map_index, &cpi->ref_buffer_stack);
+    }
   }
 
-  if (oxcf->pass == 2) {
+#if !CONFIG_REALTIME_ONLY
+  if (!is_stat_generation_stage(cpi)) {
 #if TXCOEFF_COST_TIMER
     cm->cum_txcoeff_cost_timer += cm->txcoeff_cost_timer;
     fprintf(stderr,
@@ -1154,8 +1299,9 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
 #endif
     av1_twopass_postencode_update(cpi);
   }
+#endif  // !CONFIG_REALTIME_ONLY
 
-  if (oxcf->pass == 0 || oxcf->pass == 2) {
+  if (!is_stat_generation_stage(cpi)) {
     update_fb_of_context_type(cpi, &frame_params, cpi->fb_of_context_type);
     set_additional_frame_flags(cm, frame_flags);
     update_rc_counts(cpi);
@@ -1166,8 +1312,10 @@ int av1_encode_strategy(AV1_COMP *const cpi, size_t *const size,
 
   // Leave a signal for a higher level caller about if this frame is droppable
   if (*size > 0) {
-    cpi->droppable = is_frame_droppable(cpi);
+    cpi->droppable = is_frame_droppable(&cpi->svc, ext_flags);
   }
+
+  if (cpi->use_svc) av1_save_layer_context(cpi);
 
   return AOM_CODEC_OK;
 }

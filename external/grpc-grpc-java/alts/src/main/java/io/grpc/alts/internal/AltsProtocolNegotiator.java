@@ -36,33 +36,54 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AsciiString;
 
 /**
- * A client-side GRPC {@link ProtocolNegotiator} for ALTS. This class creates a Netty handler that
- * provides ALTS security on the wire, similar to Netty's {@code SslHandler}.
+ * A GRPC {@link ProtocolNegotiator} for ALTS. This class creates a Netty handler that provides ALTS
+ * security on the wire, similar to Netty's {@code SslHandler}.
  */
 public abstract class AltsProtocolNegotiator implements ProtocolNegotiator {
 
-  private static final Attributes.Key<TsiPeer> TSI_PEER_KEY = Attributes.Key.create("TSI_PEER");
-  private static final Attributes.Key<AltsAuthContext> ALTS_CONTEXT_KEY =
+  @Grpc.TransportAttr
+  public static final Attributes.Key<TsiPeer> TSI_PEER_KEY = Attributes.Key.create("TSI_PEER");
+  @Grpc.TransportAttr
+  public static final Attributes.Key<AltsAuthContext> ALTS_CONTEXT_KEY =
       Attributes.Key.create("ALTS_CONTEXT_KEY");
   private static final AsciiString scheme = AsciiString.of("https");
 
-  public static Attributes.Key<TsiPeer> getTsiPeerAttributeKey() {
-    return TSI_PEER_KEY;
-  }
-
-  public static Attributes.Key<AltsAuthContext> getAltsAuthContextAttributeKey() {
-    return ALTS_CONTEXT_KEY;
-  }
-
-  /** Creates a negotiator used for ALTS. */
-  public static AltsProtocolNegotiator create(final TsiHandshakerFactory handshakerFactory) {
+  /** Creates a negotiator used for ALTS client. */
+  public static AltsProtocolNegotiator createClientNegotiator(
+      final TsiHandshakerFactory handshakerFactory) {
     return new AltsProtocolNegotiator() {
       @Override
       public Handler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
         return new BufferUntilAltsNegotiatedHandler(
             grpcHandler,
-            new TsiHandshakeHandler(new NettyTsiHandshaker(handshakerFactory.newHandshaker())),
+            new TsiHandshakeHandler(
+                new NettyTsiHandshaker(
+                    handshakerFactory.newHandshaker(grpcHandler.getAuthority()))),
             new TsiFrameHandler());
+      }
+
+      @Override
+      public void close() {
+        // TODO(jiangtaoli2016): release resources
+      }
+    };
+  }
+
+  /** Creates a negotiator used for ALTS server. */
+  public static AltsProtocolNegotiator createServerNegotiator(
+      final TsiHandshakerFactory handshakerFactory) {
+    return new AltsProtocolNegotiator() {
+      @Override
+      public Handler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
+        return new BufferUntilAltsNegotiatedHandler(
+            grpcHandler,
+            new TsiHandshakeHandler(new NettyTsiHandshaker(handshakerFactory.newHandshaker(null))),
+            new TsiFrameHandler());
+      }
+
+      @Override
+      public void close() {
+        // TODO(jiangtaoli2016): release resources
       }
     };
   }
@@ -124,6 +145,7 @@ public abstract class AltsProtocolNegotiator implements ProtocolNegotiator {
                     .set(TSI_PEER_KEY, altsEvt.peer())
                     .set(ALTS_CONTEXT_KEY, altsContext)
                     .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
+                    .set(Grpc.TRANSPORT_ATTR_LOCAL_ADDR, ctx.channel().localAddress())
                     .set(CallCredentials.ATTR_SECURITY_LEVEL, SecurityLevel.PRIVACY_AND_INTEGRITY)
                     .build(),
                 new Security(new OtherSecurity("alts", Any.pack(altsContext.context))));

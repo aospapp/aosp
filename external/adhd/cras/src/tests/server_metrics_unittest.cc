@@ -132,20 +132,6 @@ TEST(ServerMetricsTestSuite, SetMetricHighestHardwareLevel) {
   EXPECT_EQ(sent_msgs[0].data.value, hw_level);
 }
 
-TEST(ServerMetricsTestSuite, SetMetricsLongestFetchDelay) {
-  ResetStubData();
-  unsigned int delay = 100;
-
-  cras_server_metrics_longest_fetch_delay(delay);
-
-  EXPECT_EQ(sent_msgs.size(), 1);
-  EXPECT_EQ(sent_msgs[0].header.type, CRAS_MAIN_METRICS);
-  EXPECT_EQ(sent_msgs[0].header.length,
-            sizeof(struct cras_server_metrics_message));
-  EXPECT_EQ(sent_msgs[0].metrics_type, LONGEST_FETCH_DELAY);
-  EXPECT_EQ(sent_msgs[0].data.value, delay);
-}
-
 TEST(ServerMetricsTestSuite, SetMetricsNumUnderruns) {
   ResetStubData();
   unsigned int underrun = 10;
@@ -158,79 +144,6 @@ TEST(ServerMetricsTestSuite, SetMetricsNumUnderruns) {
             sizeof(struct cras_server_metrics_message));
   EXPECT_EQ(sent_msgs[0].metrics_type, NUM_UNDERRUNS);
   EXPECT_EQ(sent_msgs[0].data.value, underrun);
-}
-
-TEST(ServerMetricsTestSuite, SetMetricsMissedCallbackFrequencyInputStream) {
-  ResetStubData();
-  struct cras_rstream stream;
-  struct timespec diff_ts;
-
-  stream.flags = 0;
-  stream.start_ts.tv_sec = 0;
-  stream.start_ts.tv_nsec = 0;
-  clock_gettime_retspec.tv_sec = 1000;
-  clock_gettime_retspec.tv_nsec = 0;
-  stream.num_missed_cb = 5;
-  stream.first_missed_cb_ts.tv_sec = 100;
-  stream.first_missed_cb_ts.tv_nsec = 0;
-
-  stream.direction = CRAS_STREAM_INPUT;
-  cras_server_metrics_missed_cb_frequency(&stream);
-
-  subtract_timespecs(&clock_gettime_retspec, &stream.start_ts, &diff_ts);
-  EXPECT_EQ(sent_msgs.size(), 2);
-  EXPECT_EQ(sent_msgs[0].header.type, CRAS_MAIN_METRICS);
-  EXPECT_EQ(sent_msgs[0].header.length,
-            sizeof(struct cras_server_metrics_message));
-  EXPECT_EQ(sent_msgs[0].metrics_type, MISSED_CB_FREQUENCY_INPUT);
-  EXPECT_EQ(sent_msgs[0].data.value,
-            stream.num_missed_cb * 86400 / diff_ts.tv_sec);
-
-  subtract_timespecs(&clock_gettime_retspec, &stream.first_missed_cb_ts,
-                     &diff_ts);
-  EXPECT_EQ(sent_msgs[1].header.type, CRAS_MAIN_METRICS);
-  EXPECT_EQ(sent_msgs[1].header.length,
-            sizeof(struct cras_server_metrics_message));
-  EXPECT_EQ(sent_msgs[1].metrics_type,
-            MISSED_CB_FREQUENCY_AFTER_RESCHEDULING_INPUT);
-  EXPECT_EQ(sent_msgs[1].data.value,
-            (stream.num_missed_cb - 1) * 86400 / diff_ts.tv_sec);
-}
-
-TEST(ServerMetricsTestSuite, SetMetricsMissedCallbackFrequencyOutputStream) {
-  ResetStubData();
-  struct cras_rstream stream;
-  struct timespec diff_ts;
-
-  stream.flags = 0;
-  stream.start_ts.tv_sec = 0;
-  stream.start_ts.tv_nsec = 0;
-  clock_gettime_retspec.tv_sec = 1000;
-  clock_gettime_retspec.tv_nsec = 0;
-  stream.num_missed_cb = 5;
-  stream.first_missed_cb_ts.tv_sec = 100;
-  stream.first_missed_cb_ts.tv_nsec = 0;
-  stream.direction = CRAS_STREAM_OUTPUT;
-  cras_server_metrics_missed_cb_frequency(&stream);
-
-  subtract_timespecs(&clock_gettime_retspec, &stream.start_ts, &diff_ts);
-  EXPECT_EQ(sent_msgs.size(), 2);
-  EXPECT_EQ(sent_msgs[0].header.type, CRAS_MAIN_METRICS);
-  EXPECT_EQ(sent_msgs[0].header.length,
-            sizeof(struct cras_server_metrics_message));
-  EXPECT_EQ(sent_msgs[0].metrics_type, MISSED_CB_FREQUENCY_OUTPUT);
-  EXPECT_EQ(sent_msgs[0].data.value,
-            stream.num_missed_cb * 86400 / diff_ts.tv_sec);
-
-  subtract_timespecs(&clock_gettime_retspec, &stream.first_missed_cb_ts,
-                     &diff_ts);
-  EXPECT_EQ(sent_msgs[1].header.type, CRAS_MAIN_METRICS);
-  EXPECT_EQ(sent_msgs[1].header.length,
-            sizeof(struct cras_server_metrics_message));
-  EXPECT_EQ(sent_msgs[1].metrics_type,
-            MISSED_CB_FREQUENCY_AFTER_RESCHEDULING_OUTPUT);
-  EXPECT_EQ(sent_msgs[1].data.value,
-            (stream.num_missed_cb - 1) * 86400 / diff_ts.tv_sec);
 }
 
 TEST(ServerMetricsTestSuite, SetMetricsMissedCallbackEventInputStream) {
@@ -315,7 +228,7 @@ TEST(ServerMetricsTestSuite, SetMetricsMissedCallbackEventOutputStream) {
   EXPECT_EQ(stream.num_missed_cb, 2);
 }
 
-TEST(ServerMetricsTestSuite, SetMetricsStreamConfig) {
+TEST(ServerMetricsTestSuite, SetMetricsStreamCreate) {
   ResetStubData();
   struct cras_rstream_config config;
   struct cras_audio_format format;
@@ -326,10 +239,10 @@ TEST(ServerMetricsTestSuite, SetMetricsStreamConfig) {
   format.format = SND_PCM_FORMAT_S16_LE;
   format.frame_rate = 48000;
   config.client_type = CRAS_CLIENT_TYPE_TEST;
-
   config.format = &format;
-  cras_server_metrics_stream_config(&config);
+  cras_server_metrics_stream_create(&config);
 
+  // Log stream config.
   EXPECT_EQ(sent_msgs.size(), 1);
   EXPECT_EQ(sent_msgs[0].header.type, CRAS_MAIN_METRICS);
   EXPECT_EQ(sent_msgs[0].header.length,
@@ -341,6 +254,75 @@ TEST(ServerMetricsTestSuite, SetMetricsStreamConfig) {
   EXPECT_EQ(sent_msgs[0].data.stream_config.format, SND_PCM_FORMAT_S16_LE);
   EXPECT_EQ(sent_msgs[0].data.stream_config.rate, 48000);
   EXPECT_EQ(sent_msgs[0].data.stream_config.client_type, CRAS_CLIENT_TYPE_TEST);
+}
+
+TEST(ServerMetricsTestSuite, SetMetricsStreamDestroy) {
+  ResetStubData();
+  struct cras_rstream stream;
+  struct timespec diff_ts;
+
+  stream.flags = 0;
+  stream.start_ts.tv_sec = 0;
+  stream.start_ts.tv_nsec = 0;
+  clock_gettime_retspec.tv_sec = 1000;
+  clock_gettime_retspec.tv_nsec = 0;
+  stream.num_missed_cb = 5;
+  stream.first_missed_cb_ts.tv_sec = 100;
+  stream.first_missed_cb_ts.tv_nsec = 0;
+  stream.longest_fetch_interval.tv_sec = 1;
+  stream.longest_fetch_interval.tv_nsec = 0;
+  stream.sleep_interval_ts.tv_sec = 0;
+  stream.sleep_interval_ts.tv_nsec = 5000000;
+
+  stream.direction = CRAS_STREAM_INPUT;
+  stream.client_type = CRAS_CLIENT_TYPE_TEST;
+  stream.stream_type = CRAS_STREAM_TYPE_DEFAULT;
+  cras_server_metrics_stream_destroy(&stream);
+
+  subtract_timespecs(&clock_gettime_retspec, &stream.start_ts, &diff_ts);
+  EXPECT_EQ(sent_msgs.size(), 4);
+
+  // Log missed cb frequency.
+  EXPECT_EQ(sent_msgs[0].header.type, CRAS_MAIN_METRICS);
+  EXPECT_EQ(sent_msgs[0].header.length,
+            sizeof(struct cras_server_metrics_message));
+  EXPECT_EQ(sent_msgs[0].metrics_type, MISSED_CB_FREQUENCY_INPUT);
+  EXPECT_EQ(sent_msgs[0].data.value,
+            stream.num_missed_cb * 86400 / diff_ts.tv_sec);
+
+  // Log missed cb frequency after rescheduling.
+  subtract_timespecs(&clock_gettime_retspec, &stream.first_missed_cb_ts,
+                     &diff_ts);
+  EXPECT_EQ(sent_msgs[1].header.type, CRAS_MAIN_METRICS);
+  EXPECT_EQ(sent_msgs[1].header.length,
+            sizeof(struct cras_server_metrics_message));
+  EXPECT_EQ(sent_msgs[1].metrics_type,
+            MISSED_CB_FREQUENCY_AFTER_RESCHEDULING_INPUT);
+  EXPECT_EQ(sent_msgs[1].data.value,
+            (stream.num_missed_cb - 1) * 86400 / diff_ts.tv_sec);
+
+  // Log stream runtime.
+  EXPECT_EQ(sent_msgs[2].header.type, CRAS_MAIN_METRICS);
+  EXPECT_EQ(sent_msgs[2].header.length,
+            sizeof(struct cras_server_metrics_message));
+  EXPECT_EQ(sent_msgs[2].metrics_type, STREAM_RUNTIME);
+  EXPECT_EQ(sent_msgs[2].data.stream_data.client_type, CRAS_CLIENT_TYPE_TEST);
+  EXPECT_EQ(sent_msgs[2].data.stream_data.stream_type,
+            CRAS_STREAM_TYPE_DEFAULT);
+  EXPECT_EQ(sent_msgs[2].data.stream_data.direction, CRAS_STREAM_INPUT);
+  EXPECT_EQ(sent_msgs[2].data.stream_data.runtime.tv_sec, 1000);
+
+  // Log longest fetch delay.
+  EXPECT_EQ(sent_msgs[3].header.type, CRAS_MAIN_METRICS);
+  EXPECT_EQ(sent_msgs[3].header.length,
+            sizeof(struct cras_server_metrics_message));
+  EXPECT_EQ(sent_msgs[3].metrics_type, LONGEST_FETCH_DELAY);
+  EXPECT_EQ(sent_msgs[3].data.stream_data.client_type, CRAS_CLIENT_TYPE_TEST);
+  EXPECT_EQ(sent_msgs[3].data.stream_data.stream_type,
+            CRAS_STREAM_TYPE_DEFAULT);
+  EXPECT_EQ(sent_msgs[3].data.stream_data.direction, CRAS_STREAM_INPUT);
+  EXPECT_EQ(sent_msgs[3].data.stream_data.runtime.tv_sec, 0);
+  EXPECT_EQ(sent_msgs[3].data.stream_data.runtime.tv_nsec, 995000000);
 }
 
 TEST(ServerMetricsTestSuite, SetMetricsBusyloop) {
@@ -358,6 +340,20 @@ TEST(ServerMetricsTestSuite, SetMetricsBusyloop) {
   EXPECT_EQ(sent_msgs[0].data.timespec_data.runtime.tv_sec, 40);
   EXPECT_EQ(sent_msgs[0].data.timespec_data.runtime.tv_nsec, 0);
   EXPECT_EQ(sent_msgs[0].data.timespec_data.count, 3);
+}
+
+TEST(ServerMetricsTestSuite, SetMetricsBusyloopLength) {
+  ResetStubData();
+  unsigned length = 5;
+
+  cras_server_metrics_busyloop_length(length);
+
+  EXPECT_EQ(sent_msgs.size(), 1);
+  EXPECT_EQ(sent_msgs[0].header.type, CRAS_MAIN_METRICS);
+  EXPECT_EQ(sent_msgs[0].header.length,
+            sizeof(struct cras_server_metrics_message));
+  EXPECT_EQ(sent_msgs[0].metrics_type, BUSYLOOP_LENGTH);
+  EXPECT_EQ(sent_msgs[0].data.value, 5);
 }
 
 extern "C" {

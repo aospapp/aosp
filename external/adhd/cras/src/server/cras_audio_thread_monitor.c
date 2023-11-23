@@ -50,6 +50,16 @@ int cras_audio_thread_event_send(enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type)
 	return cras_main_message_send(&msg.header);
 }
 
+int cras_audio_thread_event_a2dp_overrun()
+{
+	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_A2DP_OVERRUN);
+}
+
+int cras_audio_thread_event_a2dp_throttle()
+{
+	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_A2DP_THROTTLE);
+}
+
 int cras_audio_thread_event_debug()
 {
 	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_DEBUG);
@@ -73,6 +83,11 @@ int cras_audio_thread_event_severe_underrun()
 int cras_audio_thread_event_drop_samples()
 {
 	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_DROP_SAMPLES);
+}
+
+int cras_audio_thread_event_dev_overrun()
+{
+	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_DEV_OVERRUN);
 }
 
 static struct timespec last_event_snapshot_time[AUDIO_THREAD_EVENT_TYPE_COUNT];

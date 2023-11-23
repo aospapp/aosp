@@ -1,4 +1,5 @@
 homepage: "https://open62541.org/"
+language: c++
 primary_contact: "Stefan.Profanter@gmail.com"
 auto_ccs:
  - "julius.pfrommer@gmail.com"
@@ -8,3 +9,4 @@ sanitizers:
 - address
 - undefined
 - memory
+main_repo: 'https://github.com/open62541/open62541.git'

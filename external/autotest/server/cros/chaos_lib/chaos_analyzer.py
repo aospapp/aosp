@@ -3,6 +3,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import argparse
 import os
 import re
@@ -210,7 +212,7 @@ class ChaosAnalyzer(object):
             if test_info.is_valid(packet_capture_only):
                 test_infos.append(test_info)
         if not test_infos:
-            print "Did not find any valid test info!"
+            print("Did not find any valid test info!")
         return test_infos
 
     def analyze(self, input_dir_name=None, output_dir_name=None,
@@ -231,8 +233,8 @@ class ChaosAnalyzer(object):
             for trace in test_info.traces:
                 attempt_num = self._get_attempt_number_from_trace(trace)
                 trace_dir_name = os.path.dirname(trace)
-                print "Analyzing attempt number: " + attempt_num + \
-                      " from folder: " + os.path.abspath(trace_dir_name)
+                print("Analyzing attempt number: " + attempt_num + \
+                      " from folder: " + os.path.abspath(trace_dir_name))
                 # Store the analysis output in the respective log folder
                 # itself unless there is an explicit output directory
                 # specified in which case we prepend the |testname_| to the
@@ -263,7 +265,7 @@ class ChaosAnalyzer(object):
                                                 message_log, net_log, logger))
                                   log_analyzer.analyze(attempt_num)
                 except IOError as e:
-                    print 'Operation failed: %s!' % e.strerror
+                    print('Operation failed: %s!' % e.strerror)
 
 
 def main():

@@ -1,3 +1,13 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_adhd_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-LGPL
+    default_applicable_licenses: ["external_adhd_license"],
+}
+
 cc_library_static {
     name: "libcras",
 

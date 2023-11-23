@@ -16,11 +16,11 @@ import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Counter;
 import org.unicode.cldr.util.EscapingUtilities;
 import org.unicode.cldr.util.Factory;
+import org.unicode.cldr.util.PathUtilities;
 import org.unicode.cldr.util.PrettyPath;
 import org.unicode.cldr.util.SimpleFactory;
 import org.unicode.cldr.util.Timer;
 
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R2;
 import com.ibm.icu.text.Collator;
@@ -36,6 +36,7 @@ public class GenerateComparison {
     static class EnglishRowComparator implements Comparator<R2<String, String>> {
         private static Comparator<String> unicode = new UTF16.StringComparator(true, false, 0);
 
+        @Override
         public int compare(R2<String, String> arg0, R2<String, String> arg1) {
             int result = collator.compare(arg0.get0(), arg1.get0());
             if (result != 0) return result;
@@ -61,16 +62,19 @@ public class GenerateComparison {
         format = NumberFormat.getNumberInstance();
         format.setGroupingUsed(true);
 
-        Counter<String> totalCounter = new Counter<String>();
+        Counter<String> totalCounter = new Counter<>();
 
         // Get the args
 
-        String oldDirectory = CldrUtility.getProperty("oldDirectory", new File(CLDRPaths.BASE_DIRECTORY,
-            "common/main").getCanonicalPath() + "/");
-        String newDirectory = CldrUtility.getProperty("newDirectory", new File(CLDRPaths.BASE_DIRECTORY,
-            "../cldr-release-1-7/common/main").getCanonicalPath() + "/");
-        String changesDirectory = CldrUtility.getProperty("changesDirectory", new File(CLDRPaths.CHART_DIRECTORY
-            + "/changes/").getCanonicalPath()
+        String oldDirectory = CldrUtility.getProperty("oldDirectory", PathUtilities.getNormalizedPathString(new File(
+                CLDRPaths.BASE_DIRECTORY,
+            "common/main")) + "/");
+        String newDirectory = CldrUtility.getProperty("newDirectory", PathUtilities.getNormalizedPathString(new File(
+                CLDRPaths.BASE_DIRECTORY,
+            "../cldr-release-1-7/common/main")) + "/");
+        String changesDirectory = CldrUtility.getProperty("changesDirectory", PathUtilities
+                .getNormalizedPathString(CLDRPaths.CHART_DIRECTORY
+            + "/changes/")
             + "/");
 
         String filter = CldrUtility.getProperty("localeFilter", ".*");
@@ -87,9 +91,9 @@ public class GenerateComparison {
 
         Set<String> oldList = oldFactory.getAvailableLanguages();
         Set<String> newList = newFactory.getAvailableLanguages();
-        Set<String> unifiedList = new HashSet<String>(oldList);
+        Set<String> unifiedList = new HashSet<>(oldList);
         unifiedList.addAll(newList);
-        Set<R2<String, String>> pairs = new TreeSet<R2<String, String>>();
+        Set<R2<String, String>> pairs = new TreeSet<>();
         for (String code : unifiedList) {
             pairs.add(Row.of(english.getName(code), code));
         }
@@ -98,7 +102,7 @@ public class GenerateComparison {
         int totalDifferences = 0;
         int differences = 0;
 
-        Set<R2<String, String>> indexInfo = new TreeSet<R2<String, String>>(ENG);
+        Set<R2<String, String>> indexInfo = new TreeSet<>(ENG);
 
         // iterate through those
         for (R2<String, String> pair : pairs) {
@@ -162,12 +166,12 @@ public class GenerateComparison {
 
             Set<String> paths;
             try {
-                paths = new HashSet<String>();
-                CollectionUtilities.addAll(oldFile.iterator(), paths);
+                paths = new HashSet<>();
+                oldFile.forEach(paths::add);
                 if (oldList.contains(locale)) {
                     paths.addAll(oldFile.getExtraPaths());
                 }
-                CollectionUtilities.addAll(newFile.iterator(), paths);
+                newFile.forEach(paths::add);
                 if (newList.contains(locale)) {
                     paths.addAll(newFile.getExtraPaths());
                 }
@@ -206,7 +210,7 @@ public class GenerateComparison {
                 .addColumn("Status").setSortPriority(4).setCellAttributes("class=\"{0}\"")
                 .addColumn("Old" + localeDisplayName).setCellAttributes("class='old'")
                 .addColumn("New" + localeDisplayName).setCellAttributes("class='new'");
-            Counter<String> fileCounter = new Counter<String>();
+            Counter<String> fileCounter = new Counter<>();
 
             for (String path : paths) {
                 if (path.contains("/alias") || path.contains("/identity")) {

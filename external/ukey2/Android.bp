@@ -15,6 +15,23 @@
 // Android build file for building the library in AOSP
 // https://android.googlesource.com/platform/external/ukey2
 
+package {
+    default_applicable_licenses: ["external_ukey2_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "external_ukey2_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_library {
   name: "ukey2",
   proto: {
@@ -23,7 +40,7 @@ java_library {
   },
   srcs: [
     "**/*.proto",
-    "**/*.java",
+    "src/main/java/**/*.java",
   ],
   libs: [
     "guava",

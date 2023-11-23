@@ -10,7 +10,7 @@ PURPOSE = "Verify Cr50 tracks the EC and AP state correctly"
 ATTRIBUTES = "suite:faft_cr50_tot"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify Cr50 tracks the EC and AP state correctly.

@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,7 +17,7 @@
 #define IS_POWER_OF_TWO(x)			\
 	(((x) & ((x) - 1)) == 0)
 
-#define SIZE_FROM_LOG2_WORDS(n)		(4 << (n))
+#define SIZE_FROM_LOG2_WORDS(n)		(U(4) << (n))
 
 #define BIT_32(nr)			(U(1) << (nr))
 #define BIT_64(nr)			(ULL(1) << (nr))
@@ -156,5 +157,10 @@
 #else
 # define SPECULATION_SAFE_VALUE(var) var
 #endif
+
+/*
+ * Ticks elapsed in one second with a signal of 1 MHz
+ */
+#define MHZ_TICKS_PER_SEC	U(1000000)
 
 #endif /* UTILS_DEF_H */

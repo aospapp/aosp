@@ -1,9 +1,5 @@
 [
   {
-    "autotest_name": "audio_LoopbackLatency",
-    "master_name": "ChromeOS_Audio"
-  },
-  {
     "autotest_name": "audio_PlaybackPower",
     "master_name": "ChromeOS_Audio"
   },
@@ -159,10 +155,6 @@
     "master_name": "ChromeOS_Graphics"
   },
   {
-    "autotest_name": "graphics_Gralloc",
-    "master_name": "ChromeOS_Graphics"
-  },
-  {
     "autotest_name": "graphics_KernelMemory",
     "master_name": "ChromeOS_Graphics"
   },
@@ -269,6 +261,36 @@
     "master_name": "ChromeOSWiFi"
   },
   {
+    "autotest_name": "network_WiFi_AttenuatedPerf.vht40_ch036",
+    "dashboard_test_name": "network_WiFi_AttenuatedPerf",
+    "master_name": "ChromeOSWiFi"
+  },
+  {
+    "autotest_name": "network_WiFi_AttenuatedPerf.vht40_ch060",
+    "dashboard_test_name": "network_WiFi_AttenuatedPerf",
+    "master_name": "ChromeOSWiFi"
+  },
+  {
+    "autotest_name": "network_WiFi_AttenuatedPerf.vht40_ch149",
+    "dashboard_test_name": "network_WiFi_AttenuatedPerf",
+    "master_name": "ChromeOSWiFi"
+  },
+  {
+    "autotest_name": "network_WiFi_AttenuatedPerf.vht40_ch157",
+    "dashboard_test_name": "network_WiFi_AttenuatedPerf",
+    "master_name": "ChromeOSWiFi"
+  },
+  {
+    "autotest_name": "network_WiFi_AttenuatedPerf.vht80_ch042",
+    "dashboard_test_name": "network_WiFi_AttenuatedPerf",
+    "master_name": "ChromeOSWiFi"
+  },
+  {
+    "autotest_name": "network_WiFi_AttenuatedPerf.vht80_ch155",
+    "dashboard_test_name": "network_WiFi_AttenuatedPerf",
+    "master_name": "ChromeOSWiFi"
+  },
+  {
     "autotest_name": "network_WiFi_BluetoothStreamPerf.11a",
     "dashboard_test_name": "network_WiFi_BluetoothStreamPerf",
     "master_name": "ChromeOSWiFi"
@@ -290,11 +312,6 @@
   },
   {
     "autotest_name": "network_WiFi_Perf.11g_tkip",
-    "dashboard_test_name": "network_WiFi_Perf",
-    "master_name": "ChromeOSWiFi"
-  },
-  {
-    "autotest_name": "network_WiFi_Perf.11g_wep",
     "dashboard_test_name": "network_WiFi_Perf",
     "master_name": "ChromeOSWiFi"
   },
@@ -478,11 +495,6 @@
     "master_name": "ChromeOSWiFi"
   },
   {
-    "autotest_name": "network_WiFi_SuspendStress.WEP40",
-    "dashboard_test_name": "network_WiFi_SuspendStress",
-    "master_name": "ChromeOSWiFi"
-  },
-  {
     "autotest_name": "network_WiFi_SuspendStress.WPA2",
     "dashboard_test_name": "network_WiFi_SuspendStress",
     "master_name": "ChromeOSWiFi"
@@ -544,17 +556,8 @@
     "master_name": "ChromeOSPower"
   },
   {
-    "autotest_regex": "tast\\.(?!graphics\\.).*",
+    "autotest_regex": "tast\\..*",
     "master_name": "ChromeOSTast"
-  },
-  {
-    "autotest_regex": "tast\\.graphics\\.CrostiniTrace.*",
-    "dashboard_test_name": "tast.graphics.CrostiniTrace",
-    "master_name": "ChromeOS_Graphics"
-  },
-  {
-    "autotest_name": "tast.graphics.WebRTCVideoPlaybackDelay",
-    "master_name": "ChromeOS_Graphics"
   },
   {
     "autotest_name": "telemetry_Benchmarks.backdrop_filter.rendering.desktop",
@@ -567,43 +570,8 @@
     "master_name": "ChromeOSPerf"
   },
   {
-    "autotest_name": "telemetry_Benchmarks.cros_tab_switching.typical_24",
-    "dashboard_test_name": "cros_tab_switching.typical_24",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.cros_ui_smoothness",
-    "dashboard_test_name": "cros_ui_smoothness",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.dromaeo",
-    "dashboard_test_name": "dromaeo",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.jetstream",
-    "dashboard_test_name": "jetstream",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.kraken",
-    "dashboard_test_name": "kraken",
-    "master_name": "ChromeOSPerf"
-  },
-  {
     "autotest_name": "telemetry_Benchmarks.loading.desktop",
     "dashboard_test_name": "loading.desktop",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.memory.desktop",
-    "dashboard_test_name": "memory.desktop",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.octane",
-    "dashboard_test_name": "octane",
     "master_name": "ChromeOSPerf"
   },
   {
@@ -612,33 +580,8 @@
     "master_name": "ChromeOSPerf"
   },
   {
-    "autotest_name": "telemetry_Benchmarks.smoothness.tough_pinch_zoom_cases",
-    "dashboard_test_name": "smoothness.tough_pinch_zoom_cases",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.speedometer",
-    "dashboard_test_name": "speedometer",
-    "master_name": "ChromeOSPerf"
-  },
-  {
     "autotest_name": "telemetry_Benchmarks.speedometer2",
     "dashboard_test_name": "speedometer2",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.system_health.memory_desktop",
-    "dashboard_test_name": "system_health.memory_desktop",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.tab_switching.typical_25",
-    "dashboard_test_name": "tab_switching.typical_25",
-    "master_name": "ChromeOSPerf"
-  },
-  {
-    "autotest_name": "telemetry_Benchmarks.webrtc",
-    "dashboard_test_name": "webrtc",
     "master_name": "ChromeOSPerf"
   },
   {

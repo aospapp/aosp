@@ -31,7 +31,7 @@
  *   Brian Paul
  */
 
-#include "main/imports.h"
+
 #include "program/prog_parameter.h"
 #include "program/prog_print.h"
 #include "main/shaderapi.h"
@@ -119,6 +119,21 @@ st_upload_constants(struct st_context *st, struct gl_program *prog)
       cso_set_constant_buffer(st->cso_context, shader_type, 0, &cb);
       pipe_resource_reference(&cb.buffer, NULL);
 
+      /* Set inlinable constants. */
+      unsigned num_inlinable_uniforms = prog->info.num_inlinable_uniforms;
+      if (num_inlinable_uniforms) {
+         struct pipe_context *pipe = st->pipe;
+         uint32_t values[MAX_INLINABLE_UNIFORMS];
+         gl_constant_value *constbuf = params->ParameterValues;
+
+         for (unsigned i = 0; i < num_inlinable_uniforms; i++)
+            values[i] = constbuf[prog->info.inlinable_uniform_dw_offsets[i]].u;
+
+         pipe->set_inlinable_constants(pipe, shader_type,
+                                       prog->info.num_inlinable_uniforms,
+                                       values);
+      }
+
       st->state.constants[shader_type].ptr = params->ParameterValues;
       st->state.constants[shader_type].size = paramBytes;
    }
@@ -155,7 +170,7 @@ st_update_fs_constants(struct st_context *st)
 void
 st_update_gs_constants(struct st_context *st)
 {
-   struct st_common_program *gp = st->gp;
+   struct st_program *gp = st->gp;
 
    if (gp)
       st_upload_constants(st, &gp->Base);
@@ -166,7 +181,7 @@ st_update_gs_constants(struct st_context *st)
 void
 st_update_tcs_constants(struct st_context *st)
 {
-   struct st_common_program *tcp = st->tcp;
+   struct st_program *tcp = st->tcp;
 
    if (tcp)
       st_upload_constants(st, &tcp->Base);
@@ -177,7 +192,7 @@ st_update_tcs_constants(struct st_context *st)
 void
 st_update_tes_constants(struct st_context *st)
 {
-   struct st_common_program *tep = st->tep;
+   struct st_program *tep = st->tep;
 
    if (tep)
       st_upload_constants(st, &tep->Base);
@@ -188,7 +203,7 @@ st_update_tes_constants(struct st_context *st)
 void
 st_update_cs_constants(struct st_context *st)
 {
-   struct st_compute_program *cp = st->cp;
+   struct st_program *cp = st->cp;
 
    if (cp)
       st_upload_constants(st, &cp->Base);
@@ -204,7 +219,7 @@ st_bind_ubos(struct st_context *st, struct gl_program *prog,
    if (!prog)
       return;
 
-   for (i = 0; i < prog->info.num_ubos; i++) {
+   for (i = 0; i < prog->sh.NumUniformBlocks; i++) {
       struct gl_buffer_binding *binding;
       struct st_buffer_object *st_obj;
 
@@ -212,7 +227,7 @@ st_bind_ubos(struct st_context *st, struct gl_program *prog,
          &st->ctx->UniformBufferBindings[prog->sh.UniformBlocks[i]->Binding];
       st_obj = st_buffer_object(binding->BufferObject);
 
-      cb.buffer = st_obj->buffer;
+      cb.buffer = st_obj ? st_obj->buffer : NULL;
 
       if (cb.buffer) {
          cb.buffer_offset = binding->Offset;

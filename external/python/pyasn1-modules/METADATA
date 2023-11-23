@@ -9,10 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/etingof/pyasn1-modules"
   }
-  version: "v0.2.6"
+  version: "v0.2.8"
+  license_type: NOTICE
   last_upgrade_date {
-    year: 2019
-    month: 8
-    day: 1
+    year: 2020
+    month: 4
+    day: 8
   }
 }

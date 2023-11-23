@@ -41,6 +41,9 @@ class Producer;
 class SharedMemoryArbiter;
 class TraceWriter;
 
+// Exposed for testing.
+std::string GetBugreportPath();
+
 // TODO: for the moment this assumes that all the calls happen on the same
 // thread/sequence. Not sure this will be the case long term in Chrome.
 
@@ -222,6 +225,20 @@ class PERFETTO_EXPORT ConsumerEndpoint {
   using QueryCapabilitiesCallback =
       std::function<void(const TracingServiceCapabilities&)>;
   virtual void QueryCapabilities(QueryCapabilitiesCallback) = 0;
+
+  // If any tracing session with TraceConfig.bugreport_score > 0 is running,
+  // this will pick the highest-score one, stop it and save it into a fixed
+  // path (See kBugreportTracePath).
+  // The callback is invoked when the file has been saved, in case of success,
+  // or whenever an error occurs.
+  // Args:
+  // - success: if true, an eligible trace was found and saved into file.
+  //            If false, either there was no eligible trace running or
+  //            something else failed (See |msg|).
+  // - msg: human readable diagnostic messages to debug failures.
+  using SaveTraceForBugreportCallback =
+      std::function<void(bool /*success*/, const std::string& /*msg*/)>;
+  virtual void SaveTraceForBugreport(SaveTraceForBugreportCallback) = 0;
 };  // class ConsumerEndpoint.
 
 // The public API of the tracing Service business logic.
@@ -309,7 +326,8 @@ class PERFETTO_EXPORT TracingService {
       ProducerSMBScrapingMode smb_scraping_mode =
           ProducerSMBScrapingMode::kDefault,
       size_t shared_memory_page_size_hint_bytes = 0,
-      std::unique_ptr<SharedMemory> shm = nullptr) = 0;
+      std::unique_ptr<SharedMemory> shm = nullptr,
+      const std::string& sdk_version = {}) = 0;
 
   // Connects a Consumer instance and obtains a ConsumerEndpoint, which is
   // essentially a 1:1 channel between one Consumer and the Service.

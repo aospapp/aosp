@@ -1,3 +1,2 @@
-# Since owners in upstream OWNERS files are not registered in AOSP Gerrit yet,
-# this AOSP project do not have owners.
-# TODO: Find some owners to watch changes in this AOSP project.
+hunga@google.com
+jemoreira@google.com

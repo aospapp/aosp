@@ -546,7 +546,7 @@ void GraphicQueryTestBase::initStateObjects(void)
 		tcu::Vec4 *ptr = reinterpret_cast<tcu::Vec4*>(m_vertexBuffer->getBoundMemory().getHostPtr());
 		deMemcpy(ptr, &vertices[0], kBufferSize);
 
-		flushMappedMemoryRange(vkd, device,	m_vertexBuffer->getBoundMemory().getMemory(), m_vertexBuffer->getBoundMemory().getOffset(), VK_WHOLE_SIZE);
+		flushAlloc(vkd, device, m_vertexBuffer->getBoundMemory());
 	}
 }
 
@@ -609,14 +609,7 @@ tcu::TestStatus GraphicQueryTest::iterate(void)
 	}
 
 	// begin command buffer
-	const VkCommandBufferBeginInfo commandBufBeginParams =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		DE_NULL,
-		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-	VK_CHECK(vkd.beginCommandBuffer(*cmdBuffer, &commandBufBeginParams));
+	beginCommandBuffer(vkd, *cmdBuffer, 0u);
 
 	initialTransitionColor2DImage(vkd, *cmdBuffer, m_colorAttachmentImage->object(), VK_IMAGE_LAYOUT_GENERAL,
 								  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -753,14 +746,7 @@ tcu::TestStatus GraphicMultiplePoolsTest::iterate(void)
 	}
 
 	// begin command buffer
-	const VkCommandBufferBeginInfo commandBufBeginParams =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		DE_NULL,
-		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-	VK_CHECK(vkd.beginCommandBuffer(*cmdBuffer, &commandBufBeginParams));
+	beginCommandBuffer(vkd, *cmdBuffer, 0u);
 
 	initialTransitionColor2DImage(vkd, *cmdBuffer, m_colorAttachmentImage->object(), VK_IMAGE_LAYOUT_GENERAL,
 								  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -946,7 +932,7 @@ void ComputeQueryTestBase::initStateObjects(void)
 	const std::vector<deUint8>	data((size_t)bufferSize, 0u);
 	const Allocation&			allocation = m_buffer->getBoundMemory();
 	void*						allocationData = allocation.getHostPtr();
-	invalidateMappedMemoryRange(vkd, device, allocation.getMemory(), allocation.getOffset(), bufferSize);
+	invalidateAlloc(vkd, device, allocation);
 	deMemcpy(allocationData, &data[0], (size_t)bufferSize);
 
 	const VkBufferMemoryBarrier barrier =
@@ -1001,7 +987,7 @@ tcu::TestStatus ComputeQueryTest::iterate(void)
 	vkd.cmdResetQueryPool(*resetCmdBuffer, *queryPool, 0u, 1u);
 	endCommandBuffer(vkd, *resetCmdBuffer);
 
-	beginCommandBuffer(vkd, *cmdBuffer);
+	beginCommandBuffer(vkd, *cmdBuffer, 0u);
 	vkd.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *m_pipeline);
 	vkd.cmdBindDescriptorSets(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *m_pipelineLayout, 0u, 1u, &(m_descriptorSet.get()), 0u, DE_NULL);
 
@@ -1117,7 +1103,7 @@ tcu::TestStatus ComputeMultiplePoolsTest::iterate(void)
 	vkd.cmdResetQueryPool(*resetCmdBuffer, queryPools[1], 0u, 1u);
 	endCommandBuffer(vkd, *resetCmdBuffer);
 
-	beginCommandBuffer(vkd, *cmdBuffer);
+	beginCommandBuffer(vkd, *cmdBuffer, 0u);
 	vkd.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *m_pipeline);
 	vkd.cmdBindDescriptorSets(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *m_pipelineLayout, 0u, 1u, &(m_descriptorSet.get()), 0u, DE_NULL);
 

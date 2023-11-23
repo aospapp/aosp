@@ -14,6 +14,42 @@
 
 // Common variables.
 // =========================================================
+package {
+    default_applicable_licenses: ["external_minijail_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_minijail_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+        "NOTICE",
+    ],
+}
+
 libminijailSrcFiles = [
     "bpf.c",
     "libminijail.c",
@@ -35,10 +71,12 @@ cc_defaults {
     cflags: [
         "-D_FILE_OFFSET_BITS=64",
         "-DALLOW_DEBUG_LOGGING",
+        "-DALLOW_DUPLICATE_SYSCALLS",
         "-DDEFAULT_PIVOT_ROOT=\"/var/empty\"",
         "-Wall",
         "-Werror",
     ],
+    c_std: "gnu11",
     target: {
         darwin: {
             enabled: false,
@@ -51,7 +89,9 @@ cc_defaults {
 cc_object {
     name: "libminijail_gen_syscall_obj",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
+    header_libs: ["libc_headers"], // TODO(b/153662223): Clean this up.
     srcs: ["gen_syscalls.c"],
     cflags: [
         "-dD",
@@ -63,6 +103,7 @@ cc_object {
         "//apex_available:platform",
         "com.android.adbd",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
     min_sdk_version: "29",
 }
@@ -70,6 +111,7 @@ cc_object {
 cc_genrule {
     name: "libminijail_gen_syscall",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     tool_files: ["gen_syscalls.sh"],
     cmd: "$(location gen_syscalls.sh) $(in) $(out)",
@@ -79,13 +121,16 @@ cc_genrule {
         "//apex_available:platform",
         "com.android.adbd",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
 }
 
 cc_object {
     name: "libminijail_gen_constants_obj",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
+    header_libs: ["libc_headers"], // TODO(b/153662223): Clean this up.
     srcs: ["gen_constants.c"],
     cflags: [
         "-dD",
@@ -97,6 +142,7 @@ cc_object {
         "//apex_available:platform",
         "com.android.adbd",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
     min_sdk_version: "29",
 }
@@ -104,6 +150,7 @@ cc_object {
 cc_genrule {
     name: "libminijail_gen_constants",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     tool_files: ["gen_constants.sh"],
     cmd: "$(location gen_constants.sh) $(in) $(out)",
@@ -113,12 +160,14 @@ cc_genrule {
         "//apex_available:platform",
         "com.android.adbd",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
 }
 
 cc_library_static {
     name: "libminijail_generated",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     defaults: ["libminijail_flags"],
     host_supported: true,
@@ -141,6 +190,7 @@ cc_library_static {
         "//apex_available:platform",
         "com.android.adbd",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
     min_sdk_version: "29",
 }
@@ -148,8 +198,10 @@ cc_library_static {
 cc_object {
     name: "libminijail_gen_constants_llvmir",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     host_supported: true,
+    header_libs: ["libc_headers"], // TODO(b/153662223): Clean this up.
     cflags: [
         "-S",
         "-O0",
@@ -169,8 +221,10 @@ cc_object {
 cc_object {
     name: "libminijail_gen_syscall_llvmir",
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     host_supported: true,
+    header_libs: ["libc_headers"], // TODO(b/153662223): Clean this up.
     cflags: [
         "-S",
         "-O0",
@@ -194,6 +248,7 @@ cc_library {
     host_supported: true,
 
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     vndk: {
         enabled: true,
@@ -223,6 +278,7 @@ cc_library {
         "//apex_available:platform",
         "com.android.adbd",
         "com.android.media.swcodec",
+        "com.android.virt",
     ],
     min_sdk_version: "29",
 }
@@ -291,6 +347,7 @@ cc_test {
     srcs: [
         "bpf.c",
         "syscall_filter.c",
+        "syscall_wrapper.c",
         "util.c",
         "syscall_filter_unittest.cc",
     ] + unittestSrcFiles,
@@ -303,6 +360,10 @@ cc_test {
             test_suites: ["device-tests"],
         },
     },
+    test_options: {
+        unit_test: true,
+    },
+    data: ["test/*"],
 }
 
 // System functionality unit tests using gtest.
@@ -319,6 +380,7 @@ cc_test {
     host_supported: true,
 
     srcs: [
+        "syscall_wrapper.c",
         "system.c",
         "util.c",
         "system_unittest.cc",
@@ -449,24 +511,52 @@ cc_binary {
     shared_libs: minijailCommonLibraries + ["libminijail"],
 }
 
-// Generated by cargo2android.
-rust_library_host_rlib {
-    name: "libminijail_sys",
-    crate_name: "minijail_sys",
-    srcs: ["lib.rs"],
-    edition: "2018",
-    rlibs: [
-        "liblibc",
-    ],
-    static_libs: [
-        "libminijail",
-    ],
-    shared_libs: [
-        "libcap",
-    ],
+rust_defaults {
+    name: "libminijail_rust_defaults",
     target: {
         darwin: {
             enabled: false,
         },
     },
+}
+
+// This target was generated by cargo2android.py --run --device, with some
+// manual fixes.
+rust_library {
+    name: "libminijail_sys",
+    defaults: ["libminijail_rust_defaults"],
+    host_supported: true,
+    crate_name: "minijail_sys",
+    srcs: ["rust/minijail-sys/lib.rs"],
+    edition: "2018",
+    rustlibs: [
+        "liblibc",
+    ],
+    shared_libs: [
+        "libcap",
+        "libminijail",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
+// This target was generated by cargo2android.py --run --device, with some
+// manual fixes.
+rust_library {
+    name: "libminijail_rust",
+    defaults: ["libminijail_rust_defaults"],
+    host_supported: true,
+    crate_name: "minijail",
+    srcs: ["rust/minijail/src/lib.rs"],
+    edition: "2018",
+    rustlibs: [
+        "liblibc",
+        "libminijail_sys",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }

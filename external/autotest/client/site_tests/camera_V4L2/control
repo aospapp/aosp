@@ -13,7 +13,9 @@ if any of the following conditions occur:
   - If streaming is not supported
   - If a required resolution is not supported when capturing a stream
 """
-ATTRIBUTES = "suite:bvt-perbuild"
+# Do not run it in bvt-perbuild suite since it's already migrated to Tast.
+# The Autotest version is kept for moblab AVL usage (https://crbug.com/1001983).
+ATTRIBUTES = ""
 TIME='MEDIUM'
 TEST_CATEGORY = 'V4L2'
 TEST_TYPE = 'client'

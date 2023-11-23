@@ -175,6 +175,31 @@ class AudioExtensionHandler(object):
 
 
     @facade_resource.retry_chrome_call
+    def set_active_input_gain(self, gain):
+        """Sets the active audio input gain using chrome.audio API.
+
+        @param gain: Gain to set (0~100).
+
+        """
+        input_id = self._get_active_id_for_stream_type('INPUT')
+        logging.debug('input_id: %s', input_id)
+
+        self._extension.ExecuteJavaScript('window.__set_volume_done = null;')
+        self._extension.ExecuteJavaScript(
+                """
+                chrome.audio.setProperties(
+                    '%s',
+                    {level: %s},
+                    function() {window.__set_volume_done = true;});
+                """
+                % (input_id, gain))
+        utils.wait_for_value(
+                lambda: (self._extension.EvaluateJavaScript(
+                         "window.__set_volume_done") != None),
+                expected_value=True)
+
+
+    @facade_resource.retry_chrome_call
     def set_mute(self, mute):
         """Mutes the audio output using chrome.audio API.
 

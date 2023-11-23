@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 da{
     Countries{
         001{"Verden"}
@@ -298,17 +299,13 @@ da{
         ZZ{"Ukendt område"}
     }
     Countries%short{
-        GB{"UK"}
         UN{"FN"}
-        US{"USA"}
     }
     Countries%variant{
         CD{"Den Demokratiske Republik Congo (DRC)"}
         CG{"Republikken Congo"}
-        CI{"Elfenbenskysten"}
         CZ{"Den Tjekkiske Republik"}
         SZ{"Swaziland"}
         TL{"Østtimor"}
     }
-    Version{"36.1"}
 }

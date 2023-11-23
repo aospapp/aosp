@@ -20,6 +20,7 @@ from autotest_lib.client.cros import constants
 from autotest_lib.server import autotest
 from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros.network import wpa_cli_proxy
+from autotest_lib.server.cros.network import wpa_mon
 from autotest_lib.server.hosts import cast_os_host
 
 # Wake-on-WiFi feature strings
@@ -363,6 +364,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
                     self.host, self._wifi_if)
             self._raise_logging_level()
         self._interface = interface.Interface(self._wifi_if, host=self.host)
+        self._wpa_mon = wpa_mon.WpaMon(self.host, self.wifi_if)
         logging.debug('WiFi interface is: %r',
                       self._interface.device_description)
         self._firewall_rules = []
@@ -608,6 +610,31 @@ class WiFiClient(site_linux_system.LinuxSystem):
             self.assert_bsses_include_ssids(bss_list, ssids)
 
 
+    def wait_for_bss(self, bssid, timeout_seconds=15):
+        """Wait for a specific BSS to appear in the scan results.
+
+        @param bssid: string bssid of AP we expect to see in scan results
+        @param timeout_seconds int seconds to wait for BSSes to be discovered
+
+        """
+        def dut_sees_bss():
+            """Check if a DUT can see a BSS in scan results.
+
+            @return True iff scan results from DUT include the specified BSS.
+
+            """
+            is_requested_bss = lambda iw_bss: iw_bss.bss == bssid
+            scan_results = self.iw_runner.scan(self.wifi_if)
+            return scan_results and filter(is_requested_bss, scan_results)
+        try:
+            utils.poll_for_condition(
+                condition=dut_sees_bss,
+                timeout=timeout_seconds,
+                sleep_interval=0.5)
+        except:
+            raise error.TestFail('Failed to discover BSS %s' % bssid)
+
+
     def wait_for_bsses(self, ssid, num_bss_expected, timeout_seconds=15):
       """Wait for all BSSes associated with given SSID to be discovered in the
       scan.
@@ -618,7 +645,12 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
       """
       # If the scan returns None, return 0, else return the matching count
-      num_bss_actual = 0
+
+      # Wrap num_bss_actual as a mutable object, list, so that an inner function
+      # can update the value without making an assignment to it. Without any
+      # assignment, the inner function will look for the variable in outer scope
+      # instead of creating a new local one.
+      num_bss_actual = [0]
       def are_all_bsses_discovered():
           """Determine if all BSSes associated with the SSID from parent
           function are discovered in the scan
@@ -634,18 +666,19 @@ class WiFiClient(site_linux_system.LinuxSystem):
                     ssids=[ssid])
             if scan_results is None:
                 return False
-            num_bss_actual = sum(ssid == bss.ssid for bss in scan_results)
-            return num_bss_expected == num_bss_actual
+            num_bss_actual[0] = sum(ssid == bss.ssid for bss in scan_results)
+            return num_bss_expected == num_bss_actual[0]
           finally:
             self.release_wifi_if()
-
-      utils.poll_for_condition(
+      try:
+          utils.poll_for_condition(
               condition=are_all_bsses_discovered,
-              exception=error.TestFail('Failed to discover all BSSes. Found %d,'
-                                      ' wanted %d with SSID %s' %
-                                      (num_bss_actual, num_bss_expected, ssid)),
               timeout=timeout_seconds,
               sleep_interval=0.5)
+      except utils.TimeoutError:
+          raise error.TestFail('Failed to discover all BSSes. Found %d,'
+                               ' wanted %d with SSID %s' %
+                               (num_bss_actual[0], num_bss_expected, ssid))
 
     def wait_for_service_states(self, ssid, states, timeout_seconds):
         """Waits for a WiFi service to achieve one of |states|.
@@ -683,6 +716,18 @@ class WiFiClient(site_linux_system.LinuxSystem):
         logging.info('Suspending DUT (in background) for %d seconds...',
                      seconds)
         self._shill_proxy.do_suspend_bg(seconds)
+
+
+    def flush_bss(self, age=0):
+        """Flush supplicant's cached BSS on the DUT.
+
+        @param age: BSS older than |age| seconds will be removed from the cache.
+        """
+        result = self._wpa_cli_proxy.run_wpa_cli_cmd('bss_flush %d' % age,
+                                                     check_result=False);
+        logging.info('wpa_cli bss_flush %d: out:%r err:%r', age, result.stdout,
+                     result.stderr)
+        return result.stdout, result.stderr
 
 
     def clear_supplicant_blacklist(self):
@@ -798,7 +843,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
     def net_detect_scan_period_seconds(self, period):
         """Sets the period between net detect scans performed by the NIC to look
-        for whitelisted SSIDs to |period|. This setting only takes effect if the
+        for allowlisted SSIDs to |period|. This setting only takes effect if the
         NIC is programmed to wake on SSID.
 
         The correct way to use this method is:
@@ -912,10 +957,12 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         @param bssid: string MAC address of bss to roam to.
         @param iface: interface to use
+        @return True if the roam was initiated successfully. Note that this
+                does not guarantee the roam completed successfully.
 
         """
         self._assert_method_supported('request_roam_dbus')
-        self._shill_proxy.request_roam_dbus(bssid, iface)
+        return self._shill_proxy.request_roam_dbus(bssid, iface)
 
 
     def wait_for_roam(self, bssid, timeout_seconds=10.0):
@@ -1027,8 +1074,12 @@ class WiFiClient(site_linux_system.LinuxSystem):
         """
         start_time = time.time()
         duration = lambda: time.time() - start_time
-        state = [None] # need mutability for the nested method to save state
 
+        # Wrap state as a mutable object, list, so that an inner function can
+        # update the value without making an assignment to it. Without any
+        # assignment, the inner function will look for the variable in outer
+        # scope instead of creating a new local one.
+        state = [None]
         def verify_connection():
             """Verify the connection and perform optional operations
             as defined in the parent function
@@ -1072,16 +1123,19 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         freq_error_str = (' on frequency %d Mhz' % freq) if freq else ''
 
-        return utils.poll_for_condition(
+        try:
+            ret = utils.poll_for_condition(
                 condition=verify_connection,
-                exception=error.TestFail(
-                        'Failed to connect to "%s"%s in %f seconds (state=%s)' %
-                        (ssid,
-                        freq_error_str,
-                        duration(),
-                        state[0])),
                 timeout=timeout_seconds,
                 sleep_interval=0)
+        except utils.TimeoutError:
+            raise error.TestFail(
+                'Failed to connect to "%s"%s in %f seconds (state=%s)' %
+                (ssid,
+                 freq_error_str,
+                 duration(),
+                 state[0]))
+        return ret
 
     @contextmanager
     def assert_disconnect_count(self, count):
@@ -1139,7 +1193,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         """Get disconnect reason codes."""
         disconnect_reason_msg = "updated DisconnectReason "
         disconnect_reason_cleared = "clearing DisconnectReason for "
-        result = self.host.run('grep -E "(%s|%s)" /var/log/net.log' %
+        result = self.host.run('grep -a -E "(%s|%s)" /var/log/net.log' %
                                (disconnect_reason_msg,
                                disconnect_reason_cleared),
                                ignore_status=True)

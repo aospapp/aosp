@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import logging
 
 from autotest_lib.client.common_lib import error
@@ -33,8 +35,11 @@ class firmware_Cr50BID(Cr50Test):
     # - BID support was added in 0.0.21.
     # - Keeping the rollback state after AP boot was added in 0.3.4.
     # - Complete support for SPI PLT_RST straps was added in 0.3.18
-    # Use 3.18, so the test can detect rollback and run on any board.
-    BID_SUPPORT = '0.3.18'
+    # - 4us INT_AP_L pulse was added in 0.3.25
+    # - EC-EFS2 support was added in 0.5.4
+    # - 100us INT_AP_L pulse was added in 0.5.5 (Planned)
+    # TODO: use 5.5, so boards that require a 100us pulse can boot.
+    BID_SUPPORT = '0.5.4'
 
     BID_MISMATCH = ['Board ID mismatched, but can not reboot.']
     BID_ERROR = 5
@@ -356,7 +361,7 @@ class firmware_Cr50BID(Cr50Test):
         try:
             cr50_utils.SetChipBoardId(self.host, bid, flags)
             result = self.SUCCESS
-        except error.AutoservRunError, e:
+        except error.AutoservRunError as e:
             result = e.result_obj.stderr.strip()
 
         if result != exit_code:
@@ -439,4 +444,4 @@ class firmware_Cr50BID(Cr50Test):
                     logging.info('FAILED %s with "%s"', message, e)
                     errors.append('%s with "%s"' % (message, e))
         if len(errors):
-            raise error.TestFail('failed tests: %s', errors)
+            raise error.TestFail('failed tests: %s' % errors)

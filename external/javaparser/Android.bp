@@ -15,6 +15,48 @@
 // build javaparser jar
 // ============================================================
 
+package {
+    default_applicable_licenses: ["external_javaparser_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_javaparser_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-3.0",
+        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-LGPL-2.1",
+        "SPDX-license-identifier-LGPL-3.0",
+    ],
+    license_text: [
+        "LICENSE",
+        "LICENSE.APACHE",
+        "LICENSE.GPL",
+        "LICENSE.LGPL",
+    ],
+}
+
 java_library_host {
     name: "javaparser",
 
@@ -22,5 +64,21 @@ java_library_host {
         "javaparser-core/src/main/java/**/*.java",
         "javaparser-core/src/main/javacc-support/**/*.java",
         "javaparser-core/generated-sources/**/*.java",
+    ],
+}
+
+java_library_host {
+    name: "javaparser-symbol-solver",
+
+    srcs: [
+        "javaparser-symbol-solver-core/src/main/java/**/*.java",
+        "javaparser-symbol-solver-logic/src/main/java/**/*.java",
+        "javaparser-symbol-solver-model/src/main/java/**/*.java",
+    ],
+
+    static_libs: [
+        "guava",
+        "javaparser",
+        "javassist",
     ],
 }

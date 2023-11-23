@@ -6,7 +6,7 @@ AUTHOR = 'quiche, wiley, pstew'
 NAME = 'network_WiFi_HiddenScan'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc')
+ATTRIBUTES = ''
 DEPENDENCIES = 'wificell'
 
 DOC = """

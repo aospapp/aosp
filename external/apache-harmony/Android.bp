@@ -14,11 +14,26 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    default_applicable_licenses: ["external_apache-harmony_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_apache-harmony_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
 }
 
 java_test {
     name: "apache-harmony-tests",
     visibility: [
+        "//art/build/sdk",
         "//cts/tests/libcore/luni",
     ],
     hostdex: true,

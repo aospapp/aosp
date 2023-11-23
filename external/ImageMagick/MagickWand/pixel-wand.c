@@ -23,7 +23,7 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -148,10 +148,7 @@ WandExport PixelWand *ClonePixelWand(const PixelWand *wand)
   assert(wand->signature == MagickWandSignature);
   if (wand->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",wand->name);
-  clone_wand=(PixelWand *) AcquireMagickMemory(sizeof(*clone_wand));
-  if (clone_wand == (PixelWand *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      wand->name);
+  clone_wand=(PixelWand *) AcquireCriticalMemory(sizeof(*clone_wand));
   (void) memset(clone_wand,0,sizeof(*clone_wand));
   clone_wand->id=AcquireWandId();
   (void) FormatLocaleString(clone_wand->name,MagickPathExtent,"%s-%.20g",
@@ -195,17 +192,14 @@ WandExport PixelWand *ClonePixelWand(const PixelWand *wand)
 WandExport PixelWand **ClonePixelWands(const PixelWand **wands,
   const size_t number_wands)
 {
-  register ssize_t
+  ssize_t
     i;
 
   PixelWand
     **clone_wands;
 
-  clone_wands=(PixelWand **) AcquireQuantumMemory((size_t) number_wands,
+  clone_wands=(PixelWand **) AcquireCriticalMemory((size_t) number_wands*
     sizeof(*clone_wands));
-  if (clone_wands == (PixelWand **) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      GetExceptionMessage(errno));
   for (i=0; i < (ssize_t) number_wands; i++)
     clone_wands[i]=ClonePixelWand(wands[i]);
   return(clone_wands);
@@ -275,7 +269,7 @@ WandExport PixelWand *DestroyPixelWand(PixelWand *wand)
 WandExport PixelWand **DestroyPixelWands(PixelWand **wand,
   const size_t number_wands)
 {
-  register ssize_t
+  ssize_t
     i;
 
   assert(wand != (PixelWand **) NULL);
@@ -400,10 +394,7 @@ WandExport PixelWand *NewPixelWand(void)
   quantum=GetMagickQuantumDepth(&depth);
   if (depth != MAGICKCORE_QUANTUM_DEPTH)
     ThrowWandFatalException(WandError,"QuantumDepthMismatch",quantum);
-  wand=(PixelWand *) AcquireMagickMemory(sizeof(*wand));
-  if (wand == (PixelWand *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      GetExceptionMessage(errno));
+  wand=(PixelWand *) AcquireCriticalMemory(sizeof(*wand));
   (void) memset(wand,0,sizeof(*wand));
   wand->id=AcquireWandId();
   (void) FormatLocaleString(wand->name,MagickPathExtent,"%s-%.20g",PixelWandId,
@@ -441,17 +432,14 @@ WandExport PixelWand *NewPixelWand(void)
 */
 WandExport PixelWand **NewPixelWands(const size_t number_wands)
 {
-  register ssize_t
+  ssize_t
     i;
 
   PixelWand
     **wands;
 
-  wands=(PixelWand **) AcquireQuantumMemory((size_t) number_wands,
+  wands=(PixelWand **) AcquireCriticalMemory((size_t) number_wands*
     sizeof(*wands));
-  if (wands == (PixelWand **) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      GetExceptionMessage(errno));
   for (i=0; i < (ssize_t) number_wands; i++)
     wands[i]=NewPixelWand();
   return(wands);

@@ -1,13 +1,5 @@
 name: "FXdiv"
-description:
-    "Header-only library for division via fixed-point multiplication by inverse "
-    " "
-    "On modern CPUs and GPUs integer division is several times slower than "
-    "multiplication. FXdiv implements an algorithm to replace an integer "
-    "division with a multiplication and two shifts. This algorithm improves "
-    "performance when an application performs repeated divisions by the same "
-    "divisor."
-
+description: "Header-only library for division via fixed-point multiplication by inverse  On modern CPUs and GPUs integer division is several times slower than multiplication. FXdiv implements an algorithm to replace an integer division with a multiplication and two shifts. This algorithm improves performance when an application performs repeated divisions by the same divisor."
 third_party {
   url {
     type: HOMEPAGE
@@ -17,7 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/Maratyszcza/FXdiv"
   }
-  version: "fd804a929fc64be9e40ee58bb51ed9f9cac98244"
-  last_upgrade_date { year: 2020 month: 2 day: 3 }
+  version: "63058eff77e11aa15bf531df5dd34395ec3017c8"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2020
+    month: 12
+    day: 9
+  }
 }

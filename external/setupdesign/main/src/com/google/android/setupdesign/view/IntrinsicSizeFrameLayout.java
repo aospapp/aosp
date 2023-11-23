@@ -21,7 +21,11 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Build.VERSION_CODES;
 import android.util.AttributeSet;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import com.google.android.setupcompat.partnerconfig.PartnerConfig;
+import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
+import com.google.android.setupcompat.util.BuildCompatUtils;
 import com.google.android.setupdesign.R;
 
 /**
@@ -54,6 +58,10 @@ public class IntrinsicSizeFrameLayout extends FrameLayout {
   }
 
   private void init(Context context, AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
+
     final TypedArray a =
         context.obtainStyledAttributes(
             attrs, R.styleable.SudIntrinsicSizeFrameLayout, defStyleAttr, 0);
@@ -62,6 +70,37 @@ public class IntrinsicSizeFrameLayout extends FrameLayout {
     intrinsicWidth =
         a.getDimensionPixelSize(R.styleable.SudIntrinsicSizeFrameLayout_android_width, 0);
     a.recycle();
+
+    if (BuildCompatUtils.isAtLeastS()) {
+      if (PartnerConfigHelper.get(context)
+          .isPartnerConfigAvailable(PartnerConfig.CONFIG_CARD_VIEW_INTRINSIC_HEIGHT)) {
+        intrinsicHeight =
+            (int)
+                PartnerConfigHelper.get(context)
+                    .getDimension(context, PartnerConfig.CONFIG_CARD_VIEW_INTRINSIC_HEIGHT);
+      }
+      if (PartnerConfigHelper.get(context)
+          .isPartnerConfigAvailable(PartnerConfig.CONFIG_CARD_VIEW_INTRINSIC_WIDTH)) {
+        intrinsicWidth =
+            (int)
+                PartnerConfigHelper.get(context)
+                    .getDimension(context, PartnerConfig.CONFIG_CARD_VIEW_INTRINSIC_WIDTH);
+      }
+    }
+  }
+
+  @Override
+  public void setLayoutParams(ViewGroup.LayoutParams params) {
+    if (BuildCompatUtils.isAtLeastS()) {
+      // When both intrinsic height and width are 0, the card view style would be removed from
+      // foldable/tablet layout. It must set the layout width and height to MATCH_PARENT and then it
+      // can ignore the IntrinsicSizeFrameLayout from the foldable/tablet layout.
+      if (intrinsicHeight == 0 && intrinsicWidth == 0) {
+        params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+        params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+      }
+    }
+    super.setLayoutParams(params);
   }
 
   @Override

@@ -175,7 +175,8 @@ public class AndroidSdk {
 
             desugarJarPath = desugarJar.getPath();
 
-            String pattern = outDir + "target/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
+            String pattern = outDir +
+                    "target/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
             if (modeId.isHost()) {
                 pattern = outDir + "host/common/obj/JAVA_LIBRARIES/%s_intermediates/classes";
             }
@@ -185,7 +186,36 @@ public class AndroidSdk {
             compilationClasspath = new File[jarNames.length];
             for (int i = 0; i < jarNames.length; i++) {
                 String jar = jarNames[i];
-                compilationClasspath[i] = new File(String.format(pattern, jar));
+                File file;
+                if (modeId.isHost()) {
+                    if  ("conscrypt-hostdex".equals(jar)) {
+                        jar = "conscrypt-host-hostdex";
+                    } else if ("core-icu4j-hostdex".equals(jar)) {
+                        jar = "core-icu4j-host-hostdex";
+                    }
+                    file = new File(String.format(pattern, jar));
+                } else {
+                    final String apexPackage;
+                    // With unbundled ART, the intermediate directory storing the jar file
+                    // outside ART APEX doesn't contain the apex package name.
+                    final boolean tryNonApexIntermediate;
+                    if ("conscrypt".equals(jar)) {
+                        apexPackage = "com.android.conscrypt";
+                        tryNonApexIntermediate = true;
+                    } else if ("core-icu4j".equals(jar)) {
+                        apexPackage = "com.android.i18n";
+                        tryNonApexIntermediate = true;
+                    } else {
+                        apexPackage = "com.android.art.testing";
+                        tryNonApexIntermediate = false;
+                    }
+
+                    file = new File(String.format(pattern, jar + "." + apexPackage));
+                    if (tryNonApexIntermediate && !file.exists()) {
+                        file = new File(String.format(pattern, jar));
+                    }
+                }
+                compilationClasspath[i] = file;
             }
         } else {
             throw new RuntimeException("Couldn't derive Android home from "

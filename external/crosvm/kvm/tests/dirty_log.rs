@@ -4,9 +4,10 @@
 
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
+use base::{MemoryMappingBuilder, SharedMemory};
 use kvm::*;
 use kvm_sys::kvm_regs;
-use sys_util::{GuestAddress, GuestMemory, MemoryMapping, SharedMemory};
+use vm_memory::{GuestAddress, GuestMemory};
 
 #[test]
 fn test_run() {
@@ -18,11 +19,11 @@ fn test_run() {
     let mem_size = 0x10000;
     let load_addr = GuestAddress(0x1000);
     let guest_mem = GuestMemory::new(&[]).unwrap();
-    let mut mem = SharedMemory::new(None).expect("failed to create shared memory");
-    mem.set_size(mem_size)
-        .expect("failed to set shared memory size");
-    let mmap =
-        MemoryMapping::from_fd(&mem, mem_size as usize).expect("failed to create memory mapping");
+    let mem = SharedMemory::anon(mem_size).expect("failed to create shared memory");
+    let mmap = MemoryMappingBuilder::new(mem_size as usize)
+        .from_shared_memory(&mem)
+        .build()
+        .expect("failed to create memory mapping");
 
     mmap.write_slice(&code[..], load_addr.offset() as usize)
         .expect("Writing code to memory failed.");
@@ -43,17 +44,22 @@ fn test_run() {
     vcpu_regs.rbx = 0x12;
     vcpu.set_regs(&vcpu_regs).expect("set regs failed");
     let slot = vm
-        .add_device_memory(
+        .add_memory_region(
             GuestAddress(0),
-            MemoryMapping::from_fd(&mem, mem_size as usize)
-                .expect("failed to create memory mapping"),
+            Box::new(
+                MemoryMappingBuilder::new(mem_size as usize)
+                    .from_shared_memory(&mem)
+                    .build()
+                    .expect("failed to create memory mapping"),
+            ),
             false,
             true,
         )
         .expect("failed to register memory");
 
+    let runnable_vcpu = vcpu.to_runnable(None).unwrap();
     loop {
-        match vcpu.run().expect("run failed") {
+        match runnable_vcpu.run().expect("run failed") {
             VcpuExit::Hlt => break,
             r => panic!("unexpected exit reason: {:?}", r),
         }

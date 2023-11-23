@@ -135,24 +135,6 @@ class ArgMaxPoolMicrokernelTester {
     }
   }
 
-  inline ArgMaxPoolMicrokernelTester& qmin(uint8_t qmin) {
-    this->qmin_ = qmin;
-    return *this;
-  }
-
-  inline uint8_t qmin() const {
-    return this->qmin_;
-  }
-
-  inline ArgMaxPoolMicrokernelTester& qmax(uint8_t qmax) {
-    this->qmax_ = qmax;
-    return *this;
-  }
-
-  inline uint8_t qmax() const {
-    return this->qmax_;
-  }
-
   inline ArgMaxPoolMicrokernelTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
@@ -162,7 +144,7 @@ class ArgMaxPoolMicrokernelTester {
     return this->iterations_;
   }
 
-  void Test(xnn_f32_argmaxpool_up_ukernel_function argmaxpool, Variant variant = Variant::Native) const {
+  void Test(xnn_f32_argmaxpool_unipass_ukernel_function argmaxpool, Variant variant = Variant::Native) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
     auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
@@ -201,47 +183,15 @@ class ArgMaxPoolMicrokernelTester {
         }
       }
 
-      // Compute clamping parameters.
-      const float accumulated_min = *std::min_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_max = *std::max_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_range = accumulated_max - accumulated_min;
-      const float output_min = accumulated_min + float(qmin()) / 255.0f * accumulated_range;
-      const float output_max = accumulated_max - float(255 - qmax()) / 255.0f * accumulated_range;
-
-      // Prepare output parameters.
-      xnn_f32_output_params output_params = { };
-      switch (variant) {
-        case Variant::Native:
-          output_params = xnn_init_f32_output_params(output_min, output_max);
-          break;
-        case Variant::Scalar:
-          output_params = xnn_init_scalar_f32_output_params(output_min, output_max);
-          break;
-      }
-
-      // Clamp reference results.
-      for (float& output_value : output_ref) {
-        output_value = std::max(std::min(output_value, output_max), output_min);
-      }
-
       // Call optimized micro-kernel.
       argmaxpool(output_pixels(), pooling_elements(), channels(),
         indirect_input.data(), input_offset() * sizeof(float), output.data(), index.data(),
         step() * sizeof(void*),
-        (output_stride() - channels()) * sizeof(float),
-        &output_params);
+        (output_stride() - channels()) * sizeof(float));
 
       // Verify results.
       for (size_t x = 0; x < output_pixels(); x++) {
         for (size_t c = 0; c < channels(); c++) {
-          ASSERT_GE(output[x * output_stride() + c], output_min)
-            << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
-            << ", pooling elements = " << pooling_elements() << ", step = " << step()
-            << ", input offset = " << input_offset();
-          ASSERT_LE(output[x * output_stride() + c], output_max)
-            << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
-            << ", pooling elements = " << pooling_elements() << ", step = " << step()
-            << ", input offset = " << input_offset();
           ASSERT_EQ(output_ref[x * channels() + c], output[x * output_stride() + c])
             << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
             << ", pooling elements = " << pooling_elements() << ", step = " << step()
@@ -261,7 +211,7 @@ class ArgMaxPoolMicrokernelTester {
     }
   }
 
-  void Test(xnn_f32_argmaxpool_mp_ukernel_function argmaxpool, Variant variant = Variant::Native) const {
+  void Test(xnn_f32_argmaxpool_multipass_ukernel_function argmaxpool, Variant variant = Variant::Native) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
     auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
@@ -304,49 +254,17 @@ class ArgMaxPoolMicrokernelTester {
         }
       }
 
-      // Compute clamping parameters.
-      const float accumulated_min = *std::min_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_max = *std::max_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_range = accumulated_max - accumulated_min;
-      const float output_min = accumulated_min + float(qmin()) / 255.0f * accumulated_range;
-      const float output_max = accumulated_max - float(255 - qmax()) / 255.0f * accumulated_range;
-
-      // Prepare output parameters.
-      xnn_f32_output_params output_params = { };
-      switch (variant) {
-        case Variant::Native:
-          output_params = xnn_init_f32_output_params(output_min, output_max);
-          break;
-        case Variant::Scalar:
-          output_params = xnn_init_scalar_f32_output_params(output_min, output_max);
-          break;
-      }
-
-      // Clamp reference results.
-      for (float& output_value : output_ref) {
-        output_value = std::max(std::min(output_value, output_max), output_min);
-      }
-
       // Call optimized micro-kernel.
       argmaxpool(output_pixels(), pooling_elements(), channels(),
         indirect_input.data(), input_offset() * sizeof(float),
         output_buffer.data(), index_buffer.data(),
         output.data(), index.data(),
         (step() - (packed_pooling_elements() - incremental_pooling_tile())) * sizeof(void*),
-        (output_stride() - channels()) * sizeof(float),
-        &output_params);
+        (output_stride() - channels()) * sizeof(float));
 
       // Verify results.
       for (size_t x = 0; x < output_pixels(); x++) {
         for (size_t c = 0; c < channels(); c++) {
-          ASSERT_GE(output[x * output_stride() + c], output_min)
-            << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
-            << ", pooling elements = " << pooling_elements() << ", step = " << step()
-            << ", input offset = " << input_offset();
-          ASSERT_LE(output[x * output_stride() + c], output_max)
-            << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
-            << ", pooling elements = " << pooling_elements() << ", step = " << step()
-            << ", input offset = " << input_offset();
           ASSERT_EQ(output_ref[x * channels() + c], output[x * output_stride() + c])
             << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
             << ", pooling elements = " << pooling_elements() << ", step = " << step()
@@ -375,7 +293,5 @@ class ArgMaxPoolMicrokernelTester {
   size_t primary_pooling_tile_{1};
   size_t incremental_pooling_tile_{1};
   size_t output_stride_{0};
-  uint8_t qmin_{0};
-  uint8_t qmax_{255};
   size_t iterations_{3};
 };

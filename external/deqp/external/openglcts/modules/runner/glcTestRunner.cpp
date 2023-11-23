@@ -48,9 +48,11 @@ class RunSession
 public:
 	RunSession(tcu::Platform& platform, tcu::Archive& archive, const int numArgs, const char* const* args)
 		: m_cmdLine(numArgs, args)
-		, m_log(m_cmdLine.getLogFileName(), (numArgs - 1), (char**)(args + 1), m_cmdLine.getLogFlags())
+		, m_log(m_cmdLine.getLogFileName(), m_cmdLine.getLogFlags())
 		, m_app(platform, archive, m_log, m_cmdLine)
 	{
+		const std::string sessionInfo = "#sessionInfo commandLineParameters \"";
+		m_log.writeSessionInfo(sessionInfo + m_cmdLine.getInitialCmdLine() + "\"\n");
 	}
 
 	inline bool iterate(void)
@@ -663,10 +665,11 @@ static void writeRunSummary(const TestRunSummary& summary, const char* filename)
 
 #undef XML_CHECK
 
-TestRunner::TestRunner(tcu::Platform& platform, tcu::Archive& archive, const char* logDirPath, glu::ApiType type,
-					   deUint32 flags)
+TestRunner::TestRunner(tcu::Platform& platform, tcu::Archive& archive, const char* waiverPath,
+					   const char* logDirPath, glu::ApiType type, deUint32 flags)
 	: m_platform(platform)
 	, m_archive(archive)
+	, m_waiverPath(waiverPath)
 	, m_logDirPath(logDirPath)
 	, m_type(type)
 	, m_flags(flags)
@@ -776,7 +779,6 @@ void TestRunner::deinit(void)
 	writeRunSummary(m_summary, de::FilePath::join(m_logDirPath, "cts-run-summary.xml").getPath());
 
 	m_runSessions.clear();
-	m_summary.clear();
 }
 
 void TestRunner::initSession(const TestRunParams& runParams)
@@ -794,6 +796,9 @@ void TestRunner::initSession(const TestRunParams& runParams)
 
 	if (!(m_flags & VERBOSE_SHADERS))
 		args.push_back("--deqp-log-shader-sources=disable");
+
+	if (!m_waiverPath.empty())
+		args.push_back(string("--deqp-waiver-file=") + m_waiverPath);
 
 	std::ostringstream			  ostr;
 	std::ostream_iterator<string> out_it(ostr, ", ");
@@ -817,10 +822,9 @@ void TestRunner::deinitSession(void)
 	// Collect results.
 	// \note NotSupported is treated as pass.
 	const tcu::TestRunStatus& result = m_curSession->getResult();
-	bool					  isOk =
-		result.numExecuted == (result.numPassed + result.numNotSupported + result.numWarnings) && result.isComplete;
+	bool isOk = result.numFailed == 0 && result.isComplete;
 
-	DE_ASSERT(result.numExecuted == result.numPassed + result.numFailed + result.numNotSupported + result.numWarnings);
+	DE_ASSERT(result.numExecuted == result.numPassed + result.numFailed + result.numNotSupported + result.numWarnings + result.numWaived);
 
 	m_sessionsExecuted += 1;
 	(isOk ? m_sessionsPassed : m_sessionsFailed) += 1;

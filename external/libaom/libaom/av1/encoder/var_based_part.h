@@ -24,11 +24,19 @@
 extern "C" {
 #endif
 
+#define QINDEX_LOW_THR \
+  200  // Use low qindex variance partition thresholds when qindex is below this
+       // threshold
+#define QINDEX_HIGH_THR \
+  220  // Use high qindex variance partition thresholds when qindex is above
+       // this threshold
+
 void av1_set_variance_partition_thresholds(AV1_COMP *cpi, int q,
                                            int content_state);
 
 int av1_choose_var_based_partitioning(AV1_COMP *cpi, const TileInfo *const tile,
-                                      MACROBLOCK *x, int mi_row, int mi_col);
+                                      ThreadData *td, MACROBLOCK *x, int mi_row,
+                                      int mi_col);
 
 #ifdef __cplusplus
 }  // extern "C"

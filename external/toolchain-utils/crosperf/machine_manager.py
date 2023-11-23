@@ -28,12 +28,10 @@ CHECKSUM_FILE = '/usr/local/osimage_checksum_file'
 
 class BadChecksum(Exception):
   """Raised if all machines for a label don't have the same checksum."""
-  pass
 
 
 class BadChecksumString(Exception):
   """Raised if all machines for a label don't have the same checksum string."""
-  pass
 
 
 class MissingLocksDirectory(Exception):
@@ -143,7 +141,12 @@ class CrosMachine(object):
 
   def _ComputeMachineChecksumString(self):
     self.checksum_string = ''
-    exclude_lines_list = ['MHz', 'BogoMIPS', 'bogomips']
+    # Some lines from cpuinfo have to be excluded because they are not
+    # persistent across DUTs.
+    # MHz, BogoMIPS are dynamically changing values.
+    # core id, apicid are identifiers assigned on startup
+    # and may differ on the same type of machine.
+    exclude_lines_list = ['MHz', 'BogoMIPS', 'bogomips', 'core id', 'apicid']
     for line in self.cpuinfo.splitlines():
       if not any(e in line for e in exclude_lines_list):
         self.checksum_string += line
@@ -222,8 +225,8 @@ class MachineManager(object):
     self.logger = lgr or logger.GetLogger()
 
     if self.locks_dir and not os.path.isdir(self.locks_dir):
-      raise MissingLocksDirectory(
-          'Cannot access locks directory: %s' % self.locks_dir)
+      raise MissingLocksDirectory('Cannot access locks directory: %s' %
+                                  self.locks_dir)
 
     self._initialized_machines = []
     self.chromeos_root = chromeos_root
@@ -244,8 +247,8 @@ class MachineManager(object):
     ret, version, _ = self.ce.CrosRunCommandWOutput(
         cmd, machine=machine.name, chromeos_root=self.chromeos_root)
     if ret != 0:
-      raise CrosCommandError(
-          "Couldn't get Chrome version from %s." % machine.name)
+      raise CrosCommandError("Couldn't get Chrome version from %s." %
+                             machine.name)
 
     if ret != 0:
       version = ''
@@ -298,8 +301,8 @@ class MachineManager(object):
         retval = image_chromeos.DoImage(image_chromeos_args)
       if retval:
         raise RuntimeError("Could not image machine: '%s'." % machine.name)
-      else:
-        self.num_reimages += 1
+
+      self.num_reimages += 1
       machine.checksum = checksum
       machine.image = label.chromeos_image
       machine.label = label
@@ -314,20 +317,33 @@ class MachineManager(object):
     # Since this is used for cache lookups before the machines have been
     # compared/verified, check here to make sure they all have the same
     # checksum (otherwise the cache lookup may not be valid).
-    common_checksum = None
+    base = None
     for machine in self.GetMachines(label):
       # Make sure the machine's checksums are calculated.
       if not machine.machine_checksum:
         machine.SetUpChecksumInfo()
-      cs = machine.machine_checksum
-      # If this is the first machine we've examined, initialize
-      # common_checksum.
-      if not common_checksum:
-        common_checksum = cs
+      # Use the first machine as the basis for comparison.
+      if not base:
+        base = machine
       # Make sure this machine's checksum matches our 'common' checksum.
-      if cs != common_checksum:
-        raise BadChecksum('Machine checksums do not match!')
-    self.machine_checksum[label.name] = common_checksum
+      if base.machine_checksum != machine.machine_checksum:
+        # Found a difference. Fatal error.
+        # Extract non-matching part and report it.
+        for mismatch_index in range(len(base.checksum_string)):
+          if (mismatch_index >= len(machine.checksum_string) or
+              base.checksum_string[mismatch_index] !=
+              machine.checksum_string[mismatch_index]):
+            break
+        # We want to show some context after the mismatch.
+        end_ind = mismatch_index + 8
+        # Print a mismatching string.
+        raise BadChecksum(
+            'Machine checksums do not match!\n'
+            'Diff:\n'
+            f'{base.name}: {base.checksum_string[:end_ind]}\n'
+            f'{machine.name}: {machine.checksum_string[:end_ind]}\n'
+            '\nCheck for matching /proc/cpuinfo and /proc/meminfo on DUTs.\n')
+    self.machine_checksum[label.name] = base.machine_checksum
 
   def ComputeCommonCheckSumString(self, label):
     # The assumption is that this function is only called AFTER
@@ -371,8 +387,8 @@ class MachineManager(object):
 
       if self.log_level != 'verbose':
         self.logger.LogOutput('Setting up remote access to %s' % machine_name)
-        self.logger.LogOutput(
-            'Checking machine characteristics for %s' % machine_name)
+        self.logger.LogOutput('Checking machine characteristics for %s' %
+                              machine_name)
       cm = CrosMachine(machine_name, self.chromeos_root, self.log_level)
       if cm.machine_checksum:
         self._all_machines.append(cm)
@@ -412,8 +428,8 @@ class MachineManager(object):
 
       if self.acquire_timeout < 0:
         self.logger.LogFatal('Could not acquire any of the '
-                             "following machines: '%s'" % ', '.join(
-                                 machine.name for machine in machines))
+                             "following machines: '%s'" %
+                             ', '.join(machine.name for machine in machines))
 
 
 ###      for m in self._machines:
@@ -666,8 +682,8 @@ class MockMachineManager(MachineManager):
       for m in self._all_machines:
         assert m.name != machine_name, 'Tried to double-add %s' % machine_name
       cm = MockCrosMachine(machine_name, self.chromeos_root, self.log_level)
-      assert cm.machine_checksum, (
-          'Could not find checksum for machine %s' % machine_name)
+      assert cm.machine_checksum, ('Could not find checksum for machine %s' %
+                                   machine_name)
       # In Original MachineManager, the test is 'if cm.machine_checksum:' - if a
       # machine is unreachable, then its machine_checksum is None. Here we
       # cannot do this, because machine_checksum is always faked, so we directly

@@ -28,7 +28,8 @@
 # docmain.h
 # platform.h
 
-localpointer.h
+# Android-changed: localpointer.h is required to generate libandroidicu headers
+# localpointer.h
 localematcher.h
 
 ## Further until the end of file is a copy of cxxfiles.txt from ICU 64.2:

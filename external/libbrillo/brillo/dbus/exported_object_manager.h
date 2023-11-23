@@ -6,6 +6,7 @@
 #define LIBBRILLO_BRILLO_DBUS_EXPORTED_OBJECT_MANAGER_H_
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -80,12 +81,12 @@ class BRILLO_EXPORT ExportedObjectManager
     : public base::SupportsWeakPtr<ExportedObjectManager> {
  public:
   using ObjectMap =
-      std::map<dbus::ObjectPath, std::map<std::string, VariantDictionary>>;
+      std::map<::dbus::ObjectPath, std::map<std::string, VariantDictionary>>;
   using InterfaceProperties =
       std::map<std::string, ExportedPropertySet::PropertyWriter>;
 
-  ExportedObjectManager(scoped_refptr<dbus::Bus> bus,
-                        const dbus::ObjectPath& path);
+  ExportedObjectManager(scoped_refptr<::dbus::Bus> bus,
+                        const ::dbus::ObjectPath& path);
   virtual ~ExportedObjectManager() = default;
 
   // Registers methods implementing the ObjectManager interface on the object
@@ -98,35 +99,28 @@ class BRILLO_EXPORT ExportedObjectManager
   // Trigger a signal that |path| has added an interface |interface_name|
   // with properties as given by |writer|.
   virtual void ClaimInterface(
-      const dbus::ObjectPath& path,
+      const ::dbus::ObjectPath& path,
       const std::string& interface_name,
       const ExportedPropertySet::PropertyWriter& writer);
 
   // Trigger a signal that |path| has removed an interface |interface_name|.
-  virtual void ReleaseInterface(const dbus::ObjectPath& path,
+  virtual void ReleaseInterface(const ::dbus::ObjectPath& path,
                                 const std::string& interface_name);
 
-  const scoped_refptr<dbus::Bus>& GetBus() const { return bus_; }
-
-  // Due to D-Bus forwarding, clients may need to access the underlying
-  // DBusObject to handle signals/methods.
-  // TODO(sonnysasaka): Refactor this accessor into a stricter API once we know
-  // what D-Bus forwarding needs when it's completed, without exposing
-  // DBusObject directly.
-  brillo::dbus_utils::DBusObject* dbus_object() { return &dbus_object_; };
+  const scoped_refptr<::dbus::Bus>& GetBus() const { return bus_; }
 
  private:
   BRILLO_PRIVATE ObjectMap HandleGetManagedObjects();
 
-  scoped_refptr<dbus::Bus> bus_;
+  scoped_refptr<::dbus::Bus> bus_;
   brillo::dbus_utils::DBusObject dbus_object_;
   // Tracks all objects currently known to the ExportedObjectManager.
-  std::map<dbus::ObjectPath, InterfaceProperties> registered_objects_;
+  std::map<::dbus::ObjectPath, InterfaceProperties> registered_objects_;
 
   using SignalInterfacesAdded =
-      DBusSignal<dbus::ObjectPath, std::map<std::string, VariantDictionary>>;
+      DBusSignal<::dbus::ObjectPath, std::map<std::string, VariantDictionary>>;
   using SignalInterfacesRemoved =
-      DBusSignal<dbus::ObjectPath, std::vector<std::string>>;
+      DBusSignal<::dbus::ObjectPath, std::vector<std::string>>;
 
   std::weak_ptr<SignalInterfacesAdded> signal_itf_added_;
   std::weak_ptr<SignalInterfacesRemoved> signal_itf_removed_;

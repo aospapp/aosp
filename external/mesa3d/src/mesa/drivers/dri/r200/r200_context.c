@@ -37,7 +37,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "main/api_arrayelt.h"
 #include "main/api_exec.h"
 #include "main/context.h"
-#include "main/imports.h"
+
 #include "main/extensions.h"
 #include "main/version.h"
 #include "main/vtxfmt.h"
@@ -65,7 +65,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_span.h"
 
 #include "utils.h"
-#include "util/xmlpool.h" /* for symbolic values of enum-type options */
+#include "util/driconf.h" /* for symbolic values of enum-type options */
 
 /* Return various strings for glGetString().
  */
@@ -103,7 +103,7 @@ static const struct tnl_pipeline_stage *r200_pipeline[] = {
 
    /* Try and go straight to t&l
     */
-   &_r200_tcl_stage,  
+   &_r200_tcl_stage,
 
    /* Catch any t&l fallbacks
     */
@@ -115,7 +115,7 @@ static const struct tnl_pipeline_stage *r200_pipeline[] = {
    &_tnl_texture_transform_stage,
    &_tnl_point_attenuation_stage,
    &_tnl_vertex_program_stage,
-   /* Try again to go to tcl? 
+   /* Try again to go to tcl?
     *     - no good for asymmetric-twoside (do with multipass)
     *     - no good for asymmetric-unfilled (do with multipass)
     *     - good for material
@@ -124,7 +124,7 @@ static const struct tnl_pipeline_stage *r200_pipeline[] = {
     *
     * - worth it/not worth it?
     */
-			
+
    /* Else do them here.
     */
 /*    &_r200_render_stage,  */ /* FIXME: bugs with ut2003 */
@@ -149,7 +149,7 @@ static void r200_emit_query_finish(radeonContextPtr radeon)
 
    BEGIN_BATCH(4);
    OUT_BATCH(CP_PACKET0(RADEON_RB3D_ZPASS_ADDR, 0));
-   OUT_BATCH_RELOC(0, query->bo, query->curr_offset, 0, RADEON_GEM_DOMAIN_GTT, 0);
+   OUT_BATCH_RELOC(query->bo, query->curr_offset, 0, RADEON_GEM_DOMAIN_GTT, 0);
    END_BATCH();
    query->curr_offset += sizeof(uint32_t);
    assert(query->curr_offset < RADEON_QUERY_PAGE_SIZE);
@@ -216,13 +216,13 @@ GLboolean r200CreateContext( gl_api api,
     * the default textures.
     */
    driParseConfigFiles (&rmesa->radeon.optionCache, &screen->optionCache,
-			screen->driScreen->myNum, "r200", NULL);
+			screen->driScreen->myNum, "r200", NULL, NULL, 0, NULL, 0);
    rmesa->radeon.initialMaxAnisotropy = driQueryOptionf(&rmesa->radeon.optionCache,
 							"def_max_anisotropy");
 
    if (driQueryOptionb( &rmesa->radeon.optionCache, "hyperz"))
       rmesa->using_hyperz = GL_TRUE;
- 
+
    /* Init default driver functions then plug in our R200-specific functions
     * (the texture functions are especially important)
     */
@@ -253,7 +253,7 @@ GLboolean r200CreateContext( gl_api api,
    /* Initialize the software rasterizer and helper modules.
     */
    _swrast_CreateContext( ctx );
-   _vbo_CreateContext( ctx );
+   _vbo_CreateContext( ctx, false );
    _tnl_CreateContext( ctx );
    _swsetup_CreateContext( ctx );
 
@@ -266,9 +266,9 @@ GLboolean r200CreateContext( gl_api api,
 
    ctx->Const.StripTextureBorder = GL_TRUE;
 
-   /* FIXME: When no memory manager is available we should set this 
+   /* FIXME: When no memory manager is available we should set this
     * to some reasonable value based on texture memory pool size */
-   ctx->Const.MaxTextureLevels = 12;
+   ctx->Const.MaxTextureSize = 2048;
    ctx->Const.Max3DTextureLevels = 9;
    ctx->Const.MaxCubeTextureLevels = 12;
    ctx->Const.MaxTextureRectSize = 2048;
@@ -351,7 +351,6 @@ GLboolean r200CreateContext( gl_api api,
    ctx->Extensions.EXT_texture_env_dot3 = true;
    ctx->Extensions.EXT_texture_filter_anisotropic = true;
    ctx->Extensions.EXT_texture_mirror_clamp = true;
-   ctx->Extensions.MESA_pack_invert = true;
    ctx->Extensions.NV_fog_distance = true;
    ctx->Extensions.NV_texture_rectangle = true;
    ctx->Extensions.OES_EGL_image = true;
@@ -378,7 +377,7 @@ GLboolean r200CreateContext( gl_api api,
    r200InitState( rmesa );
    r200InitSwtcl( ctx );
 
-   rmesa->prefer_gart_client_texturing = 
+   rmesa->prefer_gart_client_texturing =
       (getenv("R200_GART_CLIENT_TEXTURES") != 0);
 
    tcl_mode = driQueryOptioni(&rmesa->radeon.optionCache, "tcl_mode");

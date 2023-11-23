@@ -81,7 +81,7 @@ public class AndroidTransliteratorAvailableIdsTest {
 
         expectedIds.removeAll(excludedIds);
 
-        // Sanity check. The list size shouldn't be 0.
+        // Confidence check. The list size shouldn't be 0.
         assertNotEquals("At least one transliteration id is expected",
                 0, expectedIds.size());
 

@@ -418,6 +418,7 @@ static const char *
 util_query_type_short_names[] = {
    "occlusion_counter",
    "occlusion_predicate",
+   "occlusion_predicate_conservative",
    "timestamp",
    "timestamp_disjoint",
    "time_elapsed",
@@ -425,6 +426,7 @@ util_query_type_short_names[] = {
    "primitives_emitted",
    "so_statistics",
    "so_overflow_predicate",
+   "so_overflow_any_predicate",
    "gpu_finished",
    "pipeline_statistics",
 };
@@ -510,16 +512,16 @@ util_dump_query_value_type(FILE *stream, unsigned value)
 
 static const char * const
 util_transfer_usage_names[] = {
-      "PIPE_TRANSFER_READ",
-      "PIPE_TRANSFER_WRITE",
-      "PIPE_TRANSFER_MAP_DIRECTLY",
-      "PIPE_TRANSFER_DISCARD_RANGE",
-      "PIPE_TRANSFER_DONTBLOCK",
-      "PIPE_TRANSFER_UNSYNCHRONIZED",
-      "PIPE_TRANSFER_FLUSH_EXPLICIT",
-      "PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE",
-      "PIPE_TRANSFER_PERSISTENT",
-      "PIPE_TRANSFER_COHERENT",
+      "PIPE_MAP_READ",
+      "PIPE_MAP_WRITE",
+      "PIPE_MAP_DIRECTLY",
+      "PIPE_MAP_DISCARD_RANGE",
+      "PIPE_MAP_DONTBLOCK",
+      "PIPE_MAP_UNSYNCHRONIZED",
+      "PIPE_MAP_FLUSH_EXPLICIT",
+      "PIPE_MAP_DISCARD_WHOLE_RESOURCE",
+      "PIPE_MAP_PERSISTENT",
+      "PIPE_MAP_COHERENT",
 };
 
 DEFINE_UTIL_DUMP_FLAGS_CONTINUOUS(transfer_usage)

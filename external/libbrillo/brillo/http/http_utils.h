@@ -5,6 +5,7 @@
 #ifndef LIBBRILLO_BRILLO_HTTP_HTTP_UTILS_H_
 #define LIBBRILLO_BRILLO_HTTP_HTTP_UTILS_H_
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>

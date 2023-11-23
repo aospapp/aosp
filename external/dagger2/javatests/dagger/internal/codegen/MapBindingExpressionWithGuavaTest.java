@@ -20,8 +20,7 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
 import static dagger.internal.codegen.CompilerMode.DEFAULT_MODE;
 import static dagger.internal.codegen.CompilerMode.FAST_INIT_MODE;
 import static dagger.internal.codegen.Compilers.compilerWithOptions;
-import static dagger.internal.codegen.Compilers.daggerCompiler;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_CODE_ANNOTATIONS;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
@@ -128,7 +127,7 @@ public class MapBindingExpressionWithGuavaTest {
             .addLines(
                 "package test;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestComponent implements TestComponent {")
             .addLinesIn(
                 FAST_INIT_MODE,
@@ -137,7 +136,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "  private volatile Provider<Long> provideLong1Provider;",
                 "  private volatile Provider<Long> provideLong2Provider;",
                 "",
-                "  private Provider<Integer> getProvideIntProvider() {",
+                "  private Provider<Integer> provideIntProvider() {",
                 "    Object local = provideIntProvider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(0);",
@@ -146,7 +145,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "    return (Provider<Integer>) local;",
                 "  }",
                 "",
-                "  private Provider<Long> getProvideLong0Provider() {",
+                "  private Provider<Long> provideLong0Provider() {",
                 "    Object local = provideLong0Provider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(1);",
@@ -155,7 +154,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "    return (Provider<Long>) local;",
                 "  }",
                 "",
-                "  private Provider<Long> getProvideLong1Provider() {",
+                "  private Provider<Long> provideLong1Provider() {",
                 "    Object local = provideLong1Provider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(2);",
@@ -164,7 +163,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "    return (Provider<Long>) local;",
                 "  }",
                 "",
-                "  private Provider<Long> getProvideLong2Provider() {",
+                "  private Provider<Long> provideLong2Provider() {",
                 "    Object local = provideLong2Provider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(3);",
@@ -196,7 +195,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "        0, MapModule_ProvideIntFactory.create());")
             .addLinesIn(
                 FAST_INIT_MODE, //
-                "        0, getProvideIntProvider());")
+                "        0, provideIntProvider());")
             .addLines(
                 "  }",
                 "",
@@ -218,9 +217,9 @@ public class MapBindingExpressionWithGuavaTest {
                 "      2L, MapModule_ProvideLong2Factory.create());")
             .addLinesIn(
                 FAST_INIT_MODE,
-                "      0L, getProvideLong0Provider(),",
-                "      1L, getProvideLong1Provider(),",
-                "      2L, getProvideLong2Provider());")
+                "      0L, provideLong0Provider(),",
+                "      1L, provideLong1Provider(),",
+                "      2L, provideLong2Provider());")
             .addLines(
                 "  }",
                 "",
@@ -237,7 +236,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "    private volatile Provider<Long> provideLong5Provider;",
                 "    private SubImpl() {}",
                 "",
-                "    private Provider<Long> getProvideLong3Provider() {",
+                "    private Provider<Long> provideLong3Provider() {",
                 "      Object local = provideLong3Provider;",
                 "      if (local == null) {",
                 "        local = new SwitchingProvider<>(0);",
@@ -246,7 +245,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "      return (Provider<Long>) local;",
                 "    }",
                 "",
-                "    private Provider<Long> getProvideLong4Provider() {",
+                "    private Provider<Long> provideLong4Provider() {",
                 "      Object local = provideLong4Provider;",
                 "      if (local == null) {",
                 "        local = new SwitchingProvider<>(1);",
@@ -255,7 +254,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "      return (Provider<Long>) local;",
                 "    }",
                 "",
-                "    private Provider<Long> getProvideLong5Provider() {",
+                "    private Provider<Long> provideLong5Provider() {",
                 "      Object local = provideLong5Provider;",
                 "      if (local == null) {",
                 "        local = new SwitchingProvider<>(2);",
@@ -289,12 +288,12 @@ public class MapBindingExpressionWithGuavaTest {
                 "          .put(5L, SubcomponentMapModule_ProvideLong5Factory.create())")
             .addLinesIn(
                 FAST_INIT_MODE,
-                "          .put(0L, DaggerTestComponent.this.getProvideLong0Provider())",
-                "          .put(1L, DaggerTestComponent.this.getProvideLong1Provider())",
-                "          .put(2L, DaggerTestComponent.this.getProvideLong2Provider())",
-                "          .put(3L, getProvideLong3Provider())",
-                "          .put(4L, getProvideLong4Provider())",
-                "          .put(5L, getProvideLong5Provider())")
+                "          .put(0L, DaggerTestComponent.this.provideLong0Provider())",
+                "          .put(1L, DaggerTestComponent.this.provideLong1Provider())",
+                "          .put(2L, DaggerTestComponent.this.provideLong2Provider())",
+                "          .put(3L, provideLong3Provider())",
+                "          .put(4L, provideLong4Provider())",
+                "          .put(5L, provideLong5Provider())")
             .addLines( //
                 "          .build();", "    }")
             .addLinesIn(
@@ -341,8 +340,7 @@ public class MapBindingExpressionWithGuavaTest {
                 "}")
             .build();
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(mapModuleFile, componentFile, subcomponentModuleFile, subcomponent);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -403,7 +401,7 @@ public class MapBindingExpressionWithGuavaTest {
             "import other.UsesInaccessible;",
             "import other.UsesInaccessible_Factory;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent {",
             "  @Override",
             "  public UsesInaccessible usesInaccessible() {",
@@ -411,8 +409,7 @@ public class MapBindingExpressionWithGuavaTest {
             "  }",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(module, inaccessible, usesInaccessible, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -466,7 +463,7 @@ public class MapBindingExpressionWithGuavaTest {
             "test.DaggerParent",
             "package test;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerParent implements Parent {",
             "  private final ParentModule parentModule;",
             "",
@@ -482,7 +479,7 @@ public class MapBindingExpressionWithGuavaTest {
             "}");
 
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(parent, parentModule, child);
+        compilerWithOptions(compilerMode.javacopts()).compile(parent, parentModule, child);
     assertThat(compilation).succeeded();
     assertThat(compilation)
         .generatedSourceFile("test.DaggerParent")
@@ -522,7 +519,7 @@ public class MapBindingExpressionWithGuavaTest {
             "",
             "import dagger.producers.internal.CancellationListener;",
             "",
-            GENERATED_ANNOTATION,
+            GENERATED_CODE_ANNOTATIONS,
             "final class DaggerTestComponent implements TestComponent, "
                 + "CancellationListener {",
             "  @Override",

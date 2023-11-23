@@ -18,7 +18,12 @@ DOC = """
 Test device buffer can stay at reasonable level under repeated switching.
 """
 
+from autotest_lib.client.bin import utils
+from autotest_lib.client.cros.audio import audio_spec
+internal_mic_node = audio_spec.get_internal_mic_node(
+    utils.get_board_type(), utils.get_board(), utils.get_platform(), utils.get_sku())
+
 job.run_test('audio_CrasDevSwitchStress',
              type_a='MIC',
-             type_b='INTERNAL_MIC',
-             pinned_type='INTERNAL_MIC')
+             type_b=internal_mic_node,
+             pinned_type=internal_mic_node)

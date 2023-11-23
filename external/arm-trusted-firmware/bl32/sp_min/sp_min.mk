@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -19,6 +19,10 @@ BL32_SOURCES		+=	bl32/sp_min/sp_min_main.c		\
 				services/std_svc/std_svc_setup.c	\
 				${PSCI_LIB_SOURCES}
 
+ifeq (${DISABLE_MTPMU},1)
+BL32_SOURCES		+=	lib/extensions/mtpmu/aarch32/mtpmu.S
+endif
+
 ifeq (${ENABLE_PMF}, 1)
 BL32_SOURCES		+=	lib/pmf/pmf_main.c
 endif
@@ -31,6 +35,11 @@ endif
 ifeq (${WORKAROUND_CVE_2017_5715},1)
 BL32_SOURCES		+=	bl32/sp_min/wa_cve_2017_5715_bpiall.S	\
 				bl32/sp_min/wa_cve_2017_5715_icache_inv.S
+endif
+
+ifeq (${TRNG_SUPPORT},1)
+BL32_SOURCES		+=	services/std_svc/trng/trng_main.c	\
+				services/std_svc/trng/trng_entropy_pool.c
 endif
 
 BL32_LINKERFILE	:=	bl32/sp_min/sp_min.ld.S

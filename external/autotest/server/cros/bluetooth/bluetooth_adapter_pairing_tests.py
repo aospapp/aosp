@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,10 +8,16 @@ Server side bluetooth tests on adapter pairing and connecting to a bluetooth
 HID device.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import time
 
+import common
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
+from six.moves import range
 
 
 class BluetoothAdapterPairingTests(
@@ -45,10 +52,6 @@ class BluetoothAdapterPairingTests(
         time.sleep(self.PAIR_TEST_SLEEP_SECS)
         self.test_discover_device(device.address)
 
-        # Test if the discovery could be stopped.
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
-        self.test_stop_discovery()
-
         # Test if the discovered device class of service is correct.
         self.test_device_class_of_service(device.address,
                                           device.class_of_service)
@@ -59,20 +62,18 @@ class BluetoothAdapterPairingTests(
 
         # Verify that the adapter could pair with the device.
         # Also set the device trusted when pairing is done.
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
+        # Device will be connected at the end of pairing.
         self.test_pairing(device.address, device.pin, trusted=True)
-
-        # Verify that the adapter could connect to the device.
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
-        self.test_connection_by_adapter(device.address)
 
         # Test if the discovered device name is correct.
         # Sometimes, it takes quite a long time after discovering
         # the device (more than 60 seconds) to resolve the device name.
         # Hence, it is safer to test the device name after pairing and
         # connection is done.
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
         self.test_device_name(device.address, device.name)
+
+        # Run hid test to make sure profile is connected
+        check_connected_method(device)
 
         # Test if the device is still connected after suspend/resume.
         if suspend_resume:
@@ -120,6 +121,11 @@ class BluetoothAdapterPairingTests(
         if device.can_init_connection:
             # Verify that the device could initiate the connection.
             self.test_connection_by_device(device)
+
+            # With raspberry pi peer, it takes a moment before the device is
+            # registered as an input device. Without delay, the input recorder
+            # doesn't find the device
+            time.sleep(1)
             check_connected_method(device)
         else:
             # Reconnect so that we can test disconnection from the kit
@@ -160,15 +166,18 @@ class BluetoothAdapterPairingTests(
         # self.bluetooth_facade.is_discovering() doesn't work as expected:
         # crbug:905374
         # self.test_stop_discovery()
-        self.bluetooth_facade.stop_discovery()
         time.sleep(self.PAIR_TEST_SLEEP_SECS)
         self.test_pairing(device.address, device.pin, trusted=True)
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
+
+        # Verify device is now connected
+        self.test_device_is_connected(device.address)
+        self.test_hid_device_created(device.address)
+
         # Disconnect the device
         self.test_disconnection_by_adapter(device.address)
         total_duration_by_adapter = 0
         loop_cnt = 0
-        for i in xrange(0, loops):
+        for i in range(0, loops):
 
             # Verify device didn't connect automatically
             time.sleep(2)
@@ -181,6 +190,8 @@ class BluetoothAdapterPairingTests(
 
             # Verify device is now connected
             self.test_device_is_connected(device.address)
+            self.test_hid_device_created(device.address)
+
             self.test_disconnection_by_adapter(device.address)
 
             if not bool(self.fails):
@@ -189,37 +200,46 @@ class BluetoothAdapterPairingTests(
                 logging.info('%d: Connection establishment duration %f sec',
                              i, time_diff)
             else:
-               break
+                break
 
         if not bool(self.fails):
             logging.info('Average duration (by adapter) %f sec',
                          total_duration_by_adapter/loop_cnt)
 
 
-    def auto_reconnect_loop(self, device, loops,
-                            check_connected_method=lambda device: True):
+    def auto_reconnect_loop(self,
+                            device,
+                            loops,
+                            check_connected_method=lambda device: True,
+                            restart_adapter=False):
         """Running a loop to verify the paired peer can auto reconnect"""
 
         # Let the adapter pair, and connect to the target device first
         self.test_discover_device(device.address)
-        # self.bluetooth_facade.is_discovering() doesn't work as expected:
-        # crbug:905374
-        # self.test_stop_discovery()
-        self.bluetooth_facade.stop_discovery()
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
         self.test_pairing(device.address, device.pin, trusted=True)
-        time.sleep(self.PAIR_TEST_SLEEP_SECS)
+
+        # Verify device is now connected
         self.test_connection_by_adapter(device.address)
+        self.test_hid_device_created(device.address)
 
         total_reconnection_duration = 0
         loop_cnt = 0
-        for i in xrange(loops):
-            # Restart and clear peer HID device
-            self.restart_peers()
-            start_time = time.time()
+        for i in range(loops):
+            # Restart either the adapter or the peer
+            if restart_adapter:
+                self.test_power_off_adapter()
+                self.test_power_on_adapter()
+                start_time = time.time()
+            else:
+                # Restart and clear peer HID device
+                self.restart_peers()
+                start_time = time.time()
 
-            # Verify that the device is reconnecting
+            # Verify that the device is reconnected. Wait for the input device
+            # to become available before checking the profile connection.
             self.test_device_is_connected(device.address)
+            self.test_hid_device_created(device.address)
+
             check_connected_method(device)
             end_time = time.time()
             time_diff = end_time - start_time
@@ -229,7 +249,7 @@ class BluetoothAdapterPairingTests(
                 loop_cnt += 1
                 logging.info('%d: Reconnection duration %f sec', i, time_diff)
             else:
-               break
+                break
 
         if not bool(self.fails):
             logging.info('Average Reconnection duration %f sec',

@@ -1,5 +1,10 @@
+# Lint as: python2, python3
 # Copyright 2007 Google Inc. Released under the GPL v2
 #pylint: disable-msg=C0111
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import glob
 import logging
@@ -22,6 +27,8 @@ from autotest_lib.server import installable_object
 from autotest_lib.server import utils
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros.dynamic_suite.constants import JOB_REPO_URL
+import six
+from six.moves import map
 
 
 try:
@@ -29,6 +36,9 @@ try:
 except ImportError:
     metrics = client_utils.metrics_mock
 
+
+# This is assumed to be the value by tests, do not change it.
+OFFLOAD_ENVVAR = "SYNCHRONOUS_OFFLOAD_DIR"
 
 AUTOTEST_SVN = 'svn://test.kernel.org/autotest/trunk/client'
 AUTOTEST_HTTP = 'http://test.kernel.org/svn/autotest/trunk/client'
@@ -41,6 +51,8 @@ AUTOSERV_PREBUILD = _CONFIG.get_config_value(
 # FAIL test_name  test_name timestamp=1 localtime=Nov 15 12:43:10 <fail_msg>
 _FAIL_STATUS_RE = re.compile(
     r'\s*FAIL.*localtime=.*\s*.*\s*[0-9]+:[0-9]+:[0-9]+\s*(?P<fail_msg>.*)')
+
+LOG_BUFFER_SIZE_BYTES = 64
 
 
 class AutodirNotFoundError(Exception):
@@ -355,7 +367,7 @@ class Autotest(installable_object.InstallableObject):
                              "packaging system.")
                 return
             except (error.PackageInstallError, error.AutoservRunError,
-                    global_config.ConfigError), e:
+                    global_config.ConfigError) as e:
                 logging.info("Could not install autotest using the packaging "
                              "system: %s. Trying other methods", e)
         else:
@@ -386,7 +398,7 @@ class Autotest(installable_object.InstallableObject):
                         host.hostname)
             try:
                 host.run('svn checkout %s %s' % (AUTOTEST_SVN, autodir))
-            except error.AutoservRunError, e:
+            except error.AutoservRunError as e:
                 host.run('svn checkout %s %s' % (AUTOTEST_HTTP, autodir))
             logging.info("Installation of autotest completed using SVN.")
             self.installed = True
@@ -399,11 +411,15 @@ class Autotest(installable_object.InstallableObject):
         if self.installed and self.source_material:
             self._send_shadow_config()
 
+        # sync the disk, to avoid getting 0-byte files if a test resets the DUT
+        host.run(os.path.join(autodir, 'bin', 'fs_sync.py'),
+                 ignore_status=True)
+
     def _send_shadow_config(self):
         logging.info('Installing updated global_config.ini.')
         destination = os.path.join(self.host.get_autodir(),
                                    'global_config.ini')
-        with tempfile.NamedTemporaryFile() as client_config:
+        with tempfile.NamedTemporaryFile(mode='w') as client_config:
             config = global_config.global_config
             client_section = config.get_section_values('CLIENT')
             client_section.write(client_config)
@@ -530,18 +546,18 @@ class Autotest(installable_object.InstallableObject):
             else:
                 logging.debug('use_packaging is set to False, do not add any '
                               'repository.')
-        except global_config.ConfigError, e:
+        except global_config.ConfigError as e:
             # If repos is defined packaging is enabled so log the error
             if repos:
                 logging.error(e)
 
         # on full-size installs, turn on any profilers the server is using
         if not atrun.background:
-            running_profilers = host.job.profilers.add_log.iteritems()
+            running_profilers = six.iteritems(host.job.profilers.add_log)
             for profiler, (args, dargs) in running_profilers:
                 call_args = [repr(profiler)]
                 call_args += [repr(arg) for arg in args]
-                call_args += ["%s=%r" % item for item in dargs.iteritems()]
+                call_args += ["%s=%r" % item for item in six.iteritems(dargs)]
                 prologue_lines.append("job.profilers.add(%s)\n"
                                       % ", ".join(call_args))
         cfile = "".join(prologue_lines)
@@ -621,7 +637,7 @@ class Autotest(installable_object.InstallableObject):
             self.install(host)
 
         opts = ["%s=%s" % (o[0], repr(o[1])) for o in dargs.items()]
-        cmd = ", ".join([repr(test_name)] + map(repr, args) + opts)
+        cmd = ", ".join([repr(test_name)] + list(map(repr, args)) + opts)
         control = "job.run_test(%s)\n" % cmd
         self.run(control, results_dir, host, timeout=timeout,
                  parallel_flag=parallel_flag, background=background,
@@ -676,7 +692,6 @@ class _Run(object):
     def __init__(self, host, results_dir, tag, parallel_flag, background):
         self.host = host
         self.results_dir = results_dir
-        self.env = host.env
         self.tag = tag
         self.parallel_flag = parallel_flag
         self.background = background
@@ -691,17 +706,16 @@ class _Run(object):
 
     def verify_machine(self):
         binary = os.path.join(self.autodir, 'bin/autotest')
-        try:
-            self.host.run('ls %s > /dev/null 2>&1' % binary)
-        except:
-            raise error.AutoservInstallError(
-                "Autotest does not appear to be installed")
-
+        at_check = "test -e {} && echo True || echo False".format(binary)
         if not self.parallel_flag:
             tmpdir = os.path.join(self.autodir, 'tmp')
             download = os.path.join(self.autodir, 'tests/download')
-            self.host.run('umount %s' % tmpdir, ignore_status=True)
-            self.host.run('umount %s' % download, ignore_status=True)
+            at_check += "; umount {}; umount {}".format(tmpdir, download)
+        # Check if the test dir is missing.
+        if "False" in str(self.host.run(at_check, ignore_status=True).stdout):
+            raise error.AutoservInstallError(
+                "Autotest does not appear to be installed")
+
 
 
     def get_base_cmd_args(self, section):
@@ -975,7 +989,7 @@ class _Run(object):
         client_log_prefix = self.get_client_log()
         client_log_path = os.path.join(self.results_dir, 'debug',
                                        client_log_prefix + '.log')
-        client_log = open(client_log_path, 'w', 0)
+        client_log = open(client_log_path, 'w', LOG_BUFFER_SIZE_BYTES)
         self.copy_client_config_file(client_log_prefix)
 
         stdout_read = stderr_read = 0
@@ -991,7 +1005,7 @@ class _Run(object):
                                            timeout=timeout,
                                            stdout_tee=client_log,
                                            stderr_tee=stderr_redirector)
-                except error.AutoservRunError, e:
+                except error.AutoservRunError as e:
                     result = e.result_obj
                     result.exit_status = None
                     disconnect_warnings.append(e.description)
@@ -1022,7 +1036,7 @@ class _Run(object):
 
 
     def execute_section(self, section, timeout, stderr_redirector,
-                        client_disconnect_timeout):
+                        client_disconnect_timeout, boot_id=None):
         # TODO(crbug.com/684311) The claim is that section is never more than 0
         # in pratice. After validating for a week or so, delete all support of
         # multiple sections.
@@ -1051,7 +1065,7 @@ class _Run(object):
 
         # log something if the client failed AND never finished logging
         if err and not self.is_client_job_finished(last_line):
-            self.log_unexpected_abort(stderr_redirector)
+            self.log_unexpected_abort(stderr_redirector, old_boot_id=boot_id)
 
         if err:
             raise err
@@ -1109,7 +1123,8 @@ class _Run(object):
                     section_timeout = None
                 boot_id = self.host.get_boot_id()
                 last = self.execute_section(section, section_timeout,
-                                            logger, client_disconnect_timeout)
+                                            logger, client_disconnect_timeout,
+                                            boot_id=boot_id)
                 if self.background:
                     return
                 section += 1
@@ -1119,7 +1134,7 @@ class _Run(object):
                 elif self.is_client_job_rebooting(last):
                     try:
                         self._wait_for_reboot(boot_id)
-                    except error.AutotestRunError, e:
+                    except error.AutotestRunError as e:
                         self.host.job.record("ABORT", None, "reboot", str(e))
                         self.host.job.record("END ABORT", None, None, str(e))
                         raise
@@ -1264,7 +1279,7 @@ class client_logger(object):
 
     def _process_log_dict(self, log_dict):
         log_list = log_dict.pop("logs", [])
-        for key in sorted(log_dict.iterkeys()):
+        for key in sorted(six.iterkeys(log_dict)):
             log_list += self._process_log_dict(log_dict.pop(key))
         return log_list
 

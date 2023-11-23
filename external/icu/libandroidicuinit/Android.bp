@@ -12,26 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// A library of shared initialization code for use by the direct users of
-// ICU4C only.
+// A library of shared initialization code for use by libicuuc.so only.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_icu_license"],
+}
+
 cc_library_static {
     name: "libandroidicuinit",
-    host_supported: true,
+    host_supported: true, // for ART host testing.
     native_bridge_supported: true,
-    srcs: ["IcuRegistration.cpp"],
-    shared_libs: [
-        "libbase",
-        "libicuuc",
-        "liblog",
-    ],
+    srcs: ["*.cpp"],
+    // Caution: Don't invoke the caller, e.g. openCommonData, from this library because it could
+    //   cause an indefinite loop. This library interacts with libicuuc closely, but this library is
+    //   stored in a separate directory to avoid a larger patch which could incur more works when
+    //   updating from the upstream.
+    header_libs: ["libicuuc_headers"],
     cflags: [
         "-Wall",
         "-Werror",
     ],
     export_include_dirs: ["include"],
-    export_shared_lib_headers: [
-        "libbase",
-    ],
     target: {
         android: {
             cflags: [
@@ -40,16 +45,21 @@ cc_library_static {
                 // for more information.
                 "-DANDROID_LINK_SHARED_ICU4C",
             ],
+            shared_libs: [
+                "libbase",
+                "liblog",
+            ],
+        },
+        native_bridge: {
+            exclude_shared_libs: ["libicuuc"],
+            header_libs: ["libicuuc_headers"],
+            shared_libs: ["libnative_bridge_guest_libicuuc"],
         },
     },
-    visibility: [
-        "//external/icu/libandroidicu",
-        "//external/icu/icu4c/source/test:__subpackages__",
-        "//libcore",
-    ],
-
     apex_available: [
-        "com.android.art.release",
-        "com.android.art.debug",
+        "com.android.i18n",
+    ],
+    visibility: [
+        "//external/icu/icu4c/source/common",
     ],
 }

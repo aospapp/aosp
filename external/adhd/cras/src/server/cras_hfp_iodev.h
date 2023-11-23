@@ -23,4 +23,11 @@ struct cras_iodev *hfp_iodev_create(enum CRAS_STREAM_DIRECTION dir,
 
 void hfp_iodev_destroy(struct cras_iodev *iodev);
 
+/*
+ * Returns if the iodev is running for a HSP connection. Note that
+ * hfp_iodev is implemented for both HFP and HSP connection. And this
+ * function allows caller to test if it falls to the rare case - HSP.
+ */
+int hfp_iodev_is_hsp(struct cras_iodev *iodev);
+
 #endif /* CRAS_HFP_IODEV_H_ */

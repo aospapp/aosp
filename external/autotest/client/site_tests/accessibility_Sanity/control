@@ -10,7 +10,6 @@ This test will fail if features are not set or if Chrome crashes.  It will
 also fail if ChromeVox extension is not enabled/disabled or if ChromeVox
 indicators are not present.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "accessibility"

@@ -249,7 +249,7 @@ class AuthPolicy(object):
                 logging.error(utils.run(cmd).stdout)
                 logging.error(
                         'This can happen if you changed a dependency of '
-                        'authpolicyd. Consider whitelisting this syscall in '
+                        'authpolicyd. Consider allowlisting this syscall in '
                         'the appropriate -seccomp.policy file in authpolicyd.'
                         '\n')
             except error.CmdError as ex:

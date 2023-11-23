@@ -34,7 +34,7 @@ import java.security.Provider;
  */
 @libcore.
 api.IntraCoreApi
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @Internal
 public final class OpenSSLProvider extends Provider {
     private static final long serialVersionUID = 2996752495318905136L;
@@ -43,6 +43,8 @@ public final class OpenSSLProvider extends Provider {
 
     private static final String STANDARD_EC_PRIVATE_KEY_INTERFACE_CLASS_NAME =
             "java.security.interfaces.ECPrivateKey";
+    private static final String STANDARD_XEC_PRIVATE_KEY_INTERFACE_CLASS_NAME =
+            "java.security.interfaces.XECPrivateKey";
     private static final String STANDARD_RSA_PRIVATE_KEY_INTERFACE_CLASS_NAME =
             "java.security.interfaces.RSAPrivateKey";
     private static final String STANDARD_RSA_PUBLIC_KEY_INTERFACE_CLASS_NAME =
@@ -52,7 +54,7 @@ public final class OpenSSLProvider extends Provider {
             .UnsupportedAppUsage
             @libcore.api
             .IntraCoreApi
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public OpenSSLProvider() {
         this(Platform.getDefaultProviderName());
     }
@@ -200,6 +202,9 @@ public final class OpenSSLProvider extends Provider {
         put("Alg.Alias.KeyPairGenerator.1.2.840.10045.2.1", "EC");
         put("Alg.Alias.KeyPairGenerator.1.3.133.16.840.63.0.2", "EC");
 
+        put("KeyPairGenerator.XDH", PREFIX + "OpenSSLXDHKeyPairGenerator");
+        put("Alg.Alias.KeyPairGenerator.1.3.101.110", "XDH");
+
         /* == KeyFactory == */
         put("KeyFactory.RSA", PREFIX + "OpenSSLRSAKeyFactory");
         put("Alg.Alias.KeyFactory.1.2.840.113549.1.1.1", "RSA");
@@ -210,12 +215,16 @@ public final class OpenSSLProvider extends Provider {
         put("Alg.Alias.KeyFactory.1.2.840.10045.2.1", "EC");
         put("Alg.Alias.KeyFactory.1.3.133.16.840.63.0.2", "EC");
 
+        put("KeyFactory.XDH", PREFIX + "OpenSSLXDHKeyFactory");
+        put("Alg.Alias.KeyFactory.1.3.101.110", "XDH");
+
         /* == SecretKeyFactory == */
         put("SecretKeyFactory.DESEDE", PREFIX + "DESEDESecretKeyFactory");
         put("Alg.Alias.SecretKeyFactory.TDEA", "DESEDE");
 
         /* == KeyAgreement == */
         putECDHKeyAgreementImplClass("OpenSSLECDHKeyAgreement");
+        putXDHKeyAgreementImplClass("OpenSSLXDHKeyAgreement");
 
         /* == Signatures == */
         putSignatureImplClass("MD5withRSA", "OpenSSLSignature$MD5RSA");
@@ -498,6 +507,8 @@ public final class OpenSSLProvider extends Provider {
         put("Alg.Alias.Mac.HMAC/SHA512", "HmacSHA512");
         put("Alg.Alias.Mac.PBEWITHHMACSHA512", "HmacSHA512");
 
+        putMacImplClass("AESCMAC", "OpenSSLMac$AesCmac");
+
         /* === Certificate === */
 
         put("CertificateFactory.X509", PREFIX + "OpenSSLX509CertificateFactory");
@@ -594,6 +605,19 @@ public final class OpenSSLProvider extends Provider {
                 PREFIX + className,
                 supportedKeyClasses,
                 supportedKeyFormats);
+    }
+
+    private void putXDHKeyAgreementImplClass(String className) {
+        // Accept only keys for which any of the following is true:
+        // * the key is from this provider (subclass of OpenSSLKeyHolder),
+        // * the key provides its key material in "PKCS#8" encoding via Key.getEncoded.
+        // * the key is a transparent XEC private key (subclass of XECPrivateKey).
+        String supportedKeyClasses = PREFIX + "OpenSSLKeyHolder"
+                + "|" + STANDARD_XEC_PRIVATE_KEY_INTERFACE_CLASS_NAME + "|" + PREFIX
+                + "OpenSSLX25519PrivateKey";
+        String supportedKeyFormats = "PKCS#8";
+        putImplClassWithKeyConstraints(
+                "KeyAgreement.XDH", PREFIX + className, supportedKeyClasses, supportedKeyFormats);
     }
 
     private void putImplClassWithKeyConstraints(String typeAndAlgName,

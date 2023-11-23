@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, re
+import re
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
@@ -37,6 +37,7 @@ def check_tpmc(subcommand, expected):
     return out
 
 def expect_tpmc_error(subcommand, expected_error):
+    """Expect a tpmc error."""
     check_tpmc(subcommand, '.*failed.*%s.*' % expected_error)
 
 class firmware_Cr50VirtualNVRam(test.test):
@@ -49,7 +50,7 @@ class firmware_Cr50VirtualNVRam(test.test):
         global tpm_pw_hex
         cryptohome.take_tpm_ownership(wait_for_ownership=True)
 
-        tpm_owner_password = cryptohome.get_tpm_status()['Password']
+        tpm_owner_password = cryptohome.get_tpm_password()
         if not tpm_owner_password:
             raise error.TestError('TPM owner password is empty after '
                                   'taking ownership.')
@@ -275,6 +276,7 @@ class firmware_Cr50VirtualNVRam(test.test):
                           '0x12f');  # TPM_RC_AUTH_UNAVAILABLE
 
     def initialize(self):
+        """Initialize the test."""
         self.__take_tpm_ownership()
         # Stop services that access to the TPM, to be able to use tpmc.
         # Note: for TPM2 the order of re-starting services (they are started
@@ -306,4 +308,5 @@ class firmware_Cr50VirtualNVRam(test.test):
         self.__read_tests()
 
     def cleanup(self):
+        """Cleanup the test."""
         self._services.restore_services()

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2017 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,7 +12,10 @@ inheritance with, just a collection of static methods.
 
 # pylint: disable=missing-docstring
 
-import StringIO
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 import datetime
 import errno
@@ -20,7 +24,6 @@ import itertools
 import logging
 import os
 import pickle
-import Queue
 import random
 import re
 import resource
@@ -28,22 +31,31 @@ import select
 import shutil
 import signal
 import socket
+import six
+from six.moves import input
+from six.moves import range
+from six.moves import urllib
+from six.moves import zip
+from six.moves import zip_longest
+import six.moves.urllib.parse
 import string
 import struct
 import subprocess
 import textwrap
 import threading
 import time
-import urllib2
-import urlparse
+import six.moves.queue
 import uuid
 import warnings
 
 try:
     import hashlib
-except ImportError:
-    import md5
-    import sha
+except ImportError as e:
+    if six.PY2:
+        import md5
+        import sha
+    else:
+        raise ImportError("Broken hashlib imports %s", e)
 
 import common
 
@@ -93,9 +105,9 @@ STDOUT_PREFIX = '[stdout] '
 STDERR_PREFIX = '[stderr] '
 
 # safe characters for the shell (do not need quoting)
-SHELL_QUOTING_WHITELIST = frozenset(string.ascii_letters +
+_SHELL_QUOTING_ALLOWLIST = frozenset(string.ascii_letters +
                                     string.digits +
-                                    '_-+=')
+                                    '_-+=>|')
 
 def custom_warning_handler(message, category, filename, lineno, file=None,
                            line=None):
@@ -122,7 +134,7 @@ def _join_with_nickname(base_string, nickname):
 
 
 # TODO: Cleanup and possibly eliminate |unjoinable|, which is only used in our
-# master-ssh connection process, while fixing underlying
+# ssh connection process, while fixing underlying
 # semantics problem in BgJob. See crbug.com/279312
 class BgJob(object):
     def __init__(self, command, stdout_tee=None, stderr_tee=None, verbose=True,
@@ -173,7 +185,7 @@ class BgJob(object):
         @param unjoinable: Optional bool, default False.
                            This should be True for BgJobs running in background
                            and will never be joined with join_bg_jobs(), such
-                           as the master-ssh connection. Instead, it is
+                           as the ssh connection. Instead, it is
                            caller's responsibility to terminate the subprocess
                            correctly, e.g. by calling nuke_subprocess().
                            This will lead that, calling join_bg_jobs(),
@@ -202,7 +214,7 @@ class BgJob(object):
 
         # allow for easy stdin input by string, we'll let subprocess create
         # a pipe for stdin input and we'll write to it in the wait loop
-        if isinstance(stdin, basestring):
+        if isinstance(stdin, six.string_types):
             self.string_stdin = stdin
             stdin = subprocess.PIPE
         else:
@@ -226,6 +238,12 @@ class BgJob(object):
             executable = '/bin/bash'
 
         with open('/dev/null', 'w') as devnull:
+            # TODO b/169678884. close_fds was reverted to False, as there is a
+            # large performance hit due to a docker + python2 bug. Eventually
+            # update (everything) to python3. Moving this call to subprocess32
+            # is also an option, but will require new packages to the drone/lxc
+            # containers.
+
             self.sp = subprocess.Popen(
                 command,
                 stdin=stdin,
@@ -233,13 +251,12 @@ class BgJob(object):
                 stderr=devnull if stderr_tee == DEVNULL else subprocess.PIPE,
                 preexec_fn=self._reset_sigpipe,
                 shell=shell, executable=executable,
-                env=env, close_fds=True)
-
+                env=env, close_fds=False)
         self._cleanup_called = False
         self._stdout_file = (
-            None if stdout_tee == DEVNULL else StringIO.StringIO())
+            None if stdout_tee == DEVNULL else six.StringIO())
         self._stderr_file = (
-            None if stderr_tee == DEVNULL else StringIO.StringIO())
+            None if stderr_tee == DEVNULL else six.StringIO())
 
     def process_output(self, stdout=True, final_read=False):
         """Read from process's output stream, and write data to destinations.
@@ -276,15 +293,31 @@ class BgJob(object):
             # read in all the data we can from pipe and then stop
             data = []
             while select.select([pipe], [], [], 0)[0]:
-                data.append(os.read(pipe.fileno(), 1024))
+                data.append(self._read_data(pipe))
                 if len(data[-1]) == 0:
                     break
             data = "".join(data)
         else:
             # perform a single read
-            data = os.read(pipe.fileno(), 1024)
+            data = self._read_data(pipe)
         buf.write(data)
         tee.write(data)
+
+    def _read_data(self, pipe):
+        """Read & return the data from the provided pipe.
+
+        Handles the changes to pipe reading & iostring writing in python 2/3.
+        In python2 the buffer (iostring) can take bytes, where in python3 it
+        must be a string. Formatting bytes to string in python 2 vs 3 seems
+        to be a bit different. In 3, .decode() is needed, however in 2 that
+        results in unicode (not str), breaking downstream users.
+
+        """
+
+        data = os.read(pipe.fileno(), 1024)
+        if isinstance(data, bytes) and six.PY3:
+            return data.decode()
+        return data
 
     def cleanup(self):
         """Clean up after BgJob.
@@ -390,7 +423,7 @@ def get_field(data, param, linestart="", sep=" "):
     if find != None:
         return re.split("%s" % sep, find.group(1))[param]
     else:
-        print "There is no line which starts with %s in data." % linestart
+        print("There is no line which starts with %s in data." % linestart)
         return None
 
 
@@ -448,7 +481,7 @@ def matrix_to_string(matrix, header=None):
             lengths.append(len(column))
     for row in matrix:
         for i, column in enumerate(row):
-            column = unicode(column).encode("utf-8")
+            column = six.ensure_binary(six.text_type(column), "utf-8")
             cl = len(column)
             try:
                 ml = lengths[i]
@@ -551,7 +584,7 @@ def write_keyval(path, dictionary, type_tag=None):
 def is_url(path):
     """Return true if path looks like a URL"""
     # for now, just handle http and ftp
-    url_parts = urlparse.urlparse(path)
+    url_parts = six.moves.urllib.parse.urlparse(path)
     return (url_parts[0] in ('http', 'ftp'))
 
 
@@ -562,7 +595,7 @@ def urlopen(url, data=None, timeout=5):
     old_timeout = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
     try:
-        return urllib2.urlopen(url, data=data)
+        return urllib.request.urlopen(url, data=data)
     finally:
         socket.setdefaulttimeout(old_timeout)
 
@@ -608,7 +641,11 @@ def hash(hashtype, input=None):
             computed_hash = sha.new()
 
     if input:
-        computed_hash.update(input)
+        try:
+            computed_hash.update(input.encode())
+        except UnicodeError:
+            computed_hash.update(input)
+
 
     return computed_hash
 
@@ -640,7 +677,7 @@ def unmap_url(srcdir, src, destdir='.'):
                             (after retrieving it)
     """
     if is_url(src):
-        url_parts = urlparse.urlparse(src)
+        url_parts = six.moves.urllib.parse.urlparse(src)
         filename = os.path.basename(url_parts[2])
         dest = os.path.join(destdir, filename)
         return get_file(src, dest)
@@ -725,7 +762,7 @@ def run(command, timeout=None, ignore_status=False, stdout_tee=None,
     @raise CmdError: the exit code of the command execution was not 0
     @raise CmdTimeoutError: the command timed out and ignore_timeout is False.
     """
-    if isinstance(args, basestring):
+    if isinstance(args, six.string_types):
         raise TypeError('Got a string for the "args" keyword argument, '
                         'need a sequence.')
 
@@ -733,7 +770,7 @@ def run(command, timeout=None, ignore_status=False, stdout_tee=None,
     # (For example, see get_user_hash in client/cros/cryptohome.py.)
     # So, to cover that case, detect if it's a string or not and convert it
     # into one if necessary.
-    if not isinstance(command, basestring):
+    if not isinstance(command, six.string_types):
         command = ' '.join([sh_quote_word(arg) for arg in command])
 
     command = ' '.join([command] + [sh_quote_word(arg) for arg in args])
@@ -778,7 +815,7 @@ def run_parallel(commands, timeout=None, ignore_status=False,
     bg_jobs = []
     if nicknames is None:
         nicknames = []
-    for (command, nickname) in itertools.izip_longest(commands, nicknames):
+    for (command, nickname) in zip_longest(commands, nicknames):
         bg_jobs.append(BgJob(command, stdout_tee, stderr_tee,
                              stderr_level=get_stderr_level(ignore_status),
                              nickname=nickname))
@@ -1098,7 +1135,7 @@ def strip_unicode(input_obj):
         for key in input_obj.keys():
             output[str(key)] = strip_unicode(input_obj[key])
         return output
-    elif type(input_obj) == unicode:
+    elif type(input_obj) == six.text_type:
         return str(input_obj)
     else:
         return input_obj
@@ -1159,7 +1196,7 @@ def get_arch_userspace(run_function=run):
 
     cmd = 'file --brief --dereference /bin/sh'
     filestr = run_function(cmd).stdout.rstrip()
-    for a, regex in archs.iteritems():
+    for a, regex in six.iteritems(archs):
         if re.match(regex, filestr):
             return a
 
@@ -1588,7 +1625,7 @@ def get_relative_path(path, reference):
     ref_list = reference.split(os.path.sep)[1:]
 
     # find the longest leading common path
-    for i in xrange(min(len(path_list), len(ref_list))):
+    for i in range(min(len(path_list), len(ref_list))):
         if path_list[i] != ref_list[i]:
             # decrement i so when exiting this loop either by no match or by
             # end of range we are one step behind
@@ -1626,7 +1663,7 @@ def sh_escape(command):
     return command
 
 
-def sh_quote_word(text, whitelist=SHELL_QUOTING_WHITELIST):
+def sh_quote_word(text, allowlist=_SHELL_QUOTING_ALLOWLIST):
     r"""Quote a string to make it safe as a single word in a shell command.
 
     POSIX shell syntax recognizes no escape characters inside a single-quoted
@@ -1646,12 +1683,12 @@ def sh_quote_word(text, whitelist=SHELL_QUOTING_WHITELIST):
                 sh_quote_word('echo %s' % sh_quote_word('hello world')))
 
     @param text: The string to be quoted into a single word for the shell.
-    @param whitelist: Optional list of characters that do not need quoting.
+    @param allowlist: Optional list of characters that do not need quoting.
                       Defaults to a known good list of characters.
 
     @return A string, possibly quoted, safe as a single word for a shell.
     """
-    if all(c in whitelist for c in text):
+    if all(c in allowlist for c in text):
         return text
     return "'" + text.replace("'", r"'\''") + "'"
 
@@ -1785,7 +1822,7 @@ def ask(question, auto=False):
     if auto:
         logging.info("%s (y/n) y", question)
         return "y"
-    return raw_input("%s INFO | %s (y/n) " %
+    return input("%s INFO | %s (y/n) " %
                      (time.strftime("%H:%M:%S", time.localtime()), question))
 
 
@@ -1937,7 +1974,12 @@ def get_moblab_serial_number():
     return 'NoSerialNumber'
 
 
-def ping(host, deadline=None, tries=None, timeout=60, user=None):
+def ping(host,
+         deadline=None,
+         tries=None,
+         timeout=60,
+         ignore_timeout=False,
+         user=None):
     """Attempt to ping |host|.
 
     Shell out to 'ping' if host is an IPv4 addres or 'ping6' if host is an
@@ -1957,6 +1999,8 @@ def ping(host, deadline=None, tries=None, timeout=60, user=None):
     @param deadline: seconds within which |tries| pings must succeed.
     @param tries: number of pings to send.
     @param timeout: number of seconds after which to kill 'ping' command.
+    @param ignore_timeout: If true, timeouts won't raise CmdTimeoutError.
+    @param user: Run as a specific user
     @return exit code of ping command.
     """
     args = [host]
@@ -1971,9 +2015,23 @@ def ping(host, deadline=None, tries=None, timeout=60, user=None):
         args = [user, '-c', ' '.join([cmd] + args)]
         cmd = 'su'
 
-    result = run(cmd, args=args, verbose=True,
-                 ignore_status=True, timeout=timeout,
+    result = run(cmd,
+                 args=args,
+                 verbose=True,
+                 ignore_status=True,
+                 timeout=timeout,
+                 ignore_timeout=ignore_timeout,
                  stderr_tee=TEE_TO_LOGS)
+
+    # Sometimes the ping process times out even though a deadline is set. If
+    # ignore_timeout is set, it will fall through to here instead of raising.
+    if result is None:
+        logging.debug('Unusual ping result (timeout)')
+        # From man ping: If a packet count and deadline are both specified, and
+        # fewer than count packets are received by the time the deadline has
+        # arrived, it will also exit with code 1. On other error it exits with
+        # code 2.
+        return 1 if deadline and tries else 2
 
     rc = result.exit_status
     lines = result.stdout.splitlines()
@@ -2077,7 +2135,7 @@ def get_chrome_version(job_views):
 
     for view in job_views:
         if (view.get('attributes')
-            and constants.CHROME_VERSION in view['attributes'].keys()):
+            and constants.CHROME_VERSION in list(view['attributes'].keys())):
 
             return view['attributes'].get(constants.CHROME_VERSION)
 
@@ -2222,7 +2280,7 @@ def nuke_pids(pid_list, signal_queue=None):
         signal_queue = [signal.SIGTERM, signal.SIGKILL]
     sig_count = {}
     # Though this is slightly hacky it beats hardcoding names anyday.
-    sig_names = dict((k, v) for v, k in signal.__dict__.iteritems()
+    sig_names = dict((k, v) for v, k in six.iteritems(signal.__dict__)
                      if v.startswith('SIG'))
     for sig in signal_queue:
         logging.debug('Sending signal %s to the following pids:', sig)
@@ -2286,8 +2344,8 @@ def urlopen_socket_timeout(url, data=None, timeout=5):
     old_timeout = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
     try:
-        return urllib2.urlopen(url, data=data)
-    except urllib2.URLError as e:
+        return urllib.request.urlopen(url, data=data)
+    except urllib.error.URLError as e:
         if type(e.reason) is socket.timeout:
             raise error.TimeoutException(str(e))
         raise
@@ -2564,7 +2622,7 @@ def is_in_same_subnet(ip_1, ip_2, mask_bits=24):
     @return: True if the two IP addresses are in the same subnet.
 
     """
-    mask = ((2L<<mask_bits-1) -1)<<(32-mask_bits)
+    mask = ((2<<mask_bits-1) -1)<<(32-mask_bits)
     ip_1_num = struct.unpack('!I', socket.inet_aton(ip_1))[0]
     ip_2_num = struct.unpack('!I', socket.inet_aton(ip_2))[0]
     return ip_1_num & mask == ip_2_num & mask
@@ -2612,7 +2670,7 @@ def get_servers_in_same_subnet(host_ip, mask_bits, servers=None,
     if not servers and not server_ip_map:
         raise ValueError('Either `servers` or `server_ip_map` must be given.')
     if not servers:
-        servers = server_ip_map.keys()
+        servers = list(server_ip_map.keys())
     # Make sure server_ip_map is an empty dict if it's not set.
     if not server_ip_map:
         server_ip_map = {}
@@ -3042,7 +3100,7 @@ def threaded_return(function):
         Creates the queue and starts the thread, then assigns extra attributes
         to the thread to give it result-storing capability.
         """
-        q = Queue.Queue()
+        q = six.moves.queue.Queue()
         t = threading.Thread(target=wrapped_t, args=(q,) + args, kwargs=kwargs)
         t.start()
         t.result_queue = q
@@ -3123,6 +3181,8 @@ def get_mount_info(process='self', mount_point=None):
     """
     with open('/proc/{}/mountinfo'.format(process)) as f:
         for line in f.readlines():
+            # TODO b:169251326 terms below are set outside of this codebase
+            # and should be updated when possible. ("master" -> "main")
             # These lines are formatted according to the proc(5) manpage.
             # Sample line:
             # 36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root \
@@ -3153,3 +3213,118 @@ CHART_ADDRESS_SUFFIX = '-tablet'
 def get_lab_chart_address(hostname):
     """Convert lab DUT hostname to address of camera box chart tablet"""
     return hostname + CHART_ADDRESS_SUFFIX if is_in_container() else None
+
+
+def cherry_pick_args(func, args, dargs):
+    """Sanitize positional and keyword arguments before calling a function.
+
+    Given a callable (func), an argument tuple and a dictionary of keyword
+    arguments, pick only those arguments which the function is prepared to
+    accept and return a new argument tuple and keyword argument dictionary.
+
+    Args:
+      func: A callable that we want to choose arguments for.
+      args: A tuple of positional arguments to consider passing to func.
+      dargs: A dictionary of keyword arguments to consider passing to func.
+    Returns:
+      A tuple of: (args tuple, keyword arguments dictionary)
+    """
+    # Cherry pick args:
+    if hasattr(func, "func_code"):
+        # Moock doesn't have __code__ in either py2 or 3 :(
+        flags = func.func_code.co_flags
+    else:
+        flags = func.__code__.co_flags
+
+    if flags & 0x04:
+        # func accepts *args, so return the entire args.
+        p_args = args
+    else:
+        p_args = ()
+
+    # Cherry pick dargs:
+    if flags & 0x08:
+        # func accepts **dargs, so return the entire dargs.
+        p_dargs = dargs
+    else:
+        # Only return the keyword arguments that func accepts.
+        p_dargs = {}
+        for param in get_nonstar_args(func):
+            if param in dargs:
+                p_dargs[param] = dargs[param]
+
+    return p_args, p_dargs
+
+
+def cherry_pick_call(func, *args, **dargs):
+    """Cherry picks arguments from args/dargs based on what "func" accepts
+    and calls the function with the picked arguments."""
+    p_args, p_dargs = cherry_pick_args(func, args, dargs)
+    return func(*p_args, **p_dargs)
+
+
+def get_nonstar_args(func):
+    """Extract all the (normal) function parameter names.
+
+    Given a function, returns a tuple of parameter names, specifically
+    excluding the * and ** parameters, if the function accepts them.
+
+    @param func: A callable that we want to chose arguments for.
+
+    @return: A tuple of parameters accepted by the function.
+    """
+    return func.__code__.co_varnames[:func.__code__.co_argcount]
+
+def crc8(buf):
+    """Calculate CRC8 for a given int list.
+
+    This is a simple version of CRC8.
+
+    Args:
+      buf: A list of byte integer
+    Returns:
+      A crc value in integer
+    """
+
+    _table_crc8 = [ 0x00, 0x07, 0x0e, 0x09, 0x1c, 0x1b, 0x12, 0x15,
+                    0x38, 0x3f, 0x36, 0x31, 0x24, 0x23, 0x2a, 0x2d,
+                    0x70, 0x77, 0x7e, 0x79, 0x6c, 0x6b, 0x62, 0x65,
+                    0x48, 0x4f, 0x46, 0x41, 0x54, 0x53, 0x5a, 0x5d,
+                    0xe0, 0xe7, 0xee, 0xe9, 0xfc, 0xfb, 0xf2, 0xf5,
+                    0xd8, 0xdf, 0xd6, 0xd1, 0xc4, 0xc3, 0xca, 0xcd,
+                    0x90, 0x97, 0x9e, 0x99, 0x8c, 0x8b, 0x82, 0x85,
+                    0xa8, 0xaf, 0xa6, 0xa1, 0xb4, 0xb3, 0xba, 0xbd,
+                    0xc7, 0xc0, 0xc9, 0xce, 0xdb, 0xdc, 0xd5, 0xd2,
+                    0xff, 0xf8, 0xf1, 0xf6, 0xe3, 0xe4, 0xed, 0xea,
+                    0xb7, 0xb0, 0xb9, 0xbe, 0xab, 0xac, 0xa5, 0xa2,
+                    0x8f, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9d, 0x9a,
+                    0x27, 0x20, 0x29, 0x2e, 0x3b, 0x3c, 0x35, 0x32,
+                    0x1f, 0x18, 0x11, 0x16, 0x03, 0x04, 0x0d, 0x0a,
+                    0x57, 0x50, 0x59, 0x5e, 0x4b, 0x4c, 0x45, 0x42,
+                    0x6f, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7d, 0x7a,
+                    0x89, 0x8e, 0x87, 0x80, 0x95, 0x92, 0x9b, 0x9c,
+                    0xb1, 0xb6, 0xbf, 0xb8, 0xad, 0xaa, 0xa3, 0xa4,
+                    0xf9, 0xfe, 0xf7, 0xf0, 0xe5, 0xe2, 0xeb, 0xec,
+                    0xc1, 0xc6, 0xcf, 0xc8, 0xdd, 0xda, 0xd3, 0xd4,
+                    0x69, 0x6e, 0x67, 0x60, 0x75, 0x72, 0x7b, 0x7c,
+                    0x51, 0x56, 0x5f, 0x58, 0x4d, 0x4a, 0x43, 0x44,
+                    0x19, 0x1e, 0x17, 0x10, 0x05, 0x02, 0x0b, 0x0c,
+                    0x21, 0x26, 0x2f, 0x28, 0x3d, 0x3a, 0x33, 0x34,
+                    0x4e, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5c, 0x5b,
+                    0x76, 0x71, 0x78, 0x7f, 0x6a, 0x6d, 0x64, 0x63,
+                    0x3e, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2c, 0x2b,
+                    0x06, 0x01, 0x08, 0x0f, 0x1a, 0x1d, 0x14, 0x13,
+                    0xae, 0xa9, 0xa0, 0xa7, 0xb2, 0xb5, 0xbc, 0xbb,
+                    0x96, 0x91, 0x98, 0x9f, 0x8a, 0x8d, 0x84, 0x83,
+                    0xde, 0xd9, 0xd0, 0xd7, 0xc2, 0xc5, 0xcc, 0xcb,
+                    0xe6, 0xe1, 0xe8, 0xef, 0xfa, 0xfd, 0xf4, 0xf3,
+                  ]
+    if not isinstance(buf, list):
+        raise error.TestError('buf should be an integer list.')
+    if not all(isinstance(i, int) for i in buf):
+        raise error.TestError('buf should contain integers only.')
+
+    rv = 0
+    for i in buf:
+        rv = _table_crc8[ (rv ^ i) & 0xff ]
+    return rv

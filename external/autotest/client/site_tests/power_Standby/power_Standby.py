@@ -141,10 +141,10 @@ class power_Standby(test.test):
         results['wh_energy_used'] = energy_used
 
         self.write_perf_keyval(results)
-        pdash = power_dashboard.SimplePowerLoggerDashboard(
-                end_ts - start_ts, results['w_energy_rate'],
-                self.tagged_testname, start_ts, self.resultsdir,
-                note=self._pdash_note)
+        logger = power_dashboard.KeyvalLogger(start_ts, end_ts)
+        logger.add_item('system', results['w_energy_rate'], 'watt', 'power')
+        pdash = power_dashboard.get_dashboard_factory().createDashboard(logger,
+                self.tagged_testname, self.resultsdir, note=self._pdash_note)
         pdash.upload()
         self._checkpoint_logger.save_checkpoint_data(self.resultsdir)
 

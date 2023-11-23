@@ -25,8 +25,8 @@ CPPFLAGS += -DALLOW_DEBUG_LOGGING
 endif
 
 ifeq ($(USE_ASAN),yes)
-CPPFLAGS += -fsanitize=address
-LDFLAGS += -fsanitize=address
+CPPFLAGS += -fsanitize=address -fno-omit-frame-pointer
+LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
 USE_EXIT_ON_DIE = yes
 endif
 
@@ -35,6 +35,11 @@ endif
 # inputs.
 ifeq ($(USE_EXIT_ON_DIE),yes)
 CPPFLAGS += -DUSE_EXIT_ON_DIE
+endif
+
+# Setting this flag allows duplicate syscalls definitions for seccomp filters.
+ifeq ($(ALLOW_DUPLICATE_SYSCALLS),yes)
+CPPFLAGS += -DALLOW_DUPLICATE_SYSCALLS
 endif
 
 MJ_COMMON_FLAGS = -Wunused-parameter -Wextra -Wno-missing-field-initializers
@@ -194,7 +199,7 @@ $(eval $(call add_object_rules,libconstants.gen.o,CC,c,CFLAGS))
 ifeq ($(USE_SYSTEM_GTEST),no)
 # Points to the root of Google Test, relative to where this file is.
 # Remember to tweak this if you move this file.
-GTEST_DIR = googletest-release-1.8.0/googletest
+GTEST_DIR = googletest-release-1.10.0/googletest
 
 # Flags passed to the preprocessor.
 # Set Google Test's header directory as a system directory, such that

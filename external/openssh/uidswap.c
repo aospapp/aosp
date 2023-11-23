@@ -1,4 +1,4 @@
-/* $OpenBSD: uidswap.c,v 1.39 2015/06/24 01:49:19 dtucker Exp $ */
+/* $OpenBSD: uidswap.c,v 1.42 2019/06/28 13:35:04 deraadt Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -28,13 +28,18 @@
 #include "uidswap.h"
 #include "xmalloc.h"
 
-#ifdef ANDROID
-#include <private/android_filesystem_config.h>
-#if !defined(GCE_PLATFORM_SDK_VERSION) || (GCE_PLATFORM_SDK_VERSION > 17)
+#if defined(ANDROID)
+#define AID_GRAPHICS		1003
+#define AID_INPUT		1004
+#define AID_LOG			1007
+#define AID_MOUNT		1009
+#define AID_SDCARD_RW		1015
+#define AID_SHELL		2000
+#define AID_NET_BT_ADMIN	3001
+#define AID_NET_BT		3002
+#define AID_INET		3003
+#define AID_NET_BW_STATS	3006
 #include <sys/capability.h>
-#else
-#include <linux/capability.h>
-#endif
 #include <sys/prctl.h>
 #endif
 
@@ -59,6 +64,7 @@ static gid_t	saved_egid = 0;
 /* Saved effective uid. */
 static int	privileged = 0;
 static int	temporarily_use_uid_effective = 0;
+static uid_t	user_groups_uid;
 static gid_t	*saved_egroups = NULL, *user_groups = NULL;
 static int	saved_egroupslen = -1, user_groupslen = -1;
 
@@ -93,83 +99,55 @@ temporarily_use_uid(struct passwd *pw)
 	temporarily_use_uid_effective = 1;
 
 	saved_egroupslen = getgroups(0, NULL);
-	if (saved_egroupslen < 0)
+	if (saved_egroupslen == -1)
 		fatal("getgroups: %.100s", strerror(errno));
 	if (saved_egroupslen > 0) {
 		saved_egroups = xreallocarray(saved_egroups,
 		    saved_egroupslen, sizeof(gid_t));
-		if (getgroups(saved_egroupslen, saved_egroups) < 0)
+		if (getgroups(saved_egroupslen, saved_egroups) == -1)
 			fatal("getgroups: %.100s", strerror(errno));
 	} else { /* saved_egroupslen == 0 */
 		free(saved_egroups);
+		saved_egroups = NULL;
 	}
 
 	/* set and save the user's groups */
-	if (user_groupslen == -1) {
-		if (initgroups(pw->pw_name, pw->pw_gid) < 0)
+	if (user_groupslen == -1 || user_groups_uid != pw->pw_uid) {
+		if (initgroups(pw->pw_name, pw->pw_gid) == -1)
 			fatal("initgroups: %s: %.100s", pw->pw_name,
 			    strerror(errno));
 
 		user_groupslen = getgroups(0, NULL);
-		if (user_groupslen < 0)
+		if (user_groupslen == -1)
 			fatal("getgroups: %.100s", strerror(errno));
 		if (user_groupslen > 0) {
 			user_groups = xreallocarray(user_groups,
 			    user_groupslen, sizeof(gid_t));
-			if (getgroups(user_groupslen, user_groups) < 0)
+			if (getgroups(user_groupslen, user_groups) == -1)
 				fatal("getgroups: %.100s", strerror(errno));
 		} else { /* user_groupslen == 0 */
 			free(user_groups);
+			user_groups = NULL;
 		}
+		user_groups_uid = pw->pw_uid;
 	}
 	/* Set the effective uid to the given (unprivileged) uid. */
-	if (setgroups(user_groupslen, user_groups) < 0)
+	if (setgroups(user_groupslen, user_groups) == -1)
 		fatal("setgroups: %.100s", strerror(errno));
 #ifndef SAVED_IDS_WORK_WITH_SETEUID
 	/* Propagate the privileged gid to all of our gids. */
-	if (setgid(getegid()) < 0)
+	if (setgid(getegid()) == -1)
 		debug("setgid %u: %.100s", (u_int) getegid(), strerror(errno));
 	/* Propagate the privileged uid to all of our uids. */
-	if (setuid(geteuid()) < 0)
+	if (setuid(geteuid()) == -1)
 		debug("setuid %u: %.100s", (u_int) geteuid(), strerror(errno));
 #endif /* SAVED_IDS_WORK_WITH_SETEUID */
-	if (setegid(pw->pw_gid) < 0)
+	if (setegid(pw->pw_gid) == -1)
 		fatal("setegid %u: %.100s", (u_int)pw->pw_gid,
 		    strerror(errno));
 	if (seteuid(pw->pw_uid) == -1)
 		fatal("seteuid %u: %.100s", (u_int)pw->pw_uid,
 		    strerror(errno));
-}
-
-void
-permanently_drop_suid(uid_t uid)
-{
-#ifndef NO_UID_RESTORATION_TEST
-	uid_t old_uid = getuid();
-#endif
-
-	debug("permanently_drop_suid: %u", (u_int)uid);
-	if (setresuid(uid, uid, uid) < 0)
-		fatal("setresuid %u: %.100s", (u_int)uid, strerror(errno));
-
-#ifndef NO_UID_RESTORATION_TEST
-	/*
-	 * Try restoration of UID if changed (test clearing of saved uid).
-	 *
-	 * Note that we don't do this on Cygwin, or on Solaris-based platforms
-	 * where fine-grained privileges are available (the user might be
-	 * deliberately allowed the right to setuid back to root).
-	 */
-	if (old_uid != uid &&
-	    (setuid(old_uid) != -1 || seteuid(old_uid) != -1))
-		fatal("%s: was able to restore old [e]uid", __func__);
-#endif
-
-	/* Verify UID drop was successful */
-	if (getuid() != uid || geteuid() != uid) {
-		fatal("%s: euid incorrect uid:%u euid:%u (should be %u)",
-		    __func__, (u_int)getuid(), (u_int)geteuid(), (u_int)uid);
-	}
 }
 
 /*
@@ -189,9 +167,9 @@ restore_uid(void)
 #ifdef SAVED_IDS_WORK_WITH_SETEUID
 	debug("restore_uid: %u/%u", (u_int)saved_euid, (u_int)saved_egid);
 	/* Set the effective uid back to the saved privileged uid. */
-	if (seteuid(saved_euid) < 0)
+	if (seteuid(saved_euid) == -1)
 		fatal("seteuid %u: %.100s", (u_int)saved_euid, strerror(errno));
-	if (setegid(saved_egid) < 0)
+	if (setegid(saved_egid) == -1)
 		fatal("setegid %u: %.100s", (u_int)saved_egid, strerror(errno));
 #else /* SAVED_IDS_WORK_WITH_SETEUID */
 	/*
@@ -199,11 +177,13 @@ restore_uid(void)
 	 * Propagate the real uid (usually more privileged) to effective uid
 	 * as well.
 	 */
-	setuid(getuid());
-	setgid(getgid());
+	if (setuid(getuid()) == -1)
+		fatal("%s: setuid failed: %s", __func__, strerror(errno));
+	if (setgid(getgid()) == -1)
+		fatal("%s: setgid failed: %s", __func__, strerror(errno));
 #endif /* SAVED_IDS_WORK_WITH_SETEUID */
 
-	if (setgroups(saved_egroupslen, saved_egroups) < 0)
+	if (setgroups(saved_egroupslen, saved_egroups) == -1)
 		fatal("setgroups: %.100s", strerror(errno));
 	temporarily_use_uid_effective = 0;
 }
@@ -251,7 +231,7 @@ permanently_set_uid(struct passwd *pw)
 	}
 #endif
 
-	if (setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) < 0)
+	if (setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) == -1)
 		fatal("setresgid %u: %.100s", (u_int)pw->pw_gid, strerror(errno));
 
 #ifdef __APPLE__
@@ -259,12 +239,12 @@ permanently_set_uid(struct passwd *pw)
 	 * OS X requires initgroups after setgid to opt back into
 	 * memberd support for >16 supplemental groups.
 	 */
-	if (initgroups(pw->pw_name, pw->pw_gid) < 0)
+	if (initgroups(pw->pw_name, pw->pw_gid) == -1)
 		fatal("initgroups %.100s %u: %.100s",
 		    pw->pw_name, (u_int)pw->pw_gid, strerror(errno));
 #endif
 
-	if (setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) < 0)
+	if (setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) == -1)
 		fatal("setresuid %u: %.100s", (u_int)pw->pw_uid, strerror(errno));
 
 #ifndef NO_UID_RESTORATION_TEST
@@ -295,7 +275,7 @@ permanently_set_uid(struct passwd *pw)
 		    (u_int)pw->pw_uid);
 	}
 
-#ifdef ANDROID
+#if defined(ANDROID)
 	if (pw->pw_uid == AID_SHELL) {
 		/* set CAP_SYS_BOOT capability, so "adb reboot" will succeed */
 		header.version = _LINUX_CAPABILITY_VERSION;

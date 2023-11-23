@@ -1,9 +1,11 @@
 /*
  * strcmp for ARMv7
  *
- * Copyright (c) 2012-2019, Arm Limited.
+ * Copyright (c) 2012-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
+
+#if __ARM_ARCH >= 7 && __ARM_ARCH_ISA_ARM >= 1
 
 /* Implementation of strcmp for ARMv7 when DSP instructions are
    available.  Use ldrd to support wider loads, provided the data
@@ -123,7 +125,6 @@
 #endif
 	.endm
 
-	.text
 	.p2align	5
 L(strcmp_start_addr):
 #if STRCMP_NO_PRECHECK == 0
@@ -470,3 +471,5 @@ L(strcmp_tail):
 	bx	lr
 
 END (__strcmp_arm)
+
+#endif /* __ARM_ARCH >= 7 && __ARM_ARCH_ISA_ARM >= 1  */

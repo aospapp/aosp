@@ -8,7 +8,9 @@ Processes & Policies
 
    security
    platform-compatibility-policy
+   coding-style
    coding-guidelines
    contributing
+   code-review-guidelines
    faq
    security-hardening

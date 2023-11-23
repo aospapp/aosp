@@ -5,11 +5,11 @@ third_party {
     type: GIT
     value: "https://github.com/anholt/libepoxy.git"
   }
-  version: "af38a466caf9c2ae49b8acda4ff842ae44d57f78"
+  version: "1.5.4"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2019
-    month: 9
-    day: 11
+    year: 2020
+    month: 4
+    day: 9
   }
 }

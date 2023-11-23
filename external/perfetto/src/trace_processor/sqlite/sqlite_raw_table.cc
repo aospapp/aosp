@@ -24,14 +24,18 @@
 #include "src/trace_processor/importers/ftrace/ftrace_descriptors.h"
 #include "src/trace_processor/sqlite/sqlite_utils.h"
 #include "src/trace_processor/types/gfp_flags.h"
+#include "src/trace_processor/types/softirq_action.h"
 #include "src/trace_processor/types/task_state.h"
 #include "src/trace_processor/types/variadic.h"
 
 #include "protos/perfetto/trace/ftrace/binder.pbzero.h"
 #include "protos/perfetto/trace/ftrace/clk.pbzero.h"
+#include "protos/perfetto/trace/ftrace/dpu.pbzero.h"
 #include "protos/perfetto/trace/ftrace/filemap.pbzero.h"
 #include "protos/perfetto/trace/ftrace/ftrace.pbzero.h"
 #include "protos/perfetto/trace/ftrace/ftrace_event.pbzero.h"
+#include "protos/perfetto/trace/ftrace/g2d.pbzero.h"
+#include "protos/perfetto/trace/ftrace/irq.pbzero.h"
 #include "protos/perfetto/trace/ftrace/power.pbzero.h"
 #include "protos/perfetto/trace/ftrace/sched.pbzero.h"
 #include "protos/perfetto/trace/ftrace/workqueue.pbzero.h"
@@ -61,10 +65,17 @@ class ArgsSerializer {
 
  private:
   using ValueWriter = std::function<void(const Variadic&)>;
+  using SerializerValueWriter = void (ArgsSerializer::*)(const Variadic&);
 
   void WriteArgForField(uint32_t field_id) {
     WriteArgForField(field_id,
                      [this](const Variadic& v) { return WriteValue(v); });
+  }
+
+  void WriteArgForField(uint32_t field_id, SerializerValueWriter writer) {
+    WriteArgForField(field_id, [this, writer](const Variadic& variadic) {
+      (this->*writer)(variadic);
+    });
   }
 
   void WriteArgForField(uint32_t field_id, ValueWriter writer) {
@@ -74,6 +85,12 @@ class ArgsSerializer {
   void WriteValueForField(uint32_t field_id) {
     WriteValueForField(field_id,
                        [this](const Variadic& v) { return WriteValue(v); });
+  }
+
+  void WriteValueForField(uint32_t field_id, SerializerValueWriter writer) {
+    WriteValueForField(field_id, [this, writer](const Variadic& variadic) {
+      (this->*writer)(variadic);
+    });
   }
 
   void WriteValueForField(uint32_t field_id, ValueWriter writer) {
@@ -86,6 +103,16 @@ class ArgsSerializer {
   }
 
   void WriteArgAtRow(uint32_t arg_index, ValueWriter writer);
+
+  void WriteKernelFnValue(const Variadic& value) {
+    if (value.type == Variadic::Type::kUint) {
+      writer_->AppendHexInt(value.uint_value);
+    } else if (value.type == Variadic::Type::kString) {
+      WriteValue(value);
+    } else {
+      PERFETTO_DFATAL("Invalid field type %d", static_cast<int>(value.type));
+    }
+  }
 
   void WriteValue(const Variadic& variadic);
 
@@ -196,10 +223,8 @@ void ArgsSerializer::SerializeArgs() {
     return;
   } else if (event_name_ == "clock_set_rate") {
     using CSR = protos::pbzero::ClockSetRateFtraceEvent;
-
-    // We use the string "todo" as the name to stay consistent with old
-    // trace_to_text print code.
-    writer_->AppendString(" todo");
+    writer_->AppendLiteral(" ");
+    WriteValueForField(CSR::kNameFieldNumber);
     WriteArgForField(CSR::kStateFieldNumber);
     WriteArgForField(CSR::kCpuIdFieldNumber);
     return;
@@ -322,10 +347,8 @@ void ArgsSerializer::SerializeArgs() {
     using SBR = protos::pbzero::SchedBlockedReasonFtraceEvent;
     WriteArgForField(SBR::kPidFieldNumber);
     WriteArgForField(SBR::kIoWaitFieldNumber);
-    WriteArgForField(SBR::kCallerFieldNumber, [this](const Variadic& value) {
-      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
-      writer_->AppendHexInt(value.uint_value);
-    });
+    WriteArgForField(SBR::kCallerFieldNumber,
+                     &ArgsSerializer::WriteKernelFnValue);
     return;
   } else if (event_name_ == "workqueue_activate_work") {
     using WAW = protos::pbzero::WorkqueueActivateWorkFtraceEvent;
@@ -344,10 +367,7 @@ void ArgsSerializer::SerializeArgs() {
     });
     writer_->AppendString(": function ");
     WriteValueForField(WES::kFunctionFieldNumber,
-                       [this](const Variadic& value) {
-                         PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
-                         writer_->AppendHexInt(value.uint_value);
-                       });
+                       &ArgsSerializer::WriteKernelFnValue);
     return;
   } else if (event_name_ == "workqueue_execute_end") {
     using WE = protos::pbzero::WorkqueueExecuteEndFtraceEvent;
@@ -364,10 +384,8 @@ void ArgsSerializer::SerializeArgs() {
       PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
       writer_->AppendHexInt(value.uint_value);
     });
-    WriteArgForField(WQW::kFunctionFieldNumber, [this](const Variadic& value) {
-      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
-      writer_->AppendHexInt(value.uint_value);
-    });
+    WriteArgForField(WQW::kFunctionFieldNumber,
+                     &ArgsSerializer::WriteKernelFnValue);
     WriteArgForField(WQW::kWorkqueueFieldNumber, [this](const Variadic& value) {
       PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
       writer_->AppendHexInt(value.uint_value);
@@ -375,8 +393,67 @@ void ArgsSerializer::SerializeArgs() {
     WriteValueForField(WQW::kReqCpuFieldNumber);
     WriteValueForField(WQW::kCpuFieldNumber);
     return;
+  } else if (event_name_ == "irq_handler_entry") {
+    using IEN = protos::pbzero::IrqHandlerEntryFtraceEvent;
+    WriteArgForField(IEN::kIrqFieldNumber);
+    WriteArgForField(IEN::kNameFieldNumber);
+    return;
+  } else if (event_name_ == "irq_handler_exit") {
+    using IEX = protos::pbzero::IrqHandlerExitFtraceEvent;
+    WriteArgForField(IEX::kIrqFieldNumber);
+    writer_->AppendString(" ret=");
+    WriteValueForField(IEX::kRetFieldNumber, [this](const Variadic& value) {
+      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
+      writer_->AppendString(value.uint_value ? "handled" : "unhandled");
+    });
+    return;
+  } else if (event_name_ == "softirq_entry") {
+    using SIE = protos::pbzero::SoftirqEntryFtraceEvent;
+    WriteArgForField(SIE::kVecFieldNumber);
+    writer_->AppendString(" [action=");
+    WriteValueForField(SIE::kVecFieldNumber, [this](const Variadic& value) {
+      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
+      writer_->AppendString(kActionNames[value.uint_value]);
+    });
+    writer_->AppendString("]");
+    return;
+  } else if (event_name_ == "softirq_exit") {
+    using SIX = protos::pbzero::SoftirqExitFtraceEvent;
+    WriteArgForField(SIX::kVecFieldNumber);
+    writer_->AppendString(" [action=");
+    WriteValueForField(SIX::kVecFieldNumber, [this](const Variadic& value) {
+      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
+      writer_->AppendString(kActionNames[value.uint_value]);
+    });
+    writer_->AppendString("]");
+    return;
+  } else if (event_name_ == "dpu_tracing_mark_write") {
+    using TMW = protos::pbzero::DpuTracingMarkWriteFtraceEvent;
+    WriteValueForField(TMW::kTypeFieldNumber, [this](const Variadic& value) {
+      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
+      writer_->AppendChar(static_cast<char>(value.uint_value));
+    });
+    writer_->AppendString("|");
+    WriteValueForField(TMW::kPidFieldNumber);
+    writer_->AppendString("|");
+    WriteValueForField(TMW::kNameFieldNumber);
+    writer_->AppendString("|");
+    WriteValueForField(TMW::kValueFieldNumber);
+    return;
+  } else if (event_name_ == "g2d_tracing_mark_write") {
+    using TMW = protos::pbzero::G2dTracingMarkWriteFtraceEvent;
+    WriteValueForField(TMW::kTypeFieldNumber, [this](const Variadic& value) {
+      PERFETTO_DCHECK(value.type == Variadic::Type::kUint);
+      writer_->AppendChar(static_cast<char>(value.uint_value));
+    });
+    writer_->AppendString("|");
+    WriteValueForField(TMW::kPidFieldNumber);
+    writer_->AppendString("|");
+    WriteValueForField(TMW::kNameFieldNumber);
+    writer_->AppendString("|");
+    WriteValueForField(TMW::kValueFieldNumber);
+    return;
   }
-
   for (auto it = row_map_.IterateRows(); it; it.Next()) {
     WriteArgAtRow(it.row());
   }
@@ -486,7 +563,8 @@ SystraceSerializer::ScopedCString SystraceSerializer::SerializeToString(
   StringId event_name_id = raw.name()[raw_row];
   NullTermStringView event_name = storage_->GetString(event_name_id);
   writer.AppendChar(' ');
-  if (event_name == "print") {
+  if (event_name == "print" || event_name == "g2d_tracing_mark_write" ||
+      event_name == "dpu_tracing_mark_write") {
     writer.AppendString("tracing_mark_write");
   } else {
     writer.AppendString(event_name.c_str(), event_name.size());
@@ -521,12 +599,8 @@ void SystraceSerializer::SerializePrefix(uint32_t raw_row,
   FtraceTime ftrace_time(ts);
   if (tid == 0) {
     name = "<idle>";
-  } else if (name == "") {
+  } else if (name.empty()) {
     name = "<unknown>";
-  } else if (name == "CrRendererMain") {
-    // TODO(taylori): Remove this when crbug.com/978093 is fixed or
-    // when a better solution is found.
-    name = "CrRendererMainThread";
   }
 
   int64_t padding = 16 - static_cast<int64_t>(name.size());

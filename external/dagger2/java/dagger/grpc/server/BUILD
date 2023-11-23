@@ -1,9 +1,16 @@
 # A framework supporting Dagger-injected gRPC servers.
 
-package(default_visibility = ["//:src"])
+load("@rules_java//java:defs.bzl", "java_library")
+load(
+    "//:build_defs.bzl",
+    "DOCLINT_HTML_AND_SYNTAX",
+    "DOCLINT_REFERENCES",
+    "POM_VERSION",
+)
+load("//tools:maven.bzl", "pom_file")
+load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 
-load("//:build_defs.bzl", "DOCLINT_HTML_AND_SYNTAX", "DOCLINT_REFERENCES")
-load("//tools:maven.bzl", "pom_file", "POM_VERSION")
+package(default_visibility = ["//:src"])
 
 ANNOTATIONS_SRCS = [
     "CallScoped.java",
@@ -34,12 +41,13 @@ java_library(
     exports = [":annotations"],
     deps = [
         "//:dagger_with_compiler",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
         "@google_bazel_common//third_party/java/auto:value",
         "@google_bazel_common//third_party/java/grpc:context",
         "@google_bazel_common//third_party/java/grpc:core",
         "@google_bazel_common//third_party/java/grpc:netty",
         "@google_bazel_common//third_party/java/grpc:protobuf",
-        "@google_bazel_common//third_party/java/guava",
         "@google_bazel_common//third_party/java/jsr330_inject",
         "@google_bazel_common//third_party/java/protobuf",
     ],
@@ -63,8 +71,6 @@ filegroup(
     name = "javadoc-srcs",
     srcs = glob(["*.java"]),
 )
-
-load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 
 javadoc_library(
     name = "javadoc",

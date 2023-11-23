@@ -67,7 +67,7 @@ struct drc_kernel {
 	float kA, kB, kC, kD, kE;
 
 	/* Calculated parameters */
-	float master_linear_gain;
+	float main_linear_gain;
 	float attack_frames;
 	float sat_release_frames_inv_neg;
 	float sat_release_rate_at_neg_two_db;

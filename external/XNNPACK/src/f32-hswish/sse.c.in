@@ -11,14 +11,14 @@ $ABC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #include <emmintrin.h>
 
 #include <xnnpack/common.h>
-#include <xnnpack/vbinary.h>
+#include <xnnpack/hswish.h>
 
 
 void xnn_f32_hswish_ukernel__sse_x${BATCH_TILE}(
     size_t n,
     const float* x,
     float* y,
-    const union xnn_f32_hswish_params params[restrict static 1])
+    const union xnn_f32_hswish_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_DISABLE_TSAN
 {
   assert(n != 0);
   assert(n % sizeof(float) == 0);
@@ -54,7 +54,7 @@ void xnn_f32_hswish_ukernel__sse_x${BATCH_TILE}(
       _mm_storeu_ps(y + ${N}, vacc${ABC[N:N+4]});
     y += ${BATCH_TILE};
   }
-  $if BATCH_TILE >= 4:
+  $if BATCH_TILE > 4:
     for (; n >= 4 * sizeof(float); n -= 4 * sizeof(float)) {
       const __m128 vx0123 = _mm_loadu_ps(x);
       x += 4;

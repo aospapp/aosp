@@ -87,7 +87,8 @@ class BaseFFTOpsTest(test.TestCase):
     if test.is_built_with_rocm():
       self.skipTest("Complex datatype not yet supported in ROCm.")
       return
-    with self.cached_session(use_gpu=True):
+    with self.cached_session():
+
       def f(inx, iny):
         inx.set_shape(x.shape)
         iny.set_shape(y.shape)
@@ -123,12 +124,12 @@ class FFTOpsTest(BaseFFTOpsTest, parameterized.TestCase):
 
   def _tf_fft(self, x, rank, fft_length=None, feed_dict=None):
     # fft_length unused for complex FFTs.
-    with self.cached_session(use_gpu=True) as sess:
+    with self.cached_session() as sess:
       return sess.run(self._tf_fft_for_rank(rank)(x), feed_dict=feed_dict)
 
   def _tf_ifft(self, x, rank, fft_length=None, feed_dict=None):
     # fft_length unused for complex FFTs.
-    with self.cached_session(use_gpu=True) as sess:
+    with self.cached_session() as sess:
       return sess.run(self._tf_ifft_for_rank(rank)(x), feed_dict=feed_dict)
 
   def _np_fft(self, x, rank, fft_length=None):
@@ -299,12 +300,12 @@ class FFTOpsTest(BaseFFTOpsTest, parameterized.TestCase):
 class RFFTOpsTest(BaseFFTOpsTest, parameterized.TestCase):
 
   def _tf_fft(self, x, rank, fft_length=None, feed_dict=None):
-    with self.cached_session(use_gpu=True) as sess:
+    with self.cached_session() as sess:
       return sess.run(
           self._tf_fft_for_rank(rank)(x, fft_length), feed_dict=feed_dict)
 
   def _tf_ifft(self, x, rank, fft_length=None, feed_dict=None):
-    with self.cached_session(use_gpu=True) as sess:
+    with self.cached_session() as sess:
       return sess.run(
           self._tf_ifft_for_rank(rank)(x, fft_length), feed_dict=feed_dict)
 
@@ -661,6 +662,18 @@ class FFTShiftTest(test.TestCase, parameterized.TestCase):
           feed_dict={x: x_np})
     self.assertAllClose(y_fftshift_res, np.fft.fftshift(x_np, axes=axes))
     self.assertAllClose(y_ifftshift_res, np.fft.ifftshift(x_np, axes=axes))
+
+  def test_negative_axes(self):
+    with self.session():
+      freqs = [[0, 1, 2], [3, 4, -4], [-3, -2, -1]]
+      shifted = [[-1, -3, -2], [2, 0, 1], [-4, 3, 4]]
+      self.assertAllEqual(fft_ops.fftshift(freqs, axes=(0, -1)), shifted)
+      self.assertAllEqual(fft_ops.ifftshift(shifted, axes=(0, -1)), freqs)
+      self.assertAllEqual(
+          fft_ops.fftshift(freqs, axes=-1), fft_ops.fftshift(freqs, axes=(1,)))
+      self.assertAllEqual(
+          fft_ops.ifftshift(shifted, axes=-1),
+          fft_ops.ifftshift(shifted, axes=(1,)))
 
 
 if __name__ == "__main__":

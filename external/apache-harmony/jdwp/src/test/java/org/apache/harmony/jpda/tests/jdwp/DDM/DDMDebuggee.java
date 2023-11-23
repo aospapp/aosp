@@ -56,10 +56,10 @@ public class DDMDebuggee extends SyncDebuggee {
         public int disconnectCount = 0;
 
         @Override
-        public void connected() { connectCount++; }
+        public void onConnected() { connectCount++; }
 
         @Override
-        public void disconnected() { disconnectCount++; }
+        public void onDisconnected() { disconnectCount++; }
 
         @Override
         public Chunk handleChunk(Chunk request) {

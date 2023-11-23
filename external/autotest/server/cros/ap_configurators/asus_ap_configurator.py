@@ -4,6 +4,8 @@
 
 """Class to control the AsusAP router."""
 
+from __future__ import print_function
+
 import logging
 from selenium.common.exceptions import TimeoutException
 
@@ -110,7 +112,7 @@ class AsusAPConfigurator(
         menu_id = 'menu_body' #  id of the table with the main content
         try:
             self.wait_for_object_by_id(menu_id)
-        except TimeoutException, e:
+        except TimeoutException as e:
             raise RuntimeError('Unable to find the object by id: %s\n '
                                'WebDriver exception: %s' % (menu_id, str(e)))
         self.navigate_to_page(page_number)

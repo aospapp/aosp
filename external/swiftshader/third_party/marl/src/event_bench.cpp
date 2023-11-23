@@ -14,20 +14,22 @@
 
 #include "marl_bench.h"
 
+#include "marl/containers.h"
 #include "marl/event.h"
 
 #include "benchmark/benchmark.h"
 
-#include <vector>
-
 BENCHMARK_DEFINE_F(Schedule, Event)(benchmark::State& state) {
   run(state, [&](int numTasks) {
     for (auto _ : state) {
-      std::vector<marl::Event> events(numTasks + 1);
+      marl::containers::vector<marl::Event, 1> events;
+      events.resize(numTasks + 1);
       for (auto i = 0; i < numTasks; i++) {
+        marl::Event prev = events[i];
+        marl::Event next = events[i + 1];
         marl::schedule([=] {
-          events[i].wait();
-          events[i + 1].signal();
+          prev.wait();
+          next.signal();
         });
       }
       events.front().signal();
@@ -36,3 +38,37 @@ BENCHMARK_DEFINE_F(Schedule, Event)(benchmark::State& state) {
   });
 }
 BENCHMARK_REGISTER_F(Schedule, Event)->Apply(Schedule::args<512>);
+
+// EventBaton benchmarks alternating execution of two tasks.
+BENCHMARK_DEFINE_F(Schedule, EventBaton)(benchmark::State& state) {
+  run(state, [&](int numPasses) {
+    for (auto _ : state) {
+      marl::Event passToA(marl::Event::Mode::Auto);
+      marl::Event passToB(marl::Event::Mode::Auto);
+      marl::Event done(marl::Event::Mode::Auto);
+
+      marl::schedule(marl::Task(
+          [=] {
+            for (int i = 0; i < numPasses; i++) {
+              passToA.wait();
+              passToB.signal();
+            }
+          },
+          marl::Task::Flags::SameThread));
+
+      marl::schedule(marl::Task(
+          [=] {
+            for (int i = 0; i < numPasses; i++) {
+              passToB.wait();
+              passToA.signal();
+            }
+            done.signal();
+          },
+          marl::Task::Flags::SameThread));
+
+      passToA.signal();
+      done.wait();
+    }
+  });
+}
+BENCHMARK_REGISTER_F(Schedule, EventBaton)->Apply(Schedule::args<262144>);

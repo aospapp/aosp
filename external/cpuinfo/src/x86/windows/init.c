@@ -8,7 +8,14 @@
 #include <cpuinfo/internal-api.h>
 #include <cpuinfo/log.h>
 
-#include <Windows.h>
+#include <windows.h>
+
+#ifdef __GNUC__
+  #define CPUINFO_ALLOCA __builtin_alloca
+#else
+  #define CPUINFO_ALLOCA _alloca
+#endif
+
 
 static inline uint32_t bit_mask(uint32_t bits) {
 	return (UINT32_C(1) << bits) - UINT32_C(1);
@@ -88,6 +95,15 @@ static void cpuinfo_x86_count_caches(
 	*l4_count_ptr  = l4_count;
 }
 
+static bool cpuinfo_x86_windows_is_wine(void) {
+	HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+	if (ntdll == NULL) {
+		return false;
+	}
+
+	return GetProcAddress(ntdll, "wine_get_version") != NULL;
+}
+
 BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PVOID* context) {
 	struct cpuinfo_processor* processors = NULL;
 	struct cpuinfo_core* cores = NULL;
@@ -101,6 +117,7 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX processor_infos = NULL;
 
 	HANDLE heap = GetProcessHeap();
+	const bool is_wine = cpuinfo_x86_windows_is_wine();
 
 	struct cpuinfo_x86_processor x86_processor;
 	ZeroMemory(&x86_processor, sizeof(x86_processor));
@@ -114,11 +131,12 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 		x86_processor.topology.thread_bits_offset + x86_processor.topology.thread_bits_length,
 		x86_processor.topology.core_bits_offset + x86_processor.topology.core_bits_length);
 
-	const uint32_t max_group_count = (uint32_t) GetMaximumProcessorGroupCount();
+	/* WINE doesn't implement GetMaximumProcessorGroupCount and aborts when calling it */
+	const uint32_t max_group_count = is_wine ? 1 : (uint32_t) GetMaximumProcessorGroupCount();
 	cpuinfo_log_debug("detected %"PRIu32" processor groups", max_group_count);
 
 	uint32_t processors_count = 0;
-	uint32_t* processors_per_group = (uint32_t*) _alloca(max_group_count * sizeof(uint32_t));
+	uint32_t* processors_per_group = (uint32_t*) CPUINFO_ALLOCA(max_group_count * sizeof(uint32_t));
 	for (uint32_t i = 0; i < max_group_count; i++) {
 		processors_per_group[i] = GetMaximumProcessorCount((WORD) i);
 		cpuinfo_log_debug("detected %"PRIu32" processors in group %"PRIu32,
@@ -126,7 +144,7 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 		processors_count += processors_per_group[i];
 	}
 
-	uint32_t* processors_before_group = (uint32_t*) _alloca(max_group_count * sizeof(uint32_t));
+	uint32_t* processors_before_group = (uint32_t*) CPUINFO_ALLOCA(max_group_count * sizeof(uint32_t));
 	for (uint32_t i = 0, count = 0; i < max_group_count; i++) {
 		processors_before_group[i] = count;
 		cpuinfo_log_debug("detected %"PRIu32" processors before group %"PRIu32,
@@ -196,7 +214,7 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 		/* Iterate processor groups and set the package part of APIC ID */
 		for (uint32_t i = 0; i < package_info->Processor.GroupCount; i++) {
 			const uint32_t group_id = package_info->Processor.GroupMask[i].Group;
-			/* Global index of the first logical processor belonging to this group */ 
+			/* Global index of the first logical processor belonging to this group */
 			const uint32_t group_processors_start = processors_before_group[group_id];
 			/* Bitmask representing processors in this group belonging to this package */
 			KAFFINITY group_processors_mask = package_info->Processor.GroupMask[i].Mask;
@@ -245,7 +263,7 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 		/* Iterate processor groups and set the core & SMT parts of APIC ID */
 		for (uint32_t i = 0; i < core_info->Processor.GroupCount; i++) {
 			const uint32_t group_id = core_info->Processor.GroupMask[i].Group;
-			/* Global index of the first logical processor belonging to this group */ 
+			/* Global index of the first logical processor belonging to this group */
 			const uint32_t group_processors_start = processors_before_group[group_id];
 			/* Bitmask representing processors in this group belonging to this package */
 			KAFFINITY group_processors_mask = core_info->Processor.GroupMask[i].Mask;
@@ -259,7 +277,7 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 					current_package_apic_id = processors[processor_id].apic_id;
 				}
 				/* Core ID w.r.t package */
-				const uint32_t package_core_id = core_id - package_core_start; 
+				const uint32_t package_core_id = core_id - package_core_start;
 
 				/* Update APIC ID with core and SMT parts */
 				processors[processor_id].apic_id |=
@@ -417,9 +435,6 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 	for (uint32_t i = 0; i < processors_count; i++) {
 		const uint32_t apic_id = processors[i].apic_id;
 
-		//linux_cpu_to_processor_map[x86_linux_processors[i].linux_id] = processors + processor_index;
-		//linux_cpu_to_core_map[x86_linux_processors[i].linux_id] = cores + core_index;
-
 		if (x86_processor.cache.l1i.size != 0) {
 			const uint32_t l1i_id = apic_id & ~bit_mask(x86_processor.cache.l1i.apic_bits);
 			processors[i].cache.l1i = &l1i[l1i_index];
@@ -549,29 +564,33 @@ BOOL CALLBACK cpuinfo_x86_windows_init(PINIT_ONCE init_once, PVOID parameter, PV
 
 
 	/* Commit changes */
+	cpuinfo_processors = processors;
+	cpuinfo_cores = cores;
+	cpuinfo_clusters = clusters;
+	cpuinfo_packages = packages;
 	cpuinfo_cache[cpuinfo_cache_level_1i] = l1i;
 	cpuinfo_cache[cpuinfo_cache_level_1d] = l1d;
 	cpuinfo_cache[cpuinfo_cache_level_2]  = l2;
 	cpuinfo_cache[cpuinfo_cache_level_3]  = l3;
 	cpuinfo_cache[cpuinfo_cache_level_4]  = l4;
 
-	cpuinfo_processors = processors;
-	cpuinfo_cores = cores;
-	cpuinfo_clusters = clusters;
-	cpuinfo_packages = packages;
-
+	cpuinfo_processors_count = processors_count;
+	cpuinfo_cores_count = cores_count;
+	cpuinfo_clusters_count = packages_count;
+	cpuinfo_packages_count = packages_count;
 	cpuinfo_cache_count[cpuinfo_cache_level_1i] = l1i_count;
 	cpuinfo_cache_count[cpuinfo_cache_level_1d] = l1d_count;
 	cpuinfo_cache_count[cpuinfo_cache_level_2]  = l2_count;
 	cpuinfo_cache_count[cpuinfo_cache_level_3]  = l3_count;
 	cpuinfo_cache_count[cpuinfo_cache_level_4]  = l4_count;
-
-	cpuinfo_processors_count = processors_count;
-	cpuinfo_cores_count = cores_count;
-	cpuinfo_clusters_count = packages_count;
-	cpuinfo_packages_count = packages_count;
-
 	cpuinfo_max_cache_size = cpuinfo_compute_max_cache_size(&processors[0]);
+
+	cpuinfo_global_uarch = (struct cpuinfo_uarch_info) {
+		.uarch = x86_processor.uarch,
+		.cpuid = x86_processor.cpuid,
+		.processor_count = processors_count,
+		.core_count = cores_count,
+	};
 
 	MemoryBarrier();
 

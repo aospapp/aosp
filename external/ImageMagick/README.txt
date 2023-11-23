@@ -5,7 +5,7 @@ Introduction to ImageMagick
   200) including PNG, JPEG, GIF, HEIC, TIFF, DPX, EXR, WebP, Postscript,
   PDF, and SVG. Use ImageMagick to resize, flip, mirror, rotate, distort,
   shear and transform images, adjust image colors, apply various special
-  effects, or draw text, lines, polygons, ellipses and Bézier curves.
+  effects, or draw text, lines, polygons, ellipses and Bezier curves.
   
   The functionality of ImageMagick is typically utilized from the command
   line or you can use the features from programs written in your favorite
@@ -17,7 +17,7 @@ Introduction to ImageMagick
   (Tcl/TK). With a language interface, use ImageMagick to modify or create
   images dynamically and automagically.
 
-  ImageMagick utilizes multiple computational threads to increase performance
+  ImageMagick utilize multiple computational threads to increase performance
   and can read, process, or write mega-, giga-, or tera-pixel image sizes.
   
   ImageMagick is free software delivered as a ready-to-run binary distribution
@@ -30,12 +30,12 @@ Introduction to ImageMagick
   that includes memory error and thread data race detection to prevent
   security vulnerabilities.
 
-  The current release is the ImageMagick 7.0.9-* series. It runs on Linux,
+  The current release is the ImageMagick 7.0.11-* series. It runs on Linux,
   Windows, Mac Os X, iOS, Android OS, and others.
 
   The authoritative ImageMagick web site is https://imagemagick.org. The
-  authoritative source code repository is https://github.com/ImageMagick. We
-  maintain a source code mirror at https://gitlab.com/ImageMagick.
+  authoritative source code repository is
+  https://github.com/ImageMagick/ImageMagick.
 
   We continue to maintain the legacy release of ImageMagick, version 6,
   at https://legacy.imagemagick.org.
@@ -78,6 +78,8 @@ Features and Capabilities
       * Color management: accurate color management with color profiles or in
         lieu of-- built-in gamma compression or expansion as demanded by the
         colorspace.
+      * Bilateral blur: non-linear, edge-preserving, and noise-reducing
+        smoothing filter.
       * High dynamic-range images: accurately represent the wide range of
         intensity levels found in real scenes ranging from the brightest direct
         sunlight to the deepest darkest shadows.
@@ -99,7 +101,7 @@ Features and Capabilities
       * ImageMagick on the iPhone: convert, edit, or compose images on your
         iPhone or iPad.
   
-  Examples of ImageMagick Usage * https://imagemagick.org/Usage/
+  Examples of ImageMagick Usage * https://legacy.imagemagick.org/Usage/
   shows how to use ImageMagick from the command-line to accomplish any
   of these tasks and much more. Also, see Fred's ImageMagick Scripts @
   http://www.fmwconcepts.com/imagemagick/: a plethora of command-line scripts
@@ -110,23 +112,20 @@ Features and Capabilities
 
 News
 
+  ImageMagick best practices strongly encourages you to configure a security
+  policy that suits your local environment.
+
   Now that ImageMagick version 7 is released, we continue
   to maintain the legacy release of ImageMagick, version 6, at
   https://legacy.imagemagick.org. Learn how ImageMagick version 7 differs
   from previous versions with our porting guide.
 
-  ImageMagick best practices strongly encourages you to configure a security
-  policy that suits your local environment.
-
-  As an analog to linear (RGB) and non-linear (sRGB) color colorspaces, as
-  of ImageMagick 7.0.7-17, we introduce the LinearGray colorspace. Gray is
-  non-linear grayscale and LinearGray is linear (e.g. -colorspace linear-gray).
-
   Want more performance from ImageMagick? Try these options:
 
-    Add more memory to your system, see the pixel cache; Add more cores to
-    your system, see threads of execution support; push large images to a
-    solid-state drive, see large image support.
+    * add more memory to your system, see the pixel cache;
+    * add more cores to your system, see threads of execution support;
+    * reduce lock contention with the tcmalloc memory allocation library;
+    * push large images to a solid-state drive, see large image support.
 
   If these options are prohibitive, you can reduce the quality of the image
   results. The default build is Q16 HDRI. If you disable HDRI, you use

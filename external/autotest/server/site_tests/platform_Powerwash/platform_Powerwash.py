@@ -2,16 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from autotest_lib.client.common_lib import error
-from autotest_lib.server import test
-
 import logging
 
+from autotest_lib.client.common_lib import error
+from autotest_lib.server.cros.update_engine import update_engine_test
 
 POWERWASH_COUNT = '/mnt/stateful_partition/unencrypted/preserve/powerwash_count'
-
 POWERWASH_MARKER_FILE = '/mnt/stateful_partition/factory_install_reset'
-
 POWERWASH_COMMAND = 'safe fast keepimg'
 
 STATEFUL_MARKER_FILE = '/mnt/stateful_partition/platform_Powerwash_flag'
@@ -21,12 +18,24 @@ CLOBBER_STATE_LOG_FILE = '/mnt/stateful_partition/unencrypted/clobber-state.log'
 CLOBBER_LOG_FILE = '/mnt/stateful_partition/unencrypted/clobber.log'
 
 
-class platform_Powerwash(test.test):
+class platform_Powerwash(update_engine_test.UpdateEngineTest):
     """Powerwash a device."""
     version = 1
 
-    def run_once(self, host):
-        self._host = host
+    def cleanup(self):
+        """Restore stateful so the DUT is usable by other tests."""
+        self._restore_stateful()
+
+    def run_once(self, job_repo_url=None):
+        """
+        Main function for the test.
+
+        @param job_repo_url: String used to allow the test to figure out a
+                             devserver and stateful payload to use.
+
+        """
+        # Setup the job_repo_url for this test run.
+        self._job_repo_url = self._get_job_repo_url(job_repo_url)
 
         count_before = self._powerwash_count()
 

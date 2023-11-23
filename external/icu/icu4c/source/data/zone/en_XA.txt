@@ -1,28 +1,49 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_XA{
-    Version{"36.1"}
     zoneStrings{
         "Africa:Sao_Tome"{
-            ec{"[Šãö Ţöɱé one]"}
+            ec{"[Šãö Ţöɱé one two]"}
         }
         "America:Asuncion"{
-            ec{"[Åšûñçîóñ one]"}
+            ec{"[Åšûñçîóñ one two]"}
         }
         "America:Curacao"{
-            ec{"[Çûŕåçåö one]"}
+            ec{"[Çûŕåçåö one two]"}
         }
         "America:St_Barthelemy"{
             ec{"[Šţ· Ɓåŕţĥéļéɱý one two]"}
         }
+        "America:St_Johns"{
+            ec{"[Šţ· Ĵöĥñ’š one two]"}
+        }
+        "America:St_Kitts"{
+            ec{"[Šţ· Ķîţţš one two]"}
+        }
+        "America:St_Lucia"{
+            ec{"[Šţ· Ļûçîå one two]"}
+        }
+        "America:St_Thomas"{
+            ec{"[Šţ· Ţĥöɱåš one two]"}
+        }
+        "America:St_Vincent"{
+            ec{"[Šţ· Ṽîñçéñţ one two]"}
+        }
         "Antarctica:DumontDUrville"{
-            ec{"[Ðûɱöñţ ð’Ûŕṽîļļé one two]"}
+            ec{"[Ðûɱöñţ ð’Ûŕṽîļļé one two three]"}
+        }
+        "Asia:Aqtau"{
+            ec{"[Åǫţåû one]"}
         }
         "Asia:Qostanay"{
-            ec{"[Ķöšţåñåý one]"}
+            ec{"[Ķöšţåñåý one two]"}
         }
         "Asia:Saigon"{
-            ec{"[Ĥö Çĥî Ṁîñĥ Çîţý one two]"}
+            ec{"[Ĥö Çĥî Ṁîñĥ Çîţý one two three]"}
+        }
+        "Atlantic:St_Helena"{
+            ec{"[Šţ· Ĥéļéñå one two]"}
         }
         "Etc:UTC"{
             ls{"[Çööŕðîñåţéð Ûñîṽéŕšåļ Ţîɱé one two three]"}
@@ -41,10 +62,10 @@ en_XA{
             ld{"[Ɓŕîţîšĥ Šûɱɱéŕ Ţîɱé one two three]"}
         }
         "Europe:Uzhgorod"{
-            ec{"[Ûžĥĥöŕöð one]"}
+            ec{"[Ûžĥĥöŕöð one two]"}
         }
         "Indian:Reunion"{
-            ec{"[Ŕéûñîöñ one]"}
+            ec{"[Ŕéûñîöñ one two]"}
         }
         "Pacific:Honolulu"{
             sd{"[ĤÐŢ one]"}
@@ -52,25 +73,25 @@ en_XA{
             ss{"[ĤŠŢ one]"}
         }
         "meta:Acre"{
-            ld{"[Åçŕé Šûɱɱéŕ Ţîɱé one two]"}
+            ld{"[Åçŕé Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Åçŕé Ţîɱé one two]"}
             ls{"[Åçŕé Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Afghanistan"{
-            ls{"[Åƒĝĥåñîšţåñ Ţîɱé one two]"}
+            ls{"[Åƒĝĥåñîšţåñ Ţîɱé one two three]"}
         }
         "meta:Africa_Central"{
             ls{"[Çéñţŕåļ Åƒŕîçå Ţîɱé one two three]"}
         }
         "meta:Africa_Eastern"{
-            ls{"[Éåšţ Åƒŕîçå Ţîɱé one two]"}
+            ls{"[Éåšţ Åƒŕîçå Ţîɱé one two three]"}
         }
         "meta:Africa_Southern"{
             ls{"[Šöûţĥ Åƒŕîçå Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Africa_Western"{
             ld{"[Ŵéšţ Åƒŕîçå Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ŵéšţ Åƒŕîçå Ţîɱé one two]"}
+            lg{"[Ŵéšţ Åƒŕîçå Ţîɱé one two three]"}
             ls{"[Ŵéšţ Åƒŕîçå Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Alaska"{
@@ -193,7 +214,7 @@ en_XA{
         }
         "meta:Azerbaijan"{
             ld{"[Åžéŕƀåîĵåñ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Åžéŕƀåîĵåñ Ţîɱé one two]"}
+            lg{"[Åžéŕƀåîĵåñ Ţîɱé one two three]"}
             ls{"[Åžéŕƀåîĵåñ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Azores"{
@@ -203,7 +224,7 @@ en_XA{
         }
         "meta:Bangladesh"{
             ld{"[Ɓåñĝļåðéšĥ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ɓåñĝļåðéšĥ Ţîɱé one two]"}
+            lg{"[Ɓåñĝļåðéšĥ Ţîɱé one two three]"}
             ls{"[Ɓåñĝļåðéšĥ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Bhutan"{
@@ -222,7 +243,7 @@ en_XA{
         }
         "meta:Cape_Verde"{
             ld{"[Çåþé Ṽéŕðé Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Çåþé Ṽéŕðé Ţîɱé one two]"}
+            lg{"[Çåþé Ṽéŕðé Ţîɱé one two three]"}
             ls{"[Çåþé Ṽéŕðé Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Casey"{
@@ -248,7 +269,7 @@ en_XA{
         }
         "meta:Choibalsan"{
             ld{"[Çĥöîƀåļšåñ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Çĥöîƀåļšåñ Ţîɱé one two]"}
+            lg{"[Çĥöîƀåļšåñ Ţîɱé one two three]"}
             ls{"[Çĥöîƀåļšåñ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Christmas"{
@@ -279,23 +300,23 @@ en_XA{
             ls{"[Ðûɱöñţ‐ð’Ûŕṽîļļé Ţîɱé one two three]"}
         }
         "meta:East_Timor"{
-            ls{"[Éåšţ Ţîɱöŕ Ţîɱé one two]"}
+            ls{"[Éåšţ Ţîɱöŕ Ţîɱé one two three]"}
         }
         "meta:Easter"{
             ld{"[Éåšţéŕ Îšļåñð Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Éåšţéŕ Îšļåñð Ţîɱé one two three]"}
-            ls{"[Éåšţéŕ Îšļåñð Šţåñðåŕð Ţîɱé one two three]"}
+            ls{"[Éåšţéŕ Îšļåñð Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Ecuador"{
             ls{"[Éçûåðöŕ Ţîɱé one two]"}
         }
         "meta:Europe_Central"{
-            ld{"[Çéñţŕåļ Éûŕöþéåñ Šûɱɱéŕ Ţîɱé one two three]"}
+            ld{"[Çéñţŕåļ Éûŕöþéåñ Šûɱɱéŕ Ţîɱé one two three four]"}
             lg{"[Çéñţŕåļ Éûŕöþéåñ Ţîɱé one two three]"}
             ls{"[Çéñţŕåļ Éûŕöþéåñ Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Europe_Eastern"{
-            ld{"[Éåšţéŕñ Éûŕöþéåñ Šûɱɱéŕ Ţîɱé one two three]"}
+            ld{"[Éåšţéŕñ Éûŕöþéåñ Šûɱɱéŕ Ţîɱé one two three four]"}
             lg{"[Éåšţéŕñ Éûŕöþéåñ Ţîɱé one two three]"}
             ls{"[Éåšţéŕñ Éûŕöþéåñ Šţåñðåŕð Ţîɱé one two three four]"}
         }
@@ -303,17 +324,17 @@ en_XA{
             ls{"[Ƒûŕţĥéŕ‐éåšţéŕñ Éûŕöþéåñ Ţîɱé one two three four]"}
         }
         "meta:Europe_Western"{
-            ld{"[Ŵéšţéŕñ Éûŕöþéåñ Šûɱɱéŕ Ţîɱé one two three]"}
+            ld{"[Ŵéšţéŕñ Éûŕöþéåñ Šûɱɱéŕ Ţîɱé one two three four]"}
             lg{"[Ŵéšţéŕñ Éûŕöþéåñ Ţîɱé one two three]"}
             ls{"[Ŵéšţéŕñ Éûŕöþéåñ Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Falkland"{
-            ld{"[Ƒåļķļåñð Îšļåñðš Šûɱɱéŕ Ţîɱé one two three]"}
+            ld{"[Ƒåļķļåñð Îšļåñðš Šûɱɱéŕ Ţîɱé one two three four]"}
             lg{"[Ƒåļķļåñð Îšļåñðš Ţîɱé one two three]"}
             ls{"[Ƒåļķļåñð Îšļåñðš Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Fiji"{
-            ld{"[Ƒîĵî Šûɱɱéŕ Ţîɱé one two]"}
+            ld{"[Ƒîĵî Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Ƒîĵî Ţîɱé one two]"}
             ls{"[Ƒîĵî Šţåñðåŕð Ţîɱé one two three]"}
         }
@@ -344,12 +365,12 @@ en_XA{
         "meta:Greenland_Eastern"{
             ld{"[Éåšţ Ĝŕééñļåñð Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Éåšţ Ĝŕééñļåñð Ţîɱé one two three]"}
-            ls{"[Éåšţ Ĝŕééñļåñð Šţåñðåŕð Ţîɱé one two three]"}
+            ls{"[Éåšţ Ĝŕééñļåñð Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Greenland_Western"{
             ld{"[Ŵéšţ Ĝŕééñļåñð Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Ŵéšţ Ĝŕééñļåñð Ţîɱé one two three]"}
-            ls{"[Ŵéšţ Ĝŕééñļåñð Šţåñðåŕð Ţîɱé one two three]"}
+            ls{"[Ŵéšţ Ĝŕééñļåñð Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Guam"{
             ls{"[Ĝûåɱ Šţåñðåŕð Ţîɱé one two three]"}
@@ -374,7 +395,7 @@ en_XA{
             ls{"[Ĥöñĝ Ķöñĝ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Hovd"{
-            ld{"[Ĥöṽð Šûɱɱéŕ Ţîɱé one two]"}
+            ld{"[Ĥöṽð Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Ĥöṽð Ţîɱé one two]"}
             ls{"[Ĥöṽð Šţåñðåŕð Ţîɱé one two three]"}
         }
@@ -419,7 +440,7 @@ en_XA{
         "meta:Kamchatka"{
             ld{"[Þéţŕöþåṽļöṽšķ‐Ķåɱçĥåţšķî Šûɱɱéŕ Ţîɱé one two three four]"}
             lg{"[Þéţŕöþåṽļöṽšķ‐Ķåɱçĥåţšķî Ţîɱé one two three four]"}
-            ls{"[Þéţŕöþåṽļöṽšķ‐Ķåɱçĥåţšķî Šţåñðåŕð Ţîɱé one two three four]"}
+            ls{"[Þéţŕöþåṽļöṽšķ‐Ķåɱçĥåţšķî Šţåñðåŕð Ţîɱé one two three four five]"}
         }
         "meta:Kazakhstan_Eastern"{
             ls{"[Éåšţ Ķåžåķĥšţåñ Ţîɱé one two three]"}
@@ -437,11 +458,11 @@ en_XA{
         }
         "meta:Krasnoyarsk"{
             ld{"[Ķŕåšñöýåŕšķ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ķŕåšñöýåŕšķ Ţîɱé one two]"}
+            lg{"[Ķŕåšñöýåŕšķ Ţîɱé one two three]"}
             ls{"[Ķŕåšñöýåŕšķ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Kyrgystan"{
-            ls{"[Ķýŕĝýžšţåñ Ţîɱé one two]"}
+            ls{"[Ķýŕĝýžšţåñ Ţîɱé one two three]"}
         }
         "meta:Lanka"{
             ls{"[Ļåñķå Ţîɱé one two]"}
@@ -499,7 +520,7 @@ en_XA{
         }
         "meta:Mongolia"{
             ld{"[Ûļååñƀååţåŕ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ûļååñƀååţåŕ Ţîɱé one two]"}
+            lg{"[Ûļååñƀååţåŕ Ţîɱé one two three]"}
             ls{"[Ûļååñƀååţåŕ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Moscow"{
@@ -519,11 +540,11 @@ en_XA{
         "meta:New_Caledonia"{
             ld{"[Ñéŵ Çåļéðöñîå Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Ñéŵ Çåļéðöñîå Ţîɱé one two three]"}
-            ls{"[Ñéŵ Çåļéðöñîå Šţåñðåŕð Ţîɱé one two three]"}
+            ls{"[Ñéŵ Çåļéðöñîå Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:New_Zealand"{
             ld{"[Ñéŵ Žéåļåñð Ðåýļîĝĥţ Ţîɱé one two three]"}
-            lg{"[Ñéŵ Žéåļåñð Ţîɱé one two]"}
+            lg{"[Ñéŵ Žéåļåñð Ţîɱé one two three]"}
             ls{"[Ñéŵ Žéåļåñð Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Newfoundland"{
@@ -535,7 +556,9 @@ en_XA{
             ls{"[Ñîûé Ţîɱé one two]"}
         }
         "meta:Norfolk"{
-            ls{"[Ñöŕƒöļķ Îšļåñð Ţîɱé one two three]"}
+            ld{"[Ñöŕƒöļķ Îšļåñð Ðåýļîĝĥţ Ţîɱé one two three four]"}
+            lg{"[Ñöŕƒöļķ Îšļåñð Ţîɱé one two three]"}
+            ls{"[Ñöŕƒöļķ Îšļåñð Šţåñðåŕð Ţîɱé one two three four]"}
         }
         "meta:Noronha"{
             ld{"[Ƒéŕñåñðö ðé Ñöŕöñĥå Šûɱɱéŕ Ţîɱé one two three four]"}
@@ -547,11 +570,11 @@ en_XA{
         }
         "meta:Novosibirsk"{
             ld{"[Ñöṽöšîƀîŕšķ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ñöṽöšîƀîŕšķ Ţîɱé one two]"}
+            lg{"[Ñöṽöšîƀîŕšķ Ţîɱé one two three]"}
             ls{"[Ñöṽöšîƀîŕšķ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Omsk"{
-            ld{"[Öɱšķ Šûɱɱéŕ Ţîɱé one two]"}
+            ld{"[Öɱšķ Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Öɱšķ Ţîɱé one two]"}
             ls{"[Öɱšķ Šţåñðåŕð Ţîɱé one two three]"}
         }
@@ -572,13 +595,13 @@ en_XA{
             ls{"[Þåŕåĝûåý Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Peru"{
-            ld{"[Þéŕû Šûɱɱéŕ Ţîɱé one two]"}
+            ld{"[Þéŕû Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Þéŕû Ţîɱé one two]"}
             ls{"[Þéŕû Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Philippines"{
             ld{"[Þĥîļîþþîñé Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Þĥîļîþþîñé Ţîɱé one two]"}
+            lg{"[Þĥîļîþþîñé Ţîɱé one two three]"}
             ls{"[Þĥîļîþþîñé Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Phoenix_Islands"{
@@ -625,7 +648,7 @@ en_XA{
             ls{"[Šåɱöå Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Seychelles"{
-            ls{"[Šéýçĥéļļéš Ţîɱé one two]"}
+            ls{"[Šéýçĥéļļéš Ţîɱé one two three]"}
         }
         "meta:Singapore"{
             ls{"[Šîñĝåþöŕé Šţåñðåŕð Ţîɱé one two three]"}
@@ -651,7 +674,7 @@ en_XA{
             ls{"[Ţåîþéî Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Tajikistan"{
-            ls{"[Ţåĵîķîšţåñ Ţîɱé one two]"}
+            ls{"[Ţåĵîķîšţåñ Ţîɱé one two three]"}
         }
         "meta:Tokelau"{
             ls{"[Ţöķéļåû Ţîɱé one two]"}
@@ -679,7 +702,7 @@ en_XA{
         }
         "meta:Uzbekistan"{
             ld{"[Ûžƀéķîšţåñ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ûžƀéķîšţåñ Ţîɱé one two]"}
+            lg{"[Ûžƀéķîšţåñ Ţîɱé one two three]"}
             ls{"[Ûžƀéķîšţåñ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Vanuatu"{
@@ -692,7 +715,7 @@ en_XA{
         }
         "meta:Vladivostok"{
             ld{"[Ṽļåðîṽöšţöķ Šûɱɱéŕ Ţîɱé one two three]"}
-            lg{"[Ṽļåðîṽöšţöķ Ţîɱé one two]"}
+            lg{"[Ṽļåðîṽöšţöķ Ţîɱé one two three]"}
             ls{"[Ṽļåðîṽöšţöķ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "meta:Volgograd"{
@@ -704,7 +727,7 @@ en_XA{
             ls{"[Ṽöšţöķ Ţîɱé one two]"}
         }
         "meta:Wake"{
-            ls{"[Ŵåķé Îšļåñð Ţîɱé one two]"}
+            ls{"[Ŵåķé Îšļåñð Ţîɱé one two three]"}
         }
         "meta:Wallis"{
             ls{"[Ŵåļļîš ⅋ Ƒûţûñå Ţîɱé one two three]"}
@@ -717,12 +740,12 @@ en_XA{
         "meta:Yekaterinburg"{
             ld{"[Ýéķåţéŕîñƀûŕĝ Šûɱɱéŕ Ţîɱé one two three]"}
             lg{"[Ýéķåţéŕîñƀûŕĝ Ţîɱé one two three]"}
-            ls{"[Ýéķåţéŕîñƀûŕĝ Šţåñðåŕð Ţîɱé one two three]"}
+            ls{"[Ýéķåţéŕîñƀûŕĝ Šţåñðåŕð Ţîɱé one two three four]"}
         }
         gmtFormat{"[ĜṀŢ{0} one]"}
-        hourFormat{"[+HH:mm;-HH:mm]"}
-        regionFormat{"[{0} Ţîɱé one]"}
-        regionFormatDaylight{"[{0} Ðåýļîĝĥţ Ţîɱé one two]"}
-        regionFormatStandard{"[{0} Šţåñðåŕð Ţîɱé one two]"}
+        hourFormat{"[+HH:mm;-HH:mm 'one' 'two']"}
+        regionFormat{"[{0} Ţîɱé one two]"}
+        regionFormatDaylight{"[{0} Ðåýļîĝĥţ Ţîɱé one two three]"}
+        regionFormatStandard{"[{0} Šţåñðåŕð Ţîɱé one two three]"}
     }
 }

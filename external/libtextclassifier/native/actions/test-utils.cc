@@ -16,6 +16,8 @@
 
 #include "actions/test-utils.h"
 
+#include "flatbuffers/reflection.h"
+
 namespace libtextclassifier3 {
 
 std::string TestEntityDataSchema() {

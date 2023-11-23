@@ -7,7 +7,7 @@ env = env.Clone()
 
 env.Append(CPPPATH = [
     '#src',
-    '#src/gallium/state_trackers/wgl',
+    '#src/gallium/frontends/wgl',
     '#src/gallium/winsys/sw',
 ])
 
@@ -29,22 +29,19 @@ sources = ['libgl_gdi.c']
 drivers = []
 
 if True:
+    env.Append(CPPDEFINES = ['GALLIUM_SOFTPIPE'])
     drivers += [softpipe]
 
 if env['llvm']:
-    env.Append(CPPDEFINES = 'HAVE_LLVMPIPE')
+    env.Append(CPPDEFINES = 'GALLIUM_LLVMPIPE')
     drivers += [llvmpipe]
-
-    if env['swr']:
-        env.Append(CPPDEFINES = 'HAVE_SWR')
-        drivers += [swr]
 
 if env['gcc'] and env['machine'] != 'x86_64':
     # DEF parser in certain versions of MinGW is busted, as does not behave as
     # MSVC.  mingw-w64 works fine.
-    sources += ['#src/gallium/state_trackers/wgl/opengl32.mingw.def']
+    sources += ['#src/gallium/frontends/wgl/opengl32.mingw.def']
 else:
-    sources += ['#src/gallium/state_trackers/wgl/opengl32.def']
+    sources += ['#src/gallium/frontends/wgl/opengl32.def']
 
 env['no_import_lib'] = 1
 

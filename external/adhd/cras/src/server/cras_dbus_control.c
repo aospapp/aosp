@@ -11,12 +11,16 @@
 #include <syslog.h>
 
 #include "audio_thread.h"
+#include "cras_bt_player.h"
 #include "cras_dbus.h"
 #include "cras_dbus_control.h"
 #include "cras_dbus_util.h"
+#include "cras_hfp_ag_profile.h"
 #include "cras_iodev_list.h"
+#include "cras_main_thread_log.h"
 #include "cras_observer.h"
 #include "cras_system_state.h"
+#include "cras_utf8.h"
 #include "cras_util.h"
 #include "utlist.h"
 
@@ -46,9 +50,6 @@
 	"    <method name=\"SetSuspendAudio\">\n"                               \
 	"      <arg name=\"suspend\" type=\"b\" direction=\"in\"/>\n"           \
 	"    </method>\n"                                                       \
-	"    <method name=\"SetInputGain\">\n"                                  \
-	"      <arg name=\"gain\" type=\"i\" direction=\"in\"/>\n"              \
-	"    </method>\n"                                                       \
 	"    <method name=\"SetInputNodeGain\">\n"                              \
 	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
 	"      <arg name=\"gain\" type=\"i\" direction=\"in\"/>\n"              \
@@ -59,7 +60,6 @@
 	"    <method name=\"GetVolumeState\">\n"                                \
 	"      <arg name=\"output_volume\" type=\"i\" direction=\"out\"/>\n"    \
 	"      <arg name=\"output_mute\" type=\"b\" direction=\"out\"/>\n"      \
-	"      <arg name=\"input_gain\" type=\"i\" direction=\"out\"/>\n"       \
 	"      <arg name=\"input_mute\" type=\"b\" direction=\"out\"/>\n"       \
 	"      <arg name=\"output_user_mute\" type=\"b\" direction=\"out\"/>\n" \
 	"    </method>\n"                                                       \
@@ -74,6 +74,9 @@
 	"    </method>\n"                                                       \
 	"    <method name=\"GetSystemAecGroupId\">\n"                           \
 	"      <arg name=\"group_id\" type=\"i\" direction=\"out\"/>\n"         \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetDeprioritizeBtWbsMic\">\n"                       \
+	"      <arg name=\"deprioritized\" type=\"b\" direction=\"out\"/>\n"    \
 	"    </method>\n"                                                       \
 	"    <method name=\"SetActiveOutputNode\">\n"                           \
 	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
@@ -93,6 +96,9 @@
 	"    <method name=\"RemoveActiveOutputNode\">\n"                        \
 	"      <arg name=\"node_id\" type=\"t\" direction=\"in\"/>\n"           \
 	"    </method>\n"                                                       \
+	"    <method name=\"SetFixA2dpPacketSize\">\n"                          \
+	"      <arg name=\"toggle\" type=\"b\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                       \
 	"    <method name=\"GetNumberOfActiveStreams\">\n"                      \
 	"      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"              \
 	"    </method>\n"                                                       \
@@ -101,6 +107,9 @@
 	"    </method>\n"                                                       \
 	"    <method name=\"GetNumberOfActiveInputStreams\">\n"                 \
 	"      <arg name=\"num\" type=\"i\" direction=\"out\"/>\n"              \
+	"    </method>\n"                                                       \
+	"    <method name=\"GetNumberOfInputStreamsWithPermission\">\n"         \
+	"      <arg name=\"num\" type=\"a{sv}\" direction=\"out\"/>\n"          \
 	"    </method>\n"                                                       \
 	"    <method name=\"SetGlobalOutputChannelRemix\">\n"                   \
 	"      <arg name=\"num_channels\" type=\"i\" direction=\"in\"/>\n"      \
@@ -115,6 +124,21 @@
 	"    </method>\n"                                                       \
 	"    <method name=\"SetWbsEnabled\">\n"                                 \
 	"      <arg name=\"enabled\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetNoiseCancellationEnabled\">\n"                   \
+	"      <arg name=\"enabled\" type=\"b\" direction=\"in\"/>\n"           \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetPlayerPlaybackStatus\">\n"                       \
+	"      <arg name=\"status\" type=\"s\" direction=\"in\"/>\n"            \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetPlayerIdentity\">\n"                             \
+	"      <arg name=\"identity\" type=\"s\" direction=\"in\"/>\n"          \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetPlayerPosition\">\n"                             \
+	"      <arg name=\"position\" type=\"x\" direction=\"in\"/>\n"          \
+	"    </method>\n"                                                       \
+	"    <method name=\"SetPlayerMetadata\">\n"                             \
+	"      <arg name=\"metadata\" type=\"a{sv}\" direction=\"in\"/>\n"      \
 	"    </method>\n"                                                       \
 	"  </interface>\n"                                                      \
 	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"            \
@@ -146,6 +170,79 @@ static int get_single_arg(DBusMessage *message, int dbus_type, void *arg)
 	}
 
 	return 0;
+}
+
+static bool get_string_metadata(DBusMessageIter *iter, const char **dst)
+{
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRING)
+		return FALSE;
+
+	dbus_message_iter_get_basic(iter, dst);
+	return TRUE;
+}
+
+static bool get_int64_metadata(DBusMessageIter *iter, dbus_int64_t *dst)
+{
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_INT64)
+		return FALSE;
+
+	dbus_message_iter_get_basic(iter, dst);
+	return TRUE;
+}
+
+static bool get_metadata(DBusMessage *message, const char **title,
+			 const char **artist, const char **album,
+			 dbus_int64_t *length)
+{
+	DBusError dbus_error;
+	DBusMessageIter iter, dict;
+
+	dbus_error_init(&dbus_error);
+	dbus_message_iter_init(message, &iter);
+
+	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY)
+		return FALSE;
+
+	dbus_message_iter_recurse(&iter, &dict);
+
+	while (dbus_message_iter_get_arg_type(&dict) != DBUS_TYPE_INVALID) {
+		DBusMessageIter entry, var;
+		const char *key;
+
+		if (dbus_message_iter_get_arg_type(&dict) !=
+		    DBUS_TYPE_DICT_ENTRY)
+			return FALSE;
+
+		dbus_message_iter_recurse(&dict, &entry);
+		if (dbus_message_iter_get_arg_type(&entry) != DBUS_TYPE_STRING)
+			return FALSE;
+
+		dbus_message_iter_get_basic(&entry, &key);
+		dbus_message_iter_next(&entry);
+
+		if (dbus_message_iter_get_arg_type(&entry) != DBUS_TYPE_VARIANT)
+			return FALSE;
+
+		dbus_message_iter_recurse(&entry, &var);
+		if (strcasecmp(key, "title") == 0) {
+			if (!get_string_metadata(&var, title))
+				return FALSE;
+		} else if (strcasecmp(key, "artist") == 0) {
+			if (!get_string_metadata(&var, artist))
+				return FALSE;
+		} else if (strcasecmp(key, "album") == 0) {
+			if (!get_string_metadata(&var, album))
+				return FALSE;
+		} else if (strcasecmp(key, "length") == 0) {
+			if (!get_int64_metadata(&var, length))
+				return FALSE;
+		} else
+			syslog(LOG_WARNING, "%s not supported, ignoring", key);
+
+		dbus_message_iter_next(&dict);
+	}
+
+	return TRUE;
 }
 
 /* Helper to send an empty reply. */
@@ -279,6 +376,7 @@ static DBusHandlerResult handle_set_output_user_mute(DBusConnection *conn,
 		return rc;
 
 	cras_system_set_user_mute(new_mute);
+	MAINLOG(main_log, MAIN_THREAD_SET_OUTPUT_USER_MUTE, new_mute, 0, 0);
 
 	send_empty_reply(conn, message);
 
@@ -295,23 +393,6 @@ handle_set_suspend_audio(DBusConnection *conn, DBusMessage *message, void *arg)
 		return rc;
 
 	cras_system_set_suspended(suspend);
-
-	send_empty_reply(conn, message);
-
-	return DBUS_HANDLER_RESULT_HANDLED;
-}
-
-static DBusHandlerResult handle_set_input_gain(DBusConnection *conn,
-					       DBusMessage *message, void *arg)
-{
-	int rc;
-	dbus_int32_t new_gain;
-
-	rc = get_single_arg(message, DBUS_TYPE_INT32, &new_gain);
-	if (rc)
-		return rc;
-
-	cras_system_set_capture_gain(new_gain);
 
 	send_empty_reply(conn, message);
 
@@ -369,7 +450,6 @@ handle_get_volume_state(DBusConnection *conn, DBusMessage *message, void *arg)
 	dbus_int32_t volume;
 	dbus_bool_t system_muted;
 	dbus_bool_t user_muted;
-	dbus_int32_t capture_gain;
 	dbus_bool_t capture_muted;
 
 	reply = dbus_message_new_method_return(message);
@@ -377,12 +457,10 @@ handle_get_volume_state(DBusConnection *conn, DBusMessage *message, void *arg)
 	volume = cras_system_get_volume();
 	system_muted = cras_system_get_system_mute();
 	user_muted = cras_system_get_user_mute();
-	capture_gain = cras_system_get_capture_gain();
 	capture_muted = cras_system_get_capture_mute();
 
 	dbus_message_append_args(reply, DBUS_TYPE_INT32, &volume,
 				 DBUS_TYPE_BOOLEAN, &system_muted,
-				 DBUS_TYPE_INT32, &capture_gain,
 				 DBUS_TYPE_BOOLEAN, &capture_muted,
 				 DBUS_TYPE_BOOLEAN, &user_muted,
 				 DBUS_TYPE_INVALID);
@@ -429,7 +507,6 @@ static dbus_bool_t append_node_dict(DBusMessageIter *iter,
 	dbus_uint64_t stable_dev_id = node->stable_id;
 	const char *node_type = node->type;
 	const char *node_name = node->name;
-	const char *mic_positions = node->mic_positions;
 	dbus_bool_t active;
 	dbus_uint64_t plugged_time = node->plugged_time.tv_sec * 1000000ULL +
 				     node->plugged_time.tv_usec;
@@ -441,6 +518,14 @@ static dbus_bool_t append_node_dict(DBusMessageIter *iter,
 	id = node->iodev_idx;
 	id = (id << 32) | node->ionode_idx;
 	active = !!node->active;
+
+	// If dev_name is not utf8, libdbus may abort cras.
+	if (!is_utf8_string(dev_name)) {
+		syslog(LOG_ERR,
+		       "Non-utf8 device name '%s' cannot be sent via dbus",
+		       dev_name);
+		dev_name = "";
+	}
 
 	if (!dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, "{sv}",
 					      &dict))
@@ -466,9 +551,6 @@ static dbus_bool_t append_node_dict(DBusMessageIter *iter,
 		return FALSE;
 	if (!append_key_value(&dict, "Name", DBUS_TYPE_STRING,
 			      DBUS_TYPE_STRING_AS_STRING, &node_name))
-		return FALSE;
-	if (!append_key_value(&dict, "MicPositions", DBUS_TYPE_STRING,
-			      DBUS_TYPE_STRING_AS_STRING, &mic_positions))
 		return FALSE;
 	if (!append_key_value(&dict, "Active", DBUS_TYPE_BOOLEAN,
 			      DBUS_TYPE_BOOLEAN_AS_STRING, &active))
@@ -596,6 +678,27 @@ static DBusHandlerResult handle_get_system_aec_group_id(DBusConnection *conn,
 }
 
 static DBusHandlerResult
+handle_get_deprioritize_bt_wbs_mic(DBusConnection *conn, DBusMessage *message,
+				   void *arg)
+{
+	DBusMessage *reply;
+	dbus_uint32_t serial = 0;
+	dbus_bool_t deprioritized;
+
+	reply = dbus_message_new_method_return(message);
+
+	deprioritized = cras_system_get_deprioritize_bt_wbs_mic();
+	dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &deprioritized,
+				 DBUS_TYPE_INVALID);
+
+	dbus_connection_send(conn, reply, &serial);
+
+	dbus_message_unref(reply);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult
 handle_set_active_node(DBusConnection *conn, DBusMessage *message, void *arg,
 		       enum CRAS_STREAM_DIRECTION direction)
 {
@@ -649,6 +752,24 @@ handle_rm_active_node(DBusConnection *conn, DBusMessage *message, void *arg,
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult handle_set_fix_a2dp_packet_size(DBusConnection *conn,
+							 DBusMessage *message,
+							 void *arg)
+{
+	int rc;
+	dbus_bool_t enabled = FALSE;
+
+	rc = get_single_arg(message, DBUS_TYPE_BOOLEAN, &enabled);
+	if (rc)
+		return rc;
+
+	cras_system_set_bt_fix_a2dp_packet_size_enabled(enabled);
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 static DBusHandlerResult handle_get_num_active_streams(DBusConnection *conn,
 						       DBusMessage *message,
 						       void *arg)
@@ -689,6 +810,65 @@ handle_get_num_active_streams_use_output_hw(DBusConnection *conn,
 	send_int32_reply(conn, message, num);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static bool append_num_input_streams_with_permission(
+	DBusMessage *message, uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE])
+{
+	DBusMessageIter array;
+	DBusMessageIter dict;
+	unsigned type;
+
+	dbus_message_iter_init_append(message, &array);
+	for (type = 0; type < CRAS_NUM_CLIENT_TYPE; ++type) {
+		const char *client_type_str = cras_client_type_str(type);
+		if (!is_utf8_string(client_type_str)) {
+			syslog(LOG_ERR,
+			       "Non-utf8 clinet_type_str '%s' cannot be sent "
+			       "via dbus",
+			       client_type_str);
+			client_type_str = "";
+		}
+
+		if (!dbus_message_iter_open_container(&array, DBUS_TYPE_ARRAY,
+						      "{sv}", &dict))
+			return false;
+		if (!append_key_value(&dict, "ClientType", DBUS_TYPE_STRING,
+				      DBUS_TYPE_STRING_AS_STRING,
+				      &client_type_str))
+			return false;
+		if (!append_key_value(&dict, "NumStreamsWithPermission",
+				      DBUS_TYPE_UINT32,
+				      DBUS_TYPE_UINT32_AS_STRING,
+				      &num_input_streams[type]))
+			return false;
+		if (!dbus_message_iter_close_container(&array, &dict))
+			return false;
+	}
+	return true;
+}
+
+static DBusHandlerResult
+handle_get_num_input_streams_with_permission(DBusConnection *conn,
+					     DBusMessage *message, void *arg)
+{
+	DBusMessage *reply;
+	dbus_uint32_t serial = 0;
+	uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE] = {};
+
+	reply = dbus_message_new_method_return(message);
+
+	cras_system_state_get_input_streams_with_permission(num_input_streams);
+	if (!append_num_input_streams_with_permission(reply, num_input_streams))
+		goto error;
+
+	dbus_connection_send(conn, reply, &serial);
+	dbus_message_unref(reply);
+	return DBUS_HANDLER_RESULT_HANDLED;
+
+error:
+	dbus_message_unref(reply);
+	return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult
@@ -781,6 +961,124 @@ static DBusHandlerResult handle_set_wbs_enabled(DBusConnection *conn,
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult
+handle_set_noise_cancellation_enabled(DBusConnection *conn,
+				      DBusMessage *message, void *arg)
+{
+	int rc;
+	dbus_bool_t enabled;
+
+	rc = get_single_arg(message, DBUS_TYPE_BOOLEAN, &enabled);
+	if (rc)
+		return rc;
+
+	cras_system_set_noise_cancellation_enabled(enabled);
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_set_player_playback_status(DBusConnection *conn,
+							   DBusMessage *message,
+							   void *arg)
+{
+	char *status;
+	DBusError dbus_error;
+	int rc;
+
+	dbus_error_init(&dbus_error);
+
+	rc = get_single_arg(message, DBUS_TYPE_STRING, &status);
+	if (rc)
+		return rc;
+
+	rc = cras_bt_player_update_playback_status(conn, status);
+	if (rc) {
+		syslog(LOG_WARNING,
+		       "CRAS failed to update BT Player Status: %d", rc);
+	}
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_set_player_identity(DBusConnection *conn,
+						    DBusMessage *message,
+						    void *arg)
+{
+	char *identity;
+	DBusError dbus_error;
+	int rc;
+
+	dbus_error_init(&dbus_error);
+
+	rc = get_single_arg(message, DBUS_TYPE_STRING, &identity);
+	if (rc)
+		return rc;
+
+	rc = cras_bt_player_update_identity(conn, identity);
+	if (rc) {
+		syslog(LOG_WARNING,
+		       "CRAS failed to update BT Player Identity: %d", rc);
+	}
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_set_player_position(DBusConnection *conn,
+						    DBusMessage *message,
+						    void *arg)
+{
+	dbus_int64_t position;
+	DBusError dbus_error;
+	int rc;
+
+	dbus_error_init(&dbus_error);
+
+	rc = get_single_arg(message, DBUS_TYPE_INT64, &position);
+	if (rc)
+		return rc;
+
+	rc = cras_bt_player_update_position(conn, position);
+	if (rc) {
+		syslog(LOG_WARNING,
+		       "CRAS failed to update BT Player Position: %d", rc);
+	}
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult handle_set_player_metadata(DBusConnection *conn,
+						    DBusMessage *message,
+						    void *arg)
+{
+	DBusError dbus_error;
+	int rc;
+
+	dbus_error_init(&dbus_error);
+	const char *title = NULL, *artist = NULL, *album = NULL;
+	dbus_int64_t length = 0;
+
+	if (!get_metadata(message, &title, &artist, &album, &length))
+		return -EINVAL;
+
+	rc = cras_bt_player_update_metadata(conn, title, artist, album, length);
+	if (rc) {
+		syslog(LOG_WARNING, "CRAS failed to update BT Metadata: %d",
+		       rc);
+	}
+
+	send_empty_reply(conn, message);
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 /* Handle incoming messages. */
 static DBusHandlerResult handle_control_message(DBusConnection *conn,
 						DBusMessage *message, void *arg)
@@ -826,9 +1124,6 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 					       "SetSuspendAudio")) {
 		return handle_set_suspend_audio(conn, message, arg);
 	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
-					       "SetInputGain")) {
-		return handle_set_input_gain(conn, message, arg);
-	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetInputNodeGain")) {
 		return handle_set_input_node_gain(conn, message, arg);
 	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
@@ -850,6 +1145,9 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetSystemAecGroupId")) {
 		return handle_get_system_aec_group_id(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "GetDeprioritizeBtWbsMic")) {
+		return handle_get_deprioritize_bt_wbs_mic(conn, message, arg);
 	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetActiveOutputNode")) {
 		return handle_set_active_node(conn, message, arg,
@@ -875,6 +1173,9 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 		return handle_rm_active_node(conn, message, arg,
 					     CRAS_STREAM_OUTPUT);
 	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetFixA2dpPacketSize")) {
+		return handle_set_fix_a2dp_packet_size(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "GetNumberOfActiveStreams")) {
 		return handle_get_num_active_streams(conn, message, arg);
 	} else if (dbus_message_is_method_call(
@@ -882,6 +1183,11 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 			   "GetNumberOfActiveInputStreams")) {
 		return handle_get_num_active_streams_use_input_hw(conn, message,
 								  arg);
+	} else if (dbus_message_is_method_call(
+			   message, CRAS_CONTROL_INTERFACE,
+			   "GetNumberOfInputStreamsWithPermission")) {
+		return handle_get_num_input_streams_with_permission(
+			conn, message, arg);
 	} else if (dbus_message_is_method_call(
 			   message, CRAS_CONTROL_INTERFACE,
 			   "GetNumberOfActiveOutputStreams")) {
@@ -900,6 +1206,22 @@ static DBusHandlerResult handle_control_message(DBusConnection *conn,
 	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
 					       "SetWbsEnabled")) {
 		return handle_set_wbs_enabled(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetNoiseCancellationEnabled")) {
+		return handle_set_noise_cancellation_enabled(conn, message,
+							     arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetPlayerPlaybackStatus")) {
+		return handle_set_player_playback_status(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetPlayerIdentity")) {
+		return handle_set_player_identity(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetPlayerPosition")) {
+		return handle_set_player_position(conn, message, arg);
+	} else if (dbus_message_is_method_call(message, CRAS_CONTROL_INTERFACE,
+					       "SetPlayerMetadata")) {
+		return handle_set_player_metadata(conn, message, arg);
 	}
 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -1011,8 +1333,8 @@ static void signal_active_node_changed(void *context,
 	dbus_uint32_t serial = 0;
 
 	msg = create_dbus_message((dir == CRAS_STREAM_OUTPUT) ?
-					  "ActiveOutputNodeChanged" :
-					  "ActiveInputNodeChanged");
+						"ActiveOutputNodeChanged" :
+						"ActiveInputNodeChanged");
 	if (!msg)
 		return;
 	dbus_message_append_args(msg, DBUS_TYPE_UINT64, &node_id,
@@ -1096,6 +1418,25 @@ static void signal_num_active_streams_changed(void *context,
 	dbus_message_unref(msg);
 }
 
+static void signal_num_input_streams_with_permission_changed(
+	void *context, uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE])
+{
+	struct cras_dbus_control *control = (struct cras_dbus_control *)context;
+	dbus_uint32_t serial = 0;
+	DBusMessage *msg;
+
+	msg = create_dbus_message("NumberOfInputStreamsWithPermissionChanged");
+	if (!msg)
+		return;
+
+	if (!append_num_input_streams_with_permission(msg, num_input_streams))
+		goto error;
+
+	dbus_connection_send(control->conn, msg, &serial);
+error:
+	dbus_message_unref(msg);
+}
+
 static void signal_hotword_triggered(void *context, int64_t tv_sec,
 				     int64_t tv_nsec)
 {
@@ -1161,6 +1502,8 @@ void cras_dbus_control_start(DBusConnection *conn)
 	observer_ops.capture_mute_changed = signal_capture_mute;
 	observer_ops.num_active_streams_changed =
 		signal_num_active_streams_changed;
+	observer_ops.num_input_streams_with_permission_changed =
+		signal_num_input_streams_with_permission_changed;
 	observer_ops.nodes_changed = signal_nodes_changed;
 	observer_ops.active_node_changed = signal_active_node_changed;
 	observer_ops.input_node_gain_changed = signal_node_capture_gain_changed;

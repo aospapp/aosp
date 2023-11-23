@@ -61,6 +61,8 @@ class ConscryptEngineSocket extends OpenSSLSocketImpl implements SSLParametersIm
     private SSLOutputStream out;
     private SSLInputStream in;
 
+    private long handshakeStartedMillis;
+
     private BufferAllocator bufferAllocator = ConscryptEngine.getDefaultBufferAllocator();
 
     // @GuardedBy("stateLock");
@@ -201,6 +203,7 @@ class ConscryptEngineSocket extends OpenSSLSocketImpl implements SSLParametersIm
                     // Initialize the handshake if we haven't already.
                     if (state == STATE_NEW) {
                         state = STATE_HANDSHAKE_STARTED;
+                        handshakeStartedMillis = Platform.getMillisSinceBoot();
                         engine.beginHandshake();
                         in = new SSLInputStream();
                         out = new SSLOutputStream();
@@ -255,6 +258,9 @@ class ConscryptEngineSocket extends OpenSSLSocketImpl implements SSLParametersIm
                     case FINISHED: {
                         // Handshake is complete.
                         finished = true;
+                        Platform.countTlsHandshake(true, engine.getSession().getProtocol(),
+                                engine.getSession().getCipherSuite(),
+                                Platform.getMillisSinceBoot() - handshakeStartedMillis);
                         break;
                     }
                     default: {
@@ -265,6 +271,9 @@ class ConscryptEngineSocket extends OpenSSLSocketImpl implements SSLParametersIm
             }
         } catch (SSLException e) {
             drainOutgoingQueue();
+            Platform.countTlsHandshake(false, engine.getSession().getProtocol(),
+                    engine.getSession().getCipherSuite(),
+                    Platform.getMillisSinceBoot() - handshakeStartedMillis);
             close();
             throw e;
         } catch (IOException e) {
@@ -370,7 +379,7 @@ class ConscryptEngineSocket extends OpenSSLSocketImpl implements SSLParametersIm
      */
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
-            publicAlternatives = "Use {@link javax.net.ssl.SSLParameters#setServerNames}.")
+            publicAlternatives = "Use {@code javax.net.ssl.SSLParameters#setServerNames}.")
     @Override
     public final void
     setHostname(String hostname) {

@@ -10,6 +10,7 @@ import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.site_utils import lxc
+from autotest_lib.site_utils.lxc import base_image
 from autotest_lib.site_utils.lxc import unittest_setup
 from autotest_lib.site_utils.lxc import utils as lxc_utils
 
@@ -25,7 +26,7 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
 
         # Check if a base container exists on this machine and download one if
         # necessary.
-        image = lxc.BaseImage()
+        image = base_image.BaseImage(lxc.DEFAULT_CONTAINER_PATH, lxc.BASE)
         try:
             cls.base_container = image.get()
             cls.cleanup_base_container = False
@@ -35,23 +36,22 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
             cls.cleanup_base_container = True
         assert(cls.base_container is not None)
 
-
     @classmethod
     def tearDownClass(cls):
         cls.base_container = None
         if not unittest_setup.config.skip_cleanup:
             if cls.cleanup_base_container:
-                lxc.BaseImage().cleanup()
+                image = base_image.BaseImage(lxc.DEFAULT_CONTAINER_PATH,
+                                             lxc.BASE)
+                image.cleanup()
             utils.run('sudo rm -r %s' % cls.test_dir)
-
 
     def setUp(self):
         # Create a separate dir for each test, so they are hermetic.
         self.test_dir = tempfile.mkdtemp(dir=ContainerFactoryTests.test_dir)
         self.test_factory = lxc.ContainerFactory(
-                base_container=self.base_container,
-                lxc_path=self.test_dir)
-
+            base_container=self.base_container,
+            lxc_path=self.test_dir)
 
     def testCreateContainer(self):
         """Tests basic container creation."""
@@ -62,19 +62,16 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
         except:
             self.fail('Invalid container:\n%s' % error.format_error())
 
-
     def testCreateContainer_noId(self):
         """Tests container creation with default IDs."""
         container = self.test_factory.create_container()
         self.assertIsNone(container.id)
-
 
     def testCreateContainer_withId(self):
         """Tests container creation with given IDs. """
         id0 = lxc.ContainerId(1, 2, 3)
         container = self.test_factory.create_container(id0)
         self.assertEquals(id0, container.id)
-
 
     def testContainerName(self):
         """Tests that created containers have the right name."""
@@ -87,7 +84,6 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
         self.assertEqual(str(id0), container0.name)
         self.assertEqual(str(id1), container1.name)
 
-
     def testContainerPath(self):
         """Tests that created containers have the right LXC path."""
         dir0 = tempfile.mkdtemp(dir=self.test_dir)
@@ -96,9 +92,8 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
         container0 = self.test_factory.create_container(lxc_path=dir0)
         container1 = self.test_factory.create_container(lxc_path=dir1)
 
-        self.assertEqual(dir0, container0.container_path);
-        self.assertEqual(dir1, container1.container_path);
-
+        self.assertEqual(dir0, container0.container_path)
+        self.assertEqual(dir1, container1.container_path)
 
     def testCreateContainer_alreadyExists(self):
         """Tests that container ID conflicts raise errors as expected."""
@@ -107,7 +102,6 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
         self.test_factory.create_container(id0)
         with self.assertRaises(error.ContainerError):
             self.test_factory.create_container(id0)
-
 
     def testCreateContainer_forceReset(self):
         """Tests that force-resetting containers works."""
@@ -134,7 +128,6 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
         with self.assertRaises(error.CmdError):
             container1.attach_run(exists)
 
-
     def testCreateContainer_subclass(self):
         """Tests that the factory produces objects of the requested class."""
         container = self.test_factory.create_container()
@@ -151,7 +144,6 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
         test_container = test_factory.create_container()
         self.assertTrue(type(test_container) is _TestContainer)
 
-
     def testCreateContainer_snapshotFails(self):
         """Tests the scenario where snapshotting fails.
 
@@ -165,11 +157,11 @@ class ContainerFactoryTests(lxc_utils.LXCTests):
             called with snapshot=True.  Clone calls are recorded so they can be
             verified later.
             """
+
             def __init__(self):
                 """Initializes the mock."""
                 self.clone_count = 0
                 self.clone_kwargs = []
-
 
             def clone(self, *args, **kwargs):
                 """Mocks the Container.clone class method. """

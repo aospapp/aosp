@@ -1,4 +1,5 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -19,21 +20,24 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:tint="@color/button_tint"
-                android:src="@drawable/ic_refresh_black_24dp" />
+                app:srcCompat="@drawable/ic_refresh_black_24dp"
+                android:contentDescription="@string/restart" />
 
             <ImageButton
                 android:id="@+id/button_start_drag"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:tint="@color/button_tint"
-                android:src="@drawable/ic_play_arrow_black_24dp" />
+                app:srcCompat="@drawable/ic_play_arrow_black_24dp"
+                android:contentDescription="@string/start" />
 
             <ImageButton
                 android:id="@+id/button_finish_drag"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:tint="@color/button_tint"
-                android:src="@drawable/ic_check_black_24dp" />
+                app:srcCompat="@drawable/ic_check_black_24dp"
+                android:contentDescription="@string/finish" />
         </LinearLayout>
 
         <FrameLayout
@@ -49,7 +53,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="#000000"
-                    android:gravity="right"
+                    android:gravity="end"
                     android:orientation="horizontal">
 
                     <TextView
@@ -92,11 +96,11 @@
                         android:id="@+id/button_close_chart"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentRight="true"
-                        android:layout_alignParentTop="true"
+                        android:layout_alignEnd="@id/latency_chart"
+                        android:layout_alignTop="@id/latency_chart"
                         android:tint="@color/button_tint"
                         android:layout_margin="5dp"
-                        android:text="Close" />
+                        android:text="@string/close" />
                 </RelativeLayout>
 
                 <TextView

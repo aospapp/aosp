@@ -64,4 +64,15 @@ void FillInterpretations(const DatetimeParsedData& parse,
   }
 }
 
+int GetAdjustedYear(const int parsed_year) {
+  if (parsed_year < 100) {
+    if (parsed_year < 50) {
+      return parsed_year + 2000;
+    } else {
+      return parsed_year + 1900;
+    }
+  }
+  return parsed_year;
+}
+
 }  // namespace libtextclassifier3

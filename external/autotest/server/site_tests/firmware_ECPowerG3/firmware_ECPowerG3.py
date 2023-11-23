@@ -38,8 +38,8 @@ class firmware_ECPowerG3(FirmwareTest):
 
     def check_G3(self):
         """Shutdown the system and check if X86 drop into G3 correctly."""
-        self.faft_client.system.run_shell_command("shutdown -P now")
-        if not self.wait_power_state("G3", self.G3_RETRIES):
+        self.run_shutdown_cmd()
+        if not self.wait_power_state(self.POWER_STATE_G3, self.G3_RETRIES):
             logging.error("EC fails to drop into G3")
             self._failed = True
         self.servo.power_short_press()

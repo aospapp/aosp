@@ -106,17 +106,17 @@ public class TranslateJcite {
    * Translates [{@literal@}.jcite [classname]:---[tag name]]
    * to
    * [{@literal@}sample [source file name] [tag]]
-   * if the declaration it is associated with appears in a whitelist.
+   * if the declaration it is associated with appears in a allowlist.
    */
   public static class InclusionHandler extends BaseTagElementNodeScanner {
 
     private final String sampleSrcDir;
 
-    private final List<BodyDeclarationLocator> whitelist;
+    private final List<BodyDeclarationLocator> allowlist;
 
-    public InclusionHandler(String sampleSrcDir, List<BodyDeclarationLocator> whitelist) {
+    public InclusionHandler(String sampleSrcDir, List<BodyDeclarationLocator> allowlist) {
       this.sampleSrcDir = sampleSrcDir;
-      this.whitelist = whitelist;
+      this.allowlist = allowlist;
     }
 
     @Override
@@ -126,14 +126,14 @@ public class TranslateJcite {
         return true;
       }
 
-      // Determine if this is one of the whitelisted tags and create the appropriate replacement.
+      // Determine if this is one of the allowlisted tags and create the appropriate replacement.
       BodyDeclaration declarationNode = findDeclarationNode(tagNode);
       if (declarationNode == null) {
         throw new AssertionError("Unable to find declaration for " + tagNode);
       }
-      boolean matchesWhitelist = matchesAny(whitelist, declarationNode);
+      boolean matchesAllowlist = matchesAny(allowlist, declarationNode);
       TagElement replacementTagNode;
-      if (matchesWhitelist) {
+      if (matchesAllowlist) {
         replacementTagNode = createSampleTagElement(tagNode);
       } else {
         replacementTagNode = createEscapedJciteTagElement(tagNode);
@@ -196,7 +196,7 @@ public class TranslateJcite {
     @Override
     public String toString() {
       return "InclusionHandler{" +
-          "whitelist=" + whitelist +
+          "allowlist=" + allowlist +
           ", sampleSrcDir='" + sampleSrcDir + '\'' +
           '}';
     }

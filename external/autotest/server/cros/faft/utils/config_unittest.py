@@ -1,3 +1,5 @@
+#!/usr/bin/python2
+#
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +9,10 @@ import os
 import tempfile
 import unittest
 
-import config
+import common
+
+from autotest_lib.client.common_lib import error
+from autotest_lib.server.cros.faft.utils import config
 
 
 class CanLoadDefaultTestCase(unittest.TestCase):
@@ -39,24 +44,23 @@ class _MockConfigTestCaseBaseClass(unittest.TestCase):
         """Set up a tempfile containing the test data"""
         if self.mock_configs is None:
             return
-        self.original_config_dir = config.CONFIG_DIR
-        config.CONFIG_DIR = tempfile.mkdtemp()
-        self.mock_config_files = []
-        for platform in self.mock_configs:
-            mock_config_file = os.path.join(config.CONFIG_DIR,
-                                            '%s.json' % platform)
-            with open(mock_config_file, 'w') as f:
-                json.dump(self.mock_configs[platform], f)
-            self.mock_config_files.append(mock_config_file)
+
+        # Setup mock config._CONFIG_DIR, but remember the original.
+        self.mock_config_dir = tempfile.mkdtemp()
+        self.original_config_dir = config._CONFIG_DIR
+        config._CONFIG_DIR = self.mock_config_dir
+
+        # Write mock config file.
+        with open(config._consolidated_json_fp(), 'w') as f:
+            json.dump(self.mock_configs, f)
 
     def tearDown(self):
         """After tests are complete, delete the tempfile"""
         if self.mock_configs is None:
             return
-        for tf in self.mock_config_files:
-            os.remove(tf)
-        os.rmdir(config.CONFIG_DIR)
-        config.CONFIG_DIR = self.original_config_dir
+        os.remove(config._consolidated_json_fp())
+        os.rmdir(self.mock_config_dir)
+        config._CONFIG_DIR = self.original_config_dir
 
 
 class InheritanceTestCase(_MockConfigTestCaseBaseClass):
@@ -164,28 +168,62 @@ class ModelOverrideTestCase(_MockConfigTestCaseBaseClass):
         self.assertEqual(parent_modelB_config.attr2, 'parent_attr2')
 
 
-class PlatformNamesTestCase(unittest.TestCase):
-    """Ensure that each config has a correct 'platform' attribute"""
+class DirectSelfInheritanceTestCase(_MockConfigTestCaseBaseClass):
+    """Ensure that a config which inherits from itself raises an error."""
+
+    mock_configs = {
+        'selfloop': {
+            'parent': 'selfloop',
+        },
+    }
 
     def runTest(self):
-        """
-        For each JSON config file (except DEFAULTS), verify that there is an
-        attribute 'platform' whose value exactly matches the file's basename.
-        For example, rambi.json should contain {'platform': 'rambi'}
-        """
-        for filename in os.listdir(config.CONFIG_DIR):
-            filepath = os.path.join(config.CONFIG_DIR, filename)
-            platform_name, ext = os.path.splitext(filename)
-            if ext != '.json' or platform_name == 'DEFAULTS':
-                continue
-            with open(filepath) as f:
-                d = json.load(f)
-                self.assertIn('platform', d,
-                        msg='JSON file %s did not contain platform attribute' \
-                        % filepath)
-                self.assertEqual(platform_name, d['platform'],
-                        msg='JSON file %s contained mismatched platform %s' \
-                        % (filepath, d['platform']))
+        """Run assertions on test data."""
+        with self.assertRaises(error.TestError):
+            config.Config('selfloop')
+
+
+class IndirectSelfInheritanceTestCase(_MockConfigTestCaseBaseClass):
+    """Ensure that configs which inherit from each other raise an error."""
+
+    mock_configs = {
+        'indirectloop1': {
+            'parent': 'indirectloop2',
+        },
+        'indirectloop2': {
+            'parent': 'indirectloop1',
+        },
+        'indirectloop3': {
+            'parent': 'indirectloop1',
+        },
+    }
+
+    def runTest(self):
+        """Run assertions on test data."""
+        with self.assertRaises(error.TestError):
+            config.Config('indirectloop1')
+        with self.assertRaises(error.TestError):
+            config.Config('indirectloop3')
+
+
+class FindMostSpecificConfigTestCase(_MockConfigTestCaseBaseClass):
+    """Ensure that configs named like $BOARD-kernelnext load $BOARD.json."""
+
+    mock_configs = {
+            'DEFAULTS': {},
+            'samus': {},
+            'veyron': {},
+            'minnie': {'parent': 'veyron'},
+    }
+
+    def runTest(self):
+        cfg = config.Config('samus-kernelnext')
+        self.assertEqual(config.Config('samus-kernelnext').platform, 'samus')
+        self.assertEqual(config.Config('samus-arc-r').platform, 'samus')
+        self.assertEqual(config.Config('veyron_minnie').platform, 'minnie')
+        self.assertEqual(config.Config('veyron_monroe').platform, 'veyron')
+        self.assertEqual(config.Config('veyron_minnie-arc-r').platform, 'minnie')
+        self.assertEqual(config.Config('veyron_monroe-arc-r').platform, 'veyron')
 
 
 if __name__ == '__main__':

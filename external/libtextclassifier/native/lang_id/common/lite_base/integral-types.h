@@ -19,11 +19,13 @@
 #ifndef NLP_SAFT_COMPONENTS_COMMON_MOBILE_LITE_BASE_INTEGRAL_TYPES_H_
 #define NLP_SAFT_COMPONENTS_COMMON_MOBILE_LITE_BASE_INTEGRAL_TYPES_H_
 
+#include <cstdint>
+
 namespace libtextclassifier3 {
 namespace mobile {
 
 typedef unsigned int uint32;
-typedef unsigned long long uint64;
+typedef uint64_t uint64;
 
 #ifndef SWIG
 typedef int int32;
@@ -37,11 +39,7 @@ typedef unsigned short uint16;  // NOLINT
 typedef signed int char32;
 #endif  // SWIG
 
-#ifdef COMPILER_MSVC
-typedef __int64 int64;
-#else
-typedef long long int64;  // NOLINT
-#endif  // COMPILER_MSVC
+using int64 = int64_t;
 
 // Some compile-time assertions that our new types have the intended size.
 static_assert(sizeof(int) == 4, "Our typedefs depend on int being 32 bits");

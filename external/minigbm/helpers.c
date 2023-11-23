@@ -189,7 +189,8 @@ size_t drv_num_planes_from_modifier(struct driver *drv, uint32_t format, uint64_
 	if (!planes)
 		return 0;
 
-	if (drv->backend->num_planes_from_modifier && modifier != DRM_FORMAT_MOD_INVALID)
+	if (drv->backend->num_planes_from_modifier && modifier != DRM_FORMAT_MOD_INVALID &&
+	    modifier != DRM_FORMAT_MOD_LINEAR)
 		return drv->backend->num_planes_from_modifier(drv, format, modifier);
 
 	return planes;
@@ -312,7 +313,7 @@ int drv_dumb_bo_create_ex(struct bo *bo, uint32_t width, uint32_t height, uint32
 	int ret;
 	size_t plane;
 	uint32_t aligned_width, aligned_height;
-	struct drm_mode_create_dumb create_dumb;
+	struct drm_mode_create_dumb create_dumb = { 0 };
 
 	aligned_width = width;
 	aligned_height = height;
@@ -338,6 +339,7 @@ int drv_dumb_bo_create_ex(struct bo *bo, uint32_t width, uint32_t height, uint32
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_P010:
 		/* Adjust the height to include room for chroma planes */
 		aligned_height = 3 * DIV_ROUND_UP(height, 2);
 		break;
@@ -345,7 +347,6 @@ int drv_dumb_bo_create_ex(struct bo *bo, uint32_t width, uint32_t height, uint32
 		break;
 	}
 
-	memset(&create_dumb, 0, sizeof(create_dumb));
 	if (quirks & BO_QUIRK_DUMB32BPP) {
 		aligned_width =
 		    DIV_ROUND_UP(aligned_width * layout_from_format(format)->bytes_per_pixel[0], 4);
@@ -380,12 +381,10 @@ int drv_dumb_bo_create(struct bo *bo, uint32_t width, uint32_t height, uint32_t 
 
 int drv_dumb_bo_destroy(struct bo *bo)
 {
-	struct drm_mode_destroy_dumb destroy_dumb;
 	int ret;
+	struct drm_mode_destroy_dumb destroy_dumb = { 0 };
 
-	memset(&destroy_dumb, 0, sizeof(destroy_dumb));
 	destroy_dumb.handle = bo->handles[0].u32;
-
 	ret = drmIoctl(bo->drv->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_dumb);
 	if (ret) {
 		drv_log("DRM_IOCTL_MODE_DESTROY_DUMB failed (handle=%x)\n", bo->handles[0].u32);
@@ -451,6 +450,7 @@ int drv_prime_bo_import(struct bo *bo, struct drv_import_fd_data *data)
 
 		bo->handles[plane].u32 = prime_handle.handle;
 	}
+	bo->meta.tiling = data->tiling;
 
 	return 0;
 }
@@ -639,4 +639,29 @@ bool drv_has_modifier(const uint64_t *list, uint32_t count, uint64_t modifier)
 			return true;
 
 	return false;
+}
+
+/*
+ * Map internal fourcc codes back to standard fourcc codes.
+ */
+uint32_t drv_get_standard_fourcc(uint32_t fourcc_internal)
+{
+	return (fourcc_internal == DRM_FORMAT_YVU420_ANDROID) ? DRM_FORMAT_YVU420 : fourcc_internal;
+}
+
+uint32_t drv_resolve_format_helper(struct driver *drv, uint32_t format, uint64_t use_flags)
+{
+	switch (format) {
+	case DRM_FORMAT_FLEX_IMPLEMENTATION_DEFINED:
+		/* Common camera implementation defined format. */
+		if (use_flags & (BO_USE_CAMERA_READ | BO_USE_CAMERA_WRITE))
+			return DRM_FORMAT_NV12;
+		/* A common hack: See b/28671744 */
+		return DRM_FORMAT_XBGR8888;
+	case DRM_FORMAT_FLEX_YCbCr_420_888:
+		/* Common flexible video format. */
+		return DRM_FORMAT_NV12;
+	default:
+		return format;
+	}
 }

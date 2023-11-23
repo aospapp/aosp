@@ -107,7 +107,7 @@ cc_library_static {
     },
 
     sanitize: {
-        blacklist: "libaom_blacklist.txt",
+        blocklist: "libaom_blocklist.txt",
     },
 
 }

@@ -46,8 +46,9 @@ class platform_S0ixCycle(FirmwareTest):
         # check S0ix state transition
         if not self.wait_power_state('S0', POWER_STATE_RETRY_COUNT):
             raise error.TestFail('Platform failed to reach S0 state.')
-        self.faft_client.system.run_shell_command(
-                'echo freeze > /sys/power/state &')
+        cmd = 'echo freeze > /sys/power/state'
+        block = False
+        self.faft_client.system.run_shell_command(cmd, block)
         time.sleep(SUSPEND_WAIT_TIME_SECONDS)
         # check S0ix state transition
         if not self.wait_power_state('S0ix', POWER_STATE_RETRY_COUNT):
@@ -78,9 +79,9 @@ class platform_S0ixCycle(FirmwareTest):
         """
         Check this device is a SKL based ChromeBook.
         """
-        skl_boards = ('Kunimitsu', 'Lars', 'Glados', 'Chell', 'Sentry')
+        skl_boards = ('kunimitsu', 'lars', 'glados', 'chell', 'sentry')
         output = self.faft_client.system.get_platform_name()
-        return output in skl_boards
+        return output.lower() in skl_boards
 
     def is_s0ix_supported(self):
         """

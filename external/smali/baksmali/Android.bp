@@ -13,6 +13,15 @@
 // limitations under the License.
 
 //create a new baksmali.properties file using the correct version
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_smali_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["external_smali_license"],
+}
+
 genrule {
     name: "baksmali_version",
     srcs: [":smali_build.gradle"],

@@ -477,6 +477,16 @@ int cras_client_dump_dsp_info(struct cras_client *client);
 int cras_client_update_audio_debug_info(struct cras_client *client,
 					void (*cb)(struct cras_client *));
 
+/* Asks the server to dump current main thread information.
+ * Args:
+ *    client - The client from cras_client_create.
+ *    cb - A function to call when the data is received.
+ * Returns:
+ *    0 on success, -EINVAL if the client isn't valid or isn't running.
+ */
+int cras_client_update_main_thread_debug_info(struct cras_client *client,
+					      void (*cb)(struct cras_client *));
+
 /* Asks the server to dump bluetooth debug information.
  * Args:
  *    client - The client from cras_client_create.
@@ -525,6 +535,19 @@ int cras_client_read_atlog(struct cras_client *client, uint64_t *read_idx,
 int cras_client_update_audio_thread_snapshots(struct cras_client *client,
 					      void (*cb)(struct cras_client *));
 
+/* Gets the max supported channel count of the output device from node_id.
+ * Args:
+ *    client - The client from cras_client_create.
+ *    node_id - ID of the node.
+ *    max_channels - Out parameter will be filled with the max supported channel
+ *        count.
+ * Returns:
+ *    0 on success, or negative error code on failure.
+ */
+int cras_client_get_max_supported_channels(const struct cras_client *client,
+					   cras_node_id_t node_id,
+					   uint32_t *max_channels);
+
 /*
  * Stream handling.
  */
@@ -538,7 +561,7 @@ int cras_client_update_audio_thread_snapshots(struct cras_client *client,
  *        be called when buffer_frames have been captured).
  *    unused - No longer used.
  *    stream_type - media or talk (currently only support "default").
- *    flags - None currently used.
+ *    flags - Currently only used for CRAS_INPUT_STREAM_FLAG.
  *    user_data - Pointer that will be passed to the callback.
  *    aud_cb - Called when audio is needed(playback) or ready(capture). Allowed
  *        return EOF to indicate that the stream should terminate.
@@ -572,16 +595,6 @@ void cras_client_stream_params_enable_agc(struct cras_stream_params *params);
 void cras_client_stream_params_disable_agc(struct cras_stream_params *params);
 void cras_client_stream_params_enable_vad(struct cras_stream_params *params);
 void cras_client_stream_params_disable_vad(struct cras_stream_params *params);
-
-/* Function to setup client-provided shm to be used as the backing shm for the
- * samples area in the cras_audio_shm shared with cras.
- * Args:
- *    client_shm_fd - shm fd to use for samples shm area.
- *    client_shm_size - size of shm area backed by 'client_shm_fd'.
- */
-void cras_client_stream_params_configure_client_shm(
-	struct cras_stream_params *params, int client_shm_fd,
-	size_t client_shm_size);
 
 /* Setup stream configuration parameters. DEPRECATED.
  * TODO(crbug.com/972928): remove this
@@ -692,20 +705,6 @@ int cras_client_set_stream_volume(struct cras_client *client,
  */
 int cras_client_set_system_volume(struct cras_client *client, size_t volume);
 
-/* Sets the capture gain of the system.
- *
- * Gain is specified in dBFS * 100.  For example 5dB of gain would be specified
- * with an argument of 500, while -10 would be specified with -1000.
- *
- * Args:
- *    client - The client from cras_client_create.
- *    gain - The gain in dBFS * 100.
- * Returns:
- *    0 for success, -EPIPE if there is an I/O error talking to the server, or
- *    -EINVAL if 'client' is invalid.
- */
-int cras_client_set_system_capture_gain(struct cras_client *client, long gain);
-
 /* Sets the mute state of the system.
  *
  * Args:
@@ -781,17 +780,6 @@ int cras_client_set_system_capture_mute_locked(struct cras_client *client,
  */
 size_t cras_client_get_system_volume(const struct cras_client *client);
 
-/* Gets the current system capture gain.
- *
- * Requires that the connection to the server has been established.
- *
- * Args:
- *    client - The client from cras_client_create.
- * Returns:
- *    The current system capture volume in dB * 100.
- */
-long cras_client_get_system_capture_gain(const struct cras_client *client);
-
 /* Gets the current system mute state.
  *
  * Requires that the connection to the server has been established.
@@ -843,27 +831,13 @@ long cras_client_get_system_min_volume(const struct cras_client *client);
  */
 long cras_client_get_system_max_volume(const struct cras_client *client);
 
-/* Gets the current minimum system capture gain.
- *
- * Requires that the connection to the server has been established.
- *
+/* Gets the default output buffer size.
  * Args:
  *    client - The client from cras_client_create.
  * Returns:
- *    The minimum capture gain for the current input device in dBFS * 100.
+ *    Default output buffer size in frames. A negative error on failure.
  */
-long cras_client_get_system_min_capture_gain(const struct cras_client *client);
-
-/* Gets the current maximum system capture gain.
- *
- * Requires that the connection to the server has been established.
- *
- * Args:
- *    client - The client from cras_client_create.
- * Returns:
- *    The maximum capture gain for the current input device in dBFS * 100.
- */
-long cras_client_get_system_max_capture_gain(const struct cras_client *client);
+int cras_client_get_default_output_buffer_size(struct cras_client *client);
 
 /* Gets audio debug info.
  *
@@ -891,6 +865,16 @@ cras_client_get_audio_debug_info(const struct cras_client *client);
  */
 const struct cras_bt_debug_info *
 cras_client_get_bt_debug_info(const struct cras_client *client);
+
+/* Gets main thread debug info.
+ * Args:
+ *    client - The client from cras_client_create.
+ * Returns:
+ *    A pointer to the debug info. This info is updated and requested by
+ *    calling cras_client_update_main_thread_debug_info.
+ */
+const struct main_thread_debug_info *
+cras_client_get_main_thread_debug_info(const struct cras_client *client);
 
 /* Gets audio thread snapshot buffer.
  *
@@ -987,7 +971,8 @@ int cras_client_swap_node_left_right(struct cras_client *client,
  * Args:
  *    client - The client from cras_client_create.
  *    node_id - ID of the node.
- *    gain - New capture gain for the node.
+ *    gain - New capture gain for the node, in range (0, 100) which will
+ *        linearly maps to (-4000, 4000) 100*dBFS.
  */
 int cras_client_set_node_capture_gain(struct cras_client *client,
 				      cras_node_id_t node_id, long gain);
@@ -1323,6 +1308,699 @@ int cras_client_set_input_node_gain_changed_callback(
 int cras_client_set_num_active_streams_changed_callback(
 	struct cras_client *client,
 	cras_client_num_active_streams_changed_callback cb);
+
+/*
+ * The functions below prefixed with libcras wrap the original CRAS library
+ * They provide an interface that maps the pointers to the functions above.
+ * Please add a new function instead of modifying the existing function.
+ * Here are some rules about how to add a new function:
+ * 1. Increase the CRAS_API_VERSION by 1.
+ * 2. Write a new function in cras_client.c.
+ * 3. Append the corresponding pointer to the structure. Remeber DO NOT change
+ *    the order of functions in the structs.
+ * 4. Assign the pointer to the new function in cras_client.c.
+ * 5. Create the inline function in cras_client.h, which is used by clients.
+ *    Remember to add DISABLE_CFI_ICALL on the inline function.
+ * 6. Add CHECK_VERSION in the inline function. If the api_version is smaller
+ *    than the supported version, this inline function will return -ENOSYS.
+ */
+
+#define CRAS_API_VERSION 1
+#define CHECK_VERSION(object, version)                                         \
+	if (object->api_version < version) {                                   \
+		return -ENOSYS;                                                \
+	}
+
+/*
+ * The inline functions use the indirect function call. Therefore, they are
+ * incompatible with CFI-icall.
+ */
+#define DISABLE_CFI_ICALL __attribute__((no_sanitize("cfi-icall")))
+
+struct libcras_node_info {
+	int api_version;
+	struct cras_node_info *node_;
+	int (*get_id)(struct cras_node_info *node, uint64_t *id);
+	int (*get_dev_idx)(struct cras_node_info *node, uint32_t *dev_idx);
+	int (*get_node_idx)(struct cras_node_info *node, uint32_t *node_idx);
+	int (*get_max_supported_channels)(struct cras_node_info *node,
+					  uint32_t *max_supported_channels);
+	int (*is_plugged)(struct cras_node_info *node, bool *plugged);
+	int (*is_active)(struct cras_node_info *node, bool *active);
+	int (*get_type)(struct cras_node_info *node, char **name);
+	int (*get_node_name)(struct cras_node_info *node, char **name);
+	int (*get_dev_name)(struct cras_node_info *node, char **name);
+};
+
+struct libcras_client {
+	int api_version;
+	struct cras_client *client_;
+	int (*connect)(struct cras_client *client);
+	int (*connect_timeout)(struct cras_client *client,
+			       unsigned int timeout_ms);
+	int (*connected_wait)(struct cras_client *client);
+	int (*run_thread)(struct cras_client *client);
+	int (*stop)(struct cras_client *client);
+	int (*add_pinned_stream)(struct cras_client *client, uint32_t dev_idx,
+				 cras_stream_id_t *stream_id_out,
+				 struct cras_stream_params *config);
+	int (*rm_stream)(struct cras_client *client,
+			 cras_stream_id_t stream_id);
+	int (*set_stream_volume)(struct cras_client *client,
+				 cras_stream_id_t stream_id,
+				 float volume_scaler);
+	int (*get_nodes)(struct cras_client *client,
+			 enum CRAS_STREAM_DIRECTION direction,
+			 struct libcras_node_info ***nodes, size_t *num);
+	int (*get_default_output_buffer_size)(struct cras_client *client,
+					      int *size);
+	int (*get_aec_group_id)(struct cras_client *client, int *id);
+	int (*get_aec_supported)(struct cras_client *client, int *supported);
+	int (*get_system_muted)(struct cras_client *client, int *muted);
+	int (*set_system_mute)(struct cras_client *client, int mute);
+	int (*get_loopback_dev_idx)(struct cras_client *client, int *idx);
+};
+
+struct cras_stream_cb_data;
+struct libcras_stream_cb_data {
+	int api_version;
+	struct cras_stream_cb_data *data_;
+	int (*get_stream_id)(struct cras_stream_cb_data *data,
+			     cras_stream_id_t *id);
+	int (*get_buf)(struct cras_stream_cb_data *data, uint8_t **buf);
+	int (*get_frames)(struct cras_stream_cb_data *data,
+			  unsigned int *frames);
+	int (*get_latency)(struct cras_stream_cb_data *data,
+			   struct timespec *latency);
+	int (*get_user_arg)(struct cras_stream_cb_data *data, void **user_arg);
+};
+typedef int (*libcras_stream_cb_t)(struct libcras_stream_cb_data *data);
+
+struct libcras_stream_params {
+	int api_version;
+	struct cras_stream_params *params_;
+	int (*set)(struct cras_stream_params *params,
+		   enum CRAS_STREAM_DIRECTION direction, size_t buffer_frames,
+		   size_t cb_threshold, enum CRAS_STREAM_TYPE stream_type,
+		   enum CRAS_CLIENT_TYPE client_type, uint32_t flags,
+		   void *user_data, libcras_stream_cb_t stream_cb,
+		   cras_error_cb_t err_cb, size_t rate, snd_pcm_format_t format,
+		   size_t num_channels);
+	int (*set_channel_layout)(struct cras_stream_params *params, int length,
+				  const int8_t *layout);
+	void (*enable_aec)(struct cras_stream_params *params);
+};
+
+/*
+ * Creates a new client.
+ * Returns:
+ *    If success, return a valid libcras_client pointer. Otherwise, return
+ *    NULL.
+ */
+struct libcras_client *libcras_client_create();
+
+/*
+ * Destroys a client.
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ */
+void libcras_client_destroy(struct libcras_client *client);
+
+/*
+ * Connects a client to the running server.
+ * Waits forever (until interrupted or connected).
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ * Returns:
+ *    0 on success, or a negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_connect(struct libcras_client *client)
+{
+	return client->connect(client->client_);
+}
+
+/*
+ * Connects a client to the running server, retries until timeout.
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ *    timeout_ms - timeout in milliseconds or negative to wait forever.
+ * Returns:
+ *    0 on success, or a negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_connect_timeout(struct libcras_client *client,
+					  unsigned int timeout_ms)
+{
+	return client->connect_timeout(client->client_, timeout_ms);
+}
+
+/*
+ * Wait up to 1 second for the client thread to complete the server connection.
+ *
+ * After libcras_client_run_thread() is executed, this function can be
+ * used to ensure that the connection has been established with the server and
+ * ensure that any information about the server is up to date. If
+ * libcras_client_run_thread() has not yet been executed, or
+ * libcras_client_stop() was executed and thread isn't running, then this
+ * function returns -EINVAL.
+ *
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ * Returns:
+ *    0 on success, or a negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_connected_wait(struct libcras_client *client)
+{
+	return client->connected_wait(client->client_);
+}
+
+/*
+ * Begins running the client control thread.
+ *
+ * Required for stream operations and other operations noted below.
+ *
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ * Returns:
+ *    0 on success, or a negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_run_thread(struct libcras_client *client)
+{
+	return client->run_thread(client->client_);
+}
+
+/*
+ * Stops running a client.
+ * This function is executed automatically by cras_client_destroy().
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ * Returns:
+ *    0 on success or if the thread was already stopped, -EINVAL if the client
+ *    isn't valid.
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_stop(struct libcras_client *client)
+{
+	return client->stop(client->client_);
+}
+
+/*
+ * Creates a pinned stream and return the stream id or < 0 on error.
+ *
+ * Requires execution of libcras_client_run_thread(), and an active
+ * connection to the audio server.
+ *
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ *    dev_idx - Index of the device to attach the newly created stream.
+ *    stream_id_out - On success will be filled with the new stream id.
+ *        Guaranteed to be set before any callbacks are made.
+ *    params - The pointer specifying the parameters for the stream.
+ *        (returned from libcras_stream_params_create)
+ * Returns:
+ *    0 on success, negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_add_pinned_stream(
+	struct libcras_client *client, uint32_t dev_idx,
+	cras_stream_id_t *stream_id_out, struct libcras_stream_params *params)
+{
+	return client->add_pinned_stream(client->client_, dev_idx,
+					 stream_id_out, params->params_);
+}
+
+/*
+ * Removes a currently playing/capturing stream.
+ *
+ * Requires execution of libcras_client_run_thread().
+ *
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ *    stream_id - ID returned from libcras_client_add_stream to identify
+ *        the stream to remove.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_rm_stream(struct libcras_client *client,
+				    cras_stream_id_t stream_id)
+{
+	return client->rm_stream(client->client_, stream_id);
+}
+
+/*
+ * Sets the volume scaling factor for the given stream.
+ *
+ * Requires execution of cras_client_run_thread().
+ *
+ * Args:
+ *    client - pointer returned from "libcras_client_create".
+ *    stream_id - ID returned from libcras_client_add_stream.
+ *    volume_scaler - 0.0-1.0 the new value to scale this stream by.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_set_stream_volume(struct libcras_client *client,
+					    cras_stream_id_t stream_id,
+					    float volume_scaler)
+{
+	return client->set_stream_volume(client->client_, stream_id,
+					 volume_scaler);
+}
+
+/*
+ * Gets the current list of audio nodes.
+ *
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    direction - Input or output.
+ *    nodes - Array that will be filled with libcras_node_info pointers.
+ *    num - Pointer to store the size of the array.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ *    Remember to call libcras_node_info_array_destroy to free the array.
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_get_nodes(struct libcras_client *client,
+				    enum CRAS_STREAM_DIRECTION direction,
+				    struct libcras_node_info ***nodes,
+				    size_t *num)
+{
+	return client->get_nodes(client->client_, direction, nodes, num);
+}
+
+/*
+ * Gets the default output buffer size.
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    size - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_client_get_default_output_buffer_size(struct libcras_client *client,
+					      int *size)
+{
+	return client->get_default_output_buffer_size(client->client_, size);
+}
+
+/*
+ * Gets the AEC group ID.
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    id - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_get_aec_group_id(struct libcras_client *client,
+					   int *id)
+{
+	return client->get_aec_group_id(client->client_, id);
+}
+
+/*
+ * Gets whether AEC is supported.
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    supported - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_get_aec_supported(struct libcras_client *client,
+					    int *supported)
+{
+	return client->get_aec_supported(client->client_, supported);
+}
+
+/*
+ * Gets whether the system is muted.
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    muted - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_get_system_muted(struct libcras_client *client,
+					   int *muted)
+{
+	return client->get_aec_group_id(client->client_, muted);
+}
+
+/*
+ * Mutes or unmutes the system.
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    mute - 1 is to mute and 0 is to unmute.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_set_system_mute(struct libcras_client *client,
+					  int mute)
+{
+	return client->set_system_mute(client->client_, mute);
+}
+
+/*
+ * Gets the index of the loopback device.
+ * Args:
+ *    client - Pointer returned from "libcras_client_create".
+ *    idx - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_client_get_loopback_dev_idx(struct libcras_client *client,
+					       int *idx)
+{
+	return client->get_loopback_dev_idx(client->client_, idx);
+}
+
+/*
+ * Creates a new struct to save stream params.
+ * Returns:
+ *    If success, return a valid libcras_stream_params pointer. Otherwise,
+ *    return NULL.
+ */
+struct libcras_stream_params *libcras_stream_params_create();
+
+/*
+ * Destroys a stream params instance.
+ * Args:
+ *    params - The pointer returned from libcras_stream_params_create.
+ */
+void libcras_stream_params_destroy(struct libcras_stream_params *params);
+
+/*
+ * Setup stream configuration parameters.
+ * Args:
+ *    params - The pointer returned from libcras_stream_params_create.
+ *    direction - Playback(CRAS_STREAM_OUTPUT) or capture(CRAS_STREAM_INPUT).
+ *    buffer_frames - total number of audio frames to buffer (dictates latency).
+ *    cb_threshold - For playback, call back for more data when the buffer
+ *        reaches this level. For capture, this is ignored (Audio callback will
+ *        be called when buffer_frames have been captured).
+ *    stream_type - Media or talk (currently only support "default").
+ *    client_type - The client type, like Chrome or CrOSVM.
+ *    flags - Currently only used for CRAS_INPUT_STREAM_FLAG.
+ *    user_data - Pointer that will be passed to the callback.
+ *    stream_cb - The audio callback. Called when audio is needed(playback) or
+ *        ready(capture).
+ *    err_cb - Called when there is an error with the stream.
+ *    rate - The sample rate of the audio stream.
+ *    format - The format of the audio stream.
+ *    num_channels - The number of channels of the audio stream.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_stream_params_set(
+	struct libcras_stream_params *params,
+	enum CRAS_STREAM_DIRECTION direction, size_t buffer_frames,
+	size_t cb_threshold, enum CRAS_STREAM_TYPE stream_type,
+	enum CRAS_CLIENT_TYPE client_type, uint32_t flags, void *user_data,
+	libcras_stream_cb_t stream_cb, cras_error_cb_t err_cb, size_t rate,
+	snd_pcm_format_t format, size_t num_channels)
+{
+	return params->set(params->params_, direction, buffer_frames,
+			   cb_threshold, stream_type, client_type, flags,
+			   user_data, stream_cb, err_cb, rate, format,
+			   num_channels);
+}
+
+/*
+ * Sets channel layout on given stream parameter.
+ * Args:
+ *    params - The pointer returned from libcras_stream_params_create.
+ *    length - The length of the array.
+ *    layout - An integer array representing the position of each channel in
+ *    enum CRAS_CHANNEL.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_stream_params_set_channel_layout(struct libcras_stream_params *params,
+					 int length, const int8_t *layout)
+{
+	return params->set_channel_layout(params->params_, length, layout);
+}
+
+/*
+ * Enables AEC on given stream parameter.
+ * Args:
+ *    params - The pointer returned from libcras_stream_params_create.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_stream_params_enable_aec(struct libcras_stream_params *params)
+{
+	params->enable_aec(params->params_);
+	return 0;
+}
+
+/*
+ * Gets stream id from the callback data.
+ * Args:
+ *    data - The pointer passed to the callback function.
+ *    id - The pointer to save the stream id.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_stream_cb_data_get_stream_id(struct libcras_stream_cb_data *data,
+				     cras_stream_id_t *id)
+{
+	return data->get_stream_id(data->data_, id);
+}
+
+/*
+ * Gets stream buf from the callback data.
+ * Args:
+ *    data - The pointer passed to the callback function.
+ *    buf - The pointer to save the stream buffer.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_stream_cb_data_get_buf(struct libcras_stream_cb_data *data,
+					  uint8_t **buf)
+{
+	return data->get_buf(data->data_, buf);
+}
+
+/*
+ * Gets how many frames to read or play from the callback data.
+ * Args:
+ *    data - The pointer passed to the callback function.
+ *    frames - The pointer to save the number of frames.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_stream_cb_data_get_frames(struct libcras_stream_cb_data *data,
+				  unsigned int *frames)
+{
+	return data->get_frames(data->data_, frames);
+}
+
+/*
+ * Gets the latency from the callback data.
+ * Args:
+ *    data - The pointer passed to the callback function.
+ *    frames - The timespec pointer to save the latency.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_stream_cb_data_get_latency(struct libcras_stream_cb_data *data,
+				   struct timespec *latency)
+{
+	return data->get_latency(data->data_, latency);
+}
+
+/*
+ * Gets the user data from the callback data.
+ * Args:
+ *    data - The pointer passed to the callback function.
+ *    frames - The pointer to save the user data.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_stream_cb_data_get_usr_arg(struct libcras_stream_cb_data *data,
+				   void **user_arg)
+{
+	return data->get_user_arg(data->data_, user_arg);
+}
+
+/*
+ * Destroys a node info instance.
+ * Args:
+ *    node - The libcras_node_info pointer to destroy.
+ */
+void libcras_node_info_destroy(struct libcras_node_info *node);
+
+/*
+ * Destroys a node info array.
+ * Args:
+ *    nodes - The libcras_node_info pointer array to destroy.
+ *    num - The size of the array.
+ */
+void libcras_node_info_array_destroy(struct libcras_node_info **nodes,
+				     size_t num);
+
+/*
+ * Gets ID from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    id - The pointer to save ID.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_get_id(struct libcras_node_info *node,
+				    uint64_t *id)
+{
+	return node->get_id(node->node_, id);
+}
+
+/*
+ * Gets device index from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    dev_idx - The pointer to the device index.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_get_dev_idx(struct libcras_node_info *node,
+					 uint32_t *dev_idx)
+{
+	return node->get_dev_idx(node->node_, dev_idx);
+}
+
+/*
+ * Gets node index from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    node_idx - The pointer to save the node index.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_get_node_idx(struct libcras_node_info *node,
+					  uint32_t *node_idx)
+{
+	return node->get_node_idx(node->node_, node_idx);
+}
+
+/*
+ * Gets the max supported channels from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    max_supported_channels - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int
+libcras_node_info_get_max_supported_channels(struct libcras_node_info *node,
+					     uint32_t *max_supported_channels)
+{
+	return node->get_max_supported_channels(node->node_,
+						max_supported_channels);
+}
+
+/*
+ * Gets whether the node is plugged from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    plugged - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_is_plugged(struct libcras_node_info *node,
+					bool *plugged)
+{
+	return node->is_plugged(node->node_, plugged);
+}
+
+/*
+ * Gets whether the node is active from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    active - The pointer to save the result.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_is_active(struct libcras_node_info *node,
+				       bool *active)
+{
+	return node->is_active(node->node_, active);
+}
+
+/*
+ * Gets device type from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    type - The pointer to save the device type.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_get_type(struct libcras_node_info *node,
+				      char **type)
+{
+	return node->get_type(node->node_, type);
+}
+
+/*
+ * Gets device name from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    name - The pointer to save the device name.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_get_node_name(struct libcras_node_info *node,
+					   char **name)
+{
+	return node->get_node_name(node->node_, name);
+}
+
+/*
+ * Gets node name from the node info pointer.
+ * Args:
+ *    node - The node info pointer. (Returned from libcras_client_get_nodes)
+ *    name - The pointer to save the node name.
+ * Returns:
+ *    0 on success negative error code on failure (from errno.h).
+ */
+DISABLE_CFI_ICALL
+inline int libcras_node_info_get_dev_name(struct libcras_node_info *node,
+					  char **name)
+{
+	return node->get_dev_name(node->node_, name);
+}
+
 #ifdef __cplusplus
 }
 #endif

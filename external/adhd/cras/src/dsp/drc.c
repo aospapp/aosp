@@ -104,7 +104,7 @@ static void set_default_parameters(struct drc *drc)
 		param[PARAM_RELEASE_ZONE3] = 0.42f;
 		param[PARAM_RELEASE_ZONE4] = 0.98f;
 
-		/* This is effectively a master volume on the compressed
+		/* This is effectively a main volume on the compressed
 		 * signal */
 		param[PARAM_POST_GAIN] = 0; /* dB */
 		param[PARAM_ENABLED] = 0;

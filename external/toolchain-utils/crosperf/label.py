@@ -61,9 +61,9 @@ class Label(object):
       if self.image_type == 'local':
         chromeos_root = FileUtils().ChromeOSRootFromImage(chromeos_image)
       if not chromeos_root:
-        raise RuntimeError(
-            "No ChromeOS root given for label '%s' and could "
-            "not determine one from image path: '%s'." % (name, chromeos_image))
+        raise RuntimeError("No ChromeOS root given for label '%s' and could "
+                           "not determine one from image path: '%s'." %
+                           (name, chromeos_image))
     else:
       chromeos_root = FileUtils().CanonicalizeChromeOSRoot(chromeos_root)
       if not chromeos_root:
@@ -72,17 +72,31 @@ class Label(object):
 
     self.chromeos_root = chromeos_root
     if not chrome_src:
-      self.chrome_src = os.path.join(
-          self.chromeos_root, '.cache/distfiles/target/chrome-src-internal')
-      if not os.path.exists(self.chrome_src):
-        self.chrome_src = os.path.join(self.chromeos_root,
-                                       '.cache/distfiles/target/chrome-src')
+      # Old and new chroots may have different chrome src locations.
+      # The path also depends on the chrome build flags.
+      # Give priority to chrome-src-internal.
+      chrome_src_rel_paths = [
+          '.cache/distfiles/target/chrome-src-internal',
+          '.cache/distfiles/chrome-src-internal',
+          '.cache/distfiles/target/chrome-src',
+          '.cache/distfiles/chrome-src',
+      ]
+      for chrome_src_rel_path in chrome_src_rel_paths:
+        chrome_src_abs_path = os.path.join(self.chromeos_root,
+                                           chrome_src_rel_path)
+        if os.path.exists(chrome_src_abs_path):
+          chrome_src = chrome_src_abs_path
+          break
+      if not chrome_src:
+        raise RuntimeError('Can not find location of Chrome sources.\n'
+                           f'Checked paths: {chrome_src_rel_paths}')
     else:
-      chromeos_src = misc.CanonicalizePath(chrome_src)
-      if not chromeos_src:
+      chrome_src = misc.CanonicalizePath(chrome_src)
+      # Make sure the path exists.
+      if not os.path.exists(chrome_src):
         raise RuntimeError("Invalid Chrome src given for label '%s': '%s'." %
                            (name, chrome_src))
-      self.chrome_src = chromeos_src
+    self.chrome_src = chrome_src
 
     self._SetupChecksum()
 

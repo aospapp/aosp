@@ -9,6 +9,7 @@ extern "C" {
 #include "audio_thread_log.h"
 #include "cras_audio_area.h"
 #include "cras_iodev.h"
+#include "cras_main_thread_log.h"
 #include "cras_ramp.h"
 #include "cras_rstream.h"
 #include "dev_stream.h"
@@ -59,7 +60,7 @@ static unsigned int cras_mix_mute_count;
 static unsigned int cras_dsp_num_input_channels_return;
 static unsigned int cras_dsp_num_output_channels_return;
 struct cras_dsp_context* cras_dsp_context_new_return;
-static unsigned int cras_dsp_load_dummy_pipeline_called;
+static unsigned int cras_dsp_load_mock_pipeline_called;
 static unsigned int rate_estimator_add_frames_num_frames;
 static unsigned int rate_estimator_add_frames_called;
 static int cras_system_get_mute_return;
@@ -73,7 +74,6 @@ static unsigned int post_dsp_hook_called;
 static const uint8_t* post_dsp_hook_frames;
 static void* post_dsp_hook_cb_data;
 static int iodev_buffer_size;
-static long cras_system_get_capture_gain_ret_value;
 static uint8_t audio_buffer[BUFFER_SIZE];
 static struct cras_audio_area* audio_area;
 static unsigned int put_buffer_nframes;
@@ -85,7 +85,6 @@ struct audio_thread_event_log* atlog;
 static unsigned int simple_no_stream_called;
 static int simple_no_stream_enable;
 static int dev_stream_playback_frames_ret;
-static int get_num_underruns_ret;
 static int device_monitor_reset_device_called;
 static int output_underrun_called;
 static int set_mute_called;
@@ -114,6 +113,7 @@ static int buffer_share_get_new_write_point_ret;
 static int ext_mod_configure_called;
 static struct input_data* input_data_create_ret;
 static double rate_estimator_get_rate_ret;
+static int cras_audio_thread_event_dev_overrun_called;
 
 static char* atlog_name;
 
@@ -148,7 +148,7 @@ void ResetStubData() {
   cras_dsp_num_input_channels_return = 2;
   cras_dsp_num_output_channels_return = 2;
   cras_dsp_context_new_return = NULL;
-  cras_dsp_load_dummy_pipeline_called = 0;
+  cras_dsp_load_mock_pipeline_called = 0;
   rate_estimator_add_frames_num_frames = 0;
   rate_estimator_add_frames_called = 0;
   cras_system_get_mute_return = 0;
@@ -159,7 +159,6 @@ void ResetStubData() {
   post_dsp_hook_called = 0;
   post_dsp_hook_frames = NULL;
   iodev_buffer_size = 0;
-  cras_system_get_capture_gain_ret_value = 0;
   // Assume there is some data in audio buffer.
   memset(audio_buffer, 0xff, sizeof(audio_buffer));
   if (audio_area) {
@@ -181,7 +180,6 @@ void ResetStubData() {
     atlog_rw_shm_fd = atlog_ro_shm_fd = -1;
     atlog = audio_thread_event_log_init(atlog_name);
   }
-  get_num_underruns_ret = 0;
   device_monitor_reset_device_called = 0;
   output_underrun_called = 0;
   set_mute_called = 0;
@@ -211,6 +209,7 @@ void ResetStubData() {
   buffer_share_add_id_called = 0;
   ext_mod_configure_called = 0;
   rate_estimator_get_rate_ret = 0;
+  cras_audio_thread_event_dev_overrun_called = 0;
 }
 
 namespace {
@@ -269,9 +268,14 @@ class IoDevSetFormatTestSuite : public testing::Test {
     iodev_.dsp_context = NULL;
 
     cras_audio_format_set_channel_layout_called = 0;
+
+    main_log = main_thread_event_log_init();
   }
 
-  virtual void TearDown() { cras_iodev_free_format(&iodev_); }
+  virtual void TearDown() {
+    cras_iodev_free_format(&iodev_);
+    main_thread_event_log_deinit(main_log);
+  }
 
   struct cras_iodev iodev_;
   size_t sample_rates_[3];
@@ -1058,6 +1062,8 @@ TEST(IoNodePlug, PlugUnplugNode) {
   struct cras_iodev iodev;
   struct cras_ionode ionode, ionode2;
 
+  main_log = main_thread_event_log_init();
+
   memset(&iodev, 0, sizeof(iodev));
   memset(&ionode, 0, sizeof(ionode));
   memset(&ionode2, 0, sizeof(ionode2));
@@ -1079,6 +1085,7 @@ TEST(IoNodePlug, PlugUnplugNode) {
   EXPECT_EQ(1, cras_iodev_list_disable_dev_called);
   cras_iodev_set_node_plugged(&ionode2, 0);
   EXPECT_EQ(1, cras_iodev_list_disable_dev_called);
+  main_thread_event_log_deinit(main_log);
 }
 
 TEST(IoDev, AddRemoveNode) {
@@ -1169,21 +1176,15 @@ TEST(IoDev, SoftwareGain) {
   iodev.active_node = &ionode;
   iodev.active_node->dev = &iodev;
 
-  ionode.capture_gain = 400;
+  ionode.capture_gain = 2400;
   ionode.software_volume_needed = 1;
-  ionode.max_software_gain = 3000;
 
-  // Check that system volume changes software volume if needed.
-  cras_system_get_capture_gain_ret_value = 2000;
-  // system_gain + node_gain = 2000 + 400  = 2400
   // 2400 * 0.01 dB is 15.848931
   EXPECT_FLOAT_EQ(15.848931, cras_iodev_get_software_gain_scaler(&iodev));
-  EXPECT_FLOAT_EQ(3000, cras_iodev_maximum_software_gain(&iodev));
 
   // Software gain scaler should be 1.0 if software gain is not needed.
   ionode.software_volume_needed = 0;
   EXPECT_FLOAT_EQ(1.0, cras_iodev_get_software_gain_scaler(&iodev));
-  EXPECT_FLOAT_EQ(0, cras_iodev_maximum_software_gain(&iodev));
 }
 
 // This get_buffer implementation set returned frames larger than requested
@@ -1232,6 +1233,8 @@ TEST(IoDev, OpenOutputDeviceNoStart) {
   iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_OUTPUT;
   iodev.format = &audio_fmt;
+  iodev.get_buffer = get_buffer;
+  iodev.put_buffer = put_buffer;
   ResetStubData();
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
@@ -1252,6 +1255,8 @@ TEST(IoDev, OpenOutputDeviceWithLowRateFmt) {
   iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_OUTPUT;
   iodev.format = &audio_fmt;
+  iodev.get_buffer = get_buffer;
+  iodev.put_buffer = put_buffer;
   ResetStubData();
 
   cras_audio_format low_rate_fmt = audio_fmt;
@@ -1373,6 +1378,8 @@ TEST(IoDev, AddRmStream) {
   iodev.no_stream = simple_no_stream;
   iodev.format = &audio_fmt;
   iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
+  iodev.get_buffer = get_buffer;
+  iodev.put_buffer = put_buffer;
   rstream1.cb_threshold = 800;
   stream1.stream = &rstream1;
   stream1.is_running = 0;
@@ -1426,6 +1433,8 @@ TEST(IoDev, RmStreamUpdateFetchTime) {
   iodev.no_stream = simple_no_stream;
   iodev.format = &audio_fmt;
   iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
+  iodev.get_buffer = get_buffer;
+  iodev.put_buffer = put_buffer;
   rstream1.direction = CRAS_STREAM_OUTPUT;
   rstream2.direction = CRAS_STREAM_OUTPUT;
   rstream3.direction = CRAS_STREAM_OUTPUT;
@@ -1473,6 +1482,8 @@ TEST(IoDev, StartStreams) {
   iodev1.configure_dev = configure_dev;
   iodev1.format = &audio_fmt;
   iodev1.state = CRAS_IODEV_STATE_NORMAL_RUN;
+  iodev1.get_buffer = get_buffer;
+  iodev1.put_buffer = put_buffer;
   iodev2.configure_dev = configure_dev;
   iodev2.format = &audio_fmt;
   iodev2.state = CRAS_IODEV_STATE_NORMAL_RUN;
@@ -1722,7 +1733,7 @@ TEST(IoDev, PrepareOutputBeforeWriteSamples) {
 
   // Assume device has ramp member.
   iodev.ramp = reinterpret_cast<struct cras_ramp*>(0x1);
-
+  iodev.initial_ramp_request = CRAS_IODEV_RAMP_REQUEST_UP_START_PLAYBACK;
   // Case 4.1: Assume device with ramp is started and is in no stream state.
   iodev.state = CRAS_IODEV_STATE_NO_STREAM_RUN;
   // Assume sample is ready.
@@ -2101,18 +2112,13 @@ TEST(IoDev, FramesToPlayInSleep) {
   EXPECT_EQ(got_frames, hw_level - fmt.frame_rate / 1000 * 5);
 }
 
-static unsigned int get_num_underruns(const struct cras_iodev* iodev) {
-  return get_num_underruns_ret;
-}
-
 TEST(IoDev, GetNumUnderruns) {
   struct cras_iodev iodev;
   memset(&iodev, 0, sizeof(iodev));
 
   EXPECT_EQ(0, cras_iodev_get_num_underruns(&iodev));
 
-  iodev.get_num_underruns = get_num_underruns;
-  get_num_underruns_ret = 10;
+  iodev.num_underruns = 10;
   EXPECT_EQ(10, cras_iodev_get_num_underruns(&iodev));
 }
 
@@ -2125,6 +2131,8 @@ TEST(IoDev, RequestReset) {
   iodev.configure_dev = configure_dev;
   iodev.direction = CRAS_STREAM_OUTPUT;
   iodev.format = &audio_fmt;
+  iodev.get_buffer = get_buffer;
+  iodev.put_buffer = put_buffer;
 
   iodev.state = CRAS_IODEV_STATE_CLOSE;
   iodev_buffer_size = 1024;
@@ -2173,7 +2181,7 @@ TEST(IoDev, HandleOutputUnderrun) {
   iodev.min_cb_level = frames;
 
   // Default case, fill one block of zeros.
-  EXPECT_EQ(0, cras_iodev_output_underrun(&iodev));
+  EXPECT_EQ(0, cras_iodev_output_underrun(&iodev, 0, 0));
 
   EXPECT_EQ(frames, put_buffer_nframes);
   zeros = (int16_t*)calloc(frames * 2, sizeof(*zeros));
@@ -2183,7 +2191,7 @@ TEST(IoDev, HandleOutputUnderrun) {
 
   // Test iodev has output_underrun ops.
   iodev.output_underrun = output_underrun;
-  EXPECT_EQ(0, cras_iodev_output_underrun(&iodev));
+  EXPECT_EQ(0, cras_iodev_output_underrun(&iodev, 0, 0));
   EXPECT_EQ(1, output_underrun_called);
 }
 
@@ -2232,12 +2240,12 @@ TEST(IoDev, SetExtDspMod) {
   EXPECT_EQ(3, cras_dsp_get_pipeline_called);
   EXPECT_EQ(3, cras_dsp_pipeline_set_sink_ext_module_called);
 
-  /* If pipeline doesn't exist, dummy pipeline should be loaded. */
+  /* If pipeline doesn't exist, mock pipeline should be loaded. */
   cras_dsp_get_pipeline_ret = 0x0;
   cras_iodev_set_ext_dsp_module(&iodev, &ext);
   EXPECT_EQ(3, ext_mod_configure_called);
   EXPECT_EQ(5, cras_dsp_get_pipeline_called);
-  EXPECT_EQ(1, cras_dsp_load_dummy_pipeline_called);
+  EXPECT_EQ(1, cras_dsp_load_mock_pipeline_called);
   EXPECT_EQ(4, cras_dsp_pipeline_set_sink_ext_module_called);
 }
 
@@ -2349,7 +2357,70 @@ TEST(IoDev, DropDeviceFramesByTime) {
   EXPECT_EQ(-360, rate_estimator_add_frames_num_frames);
 }
 
+TEST(IoDev, AecUseCaseCheck) {
+  struct cras_ionode node;
+
+  /* test output types */
+  node.type = CRAS_NODE_TYPE_INTERNAL_SPEAKER;
+  EXPECT_EQ(1, cras_iodev_is_aec_use_case(&node));
+  node.type = CRAS_NODE_TYPE_HEADPHONE;
+  EXPECT_EQ(0, cras_iodev_is_aec_use_case(&node));
+  node.type = CRAS_NODE_TYPE_HDMI;
+  EXPECT_EQ(0, cras_iodev_is_aec_use_case(&node));
+  node.type = CRAS_NODE_TYPE_USB;
+  EXPECT_EQ(0, cras_iodev_is_aec_use_case(&node));
+  node.type = CRAS_NODE_TYPE_BLUETOOTH;
+  EXPECT_EQ(0, cras_iodev_is_aec_use_case(&node));
+
+  /* test mic positions */
+  node.type = CRAS_NODE_TYPE_MIC;
+  node.position = NODE_POSITION_INTERNAL;
+  EXPECT_EQ(1, cras_iodev_is_aec_use_case(&node));
+  node.position = NODE_POSITION_FRONT;
+  EXPECT_EQ(1, cras_iodev_is_aec_use_case(&node));
+  node.position = NODE_POSITION_EXTERNAL;
+  EXPECT_EQ(0, cras_iodev_is_aec_use_case(&node));
+  node.position = NODE_POSITION_REAR;
+  EXPECT_EQ(0, cras_iodev_is_aec_use_case(&node));
+}
+
+TEST(IoDev, DeviceOverrun) {
+  struct cras_iodev iodev;
+
+  iodev.buffer_size = 4096;
+  iodev.largest_cb_level = 2048;
+  cras_iodev_update_highest_hw_level(&iodev, 4096);
+  EXPECT_EQ(0, cras_audio_thread_event_dev_overrun_called);
+
+  iodev.largest_cb_level = 1024;
+  iodev.highest_hw_level = 1024;
+  cras_iodev_update_highest_hw_level(&iodev, 2048);
+  EXPECT_EQ(0, cras_audio_thread_event_dev_overrun_called);
+
+  cras_iodev_update_highest_hw_level(&iodev, 4096);
+  EXPECT_EQ(1, cras_audio_thread_event_dev_overrun_called);
+
+  cras_iodev_update_highest_hw_level(&iodev, 4096);
+  EXPECT_EQ(1, cras_audio_thread_event_dev_overrun_called);
+}
+
+TEST(IoDev, OnInternalCard) {
+  static struct cras_ionode node;
+  node.type = CRAS_NODE_TYPE_INTERNAL_SPEAKER;
+  EXPECT_EQ(1, cras_iodev_is_on_internal_card(&node));
+  node.type = CRAS_NODE_TYPE_HEADPHONE;
+  EXPECT_EQ(1, cras_iodev_is_on_internal_card(&node));
+  node.type = CRAS_NODE_TYPE_MIC;
+  EXPECT_EQ(1, cras_iodev_is_on_internal_card(&node));
+  node.type = CRAS_NODE_TYPE_USB;
+  EXPECT_EQ(0, cras_iodev_is_on_internal_card(&node));
+  node.type = CRAS_NODE_TYPE_BLUETOOTH;
+  EXPECT_EQ(0, cras_iodev_is_on_internal_card(&node));
+}
+
 extern "C" {
+
+struct main_thread_event_log* main_log;
 
 //  From libpthread.
 int pthread_create(pthread_t* thread,
@@ -2390,7 +2461,7 @@ unsigned int buffer_share_get_new_write_point(struct buffer_share* mix) {
   return buffer_share_get_new_write_point_ret;
 }
 
-int buffer_share_add_id(struct buffer_share* mix, unsigned int id) {
+int buffer_share_add_id(struct buffer_share* mix, unsigned int id, void* data) {
   buffer_share_add_id_called++;
   return 0;
 }
@@ -2405,9 +2476,11 @@ unsigned int buffer_share_id_offset(const struct buffer_share* mix,
 }
 
 // From cras_system_state.
-void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction) {}
+void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction,
+                                    enum CRAS_CLIENT_TYPE client_type) {}
 
-void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction) {}
+void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction,
+                                      enum CRAS_CLIENT_TYPE client_type) {}
 
 // From cras_dsp
 struct cras_dsp_context* cras_dsp_context_new(int sample_rate,
@@ -2422,9 +2495,9 @@ void cras_dsp_context_free(struct cras_dsp_context* ctx) {
 }
 
 void cras_dsp_load_pipeline(struct cras_dsp_context* ctx) {}
-void cras_dsp_load_dummy_pipeline(struct cras_dsp_context* ctx,
-                                  unsigned int num_channels) {
-  cras_dsp_load_dummy_pipeline_called++;
+void cras_dsp_load_mock_pipeline(struct cras_dsp_context* ctx,
+                                 unsigned int num_channels) {
+  cras_dsp_load_mock_pipeline_called++;
 }
 
 void cras_dsp_set_variable_string(struct cras_dsp_context* ctx,
@@ -2539,10 +2612,6 @@ float softvol_get_scaler(unsigned int volume_index) {
 
 size_t cras_system_get_volume() {
   return cras_system_get_volume_return;
-}
-
-long cras_system_get_capture_gain() {
-  return cras_system_get_capture_gain_ret_value;
 }
 
 int cras_system_get_mute() {
@@ -2690,17 +2759,34 @@ void input_data_destroy(struct input_data** data) {}
 void input_data_set_all_streams_read(struct input_data* data,
                                      unsigned int nframes) {}
 
-int cras_audio_thread_event_severe_underrun() {
+int cras_audio_thread_event_underrun() {
   return 0;
 }
 
-int cras_audio_thread_event_underrun() {
+int cras_audio_thread_event_dev_overrun() {
+  cras_audio_thread_event_dev_overrun_called++;
   return 0;
 }
 
 int cras_server_metrics_device_runtime(struct cras_iodev* iodev) {
   return 0;
 }
+
+int cras_server_metrics_device_volume(struct cras_iodev* iodev) {
+  return 0;
+}
+
+void ewma_power_init(struct ewma_power* ewma, unsigned int rate){};
+
+void ewma_power_calculate(struct ewma_power* ewma,
+                          const int16_t* buf,
+                          unsigned int channels,
+                          unsigned int size){};
+
+void ewma_power_calculate_area(struct ewma_power* ewma,
+                               const int16_t* buf,
+                               struct cras_audio_area* area,
+                               unsigned int size){};
 
 }  // extern "C"
 }  //  namespace

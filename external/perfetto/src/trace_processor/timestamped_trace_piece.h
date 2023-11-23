@@ -19,12 +19,12 @@
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/trace_processor/basic_types.h"
+#include "src/trace_processor/importers/common/trace_blob_view.h"
 #include "src/trace_processor/importers/fuchsia/fuchsia_record.h"
 #include "src/trace_processor/importers/json/json_utils.h"
 #include "src/trace_processor/importers/proto/packet_sequence_state.h"
 #include "src/trace_processor/importers/systrace/systrace_line.h"
 #include "src/trace_processor/storage/trace_storage.h"
-#include "src/trace_processor/trace_blob_view.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 
 // GCC can't figure out the relationship between TimestampedTracePiece's type
@@ -55,20 +55,25 @@ struct InlineSchedWaking {
 
 struct TracePacketData {
   TraceBlobView packet;
+  std::shared_ptr<PacketSequenceStateGeneration> sequence_state;
+};
 
-  PacketSequenceStateGeneration* sequence_state;
+struct FtraceEventData {
+  TraceBlobView event;
+  std::shared_ptr<PacketSequenceStateGeneration> sequence_state;
 };
 
 struct TrackEventData : public TracePacketData {
-  TrackEventData(TraceBlobView pv, PacketSequenceStateGeneration* generation)
-      : TracePacketData{std::move(pv), generation} {}
+  TrackEventData(TraceBlobView pv,
+                 std::shared_ptr<PacketSequenceStateGeneration> generation)
+      : TracePacketData{std::move(pv), std::move(generation)} {}
 
   static constexpr size_t kMaxNumExtraCounters = 8;
 
-  int64_t thread_timestamp = 0;
-  int64_t thread_instruction_count = 0;
-  int64_t counter_value = 0;
-  std::array<int64_t, kMaxNumExtraCounters> extra_counter_values = {};
+  base::Optional<int64_t> thread_timestamp;
+  base::Optional<int64_t> thread_instruction_count;
+  double counter_value = 0;
+  std::array<double, kMaxNumExtraCounters> extra_counter_values = {};
 };
 
 // A TimestampedTracePiece is (usually a reference to) a piece of a trace that
@@ -86,24 +91,23 @@ struct TimestampedTracePiece {
     kSystraceLine,
   };
 
-  TimestampedTracePiece(int64_t ts,
-                        uint64_t idx,
-                        TraceBlobView tbv,
-                        PacketSequenceStateGeneration* sequence_state)
-      : packet_data{std::move(tbv), sequence_state},
+  TimestampedTracePiece(
+      int64_t ts,
+      uint64_t idx,
+      TraceBlobView tbv,
+      std::shared_ptr<PacketSequenceStateGeneration> sequence_state)
+      : packet_data{std::move(tbv), std::move(sequence_state)},
         timestamp(ts),
         packet_idx(idx),
         type(Type::kTracePacket) {}
 
-  TimestampedTracePiece(int64_t ts, uint64_t idx, TraceBlobView tbv)
-      : ftrace_event(std::move(tbv)),
+  TimestampedTracePiece(int64_t ts, uint64_t idx, FtraceEventData fed)
+      : ftrace_event(std::move(fed)),
         timestamp(ts),
         packet_idx(idx),
         type(Type::kFtraceEvent) {}
 
-  TimestampedTracePiece(int64_t ts,
-                        uint64_t idx,
-                        std::unique_ptr<Json::Value> value)
+  TimestampedTracePiece(int64_t ts, uint64_t idx, std::string value)
       : json_value(std::move(value)),
         timestamp(ts),
         packet_idx(idx),
@@ -153,7 +157,7 @@ struct TimestampedTracePiece {
       case Type::kInvalid:
         break;
       case Type::kFtraceEvent:
-        new (&ftrace_event) TraceBlobView(std::move(ttp.ftrace_event));
+        new (&ftrace_event) FtraceEventData(std::move(ttp.ftrace_event));
         break;
       case Type::kTracePacket:
         new (&packet_data) TracePacketData(std::move(ttp.packet_data));
@@ -165,8 +169,7 @@ struct TimestampedTracePiece {
         new (&sched_waking) InlineSchedWaking(std::move(ttp.sched_waking));
         break;
       case Type::kJsonValue:
-        new (&json_value)
-            std::unique_ptr<Json::Value>(std::move(ttp.json_value));
+        new (&json_value) std::string(std::move(ttp.json_value));
         break;
       case Type::kFuchsiaRecord:
         new (&fuchsia_record)
@@ -208,13 +211,13 @@ struct TimestampedTracePiece {
       case Type::kInlineSchedWaking:
         break;
       case Type::kFtraceEvent:
-        ftrace_event.~TraceBlobView();
+        ftrace_event.~FtraceEventData();
         break;
       case Type::kTracePacket:
         packet_data.~TracePacketData();
         break;
       case Type::kJsonValue:
-        json_value.~unique_ptr();
+        json_value.~basic_string();
         break;
       case Type::kFuchsiaRecord:
         fuchsia_record.~unique_ptr();
@@ -243,11 +246,11 @@ struct TimestampedTracePiece {
 
   // Data for different types of TimestampedTracePiece.
   union {
-    TraceBlobView ftrace_event;
+    FtraceEventData ftrace_event;
     TracePacketData packet_data;
     InlineSchedSwitch sched_switch;
     InlineSchedWaking sched_waking;
-    std::unique_ptr<Json::Value> json_value;
+    std::string json_value;
     std::unique_ptr<FuchsiaRecord> fuchsia_record;
     std::unique_ptr<TrackEventData> track_event_data;
     std::unique_ptr<SystraceLine> systrace_line;

@@ -47,12 +47,19 @@ struct cras_observer_ops {
 	void (*num_active_streams_changed)(void *context,
 					   enum CRAS_STREAM_DIRECTION dir,
 					   uint32_t num_active_streams);
+	/* Number of input streams with permission changed. */
+	void (*num_input_streams_with_permission_changed)(
+		void *context,
+		uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE]);
 	/* Hotword triggered. */
 	void (*hotword_triggered)(void *context, int64_t tv_sec,
 				  int64_t tv_nsec);
 	/* State regarding whether non-empty audio is being played/captured has
 	 * changed. */
 	void (*non_empty_audio_state_changed)(void *context, int non_empty);
+	/* Bluetooth headset battery level changed. */
+	void (*bt_battery_changed)(void *context, const char *address,
+				   uint32_t level);
 };
 
 #endif /* CRAS_OBSERVER_OPS_H */

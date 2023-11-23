@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (C) 2019 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,7 +76,7 @@ def upload_one_file_with_retries(fpath):
     res = upload_one_file(fpath)
     if res >= 0:
       return res
-    logging.warn('Upload of %s failed, retrying in %s seconds', fpath, retry)
+    logging.warning('Upload of %s failed, retrying in %s seconds', fpath, retry)
     time.sleep(retry)
 
 
@@ -115,6 +115,11 @@ def main():
   if not os.path.isdir(dirpath):
     logging.error('Directory not found: %s', dirpath)
     return 1
+
+  # Make all artifacts readable by our user. Some of them are extracted as
+  # rw-rw--- and owned by a diffrent user (whatever the "sandbox" docker
+  # container uid ends up mapping to).
+  subprocess.call(['sudo', 'chown', '-R', str(os.geteuid()), dirpath])
 
   total_size = 0
   uploads = 0

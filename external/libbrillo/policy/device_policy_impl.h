@@ -40,6 +40,7 @@ class DevicePolicyImpl : public DevicePolicy {
 
   // DevicePolicy overrides:
   bool LoadPolicy() override;
+  bool IsEnterpriseEnrolled() const override;
   bool GetPolicyRefreshRate(int* rate) const override;
   bool GetUserWhitelist(
       std::vector<std::string>* user_whitelist) const override;
@@ -83,6 +84,10 @@ class DevicePolicyImpl : public DevicePolicy {
       std::vector<WeeklyTimeInterval>* intervals_out) const override;
   bool GetDeviceUpdateStagingSchedule(
       std::vector<DayPercentagePair> *staging_schedule_out) const override;
+  bool GetDeviceQuickFixBuildToken(
+      std::string* device_quick_fix_build_token) const override;
+  bool GetDeviceDirectoryApiId(
+      std::string* device_directory_api_out) const override;
 
   // Methods that can be used only for testing.
   void set_policy_data_for_testing(

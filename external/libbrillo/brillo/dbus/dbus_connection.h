@@ -21,15 +21,15 @@ class BRILLO_EXPORT DBusConnection final {
 
   // Instantiates dbus::Bus and establishes a D-Bus connection. Returns a
   // reference to the connected bus, or an empty pointer in case of error.
-  scoped_refptr<dbus::Bus> Connect();
+  scoped_refptr<::dbus::Bus> Connect();
 
   // Instantiates dbus::Bus and tries to establish a D-Bus connection for up to
   // |timeout|. If the connection can't be established after the timeout, fails
   // returning an empty pointer.
-  scoped_refptr<dbus::Bus> ConnectWithTimeout(base::TimeDelta timeout);
+  scoped_refptr<::dbus::Bus> ConnectWithTimeout(base::TimeDelta timeout);
 
  private:
-  scoped_refptr<dbus::Bus> bus_;
+  scoped_refptr<::dbus::Bus> bus_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DBusConnection);
@@ -37,4 +37,4 @@ class BRILLO_EXPORT DBusConnection final {
 
 }  // namespace brillo
 
-#endif  // LIBBRILLO_BRILLO_DAEMONS_DBUS_DAEMON_H_
+#endif  // LIBBRILLO_BRILLO_DBUS_DBUS_CONNECTION_H_

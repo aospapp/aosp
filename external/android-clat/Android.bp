@@ -1,3 +1,26 @@
+package {
+    default_applicable_licenses: ["external_android-clat_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_android-clat_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "clatd_defaults",
 
@@ -63,12 +86,13 @@ cc_binary {
     tidy_flags: [
         "-warnings-as-errors=clang-analyzer-security*,cert-*,android-*",
     ],
-}
-
-// The configuration file.
-prebuilt_etc {
-    name: "clatd.conf",
-    src: "clatd.conf",
+    // Actually not required for clatd itself. See comments in the rc file.
+    init_rc: [
+        "vendor-464xlat.rc",
+    ],
+    sanitize: {
+        memtag_heap: true,
+    },
 }
 
 // Unit tests.

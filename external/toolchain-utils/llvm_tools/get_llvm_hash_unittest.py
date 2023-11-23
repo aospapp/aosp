@@ -8,12 +8,11 @@
 
 from __future__ import print_function
 
-import get_llvm_hash
 import subprocess
 import unittest
 import unittest.mock as mock
-import test_helpers
 
+import get_llvm_hash
 from get_llvm_hash import LLVMHash
 
 # We grab protected stuff from get_llvm_hash. That's OK.
@@ -87,7 +86,7 @@ class TestGetLLVMHash(unittest.TestCase):
 
   @mock.patch.object(subprocess, 'check_output')
   def testSuccessfullyGetGitHashFromToTOfLLVM(self, mock_check_output):
-    mock_check_output.return_value = 'a123testhash1 path/to/master\n'
+    mock_check_output.return_value = 'a123testhash1 path/to/main\n'
     self.assertEqual(LLVMHash().GetTopOfTrunkGitHash(), 'a123testhash1')
     mock_check_output.assert_called_once()
 

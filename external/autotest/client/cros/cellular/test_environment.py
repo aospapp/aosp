@@ -188,7 +188,7 @@ class CellularTestEnvironment(object):
     def _reset_modem(self):
         modem_device = self._get_shill_cellular_device_object()
         try:
-            # Cromo/MBIM modems do not support being reset.
+            # MBIM modems do not support being reset.
             self.shill.reset_modem(modem_device, expect_service=False)
         except dbus.DBusException as e:
             if not self._is_unsupported_error(e):

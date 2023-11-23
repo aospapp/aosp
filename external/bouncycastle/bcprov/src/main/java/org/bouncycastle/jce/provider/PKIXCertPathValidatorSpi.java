@@ -15,6 +15,7 @@ import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -28,6 +29,8 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.TBSCertificate;
 import org.bouncycastle.jcajce.PKIXExtendedBuilderParameters;
 import org.bouncycastle.jcajce.PKIXExtendedParameters;
+// BEGIN Android-removed:
+// import org.bouncycastle.jcajce.interfaces.BCX509Certificate;
 import org.bouncycastle.jcajce.util.BCJcaJceHelper;
 import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jce.exception.ExtCertPathValidatorException;
@@ -41,15 +44,22 @@ public class PKIXCertPathValidatorSpi
         extends CertPathValidatorSpi
 {
     private final JcaJceHelper helper = new BCJcaJceHelper();
+    private final boolean isForCRLCheck;
 
     public PKIXCertPathValidatorSpi()
     {
+        this(false);
     }
-    // BEGIN Android-added: Avoid loading blacklist during class init
+
+    public PKIXCertPathValidatorSpi(boolean isForCRLCheck)
+    {
+        this.isForCRLCheck = isForCRLCheck;
+    }
+    // BEGIN Android-added: Avoid loading blocklist during class init
     private static class NoPreloadHolder {
-        private final static CertBlacklist blacklist = new CertBlacklist();
+        private final static CertBlocklist blocklist = new CertBlocklist();
     }
-    // END Android-added: Avoid loading blacklist during class init
+    // END Android-added: Avoid loading blocklist during class init
 
     public CertPathValidatorResult engineValidate(
             CertPath certPath,
@@ -105,13 +115,13 @@ public class PKIXCertPathValidatorSpi
         {
             throw new CertPathValidatorException("Certification path is empty.", null, certPath, -1);
         }
-        // BEGIN Android-added: Support blacklisting known-bad certs
+        // BEGIN Android-added: Support blocklisting known-bad certs
         {
             X509Certificate cert = (X509Certificate) certs.get(0);
 
             if (cert != null) {
                 BigInteger serial = cert.getSerialNumber();
-                if (NoPreloadHolder.blacklist.isSerialNumberBlackListed(serial)) {
+                if (NoPreloadHolder.blocklist.isSerialNumberBlockListed(serial)) {
                     // emulate CRL exception message in RFC3280CertPathUtilities.checkCRLs
                     String message = "Certificate revocation of serial 0x" + serial.toString(16);
                     System.out.println(message);
@@ -120,12 +130,13 @@ public class PKIXCertPathValidatorSpi
                 }
             }
         }
-        // END Android-added: Support blacklisting known-bad certs
+        // END Android-added: Support blocklisting known-bad certs
 
         //
         // (b)
         //
-        // Date validDate = CertPathValidatorUtilities.getValidDate(paramsPKIX);
+        final Date currentDate = new Date();
+        final Date validityDate = CertPathValidatorUtilities.getValidityDate(paramsPKIX, currentDate);
 
         //
         // (c)
@@ -253,7 +264,7 @@ public class PKIXCertPathValidatorSpi
                 workingPublicKey = trust.getCAPublicKey();
             }
         }
-        catch (IllegalArgumentException ex)
+        catch (RuntimeException ex)
         {
             throw new ExtCertPathValidatorException("Subject of trust anchor could not be (re)encoded.", ex, certPath,
                     -1);
@@ -298,19 +309,32 @@ public class PKIXCertPathValidatorSpi
             ((PKIXCertPathChecker) certIter.next()).init(false);
         }
 
+        //
+        // initialize RevocationChecker
+        //
+        ProvCrlRevocationChecker revocationChecker;
+        if (paramsPKIX.isRevocationEnabled())
+        {
+            revocationChecker = new ProvCrlRevocationChecker(helper);
+        }
+        else
+        {
+            revocationChecker = null;
+        }
+
         X509Certificate cert = null;
 
         for (index = certs.size() - 1; index >= 0; index--)
         {
-            // BEGIN Android-added: Support blacklisting known-bad certs
-            if (NoPreloadHolder.blacklist.isPublicKeyBlackListed(workingPublicKey)) {
+            // BEGIN Android-added: Support blocklisting known-bad certs
+            if (NoPreloadHolder.blocklist.isPublicKeyBlockListed(workingPublicKey)) {
                 // emulate CRL exception message in RFC3280CertPathUtilities.checkCRLs
                 String message = "Certificate revocation of public key " + workingPublicKey;
                 System.out.println(message);
                 AnnotatedException e = new AnnotatedException(message);
                 throw new CertPathValidatorException(e.getMessage(), e, certPath, index);
             }
-            // END Android-added: Support blacklisting known-bad certs
+            // END Android-added: Support blocklisting known-bad certs
             // try
             // {
             //
@@ -340,13 +364,13 @@ public class PKIXCertPathValidatorSpi
             // 6.1.3
             //
 
-            RFC3280CertPathUtilities.processCertA(certPath, paramsPKIX, index, workingPublicKey,
-                verificationAlreadyPerformed, workingIssuerName, sign, helper);
+            RFC3280CertPathUtilities.processCertA(certPath, paramsPKIX, validityDate, revocationChecker, index,
+                workingPublicKey, verificationAlreadyPerformed, workingIssuerName, sign);
 
-            RFC3280CertPathUtilities.processCertBC(certPath, index, nameConstraintValidator);
+            RFC3280CertPathUtilities.processCertBC(certPath, index, nameConstraintValidator, isForCRLCheck);
 
             validPolicyTree = RFC3280CertPathUtilities.processCertD(certPath, index, acceptablePolicies,
-                    validPolicyTree, policyNodes, inhibitAnyPolicy);
+                    validPolicyTree, policyNodes, inhibitAnyPolicy, isForCRLCheck);
 
             validPolicyTree = RFC3280CertPathUtilities.processCertE(certPath, index, validPolicyTree);
 
@@ -505,6 +529,27 @@ public class PKIXCertPathValidatorSpi
     static void checkCertificate(X509Certificate cert)
         throws AnnotatedException
     {
+        // BEGIN Android-removed:
+        /*
+        if (cert instanceof BCX509Certificate)
+        {
+            RuntimeException cause = null;
+            try
+            {
+                if (null != ((BCX509Certificate)cert).getTBSCertificateNative())
+                {
+                    return;
+                }
+            }
+            catch (RuntimeException e)
+            {
+                cause = e;
+            }
+
+            throw new AnnotatedException("unable to process TBSCertificate", cause);
+        }
+        */
+        // END Android-removed:
         try
         {
             TBSCertificate.getInstance(cert.getTBSCertificate());

@@ -15,7 +15,29 @@
 import * as m from 'mithril';
 import {inflate} from 'pako';
 import {assertTrue} from '../base/logging';
+import {globals} from './globals';
 import {showModal} from './modal';
+
+const CTRACE_HEADER = 'TRACE:\n';
+
+async function isCtrace(file: File): Promise<boolean> {
+  const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith('.ctrace')) {
+    return true;
+  }
+
+  // .ctrace files sometimes end with .txt. We can detect these via
+  // the presence of TRACE: near the top of the file.
+  if (fileName.endsWith('.txt')) {
+    const header = await readText(file.slice(0, 128));
+    if (header.includes(CTRACE_HEADER)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 function readText(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -35,8 +57,11 @@ function readText(blob: Blob): Promise<string> {
 export async function isLegacyTrace(file: File): Promise<boolean> {
   const fileName = file.name.toLowerCase();
   if (fileName.endsWith('.json') || fileName.endsWith('.json.gz') ||
-      fileName.endsWith('.zip') || fileName.endsWith('.ctrace') ||
-      fileName.endsWith('.html')) {
+      fileName.endsWith('.zip') || fileName.endsWith('.html')) {
+    return true;
+  }
+
+  if (await isCtrace(file)) {
     return true;
   }
 
@@ -61,7 +86,7 @@ export async function isLegacyTrace(file: File): Promise<boolean> {
   return false;
 }
 
-export function openFileWithLegacyTraceViewer(file: File) {
+export async function openFileWithLegacyTraceViewer(file: File) {
   const reader = new FileReader();
   reader.onload = () => {
     if (reader.result instanceof ArrayBuffer) {
@@ -76,7 +101,7 @@ export function openFileWithLegacyTraceViewer(file: File) {
     console.error(err);
   };
   if (file.name.endsWith('.gz') || file.name.endsWith('.zip') ||
-      file.name.endsWith('.ctrace')) {
+      await isCtrace(file)) {
     reader.readAsArrayBuffer(file);
   } else {
     reader.readAsText(file);
@@ -93,17 +118,16 @@ export function openBufferWithLegacyTraceViewer(
 
     // Handle .ctrace files.
     const enc = new TextDecoder('utf-8');
-    const header = enc.decode(data.slice(0, 7));
-    if (header === 'TRACE:\n') {
-      data = inflate(new Uint8Array(data.slice(7, size)), {to: 'string'});
+    const header = enc.decode(data.slice(0, 128));
+    if (header.includes(CTRACE_HEADER)) {
+      const offset = header.indexOf(CTRACE_HEADER) + CTRACE_HEADER.length;
+      data = inflate(new Uint8Array(data.slice(offset)), {to: 'string'});
     }
   }
 
   // The location.pathname mangling is to make this code work also when hosted
   // in a non-root sub-directory, for the case of CI artifacts.
-  const urlParts = location.pathname.split('/');
-  urlParts[urlParts.length - 1] = 'assets/catapult_trace_viewer.html';
-  const catapultUrl = urlParts.join('/');
+  const catapultUrl = globals.root + 'assets/catapult_trace_viewer.html';
   const newWin = window.open(catapultUrl) as Window;
   if (newWin) {
     // Popup succeedeed.

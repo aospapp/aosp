@@ -18,25 +18,7 @@ class parser(object):
         self.line_buffer = status_lib.line_buffer()
         # create and prime the parser state machine
         self.state = self.state_iterator(self.line_buffer)
-        self.state.next()
-
-
-    def process_lines(self, lines):
-        """ Feed 'lines' into the parser state machine, and return
-        a list of all the new test results produced."""
-        self.line_buffer.put_multiple(lines)
-        try:
-            return self.state.next()
-        except StopIteration:
-            msg = ("WARNING: parser was called to process status "
-                   "lines after it was end()ed\n"
-                   "Current traceback:\n" +
-                   traceback.format_exc() +
-                   "\nCurrent stack:\n" +
-                   "".join(traceback.format_stack()))
-            tko_utils.dprint(msg)
-            return []
-
+        next(self.state)
 
     def end(self, lines=[]):
         """ Feed 'lines' into the parser state machine, signal to the
@@ -46,7 +28,7 @@ class parser(object):
         # run the state machine to clear out the buffer
         self.finished = True
         try:
-            return self.state.next()
+            return next(self.state)
         except StopIteration:
             msg = ("WARNING: parser was end()ed multiple times\n"
                    "Current traceback:\n" +

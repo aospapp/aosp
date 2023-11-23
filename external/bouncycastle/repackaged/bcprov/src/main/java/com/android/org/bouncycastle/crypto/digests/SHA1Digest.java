@@ -11,7 +11,6 @@ import com.android.org.bouncycastle.util.Pack;
  * is the "endianness" of the word processing!
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
 public class SHA1Digest
     extends GeneralDigest
     implements EncodableDigest
@@ -26,7 +25,6 @@ public class SHA1Digest
     /**
      * Standard constructor
      */
-    @libcore.api.CorePlatformApi
     public SHA1Digest()
     {
         reset();
@@ -117,7 +115,6 @@ public class SHA1Digest
         X[15] = (int)bitLength;
     }
 
-    @libcore.api.CorePlatformApi
     public int doFinal(
         byte[]  out,
         int     outOff)

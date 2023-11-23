@@ -1,8 +1,36 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
+import os
+from six.moves import range
 import time
+
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 
+
+class UIScreenshoter(object):
+    """Simple class to take screenshots within the ui_utils framework."""
+
+    _SCREENSHOT_DIR_PATH = '/var/log/ui_utils'
+    _SCREENSHOT_BASENAME = 'ui-screenshot'
+
+    def __init__(self):
+        if not os.path.exists(self._SCREENSHOT_DIR_PATH):
+            os.mkdir(self._SCREENSHOT_DIR_PATH, 0o755)
+        self.screenshot_num = 0
+
+    def take_ss(self):
+        try:
+            utils.run('screenshot "{}/{}_iter{}.png"'.format(
+                      self._SCREENSHOT_DIR_PATH, self._SCREENSHOT_BASENAME,
+                      self.screenshot_num))
+            self.screenshot_num += 1
+        except Exception as e:
+            logging.warning('Unable to capture screenshot. %s', e)
 
 class UI_Handler(object):
 
@@ -14,6 +42,9 @@ class UI_Handler(object):
                     resolve(%s);
                 })
             })'''
+
+    def __init__(self):
+        self.screenshoter = UIScreenshoter()
 
     def start_ui_root(self, cr):
         """Start the UI root object for testing."""
@@ -85,14 +116,20 @@ class UI_Handler(object):
         @raises error.TestError if the element is not loaded (or removed).
 
         """
-        utils.poll_for_condition(
-            condition=lambda: self.item_present(name=name,
-                                                isRegex=isRegex,
-                                                flip=remove,
-                                                role=role),
-            timeout=timeout,
-            exception=error.TestError('{} did not load in: {}'
-                                      .format(name, self.list_screen_items())))
+        try:
+            utils.poll_for_condition(
+                condition=lambda: self.item_present(name=name,
+                                                    isRegex=isRegex,
+                                                    flip=remove,
+                                                    role=role),
+                timeout=timeout,
+                exception=error.TestError('{} did not load'
+                                          .format(name)))
+        except error.TestError:
+            self.screenshoter.take_ss()
+            logging.debug("CURRENT UI ITEMS VISIBLE {}".format(
+                self.list_screen_items()))
+            raise error.TestError('{} did not load'.format(name))
 
     def did_obj_not_load(self, name, isRegex=False, timeout=5):
         """
@@ -173,25 +210,22 @@ class UI_Handler(object):
 
         new_promise = self.PROMISE_TEMPLATE % """root.findAll({attributes:
             {name: %s, role: %s}}).map(node => node.%s)""" % (name, role, attr)
-
         return self.ext.EvaluateJavaScript(new_promise, promise=True)
 
-    def get_name_role_list(self):
+    def get_name_role_list(self, name=None, role=None):
         """
         Return [{}, {}] containing the name/role of everything on screen.
 
         """
-        combined = []
-        names = self.list_screen_items(attr='name')
-        roles = self.list_screen_items(attr='role')
+        name = self.REGEX_ALL if name is None else name
+        role = self.REGEX_ALL if role is None else self._format_obj(role,
+                                                                    False)
 
-        if len(names) != len(roles):
-            raise error.TestError('Number of items in names and roles !=')
+        new_promise = self.PROMISE_TEMPLATE % """root.findAll({attributes:
+            {name: %s, role: %s}}).map(node =>
+            {return {name: node.name, role: node.role} })""" % (name, role)
 
-        for name, role in zip(names, roles):
-            temp_d = {'name': name, 'role': role}
-            combined.append(temp_d)
-        return combined
+        return self.ext.EvaluateJavaScript(new_promise, promise=True)
 
     def _format_obj(self, name, isRegex):
         """
@@ -269,7 +303,7 @@ class UI_Handler(object):
         self.doDefault_on_obj(item_to_click,
                               role=click_role,
                               isRegex=isRegex_click)
-        for retry in xrange(3):
+        for retry in range(3):
             try:
                 self.wait_for_ui_obj(item_to_wait_for,
                                      role=wait_role,

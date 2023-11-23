@@ -11,6 +11,23 @@
 
 namespace brillo {
 
+namespace {
+
+bool ConvertHexToBytes(char c, uint8_t* v) {
+  if (c >= '0' && c <='9')
+    *v = c - '0';
+  else if (c >= 'a' && c <= 'f')
+    *v = c - 'a' + 10;
+  else if (c >= 'A' && c <= 'F')
+    *v = c - 'A' + 10;
+  else
+    return false;
+
+  return true;
+}
+
+}  // namespace
+
 std::string BlobToString(const Blob& blob) {
   return std::string(blob.begin(), blob.end());
 }
@@ -107,6 +124,40 @@ int SecureMemcmp(const void* s1, const void* s2, size_t n) {
     result |= *us1++ ^ *us2++;
 
   return result != 0;
+}
+
+// base::HexEncode and base::HexStringToBytes use strings, which may leak
+// contents. These functions are alternatives that keep all contents
+// within secured memory.
+SecureBlob SecureBlobToSecureHex(const SecureBlob& blob) {
+  std::string kHexChars("0123456789ABCDEF");
+  SecureBlob hex(blob.size() * 2, 0);
+  const char* blob_char_data = blob.char_data();
+
+  // Each input byte creates two output hex characters.
+  for (size_t i = 0; i < blob.size(); ++i) {
+    hex[(i * 2)] = kHexChars[(blob_char_data[i] >> 4) & 0xf];
+    hex[(i * 2) + 1] = kHexChars[blob_char_data[i] & 0xf];
+  }
+  return hex;
+}
+
+SecureBlob SecureHexToSecureBlob(const SecureBlob& hex) {
+  SecureBlob blob(hex.size()/2, 0);
+
+  if (hex.size() == 0 || hex.size() % 2)
+    return SecureBlob();
+
+  for (size_t i = 0; i < hex.size(); i++) {
+    uint8_t v;
+    // Check for invalid characters.
+    if (!ConvertHexToBytes(hex[i], &v))
+      return SecureBlob();
+
+    blob[i/2] = (blob[i/2] << 4) | (v & 0xf);
+  }
+
+  return blob;
 }
 
 }  // namespace brillo

@@ -14,6 +14,25 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: [
+        "external_swiftshader_third_party_marl_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "external_swiftshader_third_party_marl_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_static {
     name: "swiftshader_marl",
     vendor_available: true,
@@ -34,7 +53,10 @@ cc_library_static {
         "external/swiftshader/third_party/marl/include"
     ],
     arch: {
-        arm: { srcs: ["src/osfiber_arm.c", "src/osfiber_asm_arm.S"], },
+        arm: {
+            instruction_set: "arm",
+            srcs: ["src/osfiber_arm.c", "src/osfiber_asm_arm.S"],
+        },
         arm64: { srcs: ["src/osfiber_aarch64.c", "src/osfiber_asm_aarch64.S"], },
         x86: { srcs: ["src/osfiber_x86.c", "src/osfiber_asm_x86.S"], },
         x86_64: { srcs: ["src/osfiber_x64.c", "src/osfiber_asm_x64.S"], },

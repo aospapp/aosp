@@ -4,6 +4,8 @@
 
 """This is a display hot-plug and suspend test using the Chameleon board."""
 
+from __future__ import print_function
+
 import logging
 import time
 
@@ -92,7 +94,7 @@ class display_HotPlugAtSuspend(test.test):
                 logging.info('WAITING FOR SUSPEND...')
                 try:
                     host.test_wait_for_sleep(self.SUSPEND_TIMEOUT)
-                except error.TestFail, ex:
+                except error.TestFail as ex:
                     errors.append("%s - %s" % (test_case, str(ex)))
                 if plugged_after_suspend is not plugged_before_suspend:
                     chameleon_port.set_plug(plugged_after_suspend)
@@ -111,7 +113,7 @@ class display_HotPlugAtSuspend(test.test):
                 logging.info('WAITING FOR RESUME...')
                 try:
                     host.test_wait_for_resume(boot_id, self.RESUME_TIMEOUT)
-                except error.TestFail, ex:
+                except error.TestFail as ex:
                     errors.append("%s - %s" % (test_case, str(ex)))
 
                 logging.info('Resumed back')

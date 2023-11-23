@@ -28,7 +28,7 @@ class firmware_Cr50TpmMode(Cr50Test):
         """Reset the device."""
         if self.can_set_tpm:
             logging.info('Reset')
-            self.servo.get_power_state_controller().reset()
+            self.host.reset_via_servo()
             self.switcher.wait_for_client()
 
     def cleanup(self):

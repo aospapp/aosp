@@ -2,7 +2,6 @@
 # Copyright 2019 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """A script to use a package as the WebView provider while running a command."""
 
 import argparse
@@ -12,15 +11,12 @@ import os
 import re
 import sys
 
-
 if __name__ == '__main__':
-  sys.path.append(
-      os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                   '..', '..', '..')))
-  sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
-      '..', '..', '..', '..', 'common', 'py_utils')))
+  _DEVIL_ROOT_DIR = os.path.abspath(
+      os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+  sys.path.append(_DEVIL_ROOT_DIR)
 
-
+from devil import devil_env
 from devil.android import apk_helper
 from devil.android import device_errors
 from devil.android.sdk import version_codes
@@ -29,12 +25,15 @@ from devil.android.tools import system_app
 from devil.utils import cmd_helper
 from devil.utils import parallelizer
 from devil.utils import run_tests_helper
-from py_utils import tempfile_ext
+
+with devil_env.SysPath(devil_env.PY_UTILS_PATH):
+  from py_utils import tempfile_ext
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PATH_RE = re.compile(r'^\s*\/system\/')
+_SYSTEM_PATH_RE = re.compile(r'^\s*\/(system|product)\/')
 _WEBVIEW_INSTALL_TIMEOUT = 300
+
 
 @contextlib.contextmanager
 def UseWebViewProvider(device, apk, expected_package=''):
@@ -55,8 +54,9 @@ def UseWebViewProvider(device, apk, expected_package=''):
           'WebView Provider package %s does not match expected %s' %
           (package_name, expected_package), str(device))
 
-  if (device.build_version_sdk in
-      [version_codes.NOUGAT, version_codes.NOUGAT_MR1]):
+  if (device.build_version_sdk in [
+      version_codes.NOUGAT, version_codes.NOUGAT_MR1
+  ]):
     logger.warning('Due to webviewupdate bug in Nougat, WebView Fallback Logic '
                    'will be disabled and WebView provider may be changed after '
                    'exit of UseWebViewProvider context manager scope.')
@@ -84,9 +84,7 @@ def UseWebViewProvider(device, apk, expected_package=''):
       elif system_paths:
         # app is system app, use ReplaceSystemApp to install
         with system_app.ReplaceSystemApp(
-            device,
-            package_name,
-            apk,
+            device, package_name, apk,
             install_timeout=_WEBVIEW_INSTALL_TIMEOUT):
           _SetWebViewProvider(device, package_name)
           yield
@@ -138,15 +136,15 @@ def _UninstallNonSystemApp(device, package_name):
       for user_path in user_paths:
         host_path = _RebasePath(temp_dir, user_path)
         # PullFile takes care of host_path creation if needed.
-        device.PullFile(user_path, host_path)
+        device.PullFile(user_path, host_path, timeout=_WEBVIEW_INSTALL_TIMEOUT)
         host_paths.append(host_path)
       device.Uninstall(package_name)
       try:
         yield
       finally:
         for host_path in reversed(host_paths):
-          device.Install(host_path, reinstall=True,
-                         timeout=_WEBVIEW_INSTALL_TIMEOUT)
+          device.Install(
+              host_path, reinstall=True, timeout=_WEBVIEW_INSTALL_TIMEOUT)
   else:
     yield
 
@@ -169,7 +167,10 @@ def main(raw_args):
     script_common.AddDeviceArguments(p)
     script_common.AddEnvironmentArguments(p)
     p.add_argument(
-        '-v', '--verbose', action='count', default=0,
+        '-v',
+        '--verbose',
+        action='count',
+        default=0,
         help='Print more information.')
     p.add_argument('command', nargs='*')
 
@@ -179,10 +180,10 @@ def main(raw_args):
       yield
 
   parser.add_argument(
-      '--apk', required=True,
-      help='The apk to use as the provider.')
+      '--apk', required=True, help='The apk to use as the provider.')
   parser.add_argument(
-      '--expected-package', default='',
+      '--expected-package',
+      default='',
       help="Verify apk's package name matches value, disabled by default.")
   add_common_arguments(parser)
   parser.set_defaults(func=use_webview_provider)
@@ -192,7 +193,7 @@ def main(raw_args):
   run_tests_helper.SetLogLevel(args.verbose)
   script_common.InitializeEnvironment(args)
 
-  devices = script_common.GetDevices(args.devices, args.blacklist_file)
+  devices = script_common.GetDevices(args.devices, args.denylist_file)
   parallel_devices = parallelizer.SyncParallelizer(
       [args.func(d, args) for d in devices])
   with parallel_devices:

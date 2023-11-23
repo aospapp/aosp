@@ -6,7 +6,7 @@
 
 import json
 import logging
-import urllib2
+from six.moves import urllib
 
 import common
 from fake_device_server.client_lib import common_client
@@ -26,7 +26,7 @@ class RegistrationClient(common_client.CommonClient):
 
         @param ticket_id: valid id for a ticket.
         """
-        url_h = urllib2.urlopen(self.get_url([ticket_id]))
+        url_h = urllib.request.urlopen(self.get_url([ticket_id]))
         return json.loads(url_h.read())
 
 
@@ -48,14 +48,14 @@ class RegistrationClient(common_client.CommonClient):
         if additional_headers:
             headers.update(additional_headers)
 
-        request = urllib2.Request(self.get_url([ticket_id]), json.dumps(data),
-                                  headers=headers)
+        request = urllib.request.Request(self.get_url([ticket_id]),
+                                         json.dumps(data), headers=headers)
         if replace:
             request.get_method = lambda: 'PUT'
         else:
             request.get_method = lambda: 'PATCH'
 
-        url_h = urllib2.urlopen(request)
+        url_h = urllib.request.urlopen(request)
         return json.loads(url_h.read())
 
 
@@ -70,8 +70,10 @@ class RegistrationClient(common_client.CommonClient):
         auth_headers = self.add_auth_headers()
         headers.update(auth_headers)
         data = {'userEmail': 'me'}
-        request = urllib2.Request(self.get_url(), json.dumps(data), headers)
-        url_h = urllib2.urlopen(request)
+        request = urllib.request.Request(self.get_url(),
+                                         json.dumps(data).encode("utf-8"),
+                                         headers)
+        url_h = urllib.request.urlopen(request)
         return json.loads(url_h.read())
 
 
@@ -80,9 +82,9 @@ class RegistrationClient(common_client.CommonClient):
 
         @param ticket_id: id of ticket to finalize.
         """
-        request = urllib2.Request(self.get_url([ticket_id, 'finalize']),
+        request = urllib.request.Request(self.get_url([ticket_id, 'finalize']),
                                   data='')
-        url_h = urllib2.urlopen(request)
+        url_h = urllib.request.urlopen(request)
         return json.loads(url_h.read())
 
 

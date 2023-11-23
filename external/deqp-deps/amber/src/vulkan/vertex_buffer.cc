@@ -23,70 +23,80 @@
 
 namespace amber {
 namespace vulkan {
+namespace {
+
+VkVertexInputRate GetVkInputRate(InputRate rate) {
+  return rate == InputRate::kVertex ? VK_VERTEX_INPUT_RATE_VERTEX
+                                    : VK_VERTEX_INPUT_RATE_INSTANCE;
+}
+
+}  // namespace
 
 VertexBuffer::VertexBuffer(Device* device) : device_(device) {}
 
 VertexBuffer::~VertexBuffer() = default;
 
-void VertexBuffer::SetData(uint8_t location, Buffer* buffer) {
-  auto format = buffer->GetFormat();
-
+void VertexBuffer::SetData(uint8_t location,
+                           Buffer* buffer,
+                           InputRate rate,
+                           Format* format,
+                           uint32_t offset,
+                           uint32_t stride) {
+  const uint32_t binding = static_cast<uint32_t>(vertex_attr_desc_.size());
   vertex_attr_desc_.emplace_back();
-  // TODO(jaebaek): Support multiple binding
-  vertex_attr_desc_.back().binding = 0;
+  vertex_attr_desc_.back().binding = binding;
   vertex_attr_desc_.back().location = location;
-  vertex_attr_desc_.back().offset = stride_in_bytes_;
+  vertex_attr_desc_.back().offset = offset;
   vertex_attr_desc_.back().format = device_->GetVkFormat(*format);
 
-  stride_in_bytes_ += format->SizeInBytes();
+  vertex_binding_desc_.emplace_back();
+  vertex_binding_desc_.back().binding = binding;
+  vertex_binding_desc_.back().stride = stride;
+  vertex_binding_desc_.back().inputRate = GetVkInputRate(rate);
+
   data_.push_back(buffer);
 }
 
-Result VertexBuffer::FillVertexBufferWithData(CommandBuffer* command) {
-  // Send vertex data from host to device.
-  uint8_t* ptr_in_stride_begin =
-      static_cast<uint8_t*>(transfer_buffer_->HostAccessibleMemoryPtr());
-  for (uint32_t i = 0; i < GetVertexCount(); ++i) {
-    uint8_t* ptr = ptr_in_stride_begin;
-    for (uint32_t j = 0; j < data_.size(); ++j) {
-      size_t bytes = data_[j]->GetFormat()->SizeInBytes();
-      std::memcpy(ptr, data_[j]->GetValues<uint8_t>() + (i * bytes), bytes);
-      ptr += bytes;
-    }
-    ptr_in_stride_begin += Get4BytesAlignedStride();
-  }
-
-  transfer_buffer_->CopyToDevice(command);
-  return {};
-}
-
 void VertexBuffer::BindToCommandBuffer(CommandBuffer* command) {
-  const VkDeviceSize offset = 0;
-  const VkBuffer buffer = transfer_buffer_->GetVkBuffer();
-  // TODO(jaebaek): Support multiple binding
-  device_->GetPtrs()->vkCmdBindVertexBuffers(command->GetVkCommandBuffer(), 0,
-                                             1, &buffer, &offset);
+  std::vector<VkBuffer> buffers;
+  std::vector<VkDeviceSize> offsets;
+
+  for (const auto& buf : data_) {
+    buffers.push_back(buffer_to_vk_buffer_[buf]);
+    offsets.push_back(0);
+  }
+  device_->GetPtrs()->vkCmdBindVertexBuffers(
+      command->GetVkCommandBuffer(), 0, static_cast<uint32_t>(buffers.size()),
+      buffers.data(), offsets.data());
 }
 
 Result VertexBuffer::SendVertexData(CommandBuffer* command) {
   if (!is_vertex_data_pending_)
     return Result("Vulkan::Vertices data was already sent");
 
-  const uint32_t n_vertices = GetVertexCount();
-  if (n_vertices == 0)
-    return Result("Vulkan::Data for VertexBuffer is empty");
+  buffer_to_vk_buffer_.clear();
 
-  uint32_t bytes = Get4BytesAlignedStride() * n_vertices;
+  for (const auto& buf : data_) {
+    if (buffer_to_vk_buffer_.count(buf) != 0) {
+      continue;
+    }
 
-  if (!transfer_buffer_) {
-    transfer_buffer_ = MakeUnique<TransferBuffer>(device_, bytes);
-    Result r = transfer_buffer_->Initialize(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+    // Create a new transfer buffer to hold vertex data.
+    uint32_t bytes = buf->GetSizeInBytes();
+    transfer_buffers_.push_back(
+        MakeUnique<TransferBuffer>(device_, bytes, nullptr));
+    Result r = transfer_buffers_.back()->Initialize(
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+    std::memcpy(transfer_buffers_.back()->HostAccessibleMemoryPtr(),
+                buf->GetValues<void>(), bytes);
+    transfer_buffers_.back()->CopyToDevice(command);
+
     if (!r.IsSuccess())
       return r;
-  }
 
-  FillVertexBufferWithData(command);
+    buffer_to_vk_buffer_[buf] = transfer_buffers_.back()->GetVkBuffer();
+  }
 
   is_vertex_data_pending_ = false;
   return {};

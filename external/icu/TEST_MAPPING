@@ -1,10 +1,7 @@
 {
   "presubmit": [
     {
-      "name": "intltest_test"
-    },
-    {
-      "name": "cintltst_test"
+      "name": "CtsIcu4cTestCases"
     },
     {
       "name": "minikin_tests"

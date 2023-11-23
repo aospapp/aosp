@@ -44,6 +44,7 @@ import shutil as _shutil
 import errno as _errno
 from random import Random as _Random
 import sys as _sys
+import types as _types
 import weakref as _weakref
 import _thread
 _allocate_lock = _thread.allocate_lock
@@ -307,8 +308,7 @@ def mkstemp(suffix=None, prefix=None, dir=None, text=False):
     otherwise a default directory is used.
 
     If 'text' is specified and true, the file is opened in text
-    mode.  Else (the default) the file is opened in binary mode.  On
-    some operating systems, this makes no difference.
+    mode.  Else (the default) the file is opened in binary mode.
 
     If any of 'suffix', 'prefix' and 'dir' are not None, they must be the
     same type.  If they are bytes, the returned name will be bytes; str
@@ -643,6 +643,8 @@ class SpooledTemporaryFile:
                                    'encoding': encoding, 'newline': newline,
                                    'dir': dir, 'errors': errors}
 
+    __class_getitem__ = classmethod(_types.GenericAlias)
+
     def _check(self, file):
         if self._rolled: return
         max_size = self._max_size
@@ -735,11 +737,7 @@ class SpooledTemporaryFile:
         return self._file.readlines(*args)
 
     def seek(self, *args):
-        self._file.seek(*args)
-
-    @property
-    def softspace(self):
-        return self._file.softspace
+        return self._file.seek(*args)
 
     def tell(self):
         return self._file.tell()
@@ -830,3 +828,5 @@ class TemporaryDirectory(object):
     def cleanup(self):
         if self._finalizer.detach():
             self._rmtree(self.name)
+
+    __class_getitem__ = classmethod(_types.GenericAlias)

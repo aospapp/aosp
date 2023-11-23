@@ -618,7 +618,7 @@ public class SQLiteDatabaseTest {
         assertThat(db.isOpen()).isFalse();
 
         SQLiteDatabase reopened = SQLiteDatabase.openDatabase(databasePath.getAbsolutePath(), null, OPEN_READWRITE);
-        assertThat(reopened).isNotSameAs(db);
+        assertThat(reopened).isNotSameInstanceAs(db);
         assertThat(reopened.isOpen()).isTrue();
     }
 

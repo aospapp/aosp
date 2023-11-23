@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -35,7 +35,7 @@
 	 * -----------------------------------------------
 	 */
 func console_cbmc_register
-	str	x0, [x1, #CONSOLE_T_CBMC_BASE]
+	str	x0, [x1, #CONSOLE_T_BASE]
 	ldr	w2, [x0]
 	str	w2, [x1, #CONSOLE_T_CBMC_SIZE]
 	mov	x0, x1
@@ -54,7 +54,7 @@ endfunc console_cbmc_register
 	 */
 func console_cbmc_putc
 	ldr	w2, [x1, #CONSOLE_T_CBMC_SIZE]
-	ldr	x1, [x1, #CONSOLE_T_CBMC_BASE]
+	ldr	x1, [x1, #CONSOLE_T_BASE]
 	add	x1, x1, #8		/* keep address of body in x1 */
 
 	ldr	w16, [x1, #-4]		/* load cursor (one u32 before body) */
@@ -82,20 +82,17 @@ putc_write_back:
 endfunc	console_cbmc_putc
 
 	/* -----------------------------------------------
-	 * int console_cbmc_flush(console_cbmc_t *console)
+	 * void console_cbmc_flush(console_cbmc_t *console)
 	 * Flushes the CBMEM console by flushing the
 	 * console buffer from the CPU's data cache.
 	 * In:  x0 - pointer to console_cbmc_t struct
-	 * Out: x0 - 0 for success
-	 * Clobber list: x0, x1, x2, x3, x5
+	 * Out: void
+	 * Clobber list: x0, x1, x2, x3
 	 * -----------------------------------------------
 	 */
 func console_cbmc_flush
-	mov	x5, x30
 	ldr	x1, [x0, #CONSOLE_T_CBMC_SIZE]
-	ldr	x0, [x0, #CONSOLE_T_CBMC_BASE]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	add	x1, x1, #8		/* add size of console header */
-	bl	clean_dcache_range	/* (clobbers x2 and x3) */
-	mov	x0, #0
-	ret	x5
+	b	clean_dcache_range	/* (clobbers x2 and x3) */
 endfunc console_cbmc_flush

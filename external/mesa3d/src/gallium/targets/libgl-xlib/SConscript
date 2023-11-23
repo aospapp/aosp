@@ -9,8 +9,9 @@ env.Append(CPPPATH = [
     '#/src/mapi',
     '#/src/mesa',
     '#/src/mesa/main',
-    '#src/gallium/state_trackers/glx/xlib',
+    '#src/gallium/frontends/glx/xlib',
     Dir('../../../mapi'), # src/mapi build path for python-generated GL API files/headers
+    Dir('../../../mapi/glapi/gen'), # src/mapi build path for python-generated GL API files/headers
 ])
 
 env.Append(CPPDEFINES = ['USE_XSHM'])
@@ -42,10 +43,6 @@ if True:
 if env['llvm']:
     env.Append(CPPDEFINES = ['GALLIUM_LLVMPIPE'])
     env.Prepend(LIBS = [llvmpipe])
-
-    if env['swr']:
-        env.Append(CPPDEFINES = 'GALLIUM_SWR')
-        env.Prepend(LIBS = [swr])
 
 if env['platform'] != 'darwin':
     # Disallow undefined symbols, except with Address Sanitizer, since libasan

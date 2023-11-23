@@ -34,10 +34,10 @@ Run the test(s) named dummy\_Pass.suspend:
 $ test_that -b ${board} ${host} dummy_Pass.suspend
 ```
 
-Run the smoke suite against dut:
+Run the bvt-inline suite against dut:
 
 ```
-$ test_that -b ${board} ${host} suite:smoke
+$ test_that -b ${board} ${host} suite:bvt-inline
 ```
 
 Run all tests whose names match the regular expression `^login_.*$`. Note that

@@ -11,7 +11,7 @@ third_party {
     value: "https://github.com/apache/commons-math/archive/MATH_2_2.zip"
   }
   version: "MATH_2_2"
-  license_type: RECIPROCAL
+  license_type: NOTICE
   last_upgrade_date {
     year: 2011
     month: 3

@@ -8,7 +8,6 @@ PURPOSE = "Verify commands sent to a modem manager are reflected in shill."
 CRITERIA = """
 This test will fail if modem manager state differs from shill state.
 """
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

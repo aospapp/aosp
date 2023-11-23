@@ -186,8 +186,10 @@ checkfilesys(const char *fname)
 	free(fat);
 	close(dosfs);
 
-	if (mod & (FSFATMOD|FSDIRMOD))
+	if (mod & (FSFATMOD|FSDIRMOD)){
 		pwarn("\n***** FILE SYSTEM WAS MODIFIED *****\n");
+		return 4;
+	}
 
 	return ret;
 }

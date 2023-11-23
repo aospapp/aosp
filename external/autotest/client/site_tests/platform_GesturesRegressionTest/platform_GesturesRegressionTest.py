@@ -37,9 +37,11 @@ class platform_GesturesRegressionTest(test.test):
         root = os.path.join(self.autodir, 'deps', 'touchpad-tests')
         framework_dir = os.path.join(root, 'framework')
         tests_dir = os.path.join(root, 'tests')
+        touch_firmware_test_dir = os.path.join(root, 'touch_firmware_test')
 
         # create test runner
         sys.path.append(framework_dir)
+        sys.path.append(touch_firmware_test_dir)
         sys.path.append(root)
         from test_runner import ParallelTestRunner
         runner = ParallelTestRunner(tests_dir)

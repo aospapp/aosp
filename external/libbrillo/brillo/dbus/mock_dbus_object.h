@@ -17,13 +17,15 @@ namespace dbus_utils {
 class MockDBusObject : public DBusObject {
  public:
   MockDBusObject(ExportedObjectManager* object_manager,
-                 const scoped_refptr<dbus::Bus>& bus,
-                 const dbus::ObjectPath& object_path)
+                 const scoped_refptr<::dbus::Bus>& bus,
+                 const ::dbus::ObjectPath& object_path)
       : DBusObject(object_manager, bus, object_path) {}
   ~MockDBusObject() override = default;
 
-  MOCK_METHOD1(RegisterAsync,
-               void(const AsyncEventSequencer::CompletionAction&));
+  MOCK_METHOD(void,
+              RegisterAsync,
+              (const AsyncEventSequencer::CompletionAction&),
+              (override));
 };  // class MockDBusObject
 
 }  // namespace dbus_utils

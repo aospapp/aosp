@@ -21,6 +21,7 @@ class firmware_SelfSignedBoot(FirmwareTest):
     should boot to the USB disk.
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     def initialize(self, host, cmdline_args, ec_wp=None):
         super(firmware_SelfSignedBoot, self).initialize(host, cmdline_args,
@@ -49,13 +50,14 @@ class firmware_SelfSignedBoot(FirmwareTest):
     def resignimage_ssdkeys(self):
         """Re-signing the USB image using the SSD keys."""
         self.faft_client.system.run_shell_command(
-            '/usr/share/vboot/bin/make_dev_ssd.sh -i %s' % self.usb_dev)
+                '/usr/share/vboot/bin/make_dev_ssd.sh --partitions %s -i %s' %
+                (self.KERNEL_MAP['a'], self.usb_dev))
 
     def resignimage_recoverykeys(self):
         """Re-signing the USB image using the Recovery keys."""
         self.faft_client.system.run_shell_command(
-            '/usr/share/vboot/bin/make_dev_ssd.sh -i %s --recovery_key'
-            % self.usb_dev)
+                '/usr/share/vboot/bin/make_dev_ssd.sh --partitions %s -i %s --recovery_key'
+                % (self.KERNEL_MAP['a'], self.usb_dev))
 
     def enable_crossystem_selfsigned(self):
         """Enable dev_boot_signed_only + dev_boot_usb."""

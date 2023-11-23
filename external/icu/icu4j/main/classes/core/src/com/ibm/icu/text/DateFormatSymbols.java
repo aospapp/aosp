@@ -1,5 +1,5 @@
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and
@@ -695,7 +695,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      */
     private static final Map<String, CapitalizationContextUsage> contextUsageTypeMap;
     static {
-        contextUsageTypeMap=new HashMap<String, CapitalizationContextUsage>();
+        contextUsageTypeMap=new HashMap<>();
         contextUsageTypeMap.put("month-format-except-narrow", CapitalizationContextUsage.MONTH_FORMAT);
         contextUsageTypeMap.put("month-standalone-except-narrow", CapitalizationContextUsage.MONTH_STANDALONE);
         contextUsageTypeMap.put("month-narrow",   CapitalizationContextUsage.MONTH_NARROW);
@@ -758,8 +758,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     /**
      * {@icu} Returns narrow era name strings. For example: "A" and "B".
      * @return the narrow era strings.
-     * @draft ICU 64
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 64
      */
     public String[] getNarrowEras() {
         return duplicate(narrowEras);
@@ -768,8 +767,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     /**
      * {@icu} Sets narrow era name strings. For example: "A" and "B".
      * @param newNarrowEras the new narrow era strings.
-     * @draft ICU 64
-     * @provisional This API might change or be removed in a future release.
+     * @stable ICU 64
      */
     public void setNarrowEras(String[] newNarrowEras) {
         narrowEras = duplicate(newNarrowEras);
@@ -1319,6 +1317,17 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         ampms = duplicate(newAmpms);
     }
 
+    // BEGIN Android-added: Add a getter for ampmsNarrow
+    /**
+     * Returns narrow am/pm strings. For example: "a" and "p".
+     * @return narrow ampm strings
+     * @internal
+     */
+    public String[] getAmpmNarrowStrings() {
+        return duplicate(ampmsNarrow);
+    }
+    // END Android-added: Add a getter for ampmsNarrow
+
     /**
      * Returns the time separator string. For example: ":".
      * @return the time separator string.
@@ -1519,10 +1528,17 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     static final int millisPerHour = 60*60*1000;
 
     // DateFormatSymbols cache
+    // Android-changed: Load extra data, e.g. narrow quarters.
+    /*
     private static CacheBase<String, DateFormatSymbols, ULocale> DFSCACHE =
         new SoftCache<String, DateFormatSymbols, ULocale>() {
             @Override
             protected DateFormatSymbols createInstance(String key, ULocale locale) {
+    */
+    private static CacheBase<String, AospExtendedDateFormatSymbols, ULocale> DFSCACHE =
+        new SoftCache<String, AospExtendedDateFormatSymbols, ULocale>() {
+            @Override
+            protected AospExtendedDateFormatSymbols createInstance(String key, ULocale locale) {
                 // Extract the type string from the key.
                 // Otherwise we would have to create a pair object that
                 // carries both the locale and the type.
@@ -1533,7 +1549,9 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                     typeLimit = key.length();
                 }
                 String type = key.substring(typeStart, typeLimit);
-                return new DateFormatSymbols(locale, null, type);
+                // Android-changed: Load extra data, e.g. narrow quarters.
+                // return new DateFormatSymbols(locale, null, type);
+                return new AospExtendedDateFormatSymbols(locale, null, type);
             }
         };
 
@@ -1547,14 +1565,91 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     // We may need to deescalate this API to @internal.
     protected void initializeData(ULocale desiredLocale, String type)
     {
+        // Android-changed: Load extra data, e.g. narrow quarters.
+        // DateFormatSymbols dfs = DFSCACHE.getInstance(key, desiredLocale);
+        DateFormatSymbols dfs = getExtendedInstance(desiredLocale, type).dfs;
+        initializeData(dfs);
+    }
+
+    // BEGIN Android-added: Narrow quarters needed to implement the Q/q symbols in DateTimeFormatter
+    private static AospExtendedDateFormatSymbols getExtendedInstance(ULocale desiredLocale,
+            String type) {
+        // BEGIN taken from initializeData(ULocale desiredLocale, String type)
         String key = desiredLocale.getBaseName() + '+' + type;
         String ns = desiredLocale.getKeywordValue("numbers");
         if (ns != null && ns.length() > 0) {
             key += '+' + ns;
         }
-        DateFormatSymbols dfs = DFSCACHE.getInstance(key, desiredLocale);
-        initializeData(dfs);
+        // END taken from initializeData(ULocale desiredLocale, String type)
+        return DFSCACHE.getInstance(key, desiredLocale);
     }
+
+    /**
+     * @internal used by {@link com.android.icu.text.ExtendedDateFormatSymbols} to load extra data
+     */
+    public static AospExtendedDateFormatSymbols getExtendedInstance(ULocale locale) {
+        return getExtendedInstance(locale, CalendarUtil.getCalendarType(locale));
+    }
+
+    /**
+     * This class contains an instance of {@link DateFormatSymbols}, and the extra fields needed
+     * by libcore. The below alternative implementations are considered, but creating this new class
+     * is better.
+     * 1. Use {@link ICUResourceBundle#getWithFallback(String)} directly to load the extra data, but
+     *    the logic of resolving date related resources is complicated, and needs to handle resource
+     *    alias.
+     *    - With this class re-using {@link CalendarDataSink} to load the data, this Android
+     *      patch does not need to resolve the resource alias ourselves. Resource alias is used
+     *      extensively in date related data, because in some locales, the narrow format could be
+     *      the same as abbreviated format.
+     * 2. Store the extra fields in {@link DateFormatSymbols}. This change may become visible to
+     *    all apps because {@link DateFormatSymbols} is serializable.
+     *    - This class is not serializable, and not visible to any public app.
+     * 3. Provide narrow quarters from the existing API {@link #getQuarters(int, int)}. However,
+     *    the method documentation explicitly states that {@link #NARROW} is not allowed.
+     *
+     * @internal used by {@link com.android.icu.text.ExtendedDateFormatSymbols} to load extra data
+     */
+    public static class AospExtendedDateFormatSymbols {
+
+        private final DateFormatSymbols dfs;
+        private String[] narrowQuarters;
+        private String[] standaloneNarrowQuarters;
+
+        /**
+         * @internal
+         */
+        public DateFormatSymbols getDateFormatSymbols() {
+            return dfs;
+        }
+
+        /**
+         * Note that the implementation should mirror {@link #getQuarters(int, int)}.
+         *
+         * @param context    The quarter context, FORMAT or STANDALONE.
+         * @throws IllegalArgumentException for bad context or no data.
+         * @internal
+         */
+        public String[] getNarrowQuarters(int context) {
+            String [] returnValue = null;
+            if (context == FORMAT) {
+                returnValue = narrowQuarters;
+            } else if (context == STANDALONE) {
+                returnValue = standaloneNarrowQuarters;
+            }
+            if (returnValue == null) {
+                throw new IllegalArgumentException("Bad context or no data exist");
+            }
+            return returnValue.clone();
+        }
+
+        private AospExtendedDateFormatSymbols(ULocale desiredLocale, ICUResourceBundle b,
+                String calendarType) {
+            // This constructor should initialize all other fields, e.g. narrowQuarters.
+            dfs = new DateFormatSymbols(desiredLocale, b, calendarType, this);
+        }
+    }
+    // END Android-added: Narrow quarters needed to implement the Q/q symbols in DateTimeFormatter
 
     /**
      * Initializes format symbols using another instance.
@@ -1613,9 +1708,9 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     private static final class CalendarDataSink extends UResource.Sink {
 
         // Data structures to store resources from the resource bundle
-        Map<String, String[]> arrays = new TreeMap<String, String[]>();
-        Map<String, Map<String, String>> maps = new TreeMap<String, Map<String, String>>();
-        List<String> aliasPathPairs = new ArrayList<String>();
+        Map<String, String[]> arrays = new TreeMap<>();
+        Map<String, Map<String, String>> maps = new TreeMap<>();
+        List<String> aliasPathPairs = new ArrayList<>();
 
         // Current and next calendar resource table which should be loaded
         String currentCalendarType = null;
@@ -1670,7 +1765,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                     // Whenever an alias to the next calendar (except gregorian) is encountered, register the
                     // calendar type it's pointing to
                     if (resourcesToVisitNext == null) {
-                        resourcesToVisitNext = new HashSet<String>();
+                        resourcesToVisitNext = new HashSet<>();
                     }
                     resourcesToVisitNext.add(aliasRelativePath);
                     continue;
@@ -1758,7 +1853,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
                 if (value.getType() == ICUResourceBundle.STRING) {
                     // We are on a leaf, store the map elements into the stringMap
                     if (i == 0) {
-                        stringMap = new HashMap<String, String>();
+                        stringMap = new HashMap<>();
                         maps.put(path, stringMap);
                     }
                     assert stringMap != null;
@@ -1854,9 +1949,17 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     }
 
     /** Private, for cache.getInstance(). */
+    // BEGIN Android-changed: Load extra data, e.g. narrow quarters, from the patched constructor.
+    /*
     private DateFormatSymbols(ULocale desiredLocale, ICUResourceBundle b, String calendarType) {
         initializeData(desiredLocale, b, calendarType);
     }
+     */
+    private DateFormatSymbols(ULocale desiredLocale, ICUResourceBundle b, String calendarType,
+            AospExtendedDateFormatSymbols aospExtendedDateFormatSymbols) {
+        initializeData(desiredLocale, b, calendarType, aospExtendedDateFormatSymbols);
+    }
+    // END Android-changed: Load extra data, e.g. narrow quarters, from the patched constructor.
 
     /**
      * Initializes format symbols for the locale and calendar type
@@ -1870,6 +1973,12 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     // This API was accidentally marked as @stable ICU 3.0 formerly.
     protected void initializeData(ULocale desiredLocale, ICUResourceBundle b, String calendarType)
     {
+        // Android-changed: Load extra data,e.g. narrow quarters, from the patched initializeData().
+        initializeData(desiredLocale, b, calendarType, null /*aospExtendedDateFormatSymbols*/);
+    }
+
+    private void initializeData(ULocale desiredLocale, ICUResourceBundle b, String calendarType,
+            AospExtendedDateFormatSymbols aospExtendedDateFormatSymbols) {
         // Create a CalendarSink to load this data and a resource bundle
         CalendarDataSink calendarSink = new CalendarDataSink();
         if (b == null) {
@@ -1989,6 +2098,15 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         standaloneQuarters = arrays.get("quarters/stand-alone/wide");
         standaloneShortQuarters = arrays.get("quarters/stand-alone/abbreviated");
 
+        // BEGIN Android-changed: Load narrow quarters needed for the Q/q symbols in DateTimeFormatter.
+        if (aospExtendedDateFormatSymbols != null) {
+            aospExtendedDateFormatSymbols.narrowQuarters =
+                    arrays.get("quarters/format/narrow");
+            aospExtendedDateFormatSymbols.standaloneNarrowQuarters =
+                    arrays.get("quarters/stand-alone/narrow");
+        }
+        // END Android-changed: Load narrow quarters needed for the Q/q symbols in DateTimeFormatter.
+
         abbreviatedDayPeriods = loadDayPeriodStrings(maps.get("dayPeriod/format/abbreviated"));
         wideDayPeriods = loadDayPeriodStrings(maps.get("dayPeriod/format/wide"));
         narrowDayPeriods = loadDayPeriodStrings(maps.get("dayPeriod/format/narrow"));
@@ -2027,7 +2145,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         ULocale uloc = rb.getULocale();
         setLocale(uloc, uloc);
 
-        capitalization = new HashMap<CapitalizationContextUsage,boolean[]>();
+        capitalization = new HashMap<>();
         boolean[] noTransforms = new boolean[2];
         noTransforms[0] = false;
         noTransforms[1] = false;

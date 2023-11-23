@@ -16,6 +16,7 @@
 
 #include "utils/grammar/utils/ir.h"
 
+#include "utils/i18n/locale.h"
 #include "utils/strings/append.h"
 #include "utils/strings/stringpiece.h"
 #include "utils/zlib/zlib.h"
@@ -70,7 +71,7 @@ bool IsSameLhsSet(const Ir::LhsSet& lhs_set,
     }
   }
 
-  return false;
+  return true;
 }
 
 Ir::LhsSet SortedLhsSet(const Ir::LhsSet& lhs_set) {
@@ -189,15 +190,6 @@ Nonterm Ir::AddToSet(const Lhs& lhs, LhsSet* lhs_set) {
 
     // Cannot reuse id if the preconditions are different.
     if (!(lhs.preconditions == candidate->preconditions)) {
-      continue;
-    }
-
-    // If either callback is a filter, we can't share as we must always run
-    // both filters.
-    if ((lhs.callback.id != kNoCallback &&
-         filters_.find(lhs.callback.id) != filters_.end()) ||
-        (candidate->callback.id != kNoCallback &&
-         filters_.find(candidate->callback.id) != filters_.end())) {
       continue;
     }
 
@@ -406,13 +398,6 @@ void Ir::SerializeTerminalRules(
 
 void Ir::Serialize(const bool include_debug_information,
                    RulesSetT* output) const {
-  // Set callback information.
-  for (const CallbackId filter_callback_id : filters_) {
-    output->callback.push_back(RulesSet_::CallbackEntry(
-        filter_callback_id, RulesSet_::Callback(/*is_filter=*/true)));
-  }
-  SortStructsForBinarySearchLookup(&output->callback);
-
   // Add information about predefined nonterminal classes.
   output->nonterminals.reset(new RulesSet_::NonterminalsT);
   output->nonterminals->start_nt = GetNonterminalForName(kStartNonterm);
@@ -461,16 +446,29 @@ void Ir::Serialize(const bool include_debug_information,
   }
 
   // Serialize the unary and binary rules.
-  for (const RulesShard& shard : shards_) {
+  for (int i = 0; i < shards_.size(); i++) {
     output->rules.emplace_back(std::make_unique<RulesSet_::RulesT>());
     RulesSet_::RulesT* rules = output->rules.back().get();
+    for (const Locale& shard_locale : locale_shard_map_.GetLocales(i)) {
+      if (shard_locale.IsValid()) {
+        // Check if the language is set to all i.e. '*' which is a special, to
+        // make it consistent with device side parser here instead of filling
+        // the all locale leave the language tag list empty
+        rules->locale.emplace_back(
+            std::make_unique<libtextclassifier3::LanguageTagT>());
+        libtextclassifier3::LanguageTagT* language_tag =
+            rules->locale.back().get();
+        language_tag->language = shard_locale.Language();
+        language_tag->region = shard_locale.Region();
+        language_tag->script = shard_locale.Script();
+      }
+    }
+
     // Serialize the unary rules.
-    SerializeUnaryRulesShard(shard.unary_rules, output, rules);
-
+    SerializeUnaryRulesShard(shards_[i].unary_rules, output, rules);
     // Serialize the binary rules.
-    SerializeBinaryRulesShard(shard.binary_rules, output, rules);
+    SerializeBinaryRulesShard(shards_[i].binary_rules, output, rules);
   }
-
   // Serialize the terminal rules.
   // We keep the rules separate by shard but merge the actual terminals into
   // one shared string pool to most effectively exploit reuse.

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,6 +11,10 @@ be restarted. For example, scheduler needs to be restarted after a drone is
 added to a primary server. This module includes functions to check if actions
 are required to be executed and what actions to executed on which servers.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import subprocess
 import sys
@@ -85,18 +90,18 @@ def apply(action):
     servers = server_manager_utils.get_servers(
             role=role, status=server_models.Server.STATUS.PRIMARY)
     if not servers:
-        print >> sys.stderr, ('WARNING! Action %s failed to be applied. No '
-                              'server with given role %s was found.' %
-                              (action, role))
+        print('WARNING! Action %s failed to be applied. No '
+              'server with given role %s was found.' % (action, role),
+              file=sys.stderr)
         return
 
     for server in servers:
-        print 'Run command `%s` on server %s' % (command, server.hostname)
+        print('Run command `%s` on server %s' % (command, server.hostname))
         try:
             infra.execute_command(server.hostname, command)
         except subprocess.CalledProcessError as e:
-            print >> sys.stderr, ('Failed to check server %s, error: %s' %
-                                  (server.hostname, e))
+            print('Failed to check server %s, error: %s' %
+                  (server.hostname, e), file=sys.stderr)
 
 
 def try_execute(server, roles, enable, post_change,
@@ -147,4 +152,4 @@ def try_execute(server, roles, enable, post_change,
             message = ('WARNING! Action %s is skipped. Please manually '
                        'execute the action to make your change effective.' %
                        str(action))
-            print >> sys.stderr, message
+            print(message, file=sys.stderr)

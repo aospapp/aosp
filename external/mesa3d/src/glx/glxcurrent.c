@@ -67,7 +67,7 @@ struct glx_context dummyContext = {
 
 _X_HIDDEN pthread_mutex_t __glXmutex = PTHREAD_MUTEX_INITIALIZER;
 
-# if defined( GLX_USE_TLS )
+# if defined( USE_ELF_TLS )
 
 /**
  * Per-thread GLX context pointer.
@@ -132,7 +132,7 @@ __glXGetCurrentContext(void)
    return (v == NULL) ? &dummyContext : (struct glx_context *) v;
 }
 
-# endif /* defined( GLX_USE_TLS ) */
+# endif /* defined( USE_ELF_TLS ) */
 
 
 _X_HIDDEN void
@@ -244,18 +244,6 @@ MakeContextCurrent(Display * dpy, GLXDrawable draw,
    }
 
    __glXUnlock();
-
-   /* The indirect vertex array state must to be initialised after we
-    * have setup the context, as it needs to query server attributes.
-    */
-   if (gc && !gc->isDirect) {
-      __GLXattribute *state = gc->client_state_private;
-      if (state && state->array_state == NULL) {
-         glGetString(GL_EXTENSIONS);
-         glGetString(GL_VERSION);
-         __glXInitVertexArrayState(gc);
-      }
-   }
 
    return GL_TRUE;
 }

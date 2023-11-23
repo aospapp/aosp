@@ -36,16 +36,17 @@
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
+#include "perfetto/ext/base/utils.h"
 
 namespace perfetto {
 namespace base {
 namespace vm_test_utils {
 
 bool IsMapped(void* start, size_t size) {
-  PERFETTO_CHECK(size % kPageSize == 0);
+  const size_t page_size = GetSysPageSize();
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
   int retries = 5;
-  int number_of_entries = 4000;  // Just a guess.
+  size_t number_of_entries = 4000;  // Just a guess.
   PSAPI_WORKING_SET_INFORMATION* ws_info = nullptr;
 
   std::vector<char> buffer;
@@ -69,7 +70,7 @@ bool IsMapped(void* start, size_t size) {
 
     // Maybe some entries are being added right now. Increase the buffer to
     // take that into account. Increasing by 10% should generally be enough.
-    number_of_entries *= 1.1;
+    number_of_entries = static_cast<size_t>(double(number_of_entries) * 1.1);
 
     PERFETTO_CHECK(--retries > 0);  // If we're looping, eventually fail.
   }
@@ -78,28 +79,32 @@ bool IsMapped(void* start, size_t size) {
   // Now scan the working-set information looking for the addresses.
   unsigned pages_found = 0;
   for (unsigned i = 0; i < ws_info->NumberOfEntries; ++i) {
-    void* address =
-        reinterpret_cast<void*>(ws_info->WorkingSetInfo[i].VirtualPage *
-        kPageSize);
+    void* address = reinterpret_cast<void*>(
+        ws_info->WorkingSetInfo[i].VirtualPage * page_size);
     if (address >= start && address < end)
       ++pages_found;
   }
 
-  if (pages_found * kPageSize == size)
+  if (pages_found * page_size == size)
     return true;
   return false;
 #elif PERFETTO_BUILDFLAG(PERFETTO_OS_FUCHSIA)
   // Fuchsia doesn't yet support paging (b/119503290).
+  ignore_result(page_size);
+  return true;
+#elif PERFETTO_BUILDFLAG(PERFETTO_OS_NACL)
+  // mincore isn't available on NaCL.
+  ignore_result(page_size);
   return true;
 #else
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX)
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_APPLE)
   using PageState = char;
   static constexpr PageState kIncoreMask = MINCORE_INCORE;
 #else
   using PageState = unsigned char;
   static constexpr PageState kIncoreMask = 1;
 #endif
-  const size_t num_pages = size / kPageSize;
+  const size_t num_pages = (size + page_size - 1) / page_size;
   std::unique_ptr<PageState[]> page_states(new PageState[num_pages]);
   memset(page_states.get(), 0, num_pages * sizeof(PageState));
   int res = mincore(start, size, page_states.get());

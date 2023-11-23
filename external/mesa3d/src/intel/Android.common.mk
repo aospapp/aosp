@@ -26,6 +26,9 @@
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_intel_common
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT legacy_by_exception_only legacy_notice
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
@@ -36,7 +39,8 @@ LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/gallium/include \
 	$(MESA_TOP)/src/gallium/auxiliary \
 	$(MESA_TOP)/src/mapi \
-	$(MESA_TOP)/src/mesa
+	$(MESA_TOP)/src/mesa \
+	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_git_sha1,,)
 
 LOCAL_SHARED_LIBRARIES := libz liblog
 
@@ -49,7 +53,8 @@ LOCAL_SHARED_LIBRARIES += \
 	libexpat
 endif
 
-LOCAL_HEADER_LIBRARIES := libmesa_genxml
+
+LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_genxml
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

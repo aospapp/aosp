@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,24 +12,32 @@ SECTIONS
             . = . + PLATFORM_STACK_SIZE;
             . = ALIGN(PAGE_SIZE);
             __INIT_CODE_START__ = .;
-            /*
-             * Exclude PSCI initialization functions to ensure the init section
-             * does not become larger than the overlaid stack region
-             */
-            *(EXCLUDE_FILE (*psci_setup.o).text.init*)
-            __INIT_CODE_UNALIGNED__ = .;
-            .  = ALIGN(PAGE_SIZE);
+	    *(*text.init*);
             __INIT_CODE_END__ = .;
+            INIT_CODE_END_ALIGNED = ALIGN(PAGE_SIZE);
         } >RAM
 
 #ifdef BL31_PROGBITS_LIMIT
     ASSERT(__INIT_CODE_END__ <= BL31_PROGBITS_LIMIT,
             "BL31 init has exceeded progbits limit.")
 #endif
-
-    ASSERT(__INIT_CODE_END__ <= __STACKS_END__,
-        "Init code ends past the end of the stacks")
-
 }
+
+#define	ABS		ABSOLUTE
+
+#define STACK_SECTION							\
+	stacks (NOLOAD) : {						\
+		__STACKS_START__ = .;					\
+		*(tzfw_normal_stacks)					\
+		__STACKS_END__ = .;					\
+		/* Allow room for the init section where necessary. */	\
+		OFFSET = ABS(SIZEOF(.init) - (. - __STACKS_START__));	\
+		/* Offset sign */					\
+		SIGN = ABS(OFFSET) & (1 << 63);				\
+		/* Offset mask */					\
+		MASK = ABS(SIGN >> 63) - 1;				\
+		. +=  ABS(OFFSET) & ABS(MASK);				\
+		.  = ALIGN(PAGE_SIZE);					\
+	}
 
 #endif /* ARM_RECLAIM_INIT_LD_S */

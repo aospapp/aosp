@@ -22,7 +22,7 @@ MSR_POSITIVE = {
     'Core': {
         # Some CPUs reporting as "Core" have VMX enabled.
         },
-    'Stoney': {
+    'AMD': {
         # VM_CR MSR (C001_0114h) with SVMDIS Bit 4
         # can be used to lock writes to EFER.SVME.
         #   0 - writes to EFER.SVME are not blocked
@@ -44,7 +44,7 @@ MSR_NEGATIVE = {
         # No board has all bits set so this should fail.
         '0x3a':  [('2:0', 7)],
         },
-    'Stoney': {
+    'AMD': {
         # Inverted from positive case: none of these bits should be set.
         '0xc0010114':  [('4', 1)],
         },
@@ -66,7 +66,7 @@ RCBA_POSITIVE = {
         # Lock-Down) bit should be set.
         '0x3410': [('0', 1)],
         },
-    'Stoney': {
+    'AMD': {
         # Skipping this test as there is no register to change
         # reset vector on Stoney. NA for Stoney.
         },
@@ -85,7 +85,7 @@ RCBA_NEGATIVE = {
         # GCS register, BILD bit inverted from positive test.
         '0x3410': [('0', 0)],
         },
-    'Stoney': {
+    'AMD': {
         },
     }
 
@@ -153,8 +153,8 @@ class security_x86Registers(test.test):
             logging.warning('Unknown CPU with arch "%s".', cpu_arch)
             return
 
-        if cpu_arch == 'Stoney':
-            self._cpu_type = 'Stoney'
+        if cpu_arch in {"Stoney", "Ryzen"}:
+            self._cpu_type = 'AMD'
         elif cpu_arch == 'Atom':
             self._cpu_type = 'Atom'
         elif cpu_arch == 'Core M':

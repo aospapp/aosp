@@ -20,6 +20,15 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_mesa3d_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-MIT
+    default_applicable_licenses: ["external_mesa3d_license"],
+}
+
 build = ["Android.sources.bp"]
 
 //
@@ -33,7 +42,6 @@ cc_library_static {
 
     srcs: [
         "main/extensions_table.c",
-        "main/imports.c",
         "program/symbol_table.c",
         "program/dummy_errors.c",
     ],
@@ -44,14 +52,6 @@ cc_library_static {
             cflags: ["-D_POSIX_C_SOURCE=199309L"],
         },
     },
-}
-
-cc_binary_host {
-    name: "mesa_gen_matypes",
-    defaults: ["mesa_common_defaults"],
-    srcs: ["x86/gen_matypes.c"],
-    header_libs: ["mesa_mapi_headers"],
-    compile_multilib: "32",
 }
 
 cc_library_static {

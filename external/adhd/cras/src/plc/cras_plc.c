@@ -22,6 +22,9 @@
 #define PLC_SBCRL 36 /* SBC Reconvergence sample Length */
 #define PLC_OLAL 16 /* OverLap-Add Length */
 
+#define PLC_WINDOW_SIZE 5
+#define PLC_PL_THRESHOLD 2
+
 /* The pre-computed zero input bit stream of mSBC codec, per HFP 1.7 spec.
  * This mSBC frame will be decoded into all-zero input PCM. */
 static const uint8_t msbc_zero_frame[] = {
@@ -40,6 +43,18 @@ static const float rcos[PLC_OLAL] = { 0.99148655f, 0.96623611f, 0.92510857f,
 				      0.13049554f, 0.07489143f, 0.03376389f,
 				      0.00851345f };
 
+/* This structure tracks the packet loss information for last PLC_WINDOW_SIZE
+ * of packets:
+ *    loss_hist - The packet loss history of receiving packets. 1 means lost.
+ *    ptr - The index of the to be updated packet loss status.
+ *    count - The count of lost packets in the window.
+ */
+struct packet_window {
+	uint8_t loss_hist[PLC_WINDOW_SIZE];
+	unsigned int ptr;
+	unsigned int count;
+};
+
 /* The PLC is specifically designed for mSBC. The algorithm searches the
  * history of receiving samples to find the best match samples and constructs
  * substitutions for the lost samples. The selection is based on pattern
@@ -57,23 +72,30 @@ static const float rcos[PLC_OLAL] = { 0.99148655f, 0.96623611f, 0.92510857f,
  *                         frame.
  *    zero_frame - A buffer used for storing the samples from decoding the
  *                 mSBC zero frame packet.
+ *    pl_window - A window monitoring how many packets are bad within the recent
+ *                PLC_WINDOW_SIZE of packets. This is used to determine if we
+ *                want to disable the PLC temporarily.
  */
 struct cras_msbc_plc {
 	int16_t hist[PLC_HL + MSBC_FS + PLC_SBCRL + PLC_OLAL];
 	unsigned int best_lag;
 	int handled_bad_frames;
 	int16_t zero_frame[MSBC_FS];
+	struct packet_window *pl_window;
 };
 
 struct cras_msbc_plc *cras_msbc_plc_create()
 {
 	struct cras_msbc_plc *plc =
 		(struct cras_msbc_plc *)calloc(1, sizeof(*plc));
+	plc->pl_window =
+		(struct packet_window *)calloc(1, sizeof(*plc->pl_window));
 	return plc;
 }
 
 void cras_msbc_plc_destroy(struct cras_msbc_plc *plc)
 {
+	free(plc->pl_window);
 	free(plc);
 }
 
@@ -94,14 +116,33 @@ void overlap_add(int16_t *output, float scaler_d, const int16_t *desc,
 	}
 }
 
+void update_plc_state(struct packet_window *w, uint8_t is_packet_loss)
+{
+	uint8_t *curr = &w->loss_hist[w->ptr];
+	if (is_packet_loss != *curr) {
+		w->count += (is_packet_loss - *curr);
+		*curr = is_packet_loss;
+	}
+	w->ptr = (w->ptr + 1) % PLC_WINDOW_SIZE;
+}
+
+int possibly_pause_plc(struct packet_window *w)
+{
+	/* The packet loss count comes from a time window and we use it as an
+	 * indicator of our confidence of the PLC algorithm. It is known to
+	 * generate poorer and robotic feeling sounds, when the majority of
+	 * samples in the PLC history buffer are from the concealment results.
+	 */
+	return w->count >= PLC_PL_THRESHOLD;
+}
+
 int cras_msbc_plc_handle_good_frames(struct cras_msbc_plc *state,
 				     const uint8_t *input, uint8_t *output)
 {
 	int16_t *frame_head, *input_samples, *output_samples;
 	if (state->handled_bad_frames == 0) {
-		/* If there was no packet loss before this good frame, there
-		 * is nothing we need to do to the frame so we'll just pass
-		 * the input to output.
+		/* If there was no packet concealment before this good frame,
+		 * we just simply copy the input to output without reconverge.
 		 */
 		memmove(output, input, MSBC_FS * MSBC_SAMPLE_SIZE);
 	} else {
@@ -129,6 +170,7 @@ int cras_msbc_plc_handle_good_frames(struct cras_msbc_plc *state,
 		(PLC_HL - MSBC_FS) * MSBC_SAMPLE_SIZE);
 	memcpy(&state->hist[PLC_HL - MSBC_FS], output,
 	       MSBC_FS * MSBC_SAMPLE_SIZE);
+	update_plc_state(state->pl_window, 0);
 	return MSBC_CODE_SIZE;
 }
 
@@ -141,7 +183,7 @@ float cross_correlation(int16_t *x, int16_t *y)
 		x2 += ((float)x[i]) * x[i];
 		y2 += ((float)y[i]) * y[i];
 	}
-	return sum / sqrt(x2 * y2);
+	return sum / sqrtf(x2 * y2);
 }
 
 int pattern_match(int16_t *hist)
@@ -184,37 +226,60 @@ int cras_msbc_plc_handle_bad_frames(struct cras_msbc_plc *state,
 	int16_t *frame_head = &state->hist[PLC_HL];
 	size_t pcm_decoded = 0;
 
+	/* mSBC codec is stateful, the history of signal would contribute to the
+	 * decode result state->zero_frame.
+	 */
 	codec->decode(codec, msbc_zero_frame, MSBC_PKT_LEN, state->zero_frame,
 		      MSBC_FS, &pcm_decoded);
 
-	if (state->handled_bad_frames == 0) {
-		/* Finds the best matching samples and amplitude */
-		state->best_lag = pattern_match(state->hist) + PLC_TL;
-		best_match_hist = &state->hist[state->best_lag];
-		scaler = amplitude_match(&state->hist[PLC_HL - MSBC_FS],
-					 best_match_hist);
+	/* The PLC algorithm is more likely to generate bad results that sound
+	 * robotic after severe packet losses happened. Only applying it when
+	 * we are confident.
+	 */
+	if (!possibly_pause_plc(state->pl_window)) {
+		if (state->handled_bad_frames == 0) {
+			/* Finds the best matching samples and amplitude */
+			state->best_lag = pattern_match(state->hist) + PLC_TL;
+			best_match_hist = &state->hist[state->best_lag];
+			scaler = amplitude_match(&state->hist[PLC_HL - MSBC_FS],
+						 best_match_hist);
 
-		/* Constructs the substitution samples */
-		overlap_add(frame_head, 1.0, state->zero_frame, scaler,
-			    best_match_hist);
-		for (int i = PLC_OLAL; i < MSBC_FS; i++)
-			state->hist[PLC_HL + i] =
-				f_to_s16(scaler * best_match_hist[i]);
-		overlap_add(&frame_head[MSBC_FS], scaler,
-			    &best_match_hist[MSBC_FS], 1.0,
-			    &best_match_hist[MSBC_FS]);
+			/* Constructs the substitution samples */
+			overlap_add(frame_head, 1.0, state->zero_frame, scaler,
+				    best_match_hist);
+			for (int i = PLC_OLAL; i < MSBC_FS; i++)
+				state->hist[PLC_HL + i] =
+					f_to_s16(scaler * best_match_hist[i]);
+			overlap_add(&frame_head[MSBC_FS], scaler,
+				    &best_match_hist[MSBC_FS], 1.0,
+				    &best_match_hist[MSBC_FS]);
 
-		memmove(&frame_head[MSBC_FS + PLC_OLAL],
-			&best_match_hist[MSBC_FS + PLC_OLAL],
-			PLC_SBCRL * MSBC_SAMPLE_SIZE);
+			memmove(&frame_head[MSBC_FS + PLC_OLAL],
+				&best_match_hist[MSBC_FS + PLC_OLAL],
+				PLC_SBCRL * MSBC_SAMPLE_SIZE);
+		} else {
+			memmove(frame_head, &state->hist[state->best_lag],
+				(MSBC_FS + PLC_SBCRL + PLC_OLAL) *
+					MSBC_SAMPLE_SIZE);
+		}
+		state->handled_bad_frames++;
 	} else {
-		memmove(frame_head, &state->hist[state->best_lag],
-			(MSBC_FS + PLC_SBCRL + PLC_OLAL) * MSBC_SAMPLE_SIZE);
+		/* This is a case similar to receiving a good frame with all
+		 * zeros, we set handled_bad_frames to zero to prevent the
+		 * following good frame from being concealed to reconverge with
+		 * the zero frames we fill in. The concealment result sounds
+		 * more artificial and weird than simply writing zeros and
+		 * following samples.
+		 */
+		memmove(frame_head, state->zero_frame, MSBC_CODE_SIZE);
+		memset(frame_head + MSBC_CODE_SIZE, 0,
+		       (PLC_SBCRL + PLC_OLAL) * MSBC_SAMPLE_SIZE);
+		state->handled_bad_frames = 0;
 	}
-	state->handled_bad_frames++;
 
 	memcpy(output, frame_head, MSBC_CODE_SIZE);
 	memmove(state->hist, &state->hist[MSBC_FS],
 		(PLC_HL + PLC_SBCRL + PLC_OLAL) * MSBC_SAMPLE_SIZE);
+	update_plc_state(state->pl_window, 1);
 	return MSBC_CODE_SIZE;
 }

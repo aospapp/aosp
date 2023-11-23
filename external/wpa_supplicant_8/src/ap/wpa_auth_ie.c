@@ -88,13 +88,42 @@ static int wpa_write_wpa_ie(struct wpa_auth_config *conf, u8 *buf, size_t len)
 }
 
 
+static u16 wpa_own_rsn_capab(struct wpa_auth_config *conf)
+{
+	u16 capab = 0;
+
+	if (conf->rsn_preauth)
+		capab |= WPA_CAPABILITY_PREAUTH;
+	if (conf->wmm_enabled) {
+		/* 4 PTKSA replay counters when using WMM */
+		capab |= (RSN_NUM_REPLAY_COUNTERS_16 << 2);
+	}
+	if (conf->ieee80211w != NO_MGMT_FRAME_PROTECTION) {
+		capab |= WPA_CAPABILITY_MFPC;
+		if (conf->ieee80211w == MGMT_FRAME_PROTECTION_REQUIRED)
+			capab |= WPA_CAPABILITY_MFPR;
+	}
+#ifdef CONFIG_OCV
+	if (conf->ocv)
+		capab |= WPA_CAPABILITY_OCVC;
+#endif /* CONFIG_OCV */
+#ifdef CONFIG_RSN_TESTING
+	if (rsn_testing)
+		capab |= BIT(8) | BIT(15);
+#endif /* CONFIG_RSN_TESTING */
+	if (conf->extended_key_id)
+		capab |= WPA_CAPABILITY_EXT_KEY_ID_FOR_UNICAST;
+
+	return capab;
+}
+
+
 int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 		     const u8 *pmkid)
 {
 	struct rsn_ie_hdr *hdr;
 	int num_suites, res;
 	u8 *pos, *count;
-	u16 capab;
 	u32 suite;
 
 	hdr = (struct rsn_ie_hdr *) buf;
@@ -260,6 +289,13 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 		num_suites++;
 	}
 #endif /* CONFIG_HS20 */
+#ifdef CONFIG_PASN
+	if (conf->wpa_key_mgmt & WPA_KEY_MGMT_PASN) {
+		RSN_SELECTOR_PUT(pos, RSN_AUTH_KEY_MGMT_PASN);
+		pos += RSN_SELECTOR_LEN;
+		num_suites++;
+	}
+#endif /* CONFIG_PASN */
 
 #ifdef CONFIG_RSN_TESTING
 	if (rsn_testing) {
@@ -277,29 +313,7 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 	WPA_PUT_LE16(count, num_suites);
 
 	/* RSN Capabilities */
-	capab = 0;
-	if (conf->rsn_preauth)
-		capab |= WPA_CAPABILITY_PREAUTH;
-	if (conf->wmm_enabled) {
-		/* 4 PTKSA replay counters when using WMM */
-		capab |= (RSN_NUM_REPLAY_COUNTERS_16 << 2);
-	}
-	if (conf->ieee80211w != NO_MGMT_FRAME_PROTECTION) {
-		capab |= WPA_CAPABILITY_MFPC;
-		if (conf->ieee80211w == MGMT_FRAME_PROTECTION_REQUIRED)
-			capab |= WPA_CAPABILITY_MFPR;
-	}
-#ifdef CONFIG_OCV
-	if (conf->ocv)
-		capab |= WPA_CAPABILITY_OCVC;
-#endif /* CONFIG_OCV */
-#ifdef CONFIG_RSN_TESTING
-	if (rsn_testing)
-		capab |= BIT(8) | BIT(15);
-#endif /* CONFIG_RSN_TESTING */
-	if (conf->extended_key_id)
-		capab |= WPA_CAPABILITY_EXT_KEY_ID_FOR_UNICAST;
-	WPA_PUT_LE16(pos, capab);
+	WPA_PUT_LE16(pos, wpa_own_rsn_capab(conf));
 	pos += 2;
 
 	if (pmkid) {
@@ -377,18 +391,38 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 int wpa_write_rsnxe(struct wpa_auth_config *conf, u8 *buf, size_t len)
 {
 	u8 *pos = buf;
+	u16 capab = 0;
+	size_t flen;
 
-	if (conf->sae_pwe != 1 && conf->sae_pwe != 2)
+	if (wpa_key_mgmt_sae(conf->wpa_key_mgmt) &&
+	    (conf->sae_pwe == 1 || conf->sae_pwe == 2 || conf->sae_pk)) {
+		capab |= BIT(WLAN_RSNX_CAPAB_SAE_H2E);
+#ifdef CONFIG_SAE_PK
+		if (conf->sae_pk)
+			capab |= BIT(WLAN_RSNX_CAPAB_SAE_PK);
+#endif /* CONFIG_SAE_PK */
+	}
+
+	if (conf->secure_ltf)
+		capab |= BIT(WLAN_RSNX_CAPAB_SECURE_LTF);
+	if (conf->secure_rtt)
+		capab |= BIT(WLAN_RSNX_CAPAB_SECURE_RTT);
+	if (conf->prot_range_neg)
+		capab |= BIT(WLAN_RSNX_CAPAB_PROT_RANGE_NEG);
+
+	flen = (capab & 0xff00) ? 2 : 1;
+	if (!capab)
 		return 0; /* no supported extended RSN capabilities */
-
-	if (len < 3)
+	if (len < 2 + flen)
 		return -1;
+	capab |= flen - 1; /* bit 0-3 = Field length (n - 1) */
 
 	*pos++ = WLAN_EID_RSNX;
-	*pos++ = 1;
-	/* bits 0-3 = 0 since only one octet of Extended RSN Capabilities is
-	 * used for now */
-	*pos++ = BIT(WLAN_RSNX_CAPAB_SAE_H2E);
+	*pos++ = flen;
+	*pos++ = capab & 0x00ff;
+	capab >>= 8;
+	if (capab)
+		*pos++ = capab;
 
 	return pos - buf;
 }
@@ -803,14 +837,26 @@ wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 #endif /* CONFIG_SAE */
 
 #ifdef CONFIG_OCV
-	if ((data.capabilities & WPA_CAPABILITY_OCVC) &&
+	if (wpa_auth->conf.ocv && (data.capabilities & WPA_CAPABILITY_OCVC) &&
 	    !(data.capabilities & WPA_CAPABILITY_MFPC)) {
-		wpa_printf(MSG_DEBUG,
-			   "Management frame protection required with OCV, but client did not enable it");
-		return WPA_MGMT_FRAME_PROTECTION_VIOLATION;
+		/* Some legacy MFP incapable STAs wrongly copy OCVC bit from
+		 * AP RSN capabilities. To improve interoperability with such
+		 * legacy STAs allow connection without enabling OCV when the
+		 * workaround mode (ocv=2) is enabled.
+		 */
+		if (wpa_auth->conf.ocv == 2) {
+			wpa_printf(MSG_DEBUG,
+				   "Allow connecting MFP incapable and OCV capable STA without enabling OCV");
+			wpa_auth_set_ocv(sm, 0);
+		} else {
+			wpa_printf(MSG_DEBUG,
+				   "Management frame protection required with OCV, but client did not enable it");
+			return WPA_MGMT_FRAME_PROTECTION_VIOLATION;
+		}
+	} else {
+		wpa_auth_set_ocv(sm, (data.capabilities & WPA_CAPABILITY_OCVC) ?
+				 wpa_auth->conf.ocv : 0);
 	}
-	wpa_auth_set_ocv(sm, wpa_auth->conf.ocv &&
-			 (data.capabilities & WPA_CAPABILITY_OCVC));
 #endif /* CONFIG_OCV */
 
 	if (wpa_auth->conf.ieee80211w == NO_MGMT_FRAME_PROTECTION ||
@@ -1079,6 +1125,7 @@ u8 * wpa_auth_write_assoc_resp_owe(struct wpa_state_machine *sm,
 
 
 #ifdef CONFIG_FILS
+
 u8 * wpa_auth_write_assoc_resp_fils(struct wpa_state_machine *sm,
 				    u8 *pos, size_t max_len,
 				    const u8 *req_ies, size_t req_ies_len)
@@ -1095,4 +1142,91 @@ u8 * wpa_auth_write_assoc_resp_fils(struct wpa_state_machine *sm,
 		return pos;
 	return pos + res;
 }
+
+
+bool wpa_auth_write_fd_rsn_info(struct wpa_authenticator *wpa_auth,
+				u8 *fd_rsn_info)
+{
+	struct wpa_auth_config *conf;
+	u32 selectors = 0;
+	u8 *pos = fd_rsn_info;
+	int i, res;
+	u32 cipher, suite, selector, mask;
+	u8 tmp[10 * RSN_SELECTOR_LEN];
+
+	if (!wpa_auth)
+		return false;
+	conf = &wpa_auth->conf;
+
+	if (!(conf->wpa & WPA_PROTO_RSN))
+		return false;
+
+	/* RSN Capability (B0..B15) */
+	WPA_PUT_LE16(pos, wpa_own_rsn_capab(conf));
+	pos += 2;
+
+	/* Group Data Cipher Suite Selector (B16..B21) */
+	suite = wpa_cipher_to_suite(WPA_PROTO_RSN, conf->wpa_group);
+	if (suite == RSN_CIPHER_SUITE_NO_GROUP_ADDRESSED)
+		cipher = 63; /* No cipher suite selected */
+	if ((suite >> 8) == 0x000fac && ((suite & 0xff) <= 13))
+		cipher = suite & 0xff;
+	else
+		cipher = 62; /* vendor specific */
+	selectors |= cipher;
+
+	/* Group Management Cipher Suite Selector (B22..B27) */
+	cipher = 63; /* Default to no cipher suite selected */
+	if (conf->ieee80211w != NO_MGMT_FRAME_PROTECTION) {
+		switch (conf->group_mgmt_cipher) {
+		case WPA_CIPHER_AES_128_CMAC:
+			cipher = RSN_CIPHER_SUITE_AES_128_CMAC & 0xff;
+			break;
+		case WPA_CIPHER_BIP_GMAC_128:
+			cipher = RSN_CIPHER_SUITE_BIP_GMAC_128 & 0xff;
+			break;
+		case WPA_CIPHER_BIP_GMAC_256:
+			cipher = RSN_CIPHER_SUITE_BIP_GMAC_256 & 0xff;
+			break;
+		case WPA_CIPHER_BIP_CMAC_256:
+			cipher = RSN_CIPHER_SUITE_BIP_CMAC_256 & 0xff;
+			break;
+		}
+	}
+	selectors |= cipher << 6;
+
+	/* Pairwise Cipher Suite Selector (B28..B33) */
+	cipher = 63; /* Default to no cipher suite selected */
+	res = rsn_cipher_put_suites(tmp, conf->rsn_pairwise);
+	if (res == 1 && tmp[0] == 0x00 && tmp[1] == 0x0f && tmp[2] == 0xac &&
+	    tmp[3] <= 13)
+		cipher = tmp[3];
+	selectors |= cipher << 12;
+
+	/* AKM Suite Selector (B34..B39) */
+	selector = 0; /* default to AKM from RSNE in Beacon/Probe Response */
+	mask = WPA_KEY_MGMT_FILS_SHA256 | WPA_KEY_MGMT_FILS_SHA384 |
+		WPA_KEY_MGMT_FT_FILS_SHA384;
+	if ((conf->wpa_key_mgmt & mask) && (conf->wpa_key_mgmt & ~mask) == 0) {
+		suite = conf->wpa_key_mgmt & mask;
+		if (suite == WPA_KEY_MGMT_FILS_SHA256)
+			selector = 1; /* 00-0f-ac:14 */
+		else if (suite == WPA_KEY_MGMT_FILS_SHA384)
+			selector = 2; /* 00-0f-ac:15 */
+		else if (suite == (WPA_KEY_MGMT_FILS_SHA256 |
+				   WPA_KEY_MGMT_FILS_SHA384))
+			selector = 3; /* 00-0f-ac:14 or 00-0f-ac:15 */
+		else if (suite == WPA_KEY_MGMT_FT_FILS_SHA384)
+			selector = 4; /* 00-0f-ac:17 */
+	}
+	selectors |= selector << 18;
+
+	for (i = 0; i < 3; i++) {
+		*pos++ = selectors & 0xff;
+		selectors >>= 8;
+	}
+
+	return true;
+}
+
 #endif /* CONFIG_FILS */

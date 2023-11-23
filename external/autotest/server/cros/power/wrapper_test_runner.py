@@ -1,11 +1,17 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Class for running test inside wrapper tests."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 import logging
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest
@@ -56,12 +62,12 @@ class WrapperTestRunner(object):
         control_file_no_args = test[0].text
 
         # Prepend the args.
-        args_list = ['='.join((k, str(v))) for k, v in config.iteritems()]
+        args_list = ['='.join((k, str(v))) for k, v in six.iteritems(config)]
         args_string = 'args = ' + json.dumps(args_list)
         args_dict_string = 'args_dict = ' + json.dumps(config)
         control_file_list = [args_string, args_dict_string]
         control_file_list.extend(
-                ['%s = "%s"' % (k, str(v)) for k, v in config.iteritems()])
+                ['%s = "%s"' % (k, str(v)) for k, v in six.iteritems(config)])
         control_file_list.append(control_file_no_args)
 
         self._test_control_file = '\n'.join(control_file_list)

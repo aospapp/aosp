@@ -26,8 +26,13 @@ extern struct rtnl_neigh *rtnl_neigh_alloc(void);
 extern void	rtnl_neigh_put(struct rtnl_neigh *);
 
 extern int	rtnl_neigh_alloc_cache(struct nl_sock *, struct nl_cache **);
+extern int	rtnl_neigh_alloc_cache_flags(struct nl_sock *,
+					     struct nl_cache **,
+					     unsigned int);
 extern struct rtnl_neigh *rtnl_neigh_get(struct nl_cache *, int,
 					       struct nl_addr *);
+extern struct rtnl_neigh *rtnl_neigh_get_by_vlan(struct nl_cache *, int,
+						 struct nl_addr *, int);
 
 extern int      rtnl_neigh_parse(struct nlmsghdr *, struct rtnl_neigh **);
 
@@ -73,6 +78,12 @@ extern int			rtnl_neigh_get_type(struct rtnl_neigh *);
 
 extern void			rtnl_neigh_set_family(struct rtnl_neigh *, int);
 extern int			rtnl_neigh_get_family(struct rtnl_neigh *);
+
+extern void			rtnl_neigh_set_vlan(struct rtnl_neigh *, int);
+extern int			rtnl_neigh_get_vlan(struct rtnl_neigh *);
+
+extern void			rtnl_neigh_set_master(struct rtnl_neigh *, int);
+extern int			rtnl_neigh_get_master(struct rtnl_neigh *);
 
 #ifdef __cplusplus
 }

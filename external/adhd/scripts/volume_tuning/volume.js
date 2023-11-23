@@ -116,7 +116,7 @@ function redraw() {
   var max = parseFloat(minmax_boxes[1].value);
   var step = parseFloat(minmax_boxes[2].value);
 
-  // Sanity checks
+  // Soundness checks
   if (isNaN(min) || isNaN(max) || isNaN(step)) return;
   if (min >= max || step <= 0 || (max - min) / step > 10000) return;
 

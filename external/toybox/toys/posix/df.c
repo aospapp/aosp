@@ -4,7 +4,7 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/df.html
 
-USE_DF(NEWTOY(df, "HPkhit*a[-HPkh]", TOYFLAG_SBIN))
+USE_DF(NEWTOY(df, "HPkhit*a[-HPh]", TOYFLAG_SBIN))
 
 config DF
   bool "df"
@@ -24,7 +24,7 @@ config DF
     -i	Show inodes instead of blocks
     -t type	Display only filesystems of this type
 
-    Pedantic provides a slightly less useful output format dictated by Posix,
+    Pedantic provides a slightly less useful output format dictated by POSIX,
     and sets the units to 512 bytes instead of the default 1024 bytes.
 */
 
@@ -34,151 +34,116 @@ config DF
 GLOBALS(
   struct arg_list *t;
 
-  long units;
-  int column_widths[5];
-  int header_shown;
+  int units, width[6];
 )
 
-static void measure_column(int col, const char *s)
+static void measure_columns(char *s[])
 {
-  size_t len = strlen(s);
+  int i;
 
-  if (TT.column_widths[col] < len) TT.column_widths[col] = len;
+  for (i = 0; i<5; i++) TT.width[i] = maxof(TT.width[i], strlen(s[i]));
 }
 
-static void measure_numeric_column(int col, long long n)
+static void print_columns(char **dsuapm)
 {
-  snprintf(toybuf, sizeof(toybuf), "%llu", n);
-  return measure_column(col, toybuf);
+  int i;
+
+  for (i = 0; i<6; i++) printf(!i ? "%-*s" : " %*s", TT.width[i], dsuapm[i]);
+  xputc('\n');
 }
 
-static void show_header()
+static void print_header()
 {
-  TT.header_shown = 1;
+  char *dsuapm[] = {"Filesystem", "Size", "Used", "Avail", "Use%","Mounted on"};
 
   // The filesystem column is always at least this wide.
-  if (TT.column_widths[0] < 14) TT.column_widths[0] = 14;
+  TT.width[0] = maxof(TT.width[0], 14+(FLAG(H)||FLAG(h)));
 
-  if ((toys.optflags & (FLAG_H|FLAG_h))) {
-    xprintf((toys.optflags&FLAG_i) ?
-            "%-*sInodes  IUsed  IFree IUse%% Mounted on\n" :
-            "%-*s Size  Used Avail Use%% Mounted on\n",
-            TT.column_widths[0], "Filesystem");
-  } else {
-    const char *item_label, *used_label, *free_label, *use_label;
-
-    if (toys.optflags & FLAG_i) {
-      item_label = "Inodes";
-      used_label = "IUsed";
-      free_label = "IFree";
-      use_label = "IUse%";
-    } else {
-      item_label = TT.units == 512 ? "512-blocks" : "1K-blocks";
-      used_label = "Used";
-      free_label = "Available";
-      use_label = toys.optflags & FLAG_P ? "Capacity" : "Use%";
+  if (FLAG(i)) memcpy(dsuapm+1, (char *[]){"Inodes", "IUsed", "IFree", "IUse%"},
+                      sizeof(char *)*4);
+  else {
+    if (!(FLAG(H)||FLAG(h))) {
+      dsuapm[1] = TT.units == 512 ? "512-blocks" :
+        FLAG(P) ? "1024-blocks" : "1K-blocks";
+      dsuapm[3] = "Available";
+      if (FLAG(P)) dsuapm[4] = "Capacity";
     }
-
-    measure_column(1, item_label);
-    measure_column(2, used_label);
-    measure_column(3, free_label);
-    measure_column(4, use_label);
-    xprintf("%-*s %*s %*s %*s %*s Mounted on\n",
-            TT.column_widths[0], "Filesystem",
-            TT.column_widths[1], item_label,
-            TT.column_widths[2], used_label,
-            TT.column_widths[3], free_label,
-            TT.column_widths[4], use_label);
-
-    // For the "Use%" column, the trailing % should be inside the column.
-    TT.column_widths[4]--;
   }
+
+  measure_columns(dsuapm);
+  TT.width[5] = -1;
+  print_columns(dsuapm);
 }
 
 static void show_mt(struct mtab_list *mt, int measuring)
 {
-  unsigned long long size, used, avail, percent, block;
-  char *device;
+  unsigned long long suap[4], block = 1, ll;
+  char *dsuapm[6]; // device, size, used, avail, percent, mount
+  int i;
 
-  // Return if it wasn't found (should never happen, but with /etc/mtab...)
-  if (!mt) return;
+  // If we don't have -a, skip overmounted and synthetic filesystems.
+  if (!mt || (!FLAG(a) && (!mt->stat.st_dev || !mt->statvfs.f_blocks))) return;
 
   // If we have -t, skip other filesystem types
   if (TT.t) {
     struct arg_list *al;
 
-    for (al = TT.t; al; al = al->next) 
-      if (!strcmp(mt->type, al->arg)) break;
+    for (al = TT.t; al; al = al->next) if (!strcmp(mt->type, al->arg)) break;
 
     if (!al) return;
   }
 
-  // If we don't have -a, skip synthetic filesystems
-  if (!(toys.optflags & FLAG_a) && !mt->statvfs.f_blocks) return;
-
-  // Figure out how much total/used/free space this filesystem has,
-  // forcing 64-bit math because filesystems are big now.
-  if (toys.optflags & FLAG_i) {
-    size = mt->statvfs.f_files;
-    used = mt->statvfs.f_files - mt->statvfs.f_ffree;
-    avail = getuid() ? mt->statvfs.f_favail : mt->statvfs.f_ffree;
-  } else {
-    block = mt->statvfs.f_bsize ? mt->statvfs.f_bsize : 1;
-    size = (block * mt->statvfs.f_blocks) / TT.units;
-    used = (block * (mt->statvfs.f_blocks-mt->statvfs.f_bfree)) / TT.units;
-    avail= (block*(getuid()?mt->statvfs.f_bavail:mt->statvfs.f_bfree))/TT.units;
-  }
-  if (!(used+avail)) percent = 0;
+  // Prepare filesystem display fields
+  *dsuapm = *mt->device == '/' ? xabspath(mt->device, 0) : 0;
+  if (!*dsuapm) *dsuapm = mt->device;
+  if (!mt->stat.st_dev) for (i = 1; i<5; i++) dsuapm[i] = "-";
   else {
-    percent = (used*100)/(used+avail);
-    if (used*100 != percent*(used+avail)) percent++;
+    if (FLAG(i)) {
+      suap[0] = mt->statvfs.f_files;
+      suap[1] = mt->statvfs.f_files - mt->statvfs.f_ffree;
+      suap[2] = getuid() ? mt->statvfs.f_favail : mt->statvfs.f_ffree;
+    } else {
+      block = maxof(mt->statvfs.f_frsize, 1);
+      suap[0] = mt->statvfs.f_blocks;
+      suap[1] = mt->statvfs.f_blocks - mt->statvfs.f_bfree;
+      suap[2] = getuid() ? mt->statvfs.f_bavail : mt->statvfs.f_bfree;
+    }
+
+    // Scale and convert to strings
+    dsuapm[1] = toybuf;
+    for (i = 0; i<3; i++) {
+      suap[i] = (block*suap[i])/TT.units;
+
+      if (FLAG(H)||FLAG(h))
+        human_readable(dsuapm[i+1], suap[i], FLAG(H) ? HR_1000 : 0);
+      else sprintf(dsuapm[i+1], "%llu", suap[i]);
+      dsuapm[i+2] = strchr(dsuapm[i+1], 0)+1;
+    }
+
+    // percent
+    if ((suap[3] = ll = suap[1]+suap[2])) {
+      suap[3] = (block = suap[1]*100)/ll;
+      if (block != suap[3]*ll) suap[3]++;
+    }
+    sprintf(dsuapm[4], "%llu%%", suap[3]);
   }
+  dsuapm[5] = mt->dir;
 
-  device = *mt->device == '/' ? realpath(mt->device, NULL) : NULL;
-  if (!device) device = mt->device;
+  if (measuring) measure_columns(dsuapm);
+  else print_columns(dsuapm);
 
-  if (measuring) {
-    measure_column(0, device);
-    measure_numeric_column(1, size);
-    measure_numeric_column(2, used);
-    measure_numeric_column(3, avail);
-  } else {
-    if (!TT.header_shown) show_header();
-
-    if (toys.optflags & (FLAG_H|FLAG_h)) {
-      char *size_str = toybuf, *used_str = toybuf+64, *avail_str = toybuf+128;
-      int hr_flags = (toys.optflags & FLAG_H) ? HR_1000 : 0;
-      int w = 4 + !!(toys.optflags & FLAG_i);
-
-      human_readable(size_str, size, hr_flags);
-      human_readable(used_str, used, hr_flags);
-      human_readable(avail_str, avail, hr_flags);
-      xprintf("%-*s %*s  %*s  %*s %*llu%% %s\n",
-        TT.column_widths[0], device,
-        w, size_str, w, used_str, w, avail_str, w-1, percent, mt->dir);
-    } else xprintf("%-*s %*llu %*llu %*llu %*llu%% %s\n",
-        TT.column_widths[0], device,
-        TT.column_widths[1], size,
-        TT.column_widths[2], used,
-        TT.column_widths[3], avail,
-        TT.column_widths[4], percent,
-        mt->dir);
-  }
-
-  if (device != mt->device) free(device);
+  if (*dsuapm != mt->device) free(*dsuapm);
 }
 
 void df_main(void)
 {
-  struct mtab_list *mt, *mtstart, *mtend;
+  struct mtab_list *mt, *mtstart, *mtend, *mt2, *mt3;
   int measuring;
+  char **next;
 
-  if (toys.optflags & (FLAG_H|FLAG_h)) {
-    TT.units = 1;
-  } else {
-    // Units are 512 bytes if you select "pedantic" without "kilobytes".
-    TT.units = toys.optflags & FLAG_P ? 512 : 1024;
-  }
+  // Units are 512 bytes if you select "pedantic" without "kilobytes".
+  if (FLAG(H)||FLAG(h)||FLAG(i)) TT.units = 1;
+  else TT.units = FLAG(P) && !FLAG(k) ? 512 : 1024;
 
   if (!(mtstart = xgetmountlist(0))) return;
   mtend = dlist_terminate(mtstart);
@@ -186,57 +151,45 @@ void df_main(void)
   // If we have a list of filesystems on the command line, loop through them.
   if (*toys.optargs) {
     // Measure the names then output the table.
-    for (measuring = 1; measuring >= 0; --measuring) {
-      char **next;
-
+    for (measuring = 1;;) {
       for (next = toys.optargs; *next; next++) {
         struct stat st;
 
         // Stat it (complain if we can't).
         if (stat(*next, &st)) {
-          perror_msg("'%s'", *next);
-          continue;
-        }
-
-        // Find and display this filesystem.  Use _last_ hit in case of
-        // overmounts (which is first hit in the reversed list).
-        for (mt = mtend; mt; mt = mt->prev) {
-          if (st.st_dev == mt->stat.st_dev
-              || (st.st_rdev && (st.st_rdev == mt->stat.st_dev)))
-          {
-            show_mt(mt, measuring);
-            break;
+          if (!measuring) perror_msg("'%s'", *next);
+        } else {
+          // Find and display this filesystem.  Use _last_ hit in case of
+          // overmounts (which is first hit in the reversed list).
+          for (mt = mtend, mt2 = 0; mt; mt = mt->prev) {
+            if (!mt2 && st.st_dev == mt->stat.st_dev) mt2 = mt;
+            if (st.st_rdev && (st.st_rdev == mt->stat.st_dev)) break;
           }
+          show_mt(mt ? : mt2, measuring);
         }
       }
+      if (!measuring--) break;
+      print_header();
     }
   } else {
     // Loop through mount list to filter out overmounts.
     for (mt = mtend; mt; mt = mt->prev) {
-      struct mtab_list *mt2, *mt3;
-
-      // 0:0 is LANANA null device
-      if (!mt->stat.st_dev) continue;
-
-      // Filter out overmounts.
-      mt3 = mt;
-      for (mt2 = mt->prev; mt2; mt2 = mt2->prev) {
+      for (mt3 = mt, mt2 = mt->prev; mt2; mt2 = mt2->prev) {
         if (mt->stat.st_dev == mt2->stat.st_dev) {
           // For --bind mounts, show earliest mount
           if (!strcmp(mt->device, mt2->device)) {
-            if (!(toys.optflags & FLAG_a)) mt3->stat.st_dev = 0;
+            mt3->stat.st_dev = 0;
             mt3 = mt2;
           } else mt2->stat.st_dev = 0;
         }
       }
     }
 
-    // Measure the names then output the table.
-    for (measuring = 1; measuring >= 0; --measuring) {
-      // Cosmetic: show filesystems in creation order.
-      for (mt = mtstart; mt; mt = mt->next) {
-        if (mt->stat.st_dev) show_mt(mt, measuring);
-      }
+    // Measure the names then output the table (in filesystem creation order).
+    for (measuring = 1;;) {
+      for (mt = mtstart; mt; mt = mt->next) show_mt(mt, measuring);
+      if (!measuring--) break;
+      print_header();
     }
   }
 

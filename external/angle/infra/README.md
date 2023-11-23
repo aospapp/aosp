@@ -12,7 +12,7 @@ Also see the documentation on [ANGLE Wrangling][Wrangling] for more info.
 
 See the pre-commit try waterfall here:
 
-[`https://ci.chromium.org/p/angle/g/try/builders`](https://ci.chromium.org/p/angle/g/try/builders)
+[`https://ci.chromium.org/p/chromium/g/tryserver.chromium.angle/builders`](https://ci.chromium.org/p/chromium/g/tryserver.chromium.angle/builders)
 
 We currently run pre-commit tests on:
 
@@ -24,12 +24,12 @@ We currently run pre-commit tests on:
 
 Looking at an example build shows how tests are split up between machines. See for example:
 
-[`https://ci.chromium.org/p/chromium/builders/try/mac-angle-rel/5905`](https://ci.chromium.org/p/chromium/builders/try/mac-angle-rel/5905)
+[`https://ci.chromium.org/ui/p/chromium/builders/try/mac-angle-try/454/overview`](https://ci.chromium.org/ui/p/chromium/builders/try/mac-angle-try/454/overview)
 
-This build ran 82 test steps across 3 GPU families. In some cases (e.g.
-webgl2_conformance_tests) the test is split up between multiple machines to
-run faster (in this case 20 different machines at once). This build took 27
-minutes to complete multiple hours of real automated testing.
+This build ran 81 test steps across 3 GPU families. In some cases (e.g.
+`angle_deqp_gles3_metal_tests`) the test is split up between multiple machines to
+run faster (in this case 4 different machines at once). This build took 15
+minutes to complete 1 hour of real automated testing.
 
 For more details on running and working with our test sets see the docs in [Contributing Code][Contrib].
 

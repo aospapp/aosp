@@ -107,6 +107,9 @@ public abstract class Request<T> implements Comparable<Request<T>> {
     /** Whether the request should be retried in the event of an HTTP 5xx (server) error. */
     private boolean mShouldRetryServerErrors = false;
 
+    /** Whether the request should be retried in the event of a {@link NoConnectionError}. */
+    private boolean mShouldRetryConnectionErrors = false;
+
     /** The retry policy for this request. */
     private RetryPolicy mRetryPolicy;
 
@@ -115,7 +118,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
      * entry will be stored here so that in the event of a "Not Modified" response, we can be sure
      * it hasn't been evicted from cache.
      */
-    private Cache.Entry mCacheEntry = null;
+    @Nullable private Cache.Entry mCacheEntry = null;
 
     /** An opaque token tagging this request; used for bulk cancellation. */
     private Object mTag;
@@ -319,6 +322,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
     }
 
     /** Returns the annotated cache entry, or null if there isn't one. */
+    @Nullable
     public Cache.Entry getCacheEntry() {
         return mCacheEntry;
     }
@@ -374,6 +378,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
      * @deprecated Use {@link #getParams()} instead.
      */
     @Deprecated
+    @Nullable
     protected Map<String, String> getPostParams() throws AuthFailureError {
         return getParams();
     }
@@ -431,6 +436,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
      *
      * @throws AuthFailureError in the event of auth failure
      */
+    @Nullable
     protected Map<String, String> getParams() throws AuthFailureError {
         return null;
     }
@@ -528,6 +534,25 @@ public abstract class Request<T> implements Comparable<Request<T>> {
      */
     public final boolean shouldRetryServerErrors() {
         return mShouldRetryServerErrors;
+    }
+
+    /**
+     * Sets whether or not the request should be retried in the event that no connection could be
+     * established.
+     *
+     * @return This Request object to allow for chaining.
+     */
+    public final Request<?> setShouldRetryConnectionErrors(boolean shouldRetryConnectionErrors) {
+        mShouldRetryConnectionErrors = shouldRetryConnectionErrors;
+        return this;
+    }
+
+    /**
+     * Returns true if this request should be retried in the event that no connection could be
+     * established.
+     */
+    public final boolean shouldRetryConnectionErrors() {
+        return mShouldRetryConnectionErrors;
     }
 
     /**

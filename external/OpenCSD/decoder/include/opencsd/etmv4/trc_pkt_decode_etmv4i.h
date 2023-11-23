@@ -85,8 +85,20 @@ protected:
     // process an exception element - output instruction trace + exception generic type.
     ocsd_err_t processException(); 
 
+    // process Q element
+    ocsd_err_t processQElement();
+
+    // process a source address element
+    ocsd_err_t processSourceAddress();
+
     // process an element that cannot be cancelled / discarded
     ocsd_err_t processTS_CC_EventElem(TrcStackElem *pElem); 
+
+    // process marker elements
+    ocsd_err_t processMarkerElem(TrcStackElem *pElem);
+
+    // process a transaction element
+    ocsd_err_t processTransElem(TrcStackElem *pElem);
 
     // process a bad packet
     ocsd_err_t handleBadPacket(const char *reason);
@@ -124,6 +136,13 @@ private:
     ocsd_err_t returnStackPop();  // pop return stack and update instruction address.
 
     void setElemTraceRange(OcsdTraceElement &elemIn, const instr_range_t &addr_range, const bool executed, ocsd_trc_index_t index);
+    void setElemTraceRangeInstr(OcsdTraceElement &elemIn, const instr_range_t &addr_range, 
+                                const bool executed, ocsd_trc_index_t index, ocsd_instr_info &instr);
+
+    // true if we are ETE configured.
+    inline bool isETEConfig() {
+        return (m_config->MajVersion() >= ETE_ARCH_VERSION);
+    }
 
     ocsd_mem_space_acc_t getCurrMemSpace();
 
@@ -131,6 +150,7 @@ private:
 
     // timestamping
     uint64_t m_timestamp;   // last broadcast global Timestamp.
+    bool m_ete_first_ts_marker; 
 
     // state and context 
     uint32_t m_context_id;              // most recent context ID
@@ -208,7 +228,6 @@ private:
 
     ocsd_instr_info m_instr_info;  //!< instruction info for code follower - in address is the next to be decoded.
 
-    ocsd_pe_context m_pe_context;  //!< current context information
     etmv4_trace_info_t m_trace_info; //!< trace info for this trace run.
 
     bool m_prev_overflow;

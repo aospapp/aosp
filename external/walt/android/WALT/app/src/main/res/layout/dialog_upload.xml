@@ -9,7 +9,8 @@
         android:id="@+id/edit_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter URL"
+        android:hint="@string/hint_url"
+        android:autofillHints="Enter URL"
         android:inputType="textUri" />
 
     <ProgressBar

@@ -10,7 +10,6 @@ import com.android.org.bouncycastle.util.Pack;
  * "Handbook of Applied Cryptography", pages 344 - 347.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
 public abstract class GeneralDigest
     implements ExtendedDigest, Memoable
 {
@@ -68,7 +67,6 @@ public abstract class GeneralDigest
         byteCount++;
     }
 
-    @libcore.api.CorePlatformApi
     public void update(
         byte[]  in,
         int     inOff,
@@ -114,7 +112,6 @@ public abstract class GeneralDigest
         byteCount += len;
     }
 
-    @libcore.api.CorePlatformApi
     public void finish()
     {
         long    bitLength = (byteCount << 3);
@@ -161,6 +158,5 @@ public abstract class GeneralDigest
 
     protected abstract void processLength(long bitLength);
 
-    @libcore.api.CorePlatformApi
     protected abstract void processBlock();
 }

@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "test.h"
-#include "../profiling/pthread_everywhere.h"
-
+#include <atomic>  // NOLINT
 #include <vector>
+#include <iostream>
+#include <cstdlib>
 
 #include "../internal/multi_thread_gemm.h"
+#include "../profiling/pthread_everywhere.h"
+#include "test.h"
 
 namespace gemmlowp {
 
@@ -26,16 +28,36 @@ class Thread {
   Thread(BlockingCounter* blocking_counter, int number_of_times_to_decrement)
       : blocking_counter_(blocking_counter),
         number_of_times_to_decrement_(number_of_times_to_decrement),
-        finished_(false),
-        made_the_last_decrement_(false) {
+        made_the_last_decrement_(false),
+        finished_(false) {
+#if defined GEMMLOWP_USE_PTHREAD
+    // Limit the stack size so as not to deplete memory when creating
+    // many threads.
+    pthread_attr_t attr;
+    int err = pthread_attr_init(&attr);
+    if (!err) {
+      size_t stack_size;
+      err = pthread_attr_getstacksize(&attr, &stack_size);
+      if (!err && stack_size > max_stack_size_) {
+        err = pthread_attr_setstacksize(&attr, max_stack_size_);
+      }
+      if (!err) {
+        err = pthread_create(&thread_, &attr, ThreadFunc, this);
+      }
+    }
+    if (err) {
+      std::cerr << "Failed to create a thread.\n";
+      std::abort();
+    }
+#else
     pthread_create(&thread_, nullptr, ThreadFunc, this);
+#endif
   }
 
   ~Thread() { Join(); }
 
-  bool Join() const {
-    if (!finished_) {
-      pthread_join(thread_, nullptr);
+  bool Join() {
+    while (!finished_.load()) {
     }
     return made_the_last_decrement_;
   }
@@ -48,7 +70,7 @@ class Thread {
       Check(!made_the_last_decrement_);
       made_the_last_decrement_ = blocking_counter_->DecrementCount();
     }
-    finished_ = true;
+    finished_.store(true);
   }
 
   static void* ThreadFunc(void* ptr) {
@@ -56,11 +78,18 @@ class Thread {
     return nullptr;
   }
 
+  static constexpr size_t max_stack_size_ = 256 * 1024;
   BlockingCounter* const blocking_counter_;
   const int number_of_times_to_decrement_;
   pthread_t thread_;
-  bool finished_;
   bool made_the_last_decrement_;
+  // finished_ is used to manually implement Join() by busy-waiting.
+  // I wanted to use pthread_join / std::thread::join, but the behavior
+  // observed on Android was that pthread_join aborts when the thread has
+  // already joined before calling pthread_join, making that hard to use.
+  // It appeared simplest to just implement this simple spinlock, and that
+  // is good enough as this is just a test.
+  std::atomic<bool> finished_;
 };
 
 void test_blocking_counter(BlockingCounter* blocking_counter, int num_threads,
@@ -89,10 +118,10 @@ void test_blocking_counter() {
   // repeating the entire test sequence ensures that we test
   // non-monotonic changes.
   for (int repeat = 1; repeat <= 2; repeat++) {
-    for (int num_threads = 1; num_threads <= 16; num_threads++) {
+    for (int num_threads = 1; num_threads <= 5; num_threads++) {
       for (int num_decrements_per_thread = 1;
-           num_decrements_per_thread <= 64 * 1024;
-           num_decrements_per_thread *= 4) {
+           num_decrements_per_thread <= 4 * 1024;
+           num_decrements_per_thread *= 16) {
         test_blocking_counter(blocking_counter, num_threads,
                               num_decrements_per_thread,
                               num_threads * num_decrements_per_thread);

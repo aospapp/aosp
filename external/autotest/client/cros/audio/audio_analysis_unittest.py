@@ -1,4 +1,8 @@
 #!/usr/bin/python2
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import numpy
 import os
@@ -7,6 +11,7 @@ import unittest
 import common
 from autotest_lib.client.cros.audio import audio_analysis
 from autotest_lib.client.cros.audio import audio_data
+from six.moves import range
 
 class SpectralAnalysisTest(unittest.TestCase):
     def setUp(self):
@@ -30,7 +35,7 @@ class SpectralAnalysisTest(unittest.TestCase):
                   where the tuples are sorted by peak values.
 
         """
-        half_window_size = window_size / 2
+        half_window_size = window_size // 2
         length = len(array)
 
         def mid_is_peak(array, mid, left, right):
@@ -46,7 +51,7 @@ class SpectralAnalysisTest(unittest.TestCase):
 
             """
             value_mid = array[mid]
-            for index in xrange(left, right + 1):
+            for index in range(left, right + 1):
                 if index == mid:
                     continue
                 if array[index] >= value_mid:
@@ -54,7 +59,7 @@ class SpectralAnalysisTest(unittest.TestCase):
             return True
 
         results = []
-        for mid in xrange(length):
+        for mid in range(length):
             left = max(0, mid - half_window_size)
             right = min(length - 1, mid + half_window_size)
             if mid_is_peak(array, mid, left, right):
@@ -148,7 +153,7 @@ class NormalizeTest(unittest.TestCase):
         y = [1, 2, 3, 4, 5]
         normalized_y = audio_analysis.normalize_signal(y, 10)
         expected = numpy.array([0.1, 0.2, 0.3, 0.4, 0.5])
-        for i in xrange(len(y)):
+        for i in range(len(y)):
             self.assertEqual(expected[i], normalized_y[i])
 
 

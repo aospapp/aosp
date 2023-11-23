@@ -457,29 +457,29 @@ class GATT_HIDApplication(GATT_Application):
         GATT_Application.__init__(self)
         BatteryService = GATT_Service(self.BatteryServiceUUID, None, None)
         BatteryService.properties = {
-            'UUID': BatteryService.uuid,
-            'Primary': True,
-            'Device': None,
-            'Includes': None
+                'UUID': BatteryService.uuid,
+                'Primary': True,
+                'Device': None,
+                'Includes': []
         }
         self.add_service(BatteryService)
 
         BatteryLevel = GATT_Characteristic(self.BatteryLevelUUID, None, None)
         BatteryLevel.properties = {
-            'UUID': BatteryLevel.uuid,
-            'Service': None,
-            'Value': [],
-            'Notifying': False,
-            'Flags': ['read', 'notify']
+                'UUID': BatteryLevel.uuid,
+                'Service': None,
+                'Value': [],
+                'Notifying': False,
+                'Flags': ['read', 'notify']
         }
         BatteryService.add_characteristic(BatteryLevel)
 
         CliChrcConfig = GATT_Descriptor(self.CliChrcConfigUUID, None, None)
         CliChrcConfig.properties = {
-            'UUID': CliChrcConfig.uuid,
-            'Characteristic': None,
-            'Value': [],
-            'Flags': None
+                'UUID': CliChrcConfig.uuid,
+                'Characteristic': None,
+                'Value': [],
+                'Flags': None
         }
 
         BatteryLevel.add_descriptor(CliChrcConfig)
@@ -487,89 +487,89 @@ class GATT_HIDApplication(GATT_Application):
         GenericAttributeProfile = GATT_Service(self.GenericAttributeProfileUUID,
                                                None, None)
         GenericAttributeProfile.properties = {
-            'UUID': GenericAttributeProfile.uuid,
-            'Primary': True,
-            'Device': None,
-            'Includes': None
+                'UUID': GenericAttributeProfile.uuid,
+                'Primary': True,
+                'Device': None,
+                'Includes': []
         }
         self.add_service(GenericAttributeProfile)
 
         ServiceChanged = GATT_Characteristic(self.ServiceChangedUUID, None,
                                              None)
         ServiceChanged.properties = {
-            'UUID': ServiceChanged.uuid,
-            'Service': None,
-            'Value': [],
-            'Notifying': False,
-            'Flags': ['indicate']
+                'UUID': ServiceChanged.uuid,
+                'Service': None,
+                'Value': [],
+                'Notifying': False,
+                'Flags': ['indicate']
         }
         GenericAttributeProfile.add_characteristic(ServiceChanged)
 
         CliChrcConfig = GATT_Descriptor(self.CliChrcConfigUUID, None, None)
         CliChrcConfig.properties = {
-            'UUID': CliChrcConfig.uuid,
-            'Characteristic': None,
-            'Value': [],
-            'Flags': None
+                'UUID': CliChrcConfig.uuid,
+                'Characteristic': None,
+                'Value': [],
+                'Flags': None
         }
         ServiceChanged.add_descriptor(CliChrcConfig)
 
         DeviceInfo = GATT_Service(self.DeviceInfoUUID, None, None)
         DeviceInfo.properties = {
-            'UUID': DeviceInfo.uuid,
-            'Primary': True,
-            'Device': None,
-            'Includes': None
+                'UUID': DeviceInfo.uuid,
+                'Primary': True,
+                'Device': None,
+                'Includes': []
         }
         self.add_service(DeviceInfo)
 
         ManufacturerNameStr = GATT_Characteristic(self.ManufacturerNameStrUUID,
                                                   None, None)
         ManufacturerNameStr.properties = {
-            'UUID': ManufacturerNameStr.uuid,
-            'Service': None,
-            'Value': [],
-            'Notifying': None,
-            'Flags': ['read']
+                'UUID': ManufacturerNameStr.uuid,
+                'Service': None,
+                'Value': [],
+                'Notifying': None,
+                'Flags': ['read']
         }
         DeviceInfo.add_characteristic(ManufacturerNameStr)
 
         PnPID = GATT_Characteristic(self.PnPIDUUID, None, None)
         PnPID.properties = {
-            'UUID': PnPID.uuid,
-            'Service': None,
-            'Value': [],
-            'Notifying': None,
-            'Flags': ['read']
+                'UUID': PnPID.uuid,
+                'Service': None,
+                'Value': [],
+                'Notifying': None,
+                'Flags': ['read']
         }
         DeviceInfo.add_characteristic(PnPID)
 
         GenericAccessProfile = GATT_Service(self.GenericAccessProfileUUID,
                                             None, None)
         GenericAccessProfile.properties = {
-            'UUID': GenericAccessProfile.uuid,
-            'Primary': True,
-            'Device': None,
-            'Includes': None
+                'UUID': GenericAccessProfile.uuid,
+                'Primary': True,
+                'Device': None,
+                'Includes': []
         }
         self.add_service(GenericAccessProfile)
 
         DeviceName = GATT_Characteristic(self.DeviceNameUUID, None, None)
         DeviceName.properties = {
-            'UUID': DeviceName.uuid,
-            'Service': None,
-            'Value': [],
-            'Notifying': None,
-            'Flags': ['read']
+                'UUID': DeviceName.uuid,
+                'Service': None,
+                'Value': [],
+                'Notifying': None,
+                'Flags': ['read']
         }
         GenericAccessProfile.add_characteristic(DeviceName)
 
         Appearance = GATT_Characteristic(self.AppearanceUUID, None, None)
         Appearance.properties = {
-            'UUID': Appearance.uuid,
-            'Service': None,
-            'Value': [],
-            'Notifying': None,
-            'Flags': ['read']
+                'UUID': Appearance.uuid,
+                'Service': None,
+                'Value': [],
+                'Notifying': None,
+                'Flags': ['read']
         }
         GenericAccessProfile.add_characteristic(Appearance)

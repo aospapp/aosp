@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -49,7 +50,7 @@ class Tcpdump(object):
         # Send SIGTERM to tcpdump.
         try:
             self._tcpdump_proc.terminate()
-        except OSError, e:
+        except OSError as e:
             # If the process exits before we can send it a SIGTERM, an
             # OSError exception is raised here which we can ignore since the
             # process already finished.

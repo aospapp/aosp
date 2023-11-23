@@ -19,7 +19,7 @@ def _unlevel(p):
     @return: The color value in integer in PC level
     """
     # TV level: 16~236; PC level: 0~255
-    p = (p - 126) * 128 / 110 + 128
+    p = (p - 126) * 128 // 110 + 128
     if p < 0:
         p = 0
     elif p > 255:

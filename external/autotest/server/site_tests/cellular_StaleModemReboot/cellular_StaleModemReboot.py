@@ -168,8 +168,8 @@ class cellular_StaleModemReboot(test.test):
 
 
     def _cold_reset_dut(self, boot_id):
-        self._servo.get_power_state_controller().power_off()
-        self._servo.get_power_state_controller().power_on()
+        self._client.power_off_via_servo()
+        self._client.power_on_via_servo()
         time.sleep(self._servo.BOOT_DELAY)
         self._client.wait_for_restart(old_boot_id=boot_id)
         self._wait_for_stable_modem_state()

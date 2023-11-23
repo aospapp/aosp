@@ -178,7 +178,7 @@ compute_vertex_info(struct llvmpipe_context *llvmpipe)
  * Called just prior to drawing anything (pipe::draw_arrays(), etc).
  *
  * Hopefully this will remain quite simple, otherwise need to pull in
- * something like the state tracker mechanism.
+ * something like the gallium frontend mechanism.
  */
 void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
 {
@@ -195,6 +195,8 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
    if (llvmpipe->dirty & (LP_NEW_RASTERIZER |
                           LP_NEW_FS |
                           LP_NEW_GS |
+                          LP_NEW_TCS |
+                          LP_NEW_TES |
                           LP_NEW_VS))
       compute_vertex_info(llvmpipe);
 
@@ -212,6 +214,7 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
    if (llvmpipe->dirty & (LP_NEW_FS |
                           LP_NEW_FRAMEBUFFER |
                           LP_NEW_RASTERIZER |
+                          LP_NEW_SAMPLE_MASK |
                           LP_NEW_DEPTH_STENCIL_ALPHA)) {
 
       /*
@@ -223,7 +226,7 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
       boolean null_fs = !llvmpipe->fs ||
                         llvmpipe->fs->info.base.num_instructions <= 1;
       boolean discard =
-         (llvmpipe->sample_mask & 1) == 0 ||
+         (llvmpipe->sample_mask) == 0 ||
          (llvmpipe->rasterizer ? llvmpipe->rasterizer->rasterizer_discard : FALSE) ||
          (null_fs &&
           !llvmpipe->depth_stencil->depth.enabled &&
@@ -235,6 +238,9 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
                           LP_NEW_FRAMEBUFFER |
                           LP_NEW_RASTERIZER))
       llvmpipe_update_setup( llvmpipe );
+
+   if (llvmpipe->dirty & LP_NEW_SAMPLE_MASK)
+      lp_setup_set_sample_mask(llvmpipe->setup, llvmpipe->sample_mask);
 
    if (llvmpipe->dirty & LP_NEW_BLEND_COLOR)
       lp_setup_set_blend_color(llvmpipe->setup,
@@ -254,6 +260,16 @@ void llvmpipe_update_derived( struct llvmpipe_context *llvmpipe )
       lp_setup_set_fs_constants(llvmpipe->setup,
                                 ARRAY_SIZE(llvmpipe->constants[PIPE_SHADER_FRAGMENT]),
                                 llvmpipe->constants[PIPE_SHADER_FRAGMENT]);
+
+   if (llvmpipe->dirty & LP_NEW_FS_SSBOS)
+      lp_setup_set_fs_ssbos(llvmpipe->setup,
+                            ARRAY_SIZE(llvmpipe->ssbos[PIPE_SHADER_FRAGMENT]),
+                            llvmpipe->ssbos[PIPE_SHADER_FRAGMENT]);
+
+   if (llvmpipe->dirty & LP_NEW_FS_IMAGES)
+      lp_setup_set_fs_images(llvmpipe->setup,
+                             ARRAY_SIZE(llvmpipe->images[PIPE_SHADER_FRAGMENT]),
+                             llvmpipe->images[PIPE_SHADER_FRAGMENT]);
 
    if (llvmpipe->dirty & (LP_NEW_SAMPLER_VIEW))
       lp_setup_set_fragment_sampler_views(llvmpipe->setup,

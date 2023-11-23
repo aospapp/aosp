@@ -1,10 +1,16 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import datetime
 import logging
 import time
+import six
 import warnings
 
 import common
@@ -344,12 +350,12 @@ class _SuiteSpec(object):
         self._translate_builds()
         self._add_builds_to_suite_deps()
 
-        for key, value in dargs.iteritems():
+        for key, value in six.iteritems(dargs):
             warnings.warn('Ignored key %r was passed to suite with value %r'
                           % (key, value))
 
     def _check_init_params(self, **kwargs):
-        for key, expected_type in self._REQUIRED_KEYWORDS.iteritems():
+        for key, expected_type in six.iteritems(self._REQUIRED_KEYWORDS):
             value = kwargs.get(key)
             # TODO(ayatane): `not value` includes both the cases where value is
             # None and where value is the correct type, but empty (e.g., empty
@@ -417,7 +423,7 @@ class _SuiteSpec(object):
         """
         self.suite_dependencies.extend(
                 provision.join(version_prefix, build)
-                for version_prefix, build in self.builds.iteritems()
+                for version_prefix, build in six.iteritems(self.builds)
         )
 
 
@@ -641,14 +647,14 @@ def _stage_artifacts_for_build(devserver, build):
 #
 # It should not be used for other purposes. It exists in this module simply
 # to limit the number of necessary module imports in cros_test_platform.
-def byteify(input):
+def byteify(input_):
     """Walk a json object, turning unicode strings into byte strings."""
-    if isinstance(input, dict):
+    if isinstance(input_, dict):
         return {byteify(key): byteify(value)
-                for key, value in input.iteritems()}
-    elif isinstance(input, list):
-        return [byteify(element) for element in input]
-    elif isinstance(input, unicode):
-        return input.encode('utf-8')
+                for key, value in six.iteritems(input_)}
+    elif isinstance(input_, list):
+        return [byteify(element) for element in input_]
+    elif isinstance(input_, six.text_type):
+        return six.ensure_binary(input_, 'utf-8')
     else:
-        return input
+        return input_

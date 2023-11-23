@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -17,6 +17,8 @@
 */
 #ifndef MAGICKCORE_DELEGATE_PRIVATE_H
 #define MAGICKCORE_DELEGATE_PRIVATE_H
+
+#include "MagickCore/string_.h"
 
 #if defined(MAGICKCORE_GS_DELEGATE)
 #include "ghostscript/iapi.h"
@@ -74,6 +76,36 @@ typedef struct _GhostInfo
   int
     (MagickDLLCall *revision)(gsapi_revision_t *, int);
 } GhostInfo;
+
+static inline char *SanitizeDelegateString(const char *source)
+{
+  char
+    *sanitize_source;
+
+  const char
+    *q;
+
+  char
+    *p;
+
+  static char
+#if defined(MAGICKCORE_WINDOWS_SUPPORT)
+    allowlist[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+      "$-_.+!;*(),{}|^~[]`\'><#%/?:@&=";
+#else
+    allowlist[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+      "$-_.+!;*(),{}|\\^~[]`\"><#%/?:@&=";
+#endif
+
+  sanitize_source=AcquireString(source);
+  p=sanitize_source;
+  q=sanitize_source+strlen(sanitize_source);
+  for (p+=strspn(p,allowlist); p != q; p+=strspn(p,allowlist))
+    *p='_';
+  return(sanitize_source);
+}
 
 extern MagickPrivate MagickBooleanType
   DelegateComponentGenesis(void);

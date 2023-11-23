@@ -37,13 +37,35 @@ std::unique_ptr<unwindstack::Regs> CreateRegsFromRawData(
 
 bool DoUnwind(WireMessage*, UnwindingMetadata* metadata, AllocRecord* out);
 
+// AllocRecords are expensive to construct and destruct. We have seen up to
+// 10 % of total CPU of heapprofd being used to destruct them. That is why
+// we re-use them to cut CPU usage significantly.
+class AllocRecordArena {
+ public:
+  AllocRecordArena() : alloc_records_mutex_(new std::mutex()) {}
+
+  void ReturnAllocRecord(std::unique_ptr<AllocRecord>);
+  std::unique_ptr<AllocRecord> BorrowAllocRecord();
+
+  void Enable();
+  void Disable();
+
+ private:
+  std::unique_ptr<std::mutex> alloc_records_mutex_;
+  std::vector<std::unique_ptr<AllocRecord>> alloc_records_;
+  bool enabled_ = true;
+};
+
 class UnwindingWorker : public base::UnixSocket::EventListener {
  public:
   class Delegate {
    public:
-    virtual void PostAllocRecord(AllocRecord) = 0;
-    virtual void PostFreeRecord(FreeRecord) = 0;
-    virtual void PostSocketDisconnected(DataSourceInstanceID,
+    virtual void PostAllocRecord(UnwindingWorker*,
+                                 std::unique_ptr<AllocRecord>) = 0;
+    virtual void PostFreeRecord(UnwindingWorker*, std::vector<FreeRecord>) = 0;
+    virtual void PostHeapNameRecord(UnwindingWorker*, HeapNameRecord rec) = 0;
+    virtual void PostSocketDisconnected(UnwindingWorker*,
+                                        DataSourceInstanceID,
                                         pid_t pid,
                                         SharedRingBuffer::Stats stats) = 0;
     virtual ~Delegate();
@@ -56,6 +78,7 @@ class UnwindingWorker : public base::UnixSocket::EventListener {
     base::ScopedFile mem_fd;
     SharedRingBuffer shmem;
     ClientConfiguration client_config;
+    bool stream_allocations;
   };
 
   UnwindingWorker(Delegate* delegate, base::ThreadTaskRunner thread_task_runner)
@@ -65,6 +88,9 @@ class UnwindingWorker : public base::UnixSocket::EventListener {
   // Public API safe to call from other threads.
   void PostDisconnectSocket(pid_t pid);
   void PostHandoffSocket(HandoffData);
+  void ReturnAllocRecord(std::unique_ptr<AllocRecord> record) {
+    alloc_record_arena_.ReturnAllocRecord(std::move(record));
+  }
 
   // Implementation of UnixSocket::EventListener.
   // Do not call explicitly.
@@ -76,27 +102,39 @@ class UnwindingWorker : public base::UnixSocket::EventListener {
   void OnDataAvailable(base::UnixSocket* self) override;
 
  public:
-  // static and public for testing/fuzzing
-  static void HandleBuffer(const SharedRingBuffer::Buffer& buf,
-                           UnwindingMetadata* unwinding_metadata,
-                           DataSourceInstanceID data_source_instance_id,
-                           pid_t peer_pid,
-                           Delegate* delegate);
-
- private:
-  void HandleHandoffSocket(HandoffData data);
-  void HandleDisconnectSocket(pid_t pid);
-
-  void HandleUnwindBatch(pid_t);
-
+  // public for testing/fuzzer
   struct ClientData {
     DataSourceInstanceID data_source_instance_id;
     std::unique_ptr<base::UnixSocket> sock;
     UnwindingMetadata metadata;
     SharedRingBuffer shmem;
     ClientConfiguration client_config;
+    bool stream_allocations;
+    std::vector<FreeRecord> free_records;
   };
 
+  // public for testing/fuzzing
+  static void HandleBuffer(UnwindingWorker* self,
+                           AllocRecordArena* alloc_record_arena,
+                           const SharedRingBuffer::Buffer& buf,
+                           ClientData* client_data,
+                           pid_t peer_pid,
+                           Delegate* delegate);
+
+ private:
+  void HandleHandoffSocket(HandoffData data);
+  void HandleDisconnectSocket(pid_t pid);
+  std::unique_ptr<AllocRecord> BorrowAllocRecord();
+
+  enum class ReadAndUnwindBatchResult {
+    kHasMore,
+    kReadSome,
+    kReadNone,
+  };
+  ReadAndUnwindBatchResult ReadAndUnwindBatch(ClientData* client_data);
+  void BatchUnwindJob(pid_t);
+
+  AllocRecordArena alloc_record_arena_;
   std::map<pid_t, ClientData> client_data_;
   Delegate* delegate_;
 

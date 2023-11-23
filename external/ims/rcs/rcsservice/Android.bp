@@ -28,6 +28,23 @@
 // Build the application : Presence.apk
 //#########################################################################
 
+package {
+    default_applicable_licenses: ["external_ims_rcs_rcsservice_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_ims_rcs_rcsservice_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_library {
     name: "ucepresencelib",
     // We only want this to be used as a static import.
@@ -44,7 +61,6 @@ java_library {
 android_app {
     // This is the target being built. (Name of APK)
     name: "RcsService",
-    platform_apis: true,
     // Only compile source java files in this apk.
     srcs: [
         "src/com/android/service/ims/AlarmBroadcastReceiver.java",
@@ -62,4 +78,6 @@ android_app {
         "com.android.ims.rcsmanager"
     ],
     certificate: "platform",
+    system_ext_specific: true,
+    platform_apis: true,
 }

@@ -110,7 +110,7 @@ def modify_label(id, **data):
 
     label_model.update_object(data)
 
-    # Master forwards the RPC to shards
+    # Main forwards the RPC to shards
     if not utils.is_shard():
         rpc_utils.fanout_rpc(label_model.host_set.all(), 'modify_label', False,
                              id=id, **data)
@@ -135,7 +135,7 @@ def delete_label(id):
         hosts.append(models.Host.smart_get(h.id))
     label_model.delete()
 
-    # Master forwards the RPC to shards
+    # Main forwards the RPC to shards
     if not utils.is_shard():
         rpc_utils.fanout_rpc(hosts, 'delete_label', False, id=id)
 
@@ -195,7 +195,7 @@ def _create_label_everywhere(id, hosts):
     """
     Yet another method to create labels.
 
-    ALERT! This method should be run only on master not shards!
+    ALERT! This method should be run only on main not shards!
     DO NOT RUN THIS ON A SHARD!!!  Deputies will hate you if you do!!!
 
     This method exists primarily to serve label_add_hosts() and
@@ -221,12 +221,12 @@ def _create_label_everywhere(id, hosts):
                              % id)
 
     # Make sure the label exists on the shard with the same id
-    # as it is on the master.
+    # as it is on the main.
     # It is possible that the label is already in a shard because
     # we are adding a new label only to shards of hosts that the label
     # is going to be attached.
     # For example, we add a label L1 to a host in shard S1.
-    # Master and S1 will have L1 but other shards won't.
+    # Main and S1 will have L1 but other shards won't.
     # Later, when we add the same label L1 to hosts in shards S1 and S2,
     # S1 already has the label but S2 doesn't.
     # S2 should have the new label without any problem.
@@ -238,11 +238,11 @@ def _create_label_everywhere(id, hosts):
             id=label.id, platform=label.platform)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def label_add_hosts(id, hosts):
     """Adds a label with the given id to the given hosts.
 
-    This method should be run only on master not shards.
+    This method should be run only on main not shards.
     The given label will be created if it doesn't exist, provided the `id`
     supplied is a label name not an int/long id.
 
@@ -255,7 +255,7 @@ def label_add_hosts(id, hosts):
     # Create the label.
     _create_label_everywhere(id, hosts)
 
-    # Add it to the master.
+    # Add it to the main.
     add_label_to_hosts(id, hosts)
 
     # Add it to the shards.
@@ -280,11 +280,11 @@ def remove_label_from_hosts(id, hosts):
     label.host_set.remove(*host_objs)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def label_remove_hosts(id, hosts):
     """Removes a label of the given id from the given hosts.
 
-    This method should be run only on master not shards.
+    This method should be run only on main not shards.
 
     @param id: id or name of a label.
     @param hosts: A list of hostnames or ids. More often hostnames.
@@ -344,15 +344,15 @@ def add_host(hostname, status=None, locked=None, lock_reason='', protection=None
                                   protection=protection).id
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def modify_host(id, **kwargs):
     """Modify local attributes of a host.
 
-    If this is called on the master, but the host is assigned to a shard, this
+    If this is called on the main, but the host is assigned to a shard, this
     will call `modify_host_local` RPC to the responsible shard. This means if
     a host is being locked using this function, this change will also propagate
     to shards.
-    When this is called on a shard, the shard just routes the RPC to the master
+    When this is called on a shard, the shard just routes the RPC to the main
     and does nothing.
 
     @param id: id of the host to modify.
@@ -369,7 +369,7 @@ def modify_host(id, **kwargs):
                           'modification will be enforced. %s', e)
 
     # This is required to make `lock_time` for a host be exactly same
-    # between the master and a shard.
+    # between the main and a shard.
     if kwargs.get('locked', None) and 'lock_time' not in kwargs:
         kwargs['lock_time'] = datetime.datetime.now()
 
@@ -380,10 +380,10 @@ def modify_host(id, **kwargs):
                          include_hostnames=False, id=id, **shard_kwargs)
 
     # Update the local DB **after** RPC fanout is complete.
-    # This guarantees that the master state is only updated if the shards were
+    # This guarantees that the main state is only updated if the shards were
     # correctly updated.
-    # In case the shard update fails mid-flight and the master-shard desync, we
-    # always consider the master state to be the source-of-truth, and any
+    # In case the shard update fails mid-flight and the main-shard desync, we
+    # always consider the main state to be the source-of-truth, and any
     # (automated) corrective actions will revert the (partial) shard updates.
     host.update_object(kwargs)
 
@@ -397,26 +397,26 @@ def modify_host_local(id, **kwargs):
     models.Host.smart_get(id).update_object(kwargs)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def modify_hosts(host_filter_data, update_data):
     """Modify local attributes of multiple hosts.
 
-    If this is called on the master, but one of the hosts in that match the
+    If this is called on the main, but one of the hosts in that match the
     filters is assigned to a shard, this will call `modify_hosts_local` RPC
     to the responsible shard.
-    When this is called on a shard, the shard just routes the RPC to the master
+    When this is called on a shard, the shard just routes the RPC to the main
     and does nothing.
 
-    The filters are always applied on the master, not on the shards. This means
-    if the states of a host differ on the master and a shard, the state on the
-    master will be used. I.e. this means:
+    The filters are always applied on the main, not on the shards. This means
+    if the states of a host differ on the main and a shard, the state on the
+    main will be used. I.e. this means:
     A host was synced to Shard 1. On Shard 1 the status of the host was set to
     'Repair Failed'.
     - A call to modify_hosts with host_filter_data={'status': 'Ready'} will
-    update the host (both on the shard and on the master), because the state
-    of the host as the master knows it is still 'Ready'.
+    update the host (both on the shard and on the main), because the state
+    of the host as the main knows it is still 'Ready'.
     - A call to modify_hosts with host_filter_data={'status': 'Repair failed'
-    will not update the host, because the filter doesn't apply on the master.
+    will not update the host, because the filter doesn't apply on the main.
 
     @param host_filter_data: Filters out which hosts to modify.
     @param update_data: A dictionary with the changes to make to the hosts.
@@ -443,7 +443,7 @@ def modify_hosts(host_filter_data, update_data):
             affected_host_ids.append(host.id)
 
     # This is required to make `lock_time` for a host be exactly same
-    # between the master and a shard.
+    # between the main and a shard.
     if update_data.get('locked', None) and 'lock_time' not in update_data:
         update_data['lock_time'] = datetime.datetime.now()
     for host in hosts:
@@ -484,7 +484,7 @@ def add_labels_to_host(id, labels):
         host.labels.add(*non_static_labels)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def host_add_labels(id, labels):
     """Adds labels to a given host.
 
@@ -493,7 +493,7 @@ def host_add_labels(id, labels):
 
     @raises ValidationError: If adding more than one platform/board label.
     """
-    # Create the labels on the master/shards.
+    # Create the labels on the main/shards.
     for label in labels:
         _create_label_everywhere(label, [id])
 
@@ -537,7 +537,7 @@ def remove_labels_from_host(id, labels):
                          'labels.', static_labels, id)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def host_remove_labels(id, labels):
     """Removes labels from a given host.
 
@@ -579,11 +579,11 @@ def get_host_attribute(attribute, **host_filter_data):
     return rpc_utils.prepare_for_serialization(host_attr_dicts)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def set_host_attribute(attribute, value, **host_filter_data):
     """Set an attribute on hosts.
 
-    This RPC is a shim that forwards calls to master to be handled there.
+    This RPC is a shim that forwards calls to main to be handled there.
 
     @param attribute: string name of attribute
     @param value: string, or None to delete an attribute
@@ -598,7 +598,7 @@ def set_host_attribute_impl(attribute, value, **host_filter_data):
     """Set an attribute on hosts.
 
     *** DO NOT CALL THIS RPC from client code ***
-    This RPC exists for master-shard communication only.
+    This RPC exists for main-shard communication only.
     Call set_host_attribute instead.
 
     @param attribute: string name of attribute
@@ -612,7 +612,7 @@ def set_host_attribute_impl(attribute, value, **host_filter_data):
     for host in hosts:
         host.set_or_delete_attribute(attribute, value)
 
-    # Master forwards this RPC to shards.
+    # Main forwards this RPC to shards.
     if not utils.is_shard():
         rpc_utils.fanout_rpc(hosts, 'set_host_attribute_impl', False,
                 attribute=attribute, value=value, **host_filter_data)
@@ -961,7 +961,7 @@ def create_job_page_handler(name, priority, control_file, control_type,
                       hostless=hostless, test_args=test_args, **kwargs)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def create_job(
         name,
         priority,
@@ -1119,7 +1119,7 @@ def _call_special_tasks_on_hosts(task, hosts):
 def _forward_special_tasks_on_hosts(task, rpc, **filter_data):
     """Forward special tasks to corresponding shards.
 
-    For master, when special tasks are fired on hosts that are sharded,
+    For main, when special tasks are fired on hosts that are sharded,
     forward the RPC to corresponding shards.
 
     For shard, create special task records in local DB.
@@ -1133,7 +1133,7 @@ def _forward_special_tasks_on_hosts(task, rpc, **filter_data):
     hosts = models.Host.query_objects(filter_data)
     shard_host_map = rpc_utils.bucket_hosts_by_shard(hosts)
 
-    # Filter out hosts on a shard from those on the master, forward
+    # Filter out hosts on a shard from those on the main, forward
     # rpcs to the shard with an additional hostname__in filter, and
     # create a local SpecialTask for each remaining host.
     if shard_host_map and not utils.is_shard():
@@ -1153,7 +1153,7 @@ def _forward_special_tasks_on_hosts(task, rpc, **filter_data):
                     rpc, [shard], **shard_filter)
 
     # There is a race condition here if someone assigns a shard to one of these
-    # hosts before we create the task. The host will stay on the master if:
+    # hosts before we create the task. The host will stay on the main if:
     # 1. The host is not Ready
     # 2. The host is Ready but has a task
     # But if the host is Ready and doesn't have a task yet, it will get sent
@@ -1163,7 +1163,7 @@ def _forward_special_tasks_on_hosts(task, rpc, **filter_data):
     # entire method in a transaction. The worst case scenario is that we have
     # a verify running on a Ready host while the shard is using it, if the
     # verify fails no subsequent tasks will be created against the host on the
-    # master, and verifies are safe enough that this is OK.
+    # main, and verifies are safe enough that this is OK.
     return _call_special_tasks_on_hosts(task, hosts)
 
 
@@ -1826,7 +1826,7 @@ def _get_control_file_by_suite(suite_name):
     return getter.get_control_file_contents_by_name(suite_name)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def create_suite_job(
         name='',
         board='',
@@ -2052,7 +2052,7 @@ def shard_heartbeat(shard_hostname, jobs=(), hqes=(), known_job_ids=(),
     #    to the shard now, but might be sent in a future heartbeat. This means
     #    sometimes hosts should be transfered that have a lower id than the
     #    maximum host id the shard knows.
-    # 2. Send the number of jobs/hosts the shard knows to the master in each
+    # 2. Send the number of jobs/hosts the shard knows to the main in each
     #    heartbeat. Compare these to the number of records that already have
     #    the shard_id set to this shard. In the normal case, they should match.
     #    In case they don't, resend all entities of that type.
@@ -2273,7 +2273,7 @@ def get_servers(hostname=None, role=None, status=None):
     return [s.get_details() for s in servers]
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def get_stable_version(board=stable_version_utils.DEFAULT, android=False):
     """Get stable version for the given board.
 
@@ -2291,7 +2291,7 @@ def get_stable_version(board=stable_version_utils.DEFAULT, android=False):
     return stable_version_utils.get(board=board)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def get_all_stable_versions():
     """Get stable versions for all boards.
 
@@ -2300,7 +2300,7 @@ def get_all_stable_versions():
     return stable_version_utils.get_all()
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def set_stable_version(version, board=stable_version_utils.DEFAULT):
     """Modify stable version for the given board.
 
@@ -2311,7 +2311,7 @@ def set_stable_version(version, board=stable_version_utils.DEFAULT):
     return None
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def delete_stable_version(board):
     """Modify stable version for the given board.
 
@@ -2401,7 +2401,7 @@ def get_tests_by_build(build, ignore_invalid_tests=True):
     return rpc_utils.prepare_for_serialization(test_objects)
 
 
-@rpc_utils.route_rpc_to_master
+@rpc_utils.route_rpc_to_main
 def get_lab_health_indicators(board=None):
     """Get the healthy indicators for whole lab.
 

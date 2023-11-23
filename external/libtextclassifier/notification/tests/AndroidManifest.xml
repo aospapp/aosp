@@ -2,8 +2,8 @@
     package="com.android.textclassifier.notification">
 
   <uses-sdk
-      android:minSdkVersion="29"
-      android:targetSdkVersion="29" />
+      android:minSdkVersion="30"
+      android:targetSdkVersion="30" />
 
   <application>
     <uses-library android:name="android.test.runner"/>

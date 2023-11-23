@@ -25,10 +25,10 @@
 #include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/protozero/field.h"
+#include "src/trace_processor/importers/common/trace_blob_view.h"
+#include "src/trace_processor/importers/common/trace_parser.h"
 #include "src/trace_processor/storage/trace_storage.h"
 #include "src/trace_processor/timestamped_trace_piece.h"
-#include "src/trace_processor/trace_blob_view.h"
-#include "src/trace_processor/trace_parser.h"
 
 namespace perfetto {
 
@@ -57,8 +57,8 @@ class ProtoTraceParser : public TraceParser {
                          TimestampedTracePiece) override;
 
   void ParseTracePacketImpl(int64_t ts,
-                            TimestampedTracePiece,
-                            const TracePacketData*,
+                            const TimestampedTracePiece&,
+                            PacketSequenceStateGeneration*,
                             const protos::pbzero::TracePacket_Decoder&);
 
   void ParseTraceStats(ConstBytes);
@@ -66,14 +66,14 @@ class ProtoTraceParser : public TraceParser {
                           PacketSequenceStateGeneration*,
                           uint32_t seq_id,
                           ConstBytes);
-  void ParsePerfSample(int64_t ts, PacketSequenceStateGeneration*, ConstBytes);
-  void ParseChromeBenchmarkMetadata(ConstBytes);
+  void ParseDeobfuscationMapping(int64_t ts,
+                                 PacketSequenceStateGeneration*,
+                                 uint32_t seq_id,
+                                 ConstBytes);
   void ParseChromeEvents(int64_t ts, ConstBytes);
   void ParseMetatraceEvent(int64_t ts, ConstBytes);
   void ParseTraceConfig(ConstBytes);
   void ParseModuleSymbols(ConstBytes);
-  void ParseTrigger(int64_t ts, ConstBytes);
-  void ParseServiceEvent(int64_t ts, ConstBytes);
   void ParseSmapsPacket(int64_t ts, ConstBytes);
 
  private:

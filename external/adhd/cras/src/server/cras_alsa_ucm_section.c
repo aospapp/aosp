@@ -13,14 +13,11 @@
 
 static void ucm_section_free(struct ucm_section *section)
 {
-	if (section->name)
-		free((void *)section->name);
-	if (section->jack_name)
-		free((void *)section->jack_name);
-	if (section->jack_type)
-		free((void *)section->jack_type);
-	if (section->mixer_name)
-		free((void *)section->mixer_name);
+	free((void *)section->name);
+	free((void *)section->pcm_name);
+	free((void *)section->jack_name);
+	free((void *)section->jack_type);
+	free((void *)section->mixer_name);
 	mixer_name_free(section->coupled);
 	free(section);
 }
@@ -34,7 +31,8 @@ void ucm_section_free_list(struct ucm_section *sections)
 	}
 }
 
-struct ucm_section *ucm_section_create(const char *name, int dev_idx,
+struct ucm_section *ucm_section_create(const char *name, const char *pcm_name,
+				       int dev_idx, int dependent_dev_idx,
 				       enum CRAS_STREAM_DIRECTION dir,
 				       const char *jack_name,
 				       const char *jack_type)
@@ -50,9 +48,14 @@ struct ucm_section *ucm_section_create(const char *name, int dev_idx,
 		return NULL;
 
 	section->dev_idx = dev_idx;
+	section->dependent_dev_idx = dependent_dev_idx;
 	section->dir = dir;
 	section->name = strdup(name);
 	if (!section->name)
+		goto error;
+
+	section->pcm_name = strdup(pcm_name);
+	if (!section->pcm_name)
 		goto error;
 
 	if (jack_name) {

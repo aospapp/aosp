@@ -3,11 +3,17 @@
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%                                 FFFFF  X   X                                %
-%                                 F       X X                                 %
-%                                 FFF      X                                  %
-%                                 F       X X                                 %
-%                                 F      X   X                                %
+%                   V   V  IIIII  SSSSS  U   U   AAA   L                      %
+%                   V   V    I    SS     U   U  A   A  L                      %
+%                   V   V    I     SSS   U   U  AAAAA  L                      %
+%                    V V     I       SS  U   U  A   A  L                      %
+%                     V    IIIII  SSSSS   UUU   A   A  LLLLL                  %
+%                                                                             %
+%                EEEEE  FFFFF  FFFFF  EEEEE  CCCC  TTTTT  SSSSS               %
+%                E      F      F      E     C        T    SS                  %
+%                EEE    FFF    FFF    EEE   C        T     SSS                %
+%                E      F      F      E     C        T       SS               %
+%                EEEEE  F      F      EEEEE  CCCC    T    SSSSS               %
 %                                                                             %
 %                                                                             %
 %                   MagickCore Image Special Effects Methods                  %
@@ -18,7 +24,7 @@
 %                                                                             %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -200,13 +206,13 @@ MagickExport Image *AddNoiseImage(const Image *image,const NoiseType noise_type,
     MagickBooleanType
       sync;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -221,7 +227,7 @@ MagickExport Image *AddNoiseImage(const Image *image,const NoiseType noise_type,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -357,13 +363,13 @@ MagickExport Image *BlueShiftImage(const Image *image,const double factor,
     Quantum
       quantum;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -474,6 +480,7 @@ MagickExport Image *CharcoalImage(const Image *image,const double radius,
   edge_image=EdgeImage(image,radius,exception);
   if (edge_image == (Image *) NULL)
     return((Image *) NULL);
+  edge_image->alpha_trait=UndefinedPixelTrait;
   charcoal_image=(Image *) NULL;
   status=ClampImage(edge_image,exception);
   if (status != MagickFalse)
@@ -615,10 +622,10 @@ MagickExport Image *ColorizeImage(const Image *image,const char *blend,
     MagickBooleanType
       sync;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -632,7 +639,7 @@ MagickExport Image *ColorizeImage(const Image *image,const char *blend,
       }
     for (x=0; x < (ssize_t) colorize_image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(colorize_image); i++)
@@ -740,7 +747,7 @@ MagickExport Image *ColorMatrixImage(const Image *image,
   MagickOffsetType
     progress;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -816,13 +823,13 @@ MagickExport Image *ColorMatrixImage(const Image *image,
     PixelInfo
       pixel;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -838,7 +845,7 @@ MagickExport Image *ColorMatrixImage(const Image *image,
     GetPixelInfo(image,&pixel);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         v;
 
       size_t
@@ -998,11 +1005,13 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
   center.y=0.5*canvas_image->rows;
   radius=center.x;
   if (canvas_image->columns > canvas_image->rows)
-    scale.y=(double) canvas_image->columns/(double) canvas_image->rows;
+    scale.y=(double) canvas_image->columns*PerceptibleReciprocal((double)
+      canvas_image->rows);
   else
     if (canvas_image->columns < canvas_image->rows)
       {
-        scale.x=(double) canvas_image->rows/(double) canvas_image->columns;
+        scale.x=(double) canvas_image->rows*PerceptibleReciprocal((double)
+          canvas_image->columns);
         radius=center.y;
       }
   /*
@@ -1025,13 +1034,13 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
     PointInfo
       delta;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -1048,7 +1057,7 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
     delta.y=scale.y*(double) (y-center.y);
     for (x=0; x < (ssize_t) canvas_image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       /*
@@ -1078,10 +1087,10 @@ MagickExport Image *ImplodeImage(const Image *image,const double amount,
           */
           factor=1.0;
           if (distance > 0.0)
-            factor=pow(sin(MagickPI*sqrt((double) distance)/radius/2),-amount);
+            factor=pow(sin(MagickPI*sqrt((double) distance)*PerceptibleReciprocal(radius)/2),-amount);
           status=InterpolatePixelChannels(canvas_image,interpolate_view,
-            implode_image,method,(double) (factor*delta.x/scale.x+center.x),
-            (double) (factor*delta.y/scale.y+center.y),q,exception);
+            implode_image,method,(double) (factor*delta.x*PerceptibleReciprocal(scale.x)+center.x),
+            (double) (factor*delta.y*PerceptibleReciprocal(scale.y)+center.y),q,exception);
           if (status == MagickFalse)
             break;
         }
@@ -1163,10 +1172,10 @@ MagickExport Image *MorphImages(const Image *image,const size_t number_frames,
   MagickOffsetType
     scene;
 
-  register const Image
+  const Image
     *next;
 
-  register ssize_t
+  ssize_t
     n;
 
   ssize_t
@@ -1261,13 +1270,13 @@ MagickExport Image *MorphImages(const Image *image,const size_t number_frames,
         MagickBooleanType
           sync;
 
-        register const Quantum
+        const Quantum
           *magick_restrict p;
 
-        register ssize_t
+        ssize_t
           x;
 
-        register Quantum
+        Quantum
           *magick_restrict q;
 
         if (status == MagickFalse)
@@ -1283,7 +1292,7 @@ MagickExport Image *MorphImages(const Image *image,const size_t number_frames,
           }
         for (x=0; x < (ssize_t) morph_images->columns; x++)
         {
-          register ssize_t
+          ssize_t
             i;
 
           for (i=0; i < (ssize_t) GetPixelChannels(morph_image); i++)
@@ -1398,17 +1407,17 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
   double
     plasma;
 
-  MagickBooleanType
+  MagickStatusType
     status;
 
-  register const Quantum
+  const Quantum
     *magick_restrict u,
     *magick_restrict v;
 
-  register Quantum
+  Quantum
     *magick_restrict q;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -1430,8 +1439,8 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
       */
       depth--;
       attenuate++;
-      x_mid=(ssize_t) ceil((segment->x1+segment->x2)/2-0.5);
-      y_mid=(ssize_t) ceil((segment->y1+segment->y2)/2-0.5);
+      x_mid=CastDoubleToLong(ceil((segment->x1+segment->x2)/2-0.5));
+      y_mid=CastDoubleToLong(ceil((segment->y1+segment->y2)/2-0.5));
       local_info=(*segment);
       local_info.x2=(double) x_mid;
       local_info.y2=(double) y_mid;
@@ -1452,10 +1461,10 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
       local_info.y1=(double) y_mid;
       status&=PlasmaImageProxy(image,image_view,u_view,v_view,random_info,
         &local_info,attenuate,depth,exception);
-      return(status);
+      return(status == 0 ? MagickFalse : MagickTrue);
     }
-  x_mid=(ssize_t) ceil((segment->x1+segment->x2)/2-0.5);
-  y_mid=(ssize_t) ceil((segment->y1+segment->y2)/2-0.5);
+  x_mid=CastDoubleToLong(ceil((segment->x1+segment->x2)/2-0.5));
+  y_mid=CastDoubleToLong(ceil((segment->y1+segment->y2)/2-0.5));
   if ((fabs(segment->x1-x_mid) < MagickEpsilon) &&
       (fabs(segment->x2-x_mid) < MagickEpsilon) &&
       (fabs(segment->y1-y_mid) < MagickEpsilon) &&
@@ -1472,11 +1481,11 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
       /*
         Left pixel.
       */
-      x=(ssize_t) ceil(segment->x1-0.5);
-      u=GetCacheViewVirtualPixels(u_view,x,(ssize_t) ceil(segment->y1-0.5),1,1,
-        exception);
-      v=GetCacheViewVirtualPixels(v_view,x,(ssize_t) ceil(segment->y2-0.5),1,1,
-        exception);
+      x=CastDoubleToLong(ceil(segment->x1-0.5));
+      u=GetCacheViewVirtualPixels(u_view,x,CastDoubleToLong(ceil(
+        segment->y1-0.5)),1,1,exception);
+      v=GetCacheViewVirtualPixels(v_view,x,CastDoubleToLong(ceil(
+        segment->y2-0.5)),1,1,exception);
       q=QueueCacheViewAuthenticPixels(image_view,x,y_mid,1,1,exception);
       if ((u == (const Quantum *) NULL) || (v == (const Quantum *) NULL) ||
           (q == (Quantum *) NULL))
@@ -1495,11 +1504,11 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
           /*
             Right pixel.
           */
-          x=(ssize_t) ceil(segment->x2-0.5);
-          u=GetCacheViewVirtualPixels(u_view,x,(ssize_t) ceil(segment->y1-0.5),
-            1,1,exception);
-          v=GetCacheViewVirtualPixels(v_view,x,(ssize_t) ceil(segment->y2-0.5),
-            1,1,exception);
+          x=CastDoubleToLong(ceil(segment->x2-0.5));
+          u=GetCacheViewVirtualPixels(u_view,x,CastDoubleToLong(ceil(
+            segment->y1-0.5)),1,1,exception);
+          v=GetCacheViewVirtualPixels(v_view,x,CastDoubleToLong(ceil(
+            segment->y2-0.5)),1,1,exception);
           q=QueueCacheViewAuthenticPixels(image_view,x,y_mid,1,1,exception);
           if ((u == (const Quantum *) NULL) || (v == (const Quantum *) NULL) ||
               (q == (Quantum *) NULL))
@@ -1524,11 +1533,11 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
           /*
             Bottom pixel.
           */
-          y=(ssize_t) ceil(segment->y2-0.5);
-          u=GetCacheViewVirtualPixels(u_view,(ssize_t) ceil(segment->x1-0.5),y,
-            1,1,exception);
-          v=GetCacheViewVirtualPixels(v_view,(ssize_t) ceil(segment->x2-0.5),y,
-            1,1,exception);
+          y=CastDoubleToLong(ceil(segment->y2-0.5));
+          u=GetCacheViewVirtualPixels(u_view,CastDoubleToLong(ceil(
+            segment->x1-0.5)),y,1,1,exception);
+          v=GetCacheViewVirtualPixels(v_view,CastDoubleToLong(ceil(
+            segment->x2-0.5)),y,1,1,exception);
           q=QueueCacheViewAuthenticPixels(image_view,x_mid,y,1,1,exception);
           if ((u == (const Quantum *) NULL) || (v == (const Quantum *) NULL) ||
               (q == (Quantum *) NULL))
@@ -1548,11 +1557,11 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
           /*
             Top pixel.
           */
-          y=(ssize_t) ceil(segment->y1-0.5);
-          u=GetCacheViewVirtualPixels(u_view,(ssize_t) ceil(segment->x1-0.5),y,
-            1,1,exception);
-          v=GetCacheViewVirtualPixels(v_view,(ssize_t) ceil(segment->x2-0.5),y,
-            1,1,exception);
+          y=CastDoubleToLong(ceil(segment->y1-0.5));
+          u=GetCacheViewVirtualPixels(u_view,CastDoubleToLong(ceil(
+            segment->x1-0.5)),y,1,1,exception);
+          v=GetCacheViewVirtualPixels(v_view,CastDoubleToLong(ceil(
+            segment->x2-0.5)),y,1,1,exception);
           q=QueueCacheViewAuthenticPixels(image_view,x_mid,y,1,1,exception);
           if ((u == (const Quantum *) NULL) || (v == (const Quantum *) NULL) ||
               (q == (Quantum *) NULL))
@@ -1574,11 +1583,11 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
       /*
         Middle pixel.
       */
-      x=(ssize_t) ceil(segment->x1-0.5);
-      y=(ssize_t) ceil(segment->y1-0.5);
+      x=CastDoubleToLong(ceil(segment->x1-0.5));
+      y=CastDoubleToLong(ceil(segment->y1-0.5));
       u=GetCacheViewVirtualPixels(u_view,x,y,1,1,exception);
-      x=(ssize_t) ceil(segment->x2-0.5);
-      y=(ssize_t) ceil(segment->y2-0.5);
+      x=CastDoubleToLong(ceil(segment->x2-0.5));
+      y=CastDoubleToLong(ceil(segment->y2-0.5));
       v=GetCacheViewVirtualPixels(v_view,x,y,1,1,exception);
       q=QueueCacheViewAuthenticPixels(image_view,x_mid,y_mid,1,1,exception);
       if ((u == (const Quantum *) NULL) || (v == (const Quantum *) NULL) ||
@@ -1596,7 +1605,7 @@ static MagickBooleanType PlasmaImageProxy(Image *image,CacheView *image_view,
     }
   if ((fabs(segment->x2-segment->x1) < 3.0) &&
       (fabs(segment->y2-segment->y1) < 3.0))
-    return(status);
+    return(status == 0 ? MagickFalse : MagickTrue);
   return(MagickFalse);
 }
 
@@ -1909,13 +1918,13 @@ MagickExport Image *SepiaToneImage(const Image *image,const double threshold,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -2075,10 +2084,10 @@ MagickExport Image *ShadowImage(const Image *image,const double alpha,
   image_view=AcquireAuthenticCacheView(border_image,exception);
   for (y=0; y < (ssize_t) border_image->rows; y++)
   {
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -2206,10 +2215,10 @@ MagickExport Image *SketchImage(const Image *image,const double radius,
     const int
       id = GetOpenMPThreadId();
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -2226,7 +2235,7 @@ MagickExport Image *SketchImage(const Image *image,const double radius,
       double
         value;
 
-      register ssize_t
+      ssize_t
         i;
 
       value=GetPseudoRandomValue(random_info[id]);
@@ -2344,7 +2353,7 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
     (void) SetImageColorspace(image,sRGBColorspace,exception);
   if (image->storage_class == PseudoClass)
     {
-      register ssize_t
+      ssize_t
         i;
 
       /*
@@ -2359,6 +2368,7 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
         if ((double) image->colormap[i].blue > threshold)
           image->colormap[i].blue=QuantumRange-image->colormap[i].blue;
       }
+      return(SyncImage(image,exception));
     }
   /*
     Solarize image.
@@ -2372,10 +2382,10 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -2388,7 +2398,7 @@ MagickExport MagickBooleanType SolarizeImage(Image *image,
       }
     for (x=0; x < (ssize_t) image->columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -2475,10 +2485,10 @@ MagickExport Image *SteganoImage(const Image *image,const Image *watermark,
   PixelInfo
     pixel;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     x;
 
   size_t
@@ -2688,14 +2698,14 @@ MagickExport Image *StereoAnaglyphImage(const Image *left_image,
   status=MagickTrue;
   for (y=0; y < (ssize_t) stereo_image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict r;
 
     p=GetVirtualPixels(left_image,-x_offset,y-y_offset,image->columns,1,
@@ -2856,13 +2866,13 @@ MagickExport Image *SwirlImage(const Image *image,double degrees,
     PointInfo
       delta;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     if (status == MagickFalse)
@@ -2886,7 +2896,7 @@ MagickExport Image *SwirlImage(const Image *image,double degrees,
       distance=delta.x*delta.x+delta.y*delta.y;
       if (distance >= (radius*radius))
         {
-          register ssize_t
+          ssize_t
             i;
 
           for (i=0; i < (ssize_t) GetPixelChannels(canvas_image); i++)
@@ -3078,13 +3088,13 @@ MagickExport Image *TintImage(const Image *image,const char *blend,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -3303,7 +3313,7 @@ MagickExport Image *WaveImage(const Image *image,const double amplitude,
   MagickOffsetType
     progress;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -3350,7 +3360,7 @@ MagickExport Image *WaveImage(const Image *image,const double amplitude,
     }
   for (i=0; i < (ssize_t) wave_image->columns; i++)
     sine_map[i]=(float) fabs(amplitude)+amplitude*sin((double)
-      ((2.0*MagickPI*i)/wave_length));
+      ((2.0*MagickPI*i)*PerceptibleReciprocal(wave_length)));
   /*
     Wave image.
   */
@@ -3366,13 +3376,13 @@ MagickExport Image *WaveImage(const Image *image,const double amplitude,
 #endif
   for (y=0; y < (ssize_t) wave_image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -3464,7 +3474,7 @@ static inline void HatTransform(const float *magick_restrict pixels,
     *magick_restrict q,
     *magick_restrict r;
 
-  register ssize_t
+  ssize_t
     i;
 
   p=pixels;
@@ -3566,7 +3576,7 @@ MagickExport Image *WaveletDenoiseImage(const Image *image,
   noise_view=AcquireAuthenticCacheView(noise_image,exception);
   for (channel=0; channel < (ssize_t) GetPixelChannels(image); channel++)
   {
-    register ssize_t
+    ssize_t
       i;
 
     size_t
@@ -3599,7 +3609,7 @@ MagickExport Image *WaveletDenoiseImage(const Image *image,
     i=0;
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      register const Quantum
+      const Quantum
         *magick_restrict p;
 
       ssize_t
@@ -3642,11 +3652,11 @@ MagickExport Image *WaveletDenoiseImage(const Image *image,
         const int
           id = GetOpenMPThreadId();
 
-        register float
+        float
           *magick_restrict p,
           *magick_restrict q;
 
-        register ssize_t
+        ssize_t
           x;
 
         p=kernel+id*image->columns;
@@ -3665,11 +3675,11 @@ MagickExport Image *WaveletDenoiseImage(const Image *image,
         const int
           id = GetOpenMPThreadId();
 
-        register float
+        float
           *magick_restrict p,
           *magick_restrict q;
 
-        register ssize_t
+        ssize_t
           y;
 
         p=kernel+id*image->rows;
@@ -3710,10 +3720,10 @@ MagickExport Image *WaveletDenoiseImage(const Image *image,
       MagickBooleanType
         sync;
 
-      register Quantum
+      Quantum
         *magick_restrict q;
 
-      register ssize_t
+      ssize_t
         x;
 
       ssize_t

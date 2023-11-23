@@ -22,6 +22,8 @@
 #include <map>
 #include <vector>
 
+#include <inttypes.h>
+
 #include "perfetto/base/task_runner.h"
 #include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/unix_socket.h"
@@ -33,13 +35,17 @@
 #include "perfetto/ext/tracing/core/tracing_service.h"
 #include "perfetto/tracing/core/data_source_config.h"
 
+#include "perfetto/tracing/core/forward_decls.h"
 #include "src/profiling/common/interning_output.h"
 #include "src/profiling/common/proc_utils.h"
+#include "src/profiling/common/profiler_guardrails.h"
 #include "src/profiling/memory/bookkeeping.h"
 #include "src/profiling/memory/bookkeeping_dump.h"
-#include "src/profiling/memory/page_idle_checker.h"
+#include "src/profiling/memory/log_histogram.h"
+#include "src/profiling/memory/shared_ring_buffer.h"
 #include "src/profiling/memory/system_property.h"
 #include "src/profiling/memory/unwinding.h"
+#include "src/profiling/memory/unwound_messages.h"
 
 #include "protos/perfetto/config/profiling/heapprofd_config.gen.h"
 
@@ -53,24 +59,14 @@ struct Process {
   std::string cmdline;
 };
 
-class LogHistogram {
- public:
-  static const uint64_t kMaxBucket;
-  static constexpr size_t kBuckets = 20;
-
-  void Add(uint64_t value) { values_[GetBucket(value)]++; }
-  std::vector<std::pair<uint64_t, uint64_t>> GetData();
-
- private:
-  size_t GetBucket(uint64_t value);
-
-  std::array<uint64_t, kBuckets> values_ = {};
-};
-
 // TODO(rsavitski): central daemon can do less work if it knows that the global
 // operating mode is fork-based, as it then will not be interacting with the
 // clients. This can be implemented as an additional mode here.
 enum class HeapprofdMode { kCentral, kChild };
+
+bool HeapprofdConfigToClientConfiguration(
+    const HeapprofdConfig& heapprofd_config,
+    ClientConfiguration* cli_config);
 
 // Heap profiling producer. Can be instantiated in two modes, central and
 // child (also referred to as fork mode).
@@ -99,7 +95,8 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
   // Alternatively, find a better name for this.
   class SocketDelegate : public base::UnixSocket::EventListener {
    public:
-    SocketDelegate(HeapprofdProducer* producer) : producer_(producer) {}
+    explicit SocketDelegate(HeapprofdProducer* producer)
+        : producer_(producer) {}
 
     void OnDisconnect(base::UnixSocket* self) override;
     void OnNewIncomingConnection(
@@ -111,7 +108,9 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
     HeapprofdProducer* producer_;
   };
 
-  HeapprofdProducer(HeapprofdMode mode, base::TaskRunner* task_runner);
+  HeapprofdProducer(HeapprofdMode mode,
+                    base::TaskRunner* task_runner,
+                    bool exit_when_done);
   ~HeapprofdProducer() override;
 
   // Producer Impl:
@@ -132,27 +131,24 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
   void DumpAll();
 
   // UnwindingWorker::Delegate impl:
-  void PostAllocRecord(AllocRecord) override;
-  void PostFreeRecord(FreeRecord) override;
-  void PostSocketDisconnected(DataSourceInstanceID,
+  void PostAllocRecord(UnwindingWorker*, std::unique_ptr<AllocRecord>) override;
+  void PostFreeRecord(UnwindingWorker*, std::vector<FreeRecord>) override;
+  void PostHeapNameRecord(UnwindingWorker*, HeapNameRecord) override;
+  void PostSocketDisconnected(UnwindingWorker*,
+                              DataSourceInstanceID,
                               pid_t,
                               SharedRingBuffer::Stats) override;
 
-  void HandleAllocRecord(AllocRecord);
+  void HandleAllocRecord(AllocRecord*);
   void HandleFreeRecord(FreeRecord);
+  void HandleHeapNameRecord(HeapNameRecord);
   void HandleSocketDisconnected(DataSourceInstanceID,
                                 pid_t,
                                 SharedRingBuffer::Stats);
 
   // Valid only if mode_ == kChild.
-  void SetTargetProcess(pid_t target_pid,
-                        std::string target_cmdline,
-                        base::ScopedFile inherited_socket);
-  // Valid only if mode_ == kChild. Kicks off a periodic check that the child
-  // heapprofd is actively working on a data source (which should correspond to
-  // the target process). The first check is delayed to let the freshly spawned
-  // producer get the data sources from the tracing service (i.e. traced).
-  void ScheduleActiveDataSourceWatchdog();
+  void SetTargetProcess(pid_t target_pid, std::string target_cmdline);
+  void SetDataSourceCallback(std::function<void()> fn);
 
   // Exposed for testing.
   void SetProducerEndpoint(
@@ -161,6 +157,13 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
   base::UnixSocket::EventListener& socket_delegate() {
     return socket_delegate_;
   }
+
+  // Adopts the (connected) sockets inherited from the target process, invoking
+  // the on-connection callback.
+  // Specific to mode_ == kChild
+  void AdoptSocket(base::ScopedFile fd);
+
+  void TerminateWhenDone();
 
  private:
   // State of the connection to tracing service (traced).
@@ -172,10 +175,19 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
   };
 
   struct ProcessState {
-    ProcessState(GlobalCallstackTrie* callsites, bool dump_at_max_mode)
-        : heap_tracker(callsites, dump_at_max_mode) {}
+    struct HeapInfo {
+      HeapInfo(GlobalCallstackTrie* cs, bool dam) : heap_tracker(cs, dam) {}
+
+      HeapTracker heap_tracker;
+      std::string heap_name;
+      uint64_t sampling_interval = 0u;
+      uint64_t orig_sampling_interval = 0u;
+    };
+    ProcessState(GlobalCallstackTrie* c, bool d)
+        : callsites(c), dump_at_max_mode(d) {}
     bool disconnected = false;
-    bool buffer_overran = false;
+    SharedRingBuffer::ErrorState error_state =
+        SharedRingBuffer::ErrorState::kNoError;
     bool buffer_corrupted = false;
 
     uint64_t heap_samples = 0;
@@ -183,17 +195,37 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
     uint64_t unwinding_errors = 0;
 
     uint64_t total_unwinding_time_us = 0;
+    uint64_t client_spinlock_blocked_us = 0;
+    GlobalCallstackTrie* callsites;
+    bool dump_at_max_mode;
     LogHistogram unwinding_time_us;
-    HeapTracker heap_tracker;
+    std::map<uint32_t, HeapInfo> heap_infos;
 
-    base::Optional<PageIdleChecker> page_idle_checker;
+    HeapInfo& GetHeapInfo(uint32_t heap_id) {
+      auto it = heap_infos.find(heap_id);
+      if (it == heap_infos.end()) {
+        std::tie(it, std::ignore) = heap_infos.emplace(
+            std::piecewise_construct, std::forward_as_tuple(heap_id),
+            std::forward_as_tuple(callsites, dump_at_max_mode));
+      }
+      return it->second;
+    }
+
+    HeapTracker& GetHeapTracker(uint32_t heap_id) {
+      return GetHeapInfo(heap_id).heap_tracker;
+    }
   };
 
   struct DataSource {
-    DataSource(std::unique_ptr<TraceWriter> tw) : trace_writer(std::move(tw)) {}
+    explicit DataSource(std::unique_ptr<TraceWriter> tw)
+        : trace_writer(std::move(tw)) {
+      // Make MSAN happy.
+      memset(&client_configuration, 0, sizeof(client_configuration));
+    }
 
     DataSourceInstanceID id;
     std::unique_ptr<TraceWriter> trace_writer;
+    DataSourceConfig ds_config;
     HeapprofdConfig config;
     ClientConfiguration client_configuration;
     std::vector<SystemProperties::Handle> properties;
@@ -207,7 +239,7 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
     bool hit_guardrail = false;
     bool was_stopped = false;
     uint32_t stop_timeout_ms;
-    base::Optional<uint64_t> start_cputime_sec;
+    GuardrailConfig guardrail_config;
   };
 
   struct PendingProcess {
@@ -224,14 +256,14 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
   void ResetConnectionBackoff();
   void IncreaseConnectionBackoff();
 
-  base::Optional<uint64_t> GetCputimeSec();
-
-  void CheckDataSourceMemory();
-  void CheckDataSourceCpu();
+  void CheckDataSourceMemoryTask();
+  void CheckDataSourceCpuTask();
 
   void FinishDataSourceFlush(FlushRequestID flush_id);
-  bool DumpProcessesInDataSource(DataSourceInstanceID id);
+  void DumpProcessesInDataSource(DataSource* ds);
   void DumpProcessState(DataSource* ds, pid_t pid, ProcessState* process);
+  static void SetStats(protos::pbzero::ProfilePacket::ProcessStats* stats,
+                       const ProcessState& process_state);
 
   void DoContinuousDump(DataSourceInstanceID id, uint32_t dump_interval);
 
@@ -247,19 +279,21 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
   void TerminateProcess(int exit_status);
   // Specific to mode_ == kChild
   void ActiveDataSourceWatchdogCheck();
-  // Adopts the (connected) sockets inherited from the target process, invoking
-  // the on-connection callback.
-  // Specific to mode_ == kChild
-  void AdoptTargetProcessSocket();
 
   void ShutdownDataSource(DataSource* ds);
   bool MaybeFinishDataSource(DataSource* ds);
+
+  void WriteRejectedConcurrentSession(BufferID buffer_id, pid_t pid);
 
   // Class state:
 
   // Task runner is owned by the main thread.
   base::TaskRunner* const task_runner_;
   const HeapprofdMode mode_;
+  // TODO(fmayer): Refactor to make this boolean unnecessary.
+  // Whether to terminate this producer after the first data-source has
+  // finished.
+  bool exit_when_done_;
 
   // State of connection to the tracing service.
   State state_ = kNotStarted;
@@ -288,13 +322,9 @@ class HeapprofdProducer : public Producer, public UnwindingWorker::Delegate {
 
   // Specific to mode_ == kChild
   Process target_process_{base::kInvalidPid, ""};
-  // This is a valid FD only between SetTargetProcess and
-  // AdoptTargetProcessSocket.
-  // Specific to mode_ == kChild
-  base::ScopedFile inherited_fd_;
+  base::Optional<std::function<void()>> data_source_callback_;
 
   SocketDelegate socket_delegate_;
-  base::ScopedFile stat_fd_;
 
   base::WeakPtrFactory<HeapprofdProducer> weak_factory_;  // Keep last.
 };

@@ -22,9 +22,9 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <getopt.h>
-#include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
@@ -61,8 +61,10 @@ extern "C" {
 #endif
 
 extern uint32_t		nl_cli_parse_u32(const char *);
-extern void		nl_cli_print_version(void);
-extern void		nl_cli_fatal(int, const char *, ...);
+extern void		nl_cli_print_version(void)
+			__attribute__((noreturn));
+extern void		nl_cli_fatal(int, const char *, ...)
+			__attribute__((noreturn));
 extern struct nl_addr *	nl_cli_addr_parse(const char *, int);
 extern int		nl_cli_connect(struct nl_sock *, int);
 extern struct nl_sock *	nl_cli_alloc_socket(void);
@@ -72,6 +74,10 @@ extern int		nl_cli_confirm(struct nl_object *,
 
 extern struct nl_cache *nl_cli_alloc_cache(struct nl_sock *, const char *,
 			     int (*ac)(struct nl_sock *, struct nl_cache **));
+
+extern struct nl_cache *nl_cli_alloc_cache_flags(struct nl_sock *, const char *,
+			     unsigned int flags,
+			     int (*ac)(struct nl_sock *, struct nl_cache **, unsigned int));
 
 extern void		nl_cli_load_module(const char *, const char *);
 

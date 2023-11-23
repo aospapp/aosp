@@ -1,23 +1,14 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2019 The Khronos Group Inc.
+# Copyright (c) 2013-2020 The Khronos Group Inc.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 # Working-group-specific style conventions,
 # used in generation.
 
 import re
+import os
 
 from conventions import ConventionsBase
 
@@ -25,16 +16,46 @@ from conventions import ConventionsBase
 # Modified from default implementation - see category_requires_validation() below
 CATEGORIES_REQUIRING_VALIDATION = set(('handle', 'enum', 'bitmask'))
 
+# Tokenize into "words" for structure types, approximately per spec "Implicit Valid Usage" section 2.7.2
+# This first set is for things we recognize explicitly as words,
+# as exceptions to the general regex.
+# Ideally these would be listed in the spec as exceptions, as OpenXR does.
+SPECIAL_WORDS = set((
+    '16Bit',  # VkPhysicalDevice16BitStorageFeatures
+    '8Bit',  # VkPhysicalDevice8BitStorageFeaturesKHR
+    'AABB',  # VkGeometryAABBNV
+    'ASTC',  # VkPhysicalDeviceTextureCompressionASTCHDRFeaturesEXT
+    'D3D12',  # VkD3D12FenceSubmitInfoKHR
+    'Float16',  # VkPhysicalDeviceShaderFloat16Int8FeaturesKHR
+    'ImagePipe',  # VkImagePipeSurfaceCreateInfoFUCHSIA
+    'Int64',  # VkPhysicalDeviceShaderAtomicInt64FeaturesKHR
+    'Int8',  # VkPhysicalDeviceShaderFloat16Int8FeaturesKHR
+    'MacOS',  # VkMacOSSurfaceCreateInfoMVK
+    'Uint8',  # VkPhysicalDeviceIndexTypeUint8FeaturesEXT
+    'Win32',  # VkWin32SurfaceCreateInfoKHR
+))
+# A regex to match any of the SPECIAL_WORDS
+EXCEPTION_PATTERN = r'(?P<exception>{})'.format(
+    '|'.join('(%s)' % re.escape(w) for w in SPECIAL_WORDS))
+MAIN_RE = re.compile(
+    # the negative lookahead is to prevent the all-caps pattern from being too greedy.
+    r'({}|([0-9]+)|([A-Z][a-z]+)|([A-Z][A-Z]*(?![a-z])))'.format(EXCEPTION_PATTERN))
+
 
 class VulkanConventions(ConventionsBase):
-    def formatExtension(self, name):
-        """Mark up a name as an extension for the spec."""
-        return '`<<{}>>`'.format(name)
-
     @property
     def null(self):
         """Preferred spelling of NULL."""
         return '`NULL`'
+
+    @property
+    def struct_macro(self):
+        """Get the appropriate format macro for a structure.
+
+        Primarily affects generated valid usage statements.
+        """
+
+        return 'slink:'
 
     @property
     def constFlagBits(self):
@@ -68,11 +89,12 @@ class VulkanConventions(ConventionsBase):
         """Generate a structure type name, like VK_STRUCTURE_TYPE_CREATE_INSTANCE_INFO"""
         structure_type_parts = []
         # Tokenize into "words"
-        for elem in re.findall(r'(([A-Z][a-z]+)|([A-Z][A-Z]+))', structname):
-            if elem[0] == 'Vk':
+        for elem in MAIN_RE.findall(structname):
+            word = elem[0]
+            if word == 'Vk':
                 structure_type_parts.append('VK_STRUCTURE_TYPE')
             else:
-                structure_type_parts.append(elem[0].upper())
+                structure_type_parts.append(word.upper())
         return '_'.join(structure_type_parts)
 
     @property
@@ -97,11 +119,6 @@ class VulkanConventions(ConventionsBase):
             return 'Vulkan'
         else:
             return None
-
-    @property
-    def xml_supported_name_of_api(self):
-        """Return the supported= attribute used in API XML"""
-        return 'vulkan'
 
     @property
     def api_prefix(self):
@@ -143,7 +160,7 @@ class VulkanConventions(ConventionsBase):
            instead. N.b. this may need to change on a per-refpage basis if
            there are multiple documents involved.
         """
-        return 'https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html'
+        return 'https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html'
 
     @property
     def xml_api_name(self):
@@ -158,12 +175,18 @@ class VulkanConventions(ConventionsBase):
     @property
     def specification_path(self):
         """Return relpath to the Asciidoctor specification sources in this project."""
-        return '../appendices/meta'
+        return '{generated}/meta'
+
+    @property
+    def special_use_section_anchor(self):
+        """Return asciidoctor anchor name in the API Specification of the
+        section describing extension special uses in detail."""
+        return 'extendingvulkan-compatibility-specialuse'
 
     @property
     def extra_refpage_headers(self):
         """Return any extra text to add to refpage headers."""
-        return 'include::../config/attribs.txt[]'
+        return 'include::{config}/attribs.txt[]'
 
     @property
     def extension_index_prefixes(self):
@@ -172,15 +195,15 @@ class VulkanConventions(ConventionsBase):
 
     @property
     def unified_flag_refpages(self):
-        """Returns True if Flags/FlagBits refpages are unified, False if
+        """Return True if Flags/FlagBits refpages are unified, False if
            they're separate.
         """
         return False
 
     @property
     def spec_reflow_path(self):
-        """Return the relative path to the spec source folder to reflow"""
-        return '.'
+        """Return the path to the spec source folder to reflow"""
+        return os.getcwd()
 
     @property
     def spec_no_reflow_dirs(self):
@@ -198,3 +221,41 @@ class VulkanConventions(ConventionsBase):
 
         Overridden because Vulkan doesn't require "valid" text for basetype in the spec right now."""
         return category in CATEGORIES_REQUIRING_VALIDATION
+
+    @property
+    def should_skip_checking_codes(self):
+        """Return True if more than the basic validation of return codes should
+        be skipped for a command.
+
+        Vulkan mostly relies on the validation layers rather than API
+        builtin error checking, so these checks are not appropriate.
+
+        For example, passing in a VkFormat parameter will not potentially
+        generate a VK_ERROR_FORMAT_NOT_SUPPORTED code."""
+
+        return True
+
+    def extension_include_string(self, ext):
+        """Return format string for include:: line for an extension appendix
+           file. ext is an object with the following members:
+            - name - extension string string
+            - vendor - vendor portion of name
+            - barename - remainder of name"""
+
+        return 'include::{{appendices}}/{name}{suffix}[]'.format(
+                name=ext.name, suffix=self.file_suffix)
+
+    @property
+    def refpage_generated_include_path(self):
+        """Return path relative to the generated reference pages, to the
+           generated API include files."""
+        return "{generated}"
+
+    def valid_flag_bit(self, bitpos):
+        """Return True if bitpos is an allowed numeric bit position for
+           an API flag bit.
+
+           Vulkan uses 32 bit Vk*Flags types, and assumes C compilers may
+           cause Vk*FlagBits values with bit 31 set to result in a 64 bit
+           enumerated type, so disallows such flags."""
+        return bitpos >= 0 and bitpos < 31

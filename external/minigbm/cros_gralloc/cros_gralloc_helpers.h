@@ -24,4 +24,6 @@ cros_gralloc_handle_t cros_gralloc_convert_handle(buffer_handle_t handle);
 
 int32_t cros_gralloc_sync_wait(int32_t fence, bool close_fence);
 
+std::string get_drm_format_string(uint32_t drm_format);
+
 #endif

@@ -9,6 +9,8 @@ import android.icu.number.NumberRangeFormatter;
 import android.icu.number.NumberRangeFormatter.RangeIdentityResult;
 import android.icu.testsharding.MainTestShard;
 import android.icu.util.ULocale;
+
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.AttributedCharacterIterator;
@@ -42,5 +44,15 @@ public class FormattedNumberRangeTest extends TestFmwk {
             assertEquals("Test toCharacterIterator():" + iter.getIndex(),
                 expected.charAt(iter.getIndex()), c);
         }
+    }
+
+    @Test
+    public void testAppendTo() {
+        FormattedNumberRange range = NumberRangeFormatter.withLocale(ULocale.US)
+                .formatRange(-10, 9);
+
+        StringWriter writer = new StringWriter();
+        range.appendTo(writer);
+        assertEquals("Test appendTo()", "-10 – 9", writer.toString());
     }
 }

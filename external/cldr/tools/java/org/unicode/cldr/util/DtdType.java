@@ -16,16 +16,16 @@ public enum DtdType {
         "collation",
         "rbnf",
         "segments",
-        "subdivisions"), 
-    ldmlICU("common/dtd/ldmlICU.dtd", ldml), 
+        "subdivisions"),
+    ldmlICU("common/dtd/ldmlICU.dtd", ldml),
     supplementalData("common/dtd/ldmlSupplemental.dtd", null, null,
         "supplemental",
         "transforms",
-        "validity"), 
+        "validity"),
     ldmlBCP47("common/dtd/ldmlBCP47.dtd", "1.7.2", null,
-        "bcp47"), 
+        "bcp47"),
     keyboard("keyboards/dtd/ldmlKeyboard.dtd", "22.1", null,
-        "../keyboards"), 
+        "../keyboards"),
     platform("keyboards/dtd/ldmlPlatform.dtd", "22.1", null,
         "../keyboards");
     public static final Set<DtdType> STANDARD_SET = ImmutableSet.of(
@@ -59,6 +59,12 @@ public enum DtdType {
         return DtdType.valueOf(m.group(1));
     }
 
+    /**
+     * Print a header for an XML file, where the generatedBy is normally MethodHandles.lookup().lookupClass().
+     * The only time it needs to be changed is if it is not being called directly from the generating tool.
+     * @param generatedBy
+     * @return
+     */
     public String header(Class<?> generatedBy) {
         String gline = "";
         if (generatedBy != null) {

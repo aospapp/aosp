@@ -95,7 +95,8 @@ class ExperimentFile(object):
 
       if not line:
         continue
-      elif ExperimentFile._FIELD_VALUE_RE.match(line):
+
+      if ExperimentFile._FIELD_VALUE_RE.match(line):
         field = self._ParseField(reader)
         settings.SetField(field[0], field[1], field[2])
       elif ExperimentFile._CLOSE_SETTINGS_RE.match(line):
@@ -113,7 +114,8 @@ class ExperimentFile(object):
 
         if not line:
           continue
-        elif ExperimentFile._OPEN_SETTINGS_RE.match(line):
+
+        if ExperimentFile._OPEN_SETTINGS_RE.match(line):
           new_settings, settings_type = self._ParseSettings(reader)
           # We will allow benchmarks with duplicated settings name for now.
           # Further decision will be made when parsing benchmark details in

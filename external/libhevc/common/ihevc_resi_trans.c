@@ -81,8 +81,11 @@
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  *
  * @returns  Void
@@ -99,7 +102,8 @@ UWORD32 ihevc_resi_trans_4x4_ttype1(UWORD8 *pu1_src,
                                  WORD16 *pi2_dst,
                                  WORD32 src_strd,
                                  WORD32 pred_strd,
-                                    WORD32 dst_strd_chr_flag)
+                                 WORD32 dst_strd,
+                                 CHROMA_PLANE_ID_T e_chroma_plane)
 {
     WORD32 i, c[4];
     WORD32 add, shift;
@@ -107,11 +111,7 @@ UWORD32 ihevc_resi_trans_4x4_ttype1(UWORD8 *pu1_src,
     WORD32 *pi4_tmp_orig;
     WORD16 *pi2_dst_orig;
     UWORD32  u4_blk_sad = 0;
- //   WORD32 chroma_flag;
-    WORD32 dst_strd;
-
- //   chroma_flag = dst_strd_chr_flag & 1;
-    dst_strd = dst_strd_chr_flag >> 16;
+    UNUSED(e_chroma_plane);
 
     pi2_dst_orig = pi2_dst;
     pi4_tmp_orig = pi4_temp;
@@ -216,8 +216,11 @@ UWORD32 ihevc_resi_trans_4x4_ttype1(UWORD8 *pu1_src,
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -233,7 +236,8 @@ UWORD32 ihevc_resi_trans_4x4(UWORD8 *pu1_src,
                           WORD16 *pi2_dst,
                           WORD32 src_strd,
                           WORD32 pred_strd,
-                          WORD32 dst_strd_chr_flag)
+                          WORD32 dst_strd,
+                          CHROMA_PLANE_ID_T e_chroma_plane)
 {
     WORD32 i;
     WORD32 e[2], o[2];
@@ -242,11 +246,14 @@ UWORD32 ihevc_resi_trans_4x4(UWORD8 *pu1_src,
     WORD32 *pi4_tmp_orig;
     WORD16 *pi2_dst_orig;
     UWORD32 u4_blk_sad=0;
-    WORD32 chroma_flag;
-    WORD32 dst_strd;
+    WORD32 chroma_flag = 0;
 
-    chroma_flag = dst_strd_chr_flag & 1;
-    dst_strd = dst_strd_chr_flag >> 16;
+    if (e_chroma_plane != NULL_PLANE)
+    {
+        chroma_flag = 1;
+        pu1_src += e_chroma_plane;
+        pu1_pred += e_chroma_plane;
+    }
 
     pi2_dst_orig = pi2_dst;
     pi4_tmp_orig = pi4_temp;
@@ -427,8 +434,11 @@ void ihevc_resi_trans_4x4_16bit(WORD16 *pi2_src,
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -444,7 +454,8 @@ UWORD32 ihevc_resi_trans_8x8(UWORD8 *pu1_src,
                           WORD16 *pi2_dst,
                           WORD32 src_strd,
                           WORD32 pred_strd,
-                          WORD32 dst_strd_chr_flag)
+                          WORD32 dst_strd,
+                          CHROMA_PLANE_ID_T e_chroma_plane)
 {
     WORD32 i, k;
     WORD32 e[4], o[4];
@@ -455,11 +466,14 @@ UWORD32 ihevc_resi_trans_8x8(UWORD8 *pu1_src,
 //    WORD16 *pi2_tmp;
     WORD16 *pi2_dst_orig;
     UWORD32 u4_blk_sad=0;
-    WORD32 chroma_flag;
-    WORD32 dst_strd;
+    WORD32 chroma_flag = 0;
 
-    chroma_flag = dst_strd_chr_flag & 1;
-    dst_strd = dst_strd_chr_flag >> 16;
+    if (e_chroma_plane != NULL_PLANE)
+    {
+        chroma_flag = 1;
+        pu1_src += e_chroma_plane;
+        pu1_pred += e_chroma_plane;
+    }
 
     pi2_dst_orig = pi2_dst;
     pi4_tmp_orig = pi4_temp;
@@ -724,8 +738,11 @@ void ihevc_resi_trans_8x8_16bit(WORD16 *pi2_src,
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -741,7 +758,8 @@ UWORD32 ihevc_resi_trans_16x16(UWORD8 *pu1_src,
                             WORD16 *pi2_dst,
                             WORD32 src_strd,
                             WORD32 pred_strd,
-                            WORD32 dst_strd_chr_flag)
+                            WORD32 dst_strd,
+                            CHROMA_PLANE_ID_T e_chroma_plane)
 {
     WORD32 i, k;
     WORD32 e[8], o[8];
@@ -752,11 +770,14 @@ UWORD32 ihevc_resi_trans_16x16(UWORD8 *pu1_src,
     WORD32 *pi4_tmp_orig;
     WORD16 *pi2_dst_orig;
     UWORD32 u4_blk_sad = 0;
-    WORD32 chroma_flag;
-    WORD32 dst_strd;
+    WORD32 chroma_flag = 0;
 
-    chroma_flag = dst_strd_chr_flag & 1;
-    dst_strd = dst_strd_chr_flag >> 16;
+    if (e_chroma_plane != NULL_PLANE)
+    {
+        chroma_flag = 1;
+        pu1_src += e_chroma_plane;
+        pu1_pred += e_chroma_plane;
+    }
 
     pi2_dst_orig = pi2_dst;
     pi4_tmp_orig = pi4_temp;
@@ -1056,8 +1077,11 @@ void ihevc_resi_trans_16x16_16bit(WORD16 *pi2_src,
  * @param[in] pred_strd
  *  Prediction Stride
  *
- * @param[in] dst_strd_chr_flag
- *  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+ * @param[in] dst_strd
+ *  Output Stride
+ *
+ * @param[in] e_chroma_plane
+ *  Enum singalling chroma plane
  *
  * @returns  Void
  *
@@ -1073,7 +1097,8 @@ UWORD32 ihevc_resi_trans_32x32(UWORD8 *pu1_src,
                             WORD16 *pi2_dst,
                             WORD32 src_strd,
                             WORD32 pred_strd,
-                            WORD32 dst_strd_chr_flag)
+                            WORD32 dst_strd,
+                            CHROMA_PLANE_ID_T e_chroma_plane)
 {
     WORD32 i, k;
     WORD32 e[16], o[16];
@@ -1085,11 +1110,7 @@ UWORD32 ihevc_resi_trans_32x32(UWORD8 *pu1_src,
     WORD32 *pi4_tmp_orig;
     WORD16 *pi2_dst_orig;
     UWORD32 u4_blk_sad = 0 ;
-    WORD32 chroma_flag;
-    WORD32 dst_strd;
-
-    chroma_flag = dst_strd_chr_flag & 1;
-    dst_strd = dst_strd_chr_flag >> 16;
+    UNUSED(e_chroma_plane);
 
     pi2_dst_orig = pi2_dst;
     pi4_tmp_orig = pi4_temp;

@@ -1,9 +1,8 @@
 package org.junit.runner.notification;
 
-import java.io.PrintWriter;
 import java.io.Serializable;
-import java.io.StringWriter;
 
+import org.junit.internal.Throwables;
 import org.junit.runner.Description;
 
 /**
@@ -21,7 +20,7 @@ public class Failure implements Serializable {
     /*
      * We have to use the f prefix until the next major release to ensure
      * serialization compatibility. 
-     * See https://github.com/junit-team/junit/issues/976
+     * See https://github.com/junit-team/junit4/issues/976
      */
     private final Description fDescription;
     private final Throwable fThrownException;
@@ -65,15 +64,19 @@ public class Failure implements Serializable {
     }
 
     /**
-     * Convenience method
-     *
-     * @return the printed form of the exception
+     * Gets the printed form of the exception and its stack trace.
      */
     public String getTrace() {
-        StringWriter stringWriter = new StringWriter();
-        PrintWriter writer = new PrintWriter(stringWriter);
-        getException().printStackTrace(writer);
-        return stringWriter.toString();
+        return Throwables.getStacktrace(getException());
+    }
+
+    /**
+     * Gets a the printed form of the exception, with a trimmed version of the stack trace.
+     * This method will attempt to filter out frames of the stack trace that are below
+     * the test method call.
+     */
+    public String getTrimmedTrace() {
+        return Throwables.getTrimmedStackTrace(getException());
     }
 
     /**

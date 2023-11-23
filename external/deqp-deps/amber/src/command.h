@@ -25,7 +25,9 @@
 #include "amber/value.h"
 #include "src/buffer.h"
 #include "src/command_data.h"
+#include "src/debug.h"
 #include "src/pipeline_data.h"
+#include "src/sampler.h"
 
 namespace amber {
 
@@ -39,6 +41,7 @@ class ComputeCommand;
 class CopyCommand;
 class DrawArraysCommand;
 class DrawRectCommand;
+class DrawGridCommand;
 class EntryPointCommand;
 class PatchParameterVerticesCommand;
 class Pipeline;
@@ -59,13 +62,15 @@ class Command {
     kCopy,
     kDrawArrays,
     kDrawRect,
+    kDrawGrid,
     kEntryPoint,
     kPatchParameterVertices,
     kPipelineProperties,
     kProbe,
     kProbeSSBO,
     kBuffer,
-    kRepeat
+    kRepeat,
+    kSampler
   };
 
   virtual ~Command();
@@ -73,6 +78,7 @@ class Command {
   Command::Type GetType() const { return command_type_; }
 
   bool IsDrawRect() const { return command_type_ == Type::kDrawRect; }
+  bool IsDrawGrid() const { return command_type_ == Type::kDrawGrid; }
   bool IsDrawArrays() const { return command_type_ == Type::kDrawArrays; }
   bool IsCompareBuffer() const { return command_type_ == Type::kCompareBuffer; }
   bool IsCompute() const { return command_type_ == Type::kCompute; }
@@ -99,6 +105,7 @@ class Command {
   CopyCommand* AsCopy();
   DrawArraysCommand* AsDrawArrays();
   DrawRectCommand* AsDrawRect();
+  DrawGridCommand* AsDrawGrid();
   EntryPointCommand* AsEntryPoint();
   PatchParameterVerticesCommand* AsPatchParameterVertices();
   ProbeCommand* AsProbe();
@@ -113,11 +120,20 @@ class Command {
   /// Returns the input file line this command was declared on.
   size_t GetLine() const { return line_; }
 
+  /// Sets the debug script to run for this command.
+  void SetDebugScript(std::unique_ptr<debug::Script>&& debug) {
+    debug_ = std::move(debug);
+  }
+
+  /// Returns the optional debug script associated with this command.
+  debug::Script* GetDebugScript() { return debug_.get(); }
+
  protected:
   explicit Command(Type type);
 
   Type command_type_;
   size_t line_ = 1;
+  std::unique_ptr<debug::Script> debug_;
 };
 
 /// Base class for commands which contain a pipeline.
@@ -128,7 +144,7 @@ class PipelineCommand : public Command {
   Pipeline* GetPipeline() const { return pipeline_; }
 
  protected:
-  explicit PipelineCommand(Type type, Pipeline* pipeline);
+  PipelineCommand(Type type, Pipeline* pipeline);
 
   Pipeline* pipeline_ = nullptr;
 };
@@ -136,7 +152,7 @@ class PipelineCommand : public Command {
 /// Command to draw a rectangle on screen.
 class DrawRectCommand : public PipelineCommand {
  public:
-  explicit DrawRectCommand(Pipeline* pipeline, PipelineData data);
+  DrawRectCommand(Pipeline* pipeline, PipelineData data);
   ~DrawRectCommand() override;
 
   const PipelineData* GetPipelineData() const { return &data_; }
@@ -171,19 +187,54 @@ class DrawRectCommand : public PipelineCommand {
   float height_ = 0.0;
 };
 
+/// Command to draw a grid of recrangles on screen.
+class DrawGridCommand : public PipelineCommand {
+ public:
+  DrawGridCommand(Pipeline* pipeline, PipelineData data);
+  ~DrawGridCommand() override;
+
+  const PipelineData* GetPipelineData() const { return &data_; }
+
+  void SetX(float x) { x_ = x; }
+  float GetX() const { return x_; }
+
+  void SetY(float y) { y_ = y; }
+  float GetY() const { return y_; }
+
+  void SetWidth(float w) { width_ = w; }
+  float GetWidth() const { return width_; }
+
+  void SetHeight(float h) { height_ = h; }
+  float GetHeight() const { return height_; }
+
+  void SetColumns(uint32_t c) { columns_ = c; }
+  uint32_t GetColumns() const { return columns_; }
+
+  void SetRows(uint32_t r) { rows_ = r; }
+  uint32_t GetRows() const { return rows_; }
+
+  std::string ToString() const override { return "DrawGridCommand"; }
+
+ private:
+  PipelineData data_;
+  float x_ = 0.0;
+  float y_ = 0.0;
+  float width_ = 0.0;
+  float height_ = 0.0;
+  uint32_t columns_ = 0;
+  uint32_t rows_ = 0;
+};
+
 /// Command to draw from a vertex and index buffer.
 class DrawArraysCommand : public PipelineCommand {
  public:
-  explicit DrawArraysCommand(Pipeline* pipeline, PipelineData data);
+  DrawArraysCommand(Pipeline* pipeline, PipelineData data);
   ~DrawArraysCommand() override;
 
   const PipelineData* GetPipelineData() const { return &data_; }
 
   void EnableIndexed() { is_indexed_ = true; }
   bool IsIndexed() const { return is_indexed_; }
-
-  void EnableInstanced() { is_instanced_ = true; }
-  bool IsInstanced() const { return is_instanced_; }
 
   void SetTopology(Topology topo) { topology_ = topo; }
   Topology GetTopology() const { return topology_; }
@@ -194,6 +245,9 @@ class DrawArraysCommand : public PipelineCommand {
   void SetVertexCount(uint32_t count) { vertex_count_ = count; }
   uint32_t GetVertexCount() const { return vertex_count_; }
 
+  void SetFirstInstance(uint32_t idx) { first_instance_ = idx; }
+  uint32_t GetFirstInstance() const { return first_instance_; }
+
   void SetInstanceCount(uint32_t count) { instance_count_ = count; }
   uint32_t GetInstanceCount() const { return instance_count_; }
 
@@ -202,11 +256,11 @@ class DrawArraysCommand : public PipelineCommand {
  private:
   PipelineData data_;
   bool is_indexed_ = false;
-  bool is_instanced_ = false;
   Topology topology_ = Topology::kUnknown;
   uint32_t first_vertex_index_ = 0;
   uint32_t vertex_count_ = 0;
-  uint32_t instance_count_ = 0;
+  uint32_t first_instance_ = 0;
+  uint32_t instance_count_ = 1;
 };
 
 /// A command to compare two buffers.
@@ -294,7 +348,7 @@ class Probe : public Command {
   const std::vector<Tolerance>& GetTolerances() const { return tolerances_; }
 
  protected:
-  explicit Probe(Type type, Buffer* buffer);
+  Probe(Type type, Buffer* buffer);
 
  private:
   Buffer* buffer_;
@@ -413,26 +467,11 @@ class ProbeSSBOCommand : public Probe {
   std::vector<Value> values_;
 };
 
-/// Command to set the size of a buffer, or update a buffers contents.
-class BufferCommand : public PipelineCommand {
+/// Base class for BufferCommand and SamplerCommand to handle binding.
+class BindableResourceCommand : public PipelineCommand {
  public:
-  enum class BufferType {
-    kSSBO,
-    kUniform,
-    kPushConstant,
-  };
-
-  explicit BufferCommand(BufferType type, Pipeline* pipeline);
-  ~BufferCommand() override;
-
-  bool IsSSBO() const { return buffer_type_ == BufferType::kSSBO; }
-  bool IsUniform() const { return buffer_type_ == BufferType::kUniform; }
-  bool IsPushConstant() const {
-    return buffer_type_ == BufferType::kPushConstant;
-  }
-
-  void SetIsSubdata() { is_subdata_ = true; }
-  bool IsSubdata() const { return is_subdata_; }
+  BindableResourceCommand(Type type, Pipeline* pipeline);
+  ~BindableResourceCommand() override;
 
   void SetDescriptorSet(uint32_t set) { descriptor_set_ = set; }
   uint32_t GetDescriptorSet() const { return descriptor_set_; }
@@ -440,8 +479,72 @@ class BufferCommand : public PipelineCommand {
   void SetBinding(uint32_t num) { binding_num_ = num; }
   uint32_t GetBinding() const { return binding_num_; }
 
+ private:
+  uint32_t descriptor_set_ = 0;
+  uint32_t binding_num_ = 0;
+};
+
+/// Command to set the size of a buffer, or update a buffers contents.
+class BufferCommand : public BindableResourceCommand {
+ public:
+  enum class BufferType {
+    kSSBO,
+    kSSBODynamic,
+    kUniform,
+    kUniformDynamic,
+    kPushConstant,
+    kStorageImage,
+    kSampledImage,
+    kCombinedImageSampler,
+    kUniformTexelBuffer,
+    kStorageTexelBuffer
+  };
+
+  BufferCommand(BufferType type, Pipeline* pipeline);
+  ~BufferCommand() override;
+
+  bool IsSSBO() const { return buffer_type_ == BufferType::kSSBO; }
+  bool IsSSBODynamic() const {
+    return buffer_type_ == BufferType::kSSBODynamic;
+  }
+  bool IsUniform() const { return buffer_type_ == BufferType::kUniform; }
+  bool IsUniformDynamic() const {
+    return buffer_type_ == BufferType::kUniformDynamic;
+  }
+  bool IsStorageImage() const {
+    return buffer_type_ == BufferType::kStorageImage;
+  }
+  bool IsSampledImage() const {
+    return buffer_type_ == BufferType::kSampledImage;
+  }
+  bool IsCombinedImageSampler() const {
+    return buffer_type_ == BufferType::kCombinedImageSampler;
+  }
+  bool IsUniformTexelBuffer() const {
+    return buffer_type_ == BufferType::kUniformTexelBuffer;
+  }
+  bool IsStorageTexelBuffer() const {
+    return buffer_type_ == BufferType::kStorageTexelBuffer;
+  }
+  bool IsPushConstant() const {
+    return buffer_type_ == BufferType::kPushConstant;
+  }
+
+  void SetIsSubdata() { is_subdata_ = true; }
+  bool IsSubdata() const { return is_subdata_; }
+
   void SetOffset(uint32_t offset) { offset_ = offset; }
   uint32_t GetOffset() const { return offset_; }
+
+  void SetBaseMipLevel(uint32_t base_mip_level) {
+    base_mip_level_ = base_mip_level;
+  }
+  uint32_t GetBaseMipLevel() const { return base_mip_level_; }
+
+  void SetDynamicOffset(uint32_t dynamic_offset) {
+    dynamic_offset_ = dynamic_offset;
+  }
+  uint32_t GetDynamicOffset() const { return dynamic_offset_; }
 
   void SetValues(std::vector<Value>&& values) { values_ = std::move(values); }
   const std::vector<Value>& GetValues() const { return values_; }
@@ -449,16 +552,35 @@ class BufferCommand : public PipelineCommand {
   void SetBuffer(Buffer* buffer) { buffer_ = buffer; }
   Buffer* GetBuffer() const { return buffer_; }
 
+  void SetSampler(Sampler* sampler) { sampler_ = sampler; }
+  Sampler* GetSampler() const { return sampler_; }
+
   std::string ToString() const override { return "BufferCommand"; }
 
  private:
   Buffer* buffer_ = nullptr;
+  Sampler* sampler_ = nullptr;
   BufferType buffer_type_;
   bool is_subdata_ = false;
-  uint32_t descriptor_set_ = 0;
-  uint32_t binding_num_ = 0;
   uint32_t offset_ = 0;
+  uint32_t base_mip_level_ = 0;
+  uint32_t dynamic_offset_ = 0;
   std::vector<Value> values_;
+};
+
+/// Command for setting sampler parameters and binding.
+class SamplerCommand : public BindableResourceCommand {
+ public:
+  explicit SamplerCommand(Pipeline* pipeline);
+  ~SamplerCommand() override;
+
+  void SetSampler(Sampler* sampler) { sampler_ = sampler; }
+  Sampler* GetSampler() const { return sampler_; }
+
+  std::string ToString() const override { return "SamplerCommand"; }
+
+ private:
+  Sampler* sampler_ = nullptr;
 };
 
 /// Command to clear the colour attachments.

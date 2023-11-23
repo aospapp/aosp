@@ -19,6 +19,7 @@ package dagger.functional;
 import java.util.List;
 import javax.inject.Inject;
 
+
 class BoundedGenerics<A extends Number & Comparable<? super A>, 
       B extends List<? extends CharSequence>,
       C extends List<? super String>,

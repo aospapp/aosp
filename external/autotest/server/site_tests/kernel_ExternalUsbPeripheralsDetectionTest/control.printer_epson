@@ -12,7 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform, kernel"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo, usb_printer_epson"
+DEPENDENCIES = "servo_state:WORKING, usb_printer_epson"
 
 DOC = """
 This test uses servo to connect USB devices.

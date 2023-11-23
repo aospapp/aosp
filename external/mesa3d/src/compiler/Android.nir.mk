@@ -44,8 +44,10 @@ LOCAL_C_INCLUDES := \
 LOCAL_STATIC_LIBRARIES := libmesa_compiler
 
 LOCAL_MODULE := libmesa_nir
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 include $(LOCAL_PATH)/Android.nir.gen.mk
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
-

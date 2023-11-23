@@ -14,8 +14,8 @@ struct stream_list;
  *    stream_list - List of stream to add new server stream to.
  *    dev_idx - The id of the device that new server stream will pin to.
  */
-void server_stream_create(struct stream_list *stream_list,
-			  unsigned int dev_idx);
+void server_stream_create(struct stream_list *stream_list, unsigned int dev_idx,
+			  struct cras_audio_format *format);
 
 /*
  * Asynchronously destroys existing server stream pinned to device of given idx.

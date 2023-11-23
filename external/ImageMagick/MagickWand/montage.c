@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -100,6 +100,8 @@ static MagickBooleanType MontageUsage(void)
       "  -border geometry     surround image with a border of color\n"
       "  -channel mask        set the image channel mask\n"
       "  -crop geometry       preferred size and location of the cropped image\n"
+      "  -distort method args\n"
+      "                       distort images according to given method and args\n"
       "  -extent geometry     set the image size\n"
       "  -flatten             flatten a sequence of images\n"
       "  -flip                flip image in the vertical direction\n"
@@ -236,7 +238,7 @@ static MagickBooleanType MontageUsage(void)
   (void) printf(
     "image type as the filename suffix (i.e. image.ps).  Specify 'file' as\n");
   (void) printf("'-' for standard input or output.\n");
-  return(MagickFalse);
+  return(MagickTrue);
 }
 
 WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
@@ -297,7 +299,7 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
   MontageInfo
     *montage_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -815,10 +817,28 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowMontageException(OptionError,"MissingArgument",option);
-            dispose=ParseCommandOption(MagickDisposeOptions,MagickFalse,argv[i]);
+            dispose=ParseCommandOption(MagickDisposeOptions,MagickFalse,
+              argv[i]);
             if (dispose < 0)
               ThrowMontageException(OptionError,"UnrecognizedDisposeMethod",
                 argv[i]);
+            break;
+          }
+        if (LocaleCompare("distort",option+1) == 0)
+          {
+            ssize_t
+              op;
+
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowMontageException(OptionError,"MissingArgument",option);
+            op=ParseCommandOption(MagickDistortOptions,MagickFalse,argv[i]);
+            if (op < 0)
+              ThrowMontageException(OptionError,"UnrecognizedDistortMethod",
+                argv[i]);
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowMontageException(OptionError,"MissingArgument",option);
             break;
           }
         if (LocaleCompare("dither",option+1) == 0)
@@ -1048,7 +1068,10 @@ WandExport MagickBooleanType MontageImageCommand(ImageInfo *image_info,
       {
         if ((LocaleCompare("help",option+1) == 0) ||
             (LocaleCompare("-help",option+1) == 0))
-          return(MontageUsage());
+          {
+            DestroyMontage();
+            return(MontageUsage());
+          }
         ThrowMontageException(OptionError,"UnrecognizedOption",option)
       }
       case 'i':

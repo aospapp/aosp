@@ -21,6 +21,7 @@
 #include <netlink/netlink.h>
 #include <netlink/route/cls/ematch.h>
 #include <netlink/route/cls/ematch/text.h>
+#include <linux/tc_ematch/tc_em_text.h>
 
 struct text_data
 {
@@ -91,6 +92,7 @@ void rtnl_ematch_text_set_algo(struct rtnl_ematch *e, const char *algo)
 	struct text_data *t = rtnl_ematch_data(e);
 
 	strncpy(t->cfg.algo, algo, sizeof(t->cfg.algo));
+	t->cfg.algo[sizeof(t->cfg.algo) - 1] = '\0';
 }
 
 char *rtnl_ematch_text_get_algo(struct rtnl_ematch *e)
@@ -115,7 +117,7 @@ static int text_parse(struct rtnl_ematch *e, void *data, size_t len)
 		if (!(t->pattern = calloc(1, t->cfg.pattern_len)))
 			return -NLE_NOMEM;
 
-		memcpy(t->pattern, data + hdrlen, t->cfg.pattern_len);
+		memcpy(t->pattern, (char *) data + hdrlen, t->cfg.pattern_len);
 	}
 
 	return 0;
@@ -128,7 +130,7 @@ static void text_dump(struct rtnl_ematch *e, struct nl_dump_params *p)
 
 	nl_dump(p, "text(%s \"%s\"",
 		t->cfg.algo[0] ? t->cfg.algo : "no-algo",
-		t->pattern ? : "no-pattern");
+		t->pattern ? t->pattern : "no-pattern");
 
 	if (t->cfg.from_layer || t->cfg.from_offset) {
 		nl_dump(p, " from %s",

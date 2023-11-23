@@ -49,13 +49,8 @@ class audio_CrasPinnedStream(audio_helper.cras_rms_test):
             logging.info("No internal mic. Skipping the test.")
             return
 
-        # Generate sine raw file that lasts 5 seconds.
-        raw_path = os.path.join(self.bindir, '5SEC.raw')
-        data_format = dict(
-                file_type='raw', sample_format='S16_LE', channel=2, rate=48000)
         raw_file = audio_test_data.GenerateAudioTestData(
-                path=raw_path,
-                data_format=data_format,
+                path=os.path.join(self.bindir, '5SEC.raw'),
                 duration_secs=5,
                 frequencies=[440, 440],
                 volume_scale=0.9)
@@ -64,7 +59,8 @@ class audio_CrasPinnedStream(audio_helper.cras_rms_test):
                                               'loopback_recorded.raw')
         internal_mic_recorded_file = os.path.join(self.resultsdir,
                                                   'internal_mic_recorded.raw')
-        node_type = audio_spec.get_internal_mic_node(utils.get_board(),
+        node_type = audio_spec.get_internal_mic_node(utils.get_board_type(),
+                                                     utils.get_board(),
                                                      utils.get_platform(),
                                                      utils.get_sku())
         device_id = int(

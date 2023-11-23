@@ -22,11 +22,19 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.turbine.binder.Processing.ProcessorInfo;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.parse.Parser;
 import com.google.turbine.tree.Tree.CompUnit;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.TypeElement;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -259,7 +267,7 @@ public class BinderErrorTest {
         {
           "<>:2: error: java.lang.Object is not an annotation", //
           "  @Object int x;",
-          "   ^",
+          "  ^",
         },
       },
       {
@@ -271,7 +279,7 @@ public class BinderErrorTest {
         {
           "<>:2: error: java.lang.Deprecated is not @Repeatable", //
           "  @Deprecated @Deprecated int x;",
-          "   ^",
+          "  ^",
         },
       },
       {
@@ -283,7 +291,7 @@ public class BinderErrorTest {
         {
           "<>:2: error: could not resolve NoSuch.NoSuch", //
           "  @NoSuch.NoSuch int x;",
-          "   ^",
+          "  ^",
         },
       },
       {
@@ -417,6 +425,9 @@ public class BinderErrorTest {
           "}",
         },
         {
+          "<>:1: error: cycle in class hierarchy: Cycle",
+          "class Cycle extends Cycle {",
+          "                    ^",
           "<>:2: error: could not resolve NoSuch", //
           "  NoSuch f;",
           "  ^",
@@ -501,7 +512,7 @@ public class BinderErrorTest {
           "                      ^",
           "<>:3: error: could not resolve NoSuchAnno",
           "@NoSuchAnno",
-          " ^",
+          "^",
         },
       },
       {
@@ -568,7 +579,127 @@ public class BinderErrorTest {
           "@One.A(b = {@One.NoSuch})",
           "                 ^",
         },
-      }
+      },
+      {
+        {
+          "public class Test {", //
+          "  @interface Anno {",
+          "    Class<?> value() default Object.class;",
+          "  }",
+          "  @Anno(NoSuch.class) int x;",
+          "  @Anno(NoSuch.class) int y;",
+          "}",
+        },
+        {
+          "<>:5: error: could not resolve NoSuch",
+          "  @Anno(NoSuch.class) int x;",
+          "        ^",
+          "<>:6: error: could not resolve NoSuch",
+          "  @Anno(NoSuch.class) int y;",
+          "        ^",
+        },
+      },
+      {
+        {
+          "public class Test {", //
+          "  @A @B void f() {}",
+          "}",
+        },
+        {
+          "<>:2: error: could not resolve A",
+          "  @A @B void f() {}",
+          "  ^",
+          "<>:2: error: could not resolve B",
+          "  @A @B void f() {}",
+          "     ^",
+        },
+      },
+      {
+        {
+          "public class Test {", //
+          "  @A(\"bar\") void f() {}",
+          "}",
+        },
+        {
+          "<>:2: error: could not resolve A", //
+          "  @A(\"bar\") void f() {}",
+          "  ^",
+        },
+      },
+      {
+        {
+          "@NoSuch",
+          "@interface A {", //
+          "}",
+        },
+        {
+          "<>:1: error: could not resolve NoSuch", //
+          "@NoSuch",
+          "^",
+        },
+      },
+      {
+        {
+          "public class Test {", //
+          "  @String @String int x;",
+          "}",
+        },
+        {
+          "<>:2: error: java.lang.String is not an annotation",
+          "  @String @String int x;",
+          "  ^",
+          "<>:2: error: java.lang.String is not an annotation",
+          "  @String @String int x;",
+          "          ^",
+        },
+      },
+      {
+        {
+          "@interface Anno {",
+          "  int value();",
+          "}",
+          "enum E {",
+          "  ONE",
+          "}",
+          "@Anno(value = E.ONE)",
+          "interface Test {}",
+        },
+        {
+          "<>:7: error: could not evaluate constant expression", //
+          "@Anno(value = E.ONE)",
+          "              ^",
+        },
+      },
+      {
+        {
+          "class T extends T {}",
+        },
+        {
+          "<>:1: error: cycle in class hierarchy: T", "class T extends T {}", "                ^",
+        },
+      },
+      {
+        {
+          "class T implements T {}",
+        },
+        {
+          "<>:1: error: cycle in class hierarchy: T",
+          "class T implements T {}",
+          "                   ^",
+        },
+      },
+      {
+        {
+          "class T {", //
+          "  static final String s = \"a\" + + \"b\";",
+          "}",
+        },
+        {
+          "<>:2: error: bad operand type String",
+          "  static final String s = \"a\" + + \"b\";",
+          "                                     ^",
+        },
+      },
     };
     return Arrays.asList((Object[][]) testCases);
   }
@@ -587,6 +718,41 @@ public class BinderErrorTest {
       Binder.bind(
               ImmutableList.of(parseLines(source)),
               ClassPathBinder.bindClasspath(ImmutableList.of()),
+              TURBINE_BOOTCLASSPATH,
+              /* moduleVersion=*/ Optional.empty())
+          .units();
+      fail(Joiner.on('\n').join(source));
+    } catch (TurbineError e) {
+      assertThat(e).hasMessageThat().isEqualTo(lines(expected));
+    }
+  }
+
+  @SupportedAnnotationTypes("*")
+  static class HelloWorldProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latestSupported();
+    }
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      return false;
+    }
+  }
+
+  // exercise error reporting with annotation enabled, which should be identical
+  @Test
+  public void testWithProcessors() throws Exception {
+    try {
+      Binder.bind(
+              ImmutableList.of(parseLines(source)),
+              ClassPathBinder.bindClasspath(ImmutableList.of()),
+              ProcessorInfo.create(
+                  ImmutableList.of(new HelloWorldProcessor()),
+                  /* loader= */ getClass().getClassLoader(),
+                  /* options= */ ImmutableMap.of(),
+                  SourceVersion.latestSupported()),
               TURBINE_BOOTCLASSPATH,
               /* moduleVersion=*/ Optional.empty())
           .units();

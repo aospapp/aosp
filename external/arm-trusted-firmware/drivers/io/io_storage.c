@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -32,36 +32,34 @@ static unsigned int dev_count;
 #if ENABLE_ASSERTIONS
 
 /* Return a boolean value indicating whether a device connector is valid */
-static int is_valid_dev_connector(const io_dev_connector_t *dev_con)
+static bool is_valid_dev_connector(const io_dev_connector_t *dev_con)
 {
-	int result = (dev_con != NULL) && (dev_con->dev_open != NULL);
-	return result;
+	return (dev_con != NULL) && (dev_con->dev_open != NULL);
 }
 
-
 /* Return a boolean value indicating whether a device handle is valid */
-static int is_valid_dev(const uintptr_t dev_handle)
+static bool is_valid_dev(const uintptr_t dev_handle)
 {
 	const io_dev_info_t *dev = (io_dev_info_t *)dev_handle;
-	int result = (dev != NULL) && (dev->funcs != NULL) &&
+
+	return (dev != NULL) && (dev->funcs != NULL) &&
 			(dev->funcs->type != NULL) &&
 			(dev->funcs->type() < IO_TYPE_MAX);
-	return result;
 }
 
 
 /* Return a boolean value indicating whether an IO entity is valid */
-static int is_valid_entity(const uintptr_t handle)
+static bool is_valid_entity(const uintptr_t handle)
 {
 	const io_entity_t *entity = (io_entity_t *)handle;
-	int result = (entity != NULL) &&
+
+	return (entity != NULL) &&
 			(is_valid_dev((uintptr_t)entity->dev_handle));
-	return result;
 }
 
 
 /* Return a boolean value indicating whether a seek mode is valid */
-static int is_valid_seek_mode(io_seek_mode_t mode)
+static bool is_valid_seek_mode(io_seek_mode_t mode)
 {
 	return ((mode != IO_SEEK_INVALID) && (mode < IO_SEEK_MAX));
 }
@@ -71,15 +69,14 @@ static int is_valid_seek_mode(io_seek_mode_t mode)
 
 
 /* Open a connection to a specific device */
-static int dev_open(const io_dev_connector_t *dev_con, const uintptr_t dev_spec,
+static int io_storage_dev_open(const io_dev_connector_t *dev_con,
+		const uintptr_t dev_spec,
 		io_dev_info_t **dev_info)
 {
-	int result;
 	assert(dev_info != NULL);
 	assert(is_valid_dev_connector(dev_con));
 
-	result = dev_con->dev_open(dev_spec, dev_info);
-	return result;
+	return dev_con->dev_open(dev_spec, dev_info);
 }
 
 
@@ -116,7 +113,8 @@ static int allocate_entity(io_entity_t **entity)
 		unsigned int index = 0;
 		result = find_first_entity(NULL, &index);
 		assert(result == 0);
-		*entity = entity_map[index] = &entity_pool[index];
+		*entity = &entity_pool[index];
+		entity_map[index] = &entity_pool[index];
 		++entity_count;
 	}
 
@@ -163,11 +161,8 @@ int io_register_device(const io_dev_info_t *dev_info)
 int io_dev_open(const io_dev_connector_t *dev_con, const uintptr_t dev_spec,
 		uintptr_t *handle)
 {
-	int result;
 	assert(handle != NULL);
-
-	result = dev_open(dev_con, dev_spec, (io_dev_info_t **)handle);
-	return result;
+	return io_storage_dev_open(dev_con, dev_spec, (io_dev_info_t **)handle);
 }
 
 

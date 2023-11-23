@@ -19,7 +19,7 @@ package com.google.security.wycheproof;
 import com.google.security.wycheproof.WycheproofRunner.Provider;
 import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 // Android-changed: Update import to account for jarjar
-import com.android.org.bouncycastle.jce.provider.BouncyCastleProvider;
+import com.android.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite.SuiteClasses;
@@ -37,13 +37,7 @@ import org.junit.runners.Suite.SuiteClasses;
   DhTest.class,
   DhiesTest.class,
   DsaTest.class,
-  EcKeyTest.class,
-  EcdhTest.class,
-  EcdsaTest.class,
   EciesTest.class,
-  RsaEncryptionTest.class,
-  RsaKeyTest.class,
-  RsaSignatureTest.class,
 })
 @Provider(ProviderType.BOUNCY_CASTLE)
 public final class BouncyCastleAllTests {

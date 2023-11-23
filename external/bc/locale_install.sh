@@ -1,8 +1,8 @@
 #! /bin/sh
 #
-# Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+# SPDX-License-Identifier: BSD-2-Clause
 #
-# All rights reserved.
+# Copyright (c) 2018-2021 Gavin D. Howard and contributors.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -28,6 +28,9 @@
 #
 
 usage() {
+	if [ $# -eq 1 ]; then
+		printf '%s\n' "$1"
+	fi
 	printf "usage: %s NLSPATH main_exec [DESTDIR]\n" "$0" 1>&2
 	exit 1
 }
@@ -100,7 +103,7 @@ relpath() {
 
 	_relpath_path1="$1"
 	shift
-		
+
 	_relpath_path2="$1"
 	shift
 
@@ -114,7 +117,7 @@ relpath() {
 	_relpath_temp1="$_relpath_splitpath1"
 
 	IFS="$_relpath_nl"
-	
+
 	for _relpath_part in $_relpath_temp1; do
 
 		_relpath_temp2="${_relpath_splitpath2#$_relpath_part$_relpath_nl}"
@@ -150,6 +153,17 @@ scriptdir=$(dirname "$script")
 
 . "$scriptdir/functions.sh"
 
+all_locales=0
+
+while getopts "l" opt; do
+
+	case "$opt" in
+		l) all_locales=1 ; shift ;;
+		?) usage "Invalid option $opt" ;;
+	esac
+
+done
+
 test "$#" -ge 2 || usage
 
 nlspath="$1"
@@ -180,18 +194,22 @@ fi
 for file in $locales_dir/*.msg; do
 
 	locale=$(basename "$file" ".msg")
-	loc=$(gen_nlspath "$destdir/$nlspath" "$locale" "$main_exec")
 
-	localeexists "$locales" "$locale" "$destdir"
-	err="$?"
+	if [ "$all_locales" -eq 0 ]; then
 
-	if [ "$err" -eq 0 ]; then
-		continue
+		localeexists "$locales" "$locale" "$destdir"
+		err="$?"
+
+		if [ "$err" -eq 0 ]; then
+			continue
+		fi
 	fi
 
 	if [ -L "$file" ]; then
 		continue
 	fi
+
+	loc=$(gen_nlspath "$destdir/$nlspath" "$locale" "$main_exec")
 
 	gencatfile "$loc" "$file"
 
@@ -200,14 +218,18 @@ done
 for file in $locales_dir/*.msg; do
 
 	locale=$(basename "$file" ".msg")
-	loc=$(gen_nlspath "$destdir/$nlspath" "$locale" "$main_exec")
 
-	localeexists "$locales" "$locale" "$destdir"
-	err="$?"
+	if [ "$all_locales" -eq 0 ]; then
 
-	if [ "$err" -eq 0 ]; then
-		continue
+		localeexists "$locales" "$locale" "$destdir"
+		err="$?"
+
+		if [ "$err" -eq 0 ]; then
+			continue
+		fi
 	fi
+
+	loc=$(gen_nlspath "$destdir/$nlspath" "$locale" "$main_exec")
 
 	mkdir -p $(dirname "$loc")
 

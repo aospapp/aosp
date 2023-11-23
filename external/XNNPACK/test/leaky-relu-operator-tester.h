@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <functional>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -152,10 +153,66 @@ class LeakyReLUOperatorTester {
     return this->iterations_;
   }
 
-  void TestQ8() const {
+  void TestF32() const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(-1.0f, 1.0f), std::ref(rng));
+
+    std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + (batch_size() - 1) * input_stride() + channels());
+    std::vector<float> output((batch_size() - 1) * output_stride() + channels());
+    std::vector<float> output_ref(batch_size() * channels());
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), std::ref(f32rng));
+      std::fill(output.begin(), output.end(), std::nanf(""));
+
+      // Compute reference results.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          const float x = input[i * input_stride() + c];
+          const float y = std::signbit(x) ? x * negative_slope() : x;
+          output_ref[i * channels() + c] = y;
+        }
+      }
+
+      // Create, setup, run, and destroy Leaky ReLU operator.
+      ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+      xnn_operator_t leaky_relu_op = nullptr;
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_create_leaky_relu_nc_f32(
+          channels(), input_stride(), output_stride(),
+          negative_slope(),
+          0, &leaky_relu_op));
+      ASSERT_NE(nullptr, leaky_relu_op);
+
+      // Smart pointer to automatically delete leaky_relu_op.
+      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_leaky_relu_op(leaky_relu_op, xnn_delete_operator);
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_setup_leaky_relu_nc_f32(
+          leaky_relu_op,
+          batch_size(),
+          input.data(), output.data(),
+          nullptr /* thread pool */));
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_run_operator(leaky_relu_op, nullptr /* thread pool */));
+
+      // Verify results.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          ASSERT_EQ(output[i * output_stride() + c], output_ref[i * channels() + c])
+            << "at batch " << i << " / " << batch_size() << ", channel " << c << " / " << channels()
+            << ", input " << input[i * input_stride() + c] << ", negative slope " << negative_slope();
+        }
+      }
+    }
+  }
+
+  void TestQU8() const {
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
 
     std::vector<uint8_t> input((batch_size() - 1) * input_stride() + channels());
     std::vector<uint8_t> output((batch_size() - 1) * output_stride() + channels());
@@ -175,12 +232,12 @@ class LeakyReLUOperatorTester {
         }
       }
 
-      // Create, setup, run, and destroy LeakyReLU operator.
+      // Create, setup, run, and destroy Leaky ReLU operator.
       ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
       xnn_operator_t leaky_relu_op = nullptr;
 
       ASSERT_EQ(xnn_status_success,
-        xnn_create_leaky_relu_nc_q8(
+        xnn_create_leaky_relu_nc_qu8(
           channels(), input_stride(), output_stride(),
           negative_slope(),
           input_zero_point(), input_scale(),
@@ -193,7 +250,7 @@ class LeakyReLUOperatorTester {
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_leaky_relu_op(leaky_relu_op, xnn_delete_operator);
 
       ASSERT_EQ(xnn_status_success,
-        xnn_setup_leaky_relu_nc_q8(
+        xnn_setup_leaky_relu_nc_qu8(
           leaky_relu_op,
           batch_size(),
           input.data(), output.data(),

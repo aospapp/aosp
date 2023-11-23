@@ -204,12 +204,17 @@ def main():
           'dest_dir': 'third_party/shaderc/third_party/glslang',
           'files': ['glslang/OSDependent/osinclude.h',
                     'Android.mk',
+                    # Build version info is generated frmo the CHANGES.md file.
+                    'CHANGES.md',
+                    'build_info.h.tmpl',
+                    'build_info.py',
                    ],
           'dirs': [
               'SPIRV',
               'OGLCompilersDLL',
               'glslang/GenericCodeGen',
               'hlsl',
+              'glslang/HLSL',
               'glslang/Include',
               'glslang/MachineIndependent',
               'glslang/OSDependent/Unix',

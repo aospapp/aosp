@@ -10,6 +10,7 @@
 #include "libANGLE/renderer/vulkan/SecondaryCommandBuffer.h"
 #include "common/debug.h"
 #include "libANGLE/renderer/vulkan/vk_utils.h"
+#include "libANGLE/trace.h"
 
 namespace rx
 {
@@ -25,6 +26,8 @@ const char *GetCommandString(CommandID id)
     {
         case CommandID::Invalid:
             return "--Invalid--";
+        case CommandID::BeginDebugUtilsLabel:
+            return "BeginDebugUtilsLabel";
         case CommandID::BeginQuery:
             return "BeginQuery";
         case CommandID::BeginTransformFeedback:
@@ -83,6 +86,8 @@ const char *GetCommandString(CommandID id)
             return "DrawInstanced";
         case CommandID::DrawInstancedBaseInstance:
             return "DrawInstancedBaseInstance";
+        case CommandID::EndDebugUtilsLabel:
+            return "EndDebugUtilsLabel";
         case CommandID::EndQuery:
             return "EndQuery";
         case CommandID::EndTransformFeedback:
@@ -93,8 +98,12 @@ const char *GetCommandString(CommandID id)
             return "FillBuffer";
         case CommandID::ImageBarrier:
             return "ImageBarrier";
+        case CommandID::InsertDebugUtilsLabel:
+            return "InsertDebugUtilsLabel";
         case CommandID::MemoryBarrier:
             return "MemoryBarrier";
+        case CommandID::NextSubpass:
+            return "NextSubpass";
         case CommandID::PipelineBarrier:
             return "PipelineBarrier";
         case CommandID::PushConstants:
@@ -107,6 +116,10 @@ const char *GetCommandString(CommandID id)
             return "ResolveImage";
         case CommandID::SetEvent:
             return "SetEvent";
+        case CommandID::SetScissor:
+            return "SetScissor";
+        case CommandID::SetViewport:
+            return "SetViewport";
         case CommandID::WaitEvents:
             return "WaitEvents";
         case CommandID::WriteTimestamp:
@@ -128,6 +141,7 @@ ANGLE_INLINE const CommandHeader *NextCommand(const CommandHeader *command)
 // Parse the cmds in this cmd buffer into given primary cmd buffer
 void SecondaryCommandBuffer::executeCommands(VkCommandBuffer cmdBuffer)
 {
+    ANGLE_TRACE_EVENT0("gpu.angle", "SecondaryCommandBuffer::executeCommands");
     for (const CommandHeader *command : mCommands)
     {
         for (const CommandHeader *currentCommand                      = command;
@@ -135,6 +149,20 @@ void SecondaryCommandBuffer::executeCommands(VkCommandBuffer cmdBuffer)
         {
             switch (currentCommand->id)
             {
+                case CommandID::BeginDebugUtilsLabel:
+                {
+                    const DebugUtilsLabelParams *params =
+                        getParamPtr<DebugUtilsLabelParams>(currentCommand);
+                    const char *pLabelName = Offset<char>(params, sizeof(DebugUtilsLabelParams));
+                    const VkDebugUtilsLabelEXT label = {
+                        VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+                        nullptr,
+                        pLabelName,
+                        {params->color[0], params->color[1], params->color[2], params->color[3]}};
+                    ASSERT(vkCmdBeginDebugUtilsLabelEXT);
+                    vkCmdBeginDebugUtilsLabelEXT(cmdBuffer, &label);
+                    break;
+                }
                 case CommandID::BeginQuery:
                 {
                     const BeginQueryParams *params = getParamPtr<BeginQueryParams>(currentCommand);
@@ -380,6 +408,12 @@ void SecondaryCommandBuffer::executeCommands(VkCommandBuffer cmdBuffer)
                               params->firstVertex, params->firstInstance);
                     break;
                 }
+                case CommandID::EndDebugUtilsLabel:
+                {
+                    ASSERT(vkCmdEndDebugUtilsLabelEXT);
+                    vkCmdEndDebugUtilsLabelEXT(cmdBuffer);
+                    break;
+                }
                 case CommandID::EndQuery:
                 {
                     const EndQueryParams *params = getParamPtr<EndQueryParams>(currentCommand);
@@ -423,12 +457,33 @@ void SecondaryCommandBuffer::executeCommands(VkCommandBuffer cmdBuffer)
                                          0, nullptr, 0, nullptr, 1, &params->imageMemoryBarrier);
                     break;
                 }
+                case CommandID::InsertDebugUtilsLabel:
+                {
+                    const DebugUtilsLabelParams *params =
+                        getParamPtr<DebugUtilsLabelParams>(currentCommand);
+                    const char *pLabelName = Offset<char>(params, sizeof(DebugUtilsLabelParams));
+                    const VkDebugUtilsLabelEXT label = {
+                        VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+                        nullptr,
+                        pLabelName,
+                        {params->color[0], params->color[1], params->color[2], params->color[3]}};
+                    ASSERT(vkCmdInsertDebugUtilsLabelEXT);
+                    vkCmdInsertDebugUtilsLabelEXT(cmdBuffer, &label);
+                    break;
+                }
                 case CommandID::MemoryBarrier:
                 {
                     const MemoryBarrierParams *params =
                         getParamPtr<MemoryBarrierParams>(currentCommand);
                     vkCmdPipelineBarrier(cmdBuffer, params->srcStageMask, params->dstStageMask, 0,
                                          1, &params->memoryBarrier, 0, nullptr, 0, nullptr);
+                    break;
+                }
+                case CommandID::NextSubpass:
+                {
+                    const NextSubpassParams *params =
+                        getParamPtr<NextSubpassParams>(currentCommand);
+                    vkCmdNextSubpass(cmdBuffer, params->subpassContents);
                     break;
                 }
                 case CommandID::PipelineBarrier:
@@ -486,6 +541,19 @@ void SecondaryCommandBuffer::executeCommands(VkCommandBuffer cmdBuffer)
                 {
                     const SetEventParams *params = getParamPtr<SetEventParams>(currentCommand);
                     vkCmdSetEvent(cmdBuffer, params->event, params->stageMask);
+                    break;
+                }
+                case CommandID::SetScissor:
+                {
+                    const SetScissorParams *params = getParamPtr<SetScissorParams>(currentCommand);
+                    vkCmdSetScissor(cmdBuffer, 0, 1, &params->scissor);
+                    break;
+                }
+                case CommandID::SetViewport:
+                {
+                    const SetViewportParams *params =
+                        getParamPtr<SetViewportParams>(currentCommand);
+                    vkCmdSetViewport(cmdBuffer, 0, 1, &params->viewport);
                     break;
                 }
                 case CommandID::WaitEvents:

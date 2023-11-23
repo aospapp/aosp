@@ -38,6 +38,7 @@ public class ServerSessionContextTest extends AbstractSessionContextTest<ServerS
     }
 
     @Override
+    @SuppressWarnings("JdkObsolete") // Public API SSLSessionContext.getIds() uses Enumeration
     int size(ServerSessionContext context) {
         int count = 0;
         Enumeration<byte[]> ids = context.getIds();

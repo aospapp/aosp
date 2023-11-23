@@ -17,7 +17,7 @@
 %                                 May 2002                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -122,21 +122,9 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   LPVOID
     clip_mem;
 
-  MagickBooleanType
-    status;
-
-  register ssize_t
-    x;
-
-  register Quantum
-    *q;
-
   size_t
     clip_size,
     total_size;
-
-  ssize_t
-    y;
 
   unsigned char
     offset;
@@ -186,9 +174,23 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   (void) GlobalUnlock(clip_mem);
   (void) CloseClipboard();
   memset(clip_data,0,BMP_HEADER_SIZE);
-  offset=p[0]+BMP_HEADER_SIZE;
+  offset=p[0];
   if ((p[0] == 40) && (p[16] == BI_BITFIELDS))
     offset+=12;
+  else
+    {
+      unsigned int
+        image_size;
+
+      image_size=(unsigned int) p[20];
+      image_size|=(unsigned int) p[21] << 8;
+      image_size|=(unsigned int) p[22] << 16;
+      image_size|=(unsigned int) p[23] << 24;
+      /* Hack for chrome where the offset seems to be incorrect */
+      if (clip_size - offset - image_size == 12)
+        offset+=12;
+    }
+  offset+=BMP_HEADER_SIZE;
   p-=BMP_HEADER_SIZE;
   p[0]='B';
   p[1]='M';
@@ -198,7 +200,7 @@ static Image *ReadCLIPBOARDImage(const ImageInfo *image_info,
   p[5]=(unsigned char) (total_size >> 24);
   p[10]=offset;
   read_info=CloneImageInfo(image_info);
-  (void) CopyMagickString(read_info->magick,"BMP",MaxTextExtent);
+  (void) CopyMagickString(read_info->magick,"BMP",MagickPathExtent);
   image=BlobToImage(read_info,clip_data,total_size,exception);
   read_info=DestroyImageInfo(read_info);
   clip_data=RelinquishMagickMemory(clip_data);
@@ -328,9 +330,9 @@ static MagickBooleanType WriteCLIPBOARDImage(const ImageInfo *image_info,
     ThrowWriterException(CoderError,"UnableToWriteImageData");
   write_info=CloneImageInfo(image_info);
   if (image->alpha_trait == UndefinedPixelTrait)
-    (void) CopyMagickString(write_info->magick,"BMP3",MaxTextExtent);
+    (void) CopyMagickString(write_info->magick,"BMP3",MagickPathExtent);
   else
-    (void) CopyMagickString(write_info->magick,"BMP",MaxTextExtent);
+    (void) CopyMagickString(write_info->magick,"BMP",MagickPathExtent);
   clip_data=ImageToBlob(write_info,image,&length,exception);
   write_info=DestroyImageInfo(write_info);
   if (clip_data == (void *) NULL)

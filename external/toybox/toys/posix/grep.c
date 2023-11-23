@@ -10,9 +10,9 @@
 * echo hello | grep -f </dev/null
 *
 
-USE_GREP(NEWTOY(grep, "(line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw]", TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
-USE_EGREP(OLDTOY(egrep, grep, TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
-USE_FGREP(OLDTOY(fgrep, grep, TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
+USE_GREP(NEWTOY(grep, "(line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw]", TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)|TOYFLAG_LINEBUF))
+USE_EGREP(OLDTOY(egrep, grep, TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)|TOYFLAG_LINEBUF))
+USE_FGREP(OLDTOY(fgrep, grep, TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)|TOYFLAG_LINEBUF))
 
 config GREP
   bool "grep"
@@ -65,7 +65,6 @@ config FGREP
 
 #define FOR_grep
 #include "toys.h"
-#include <regex.h>
 
 GLOBALS(
   long m, A, B, C;
@@ -155,7 +154,7 @@ static void do_grep(int fd, char *name)
     lcount++;
     errno = 0;
     ulen = len = getdelim(&line, &ulen, TT.indelim, file);
-    if (errno) perror_msg("%s", name);
+    if (len == -1 && errno) perror_msg("%s", name);
     if (len<1) break;
     if (line[ulen-1] == TT.indelim) line[--ulen] = 0;
 
@@ -219,8 +218,12 @@ static void do_grep(int fd, char *name)
         }
       }
 
-      if (!rc && FLAG(x))
-        if (mm->rm_so || line[mm->rm_eo]) rc = 1;
+      if (!rc && FLAG(o) && !mm->rm_eo && ulen>start-line) {
+        start++;
+        continue;
+      }
+
+      if (!rc && FLAG(x) && (mm->rm_so || ulen-(start-line)!=mm->rm_eo)) rc = 1;
 
       if (!rc && FLAG(w)) {
         char c = 0;
@@ -241,10 +244,8 @@ static void do_grep(int fd, char *name)
 
       if (FLAG(v)) {
         if (FLAG(o)) {
-          if (rc) {
-            mm->rm_so = 0;
-            mm->rm_eo = ulen-(start-line);
-          } else if (!mm->rm_so) {
+          if (rc) mm->rm_eo = ulen-(start-line);
+          else if (!mm->rm_so) {
             start += mm->rm_eo;
             continue;
           } else mm->rm_eo = mm->rm_so;
@@ -373,20 +374,12 @@ static void parse_regex(void)
   // exit to free. Not supporting nofork for this command any time soon.)
   al = TT.f ? TT.f : TT.e;
   while (al) {
-    if (TT.f) s = ss = xreadfile(al->arg, 0, 0);
-    else s = ss = al->arg;
-
-    // Split lines at \n, add individual lines to new list.
-    do {
-// TODO: NUL terminated input shouldn't split -e at \n
-      ss = strchr(s, '\n');
-      if (ss) *(ss++) = 0;
-      new = xmalloc(sizeof(struct arg_list));
-      new->next = list;
-      new->arg = s;
-      list = new;
-      s = ss;
-    } while (ss && *s);
+    if (TT.f) {
+      if (!*(s = ss = xreadfile(al->arg, 0, 0))) {
+        free(ss);
+        s = 0;
+      }
+    } else s = ss = al->arg;
 
     // Advance, when we run out of -f switch to -e.
     al = al->next;
@@ -394,6 +387,18 @@ static void parse_regex(void)
       TT.f = 0;
       al = TT.e;
     }
+    if (!s) continue;
+
+    // Split lines at \n, add individual lines to new list.
+    do {
+      ss = FLAG(z) ? 0 : strchr(s, '\n');
+      if (ss) *(ss++) = 0;
+      new = xmalloc(sizeof(struct arg_list));
+      new->next = list;
+      new->arg = s;
+      list = new;
+      s = ss;
+    } while (ss && *s);
   }
   TT.e = list;
 
